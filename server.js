@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
@@ -6,6 +7,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
+
+app.get('/api/config', (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL,
+    supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY
+  });
+});
 
 app.post('/analyse', async (req, res) => {
   try {

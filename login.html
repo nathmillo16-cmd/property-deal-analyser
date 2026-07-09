@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Deals N Yields — Log In / Sign Up</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --accent:#1D4ED8;
+    --bg:#ffffff;
+    --bg-secondary:#f5f6f8;
+    --text-primary:#1a1a1a;
+    --text-secondary:#6b7280;
+    --border:#e2e4e8;
+    --danger:#c0392b;
+    --success:#1f8a4c;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--bg-secondary);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    color:var(--text-primary);
+  }
+  .card{
+    width:100%;
+    max-width:380px;
+    background:var(--bg);
+    border:0.5px solid var(--border);
+    border-radius:12px;
+    padding:2rem;
+    box-shadow:0 1px 3px rgba(0,0,0,0.06);
+  }
+  h1{
+    font-size:18px;
+    font-weight:600;
+    margin:0 0 1.5rem;
+    text-align:center;
+  }
+  .tabs{display:flex;gap:8px;margin-bottom:1.5rem}
+  .tab{
+    flex:1;
+    padding:8px 0;
+    border:0.5px solid var(--border);
+    border-radius:8px;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    background:var(--bg);
+    color:var(--text-secondary);
+  }
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .panel{display:none}
+  .panel.active{display:block}
+  .f{display:flex;flex-direction:column;gap:5px;margin-bottom:1rem}
+  .f label{font-size:12px;color:var(--text-secondary)}
+  .f input{
+    border:0.5px solid var(--border);
+    border-radius:8px;
+    padding:9px 11px;
+    font-size:14px;
+    background:var(--bg);
+    color:var(--text-primary);
+    width:100%;
+  }
+  .f input:focus{outline:none;box-shadow:0 0 0 2px rgba(29,78,216,0.25)}
+  .submit-btn{
+    width:100%;
+    padding:11px;
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    font-size:14px;
+    font-weight:500;
+    cursor:pointer;
+    margin-top:0.25rem;
+  }
+  .submit-btn:hover{opacity:0.9}
+  .submit-btn:disabled{opacity:0.5;cursor:not-allowed}
+  .msg{
+    margin-top:1rem;
+    font-size:13px;
+    line-height:1.5;
+    padding:.7rem .85rem;
+    border-radius:8px;
+    display:none;
+  }
+  .msg.show{display:block}
+  .msg.success{background:rgba(31,138,76,0.1);color:var(--success)}
+  .msg.error{background:rgba(192,57,43,0.1);color:var(--danger)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Deals N Yields</h1>
+    <div class="tabs">
+      <button type="button" class="tab active" id="tab-login" onclick="switchMode('login')">Log In</button>
+      <button type="button" class="tab" id="tab-signup" onclick="switchMode('signup')">Sign Up</button>
+    </div>
+
+    <div class="panel active" id="panel-login">
+      <form id="form-login">
+        <div class="f"><label>Email</label><input type="email" id="login-email" required autocomplete="email"/></div>
+        <div class="f"><label>Password</label><input type="password" id="login-password" required autocomplete="current-password"/></div>
+        <button type="submit" class="submit-btn" id="btn-login">Log In</button>
+      </form>
+      <div class="msg" id="msg-login"></div>
+    </div>
+
+    <div class="panel" id="panel-signup">
+      <form id="form-signup">
+        <div class="f"><label>Email</label><input type="email" id="signup-email" required autocomplete="email"/></div>
+        <div class="f"><label>Password</label><input type="password" id="signup-password" required minlength="6" autocomplete="new-password"/></div>
+        <button type="submit" class="submit-btn" id="btn-signup">Sign Up</button>
+      </form>
+      <div class="msg" id="msg-signup"></div>
+    </div>
+  </div>
+
+<script>
+let client;
+
+function switchMode(mode){
+  document.getElementById('tab-login').classList.toggle('active', mode==='login');
+  document.getElementById('tab-signup').classList.toggle('active', mode==='signup');
+  document.getElementById('panel-login').classList.toggle('active', mode==='login');
+  document.getElementById('panel-signup').classList.toggle('active', mode==='signup');
+}
+
+function showMsg(id, text, type){
+  const el=document.getElementById(id);
+  el.textContent=text;
+  el.className='msg show '+type;
+}
+
+async function init(){
+  const res = await fetch('/api/config');
+  const cfg = await res.json();
+  client = supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+}
+
+document.getElementById('form-login').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn=document.getElementById('btn-login');
+  const email=document.getElementById('login-email').value;
+  const password=document.getElementById('login-password').value;
+  btn.disabled=true;btn.textContent='Logging in...';
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  btn.disabled=false;btn.textContent='Log In';
+  if(error){
+    showMsg('msg-login', error.message, 'error');
+  }else{
+    window.location.href='/';
+  }
+});
+
+document.getElementById('form-signup').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn=document.getElementById('btn-signup');
+  const email=document.getElementById('signup-email').value;
+  const password=document.getElementById('signup-password').value;
+  btn.disabled=true;btn.textContent='Signing up...';
+  const { error } = await client.auth.signUp({ email, password });
+  btn.disabled=false;btn.textContent='Sign Up';
+  if(error){
+    showMsg('msg-signup', error.message, 'error');
+  }else{
+    showMsg('msg-signup', 'Check your email to confirm your account before logging in.', 'success');
+    document.getElementById('form-signup').reset();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
