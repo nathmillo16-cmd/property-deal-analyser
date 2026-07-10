@@ -18,13 +18,34 @@ app.get('/api/config', (req, res) => {
 
 // Builds a Supabase client scoped to the logged-in user's own token, so
 // Row Level Security (not this server) is what enforces "own deals only".
-function supabaseForRequest(req) {
+function getBearerToken(req) {
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+}
+
+function supabaseForRequest(req) {
+  const token = getBearerToken(req);
   if (!token) return null;
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${token}` } }
   });
+}
+
+function toNumberOrNull(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toStandardFeesOrNull(v) {
+  if (!v || typeof v !== 'object') return null;
+  const fees = {
+    solicitor: toNumberOrNull(v.solicitor),
+    mortgage: toNumberOrNull(v.mortgage),
+    searches: toNumberOrNull(v.searches)
+  };
+  if (fees.solicitor === null && fees.mortgage === null && fees.searches === null) return null;
+  return fees;
 }
 
 // Fail-closed: a missing profile row, or any error looking it up, is always
@@ -85,6 +106,49 @@ app.get('/api/deals', async (req, res) => {
     .from('deals')
     .select('id, deal_type, deal_data, created_at')
     .order('created_at', { ascending: false });
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/profile', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to load your defaults.' });
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('target_yield, target_roi, default_mortgage_rate, standard_fees')
+    .single();
+
+  if (error || !data) {
+    return res.json({ target_yield: null, target_roi: null, default_mortgage_rate: null, standard_fees: null });
+  }
+  res.json(data);
+});
+
+app.post('/api/profile', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to save your defaults.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: 'Log in to save your defaults.' });
+  }
+
+  const payload = {
+    user_id: userData.user.id,
+    target_yield: toNumberOrNull(req.body.target_yield),
+    target_roi: toNumberOrNull(req.body.target_roi),
+    default_mortgage_rate: toNumberOrNull(req.body.default_mortgage_rate),
+    standard_fees: toStandardFeesOrNull(req.body.standard_fees)
+  };
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert(payload, { onConflict: 'user_id' })
+    .select('target_yield, target_roi, default_mortgage_rate, standard_fees')
+    .single();
 
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);

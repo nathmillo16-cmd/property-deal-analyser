@@ -52,6 +52,9 @@
 .save-btn:hover{opacity:.85}
 .save-btn:disabled{opacity:.4;cursor:not-allowed}
 .save-msg{font-size:12px;margin:.4rem 0 0;min-height:1em}
+.auth-bar{text-align:right;margin-bottom:.75rem}
+.auth-bar a{font-size:12px;color:var(--color-text-secondary);text-decoration:none;border-bottom:1px solid var(--color-border-secondary);cursor:pointer}
+.auth-bar a:hover{opacity:.75}
 .save-msg.success{color:var(--color-text-success)}
 .save-msg.error{color:var(--color-text-danger)}
 .saved-item{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);margin-bottom:6px}
@@ -61,6 +64,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <div class="w">
+  <div class="auth-bar"><a id="auth-link" href="/login.html">Log in</a></div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('btl')">BTL</button>
     <button class="tab" onclick="switchTab('hmo')">HMO</button>
@@ -88,6 +92,8 @@
     <p class="sl">Targets</p>
     <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="cBTL()"/></div>
     <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="cBTL()"/></div>
+    <button class="save-btn" onclick="saveDefaults('btl')" id="btn-save-defaults-btl">Save as my defaults</button>
+    <p class="save-msg" id="btl-defaults-msg"></p>
     <hr class="div"/>
     <p class="sl">Results</p>
     <div class="split">
@@ -163,6 +169,8 @@
     <p class="sl">Targets</p>
     <div class="tr"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="cHMO()"/></div>
     <div class="tr"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="cHMO()"/></div>
+    <button class="save-btn" onclick="saveDefaults('hmo')" id="btn-save-defaults-hmo">Save as my defaults</button>
+    <p class="save-msg" id="hmo-defaults-msg"></p>
     <hr class="div"/>
     <p class="sl">Results</p>
     <div class="split">
@@ -505,6 +513,11 @@ function formatAnalysis(text){
 
 let sbClient=null, currentSession=null;
 
+async function logout(){
+  await sbClient.auth.signOut();
+  window.location.reload();
+}
+
 async function initAuth(){
   const res=await fetch('/api/config');
   const cfg=await res.json();
@@ -512,6 +525,7 @@ async function initAuth(){
   const { data:{ session } }=await sbClient.auth.getSession();
   currentSession=session;
   updateAuthUI();
+  if(currentSession)await loadDefaults();
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
     updateAuthUI();
@@ -520,6 +534,18 @@ async function initAuth(){
 
 function updateAuthUI(){
   const loggedIn=!!currentSession;
+
+  const authLink=document.getElementById('auth-link');
+  if(loggedIn){
+    authLink.textContent='Log out';
+    authLink.href='#';
+    authLink.onclick=function(e){e.preventDefault();logout();};
+  }else{
+    authLink.textContent='Log in';
+    authLink.href='/login.html';
+    authLink.onclick=null;
+  }
+
   ['btl','hmo'].forEach(type=>{
     const btn=document.getElementById('btn-save-'+type);
     const msg=document.getElementById(type+'-save-msg');
@@ -531,6 +557,17 @@ function updateAuthUI(){
       msg.innerHTML='Log in to save deals — <a href="/login.html">log in</a>';
     }
     msg.className='save-msg';
+
+    const defBtn=document.getElementById('btn-save-defaults-'+type);
+    const defMsg=document.getElementById(type+'-defaults-msg');
+    defBtn.disabled=!loggedIn;
+    defBtn.textContent='Save as my defaults';
+    if(loggedIn){
+      defMsg.innerHTML='';
+    }else{
+      defMsg.innerHTML='Log in to save your defaults — <a href="/login.html">log in</a>';
+    }
+    defMsg.className='save-msg';
   });
   const savedPanel=document.getElementById('panel-saved');
   if(savedPanel.classList.contains('active'))loadSavedDeals();
@@ -559,6 +596,87 @@ async function saveDeal(type){
   }
 
   btn.disabled=false;btn.textContent='Save deal';
+}
+
+function numOrNull(id){
+  const v=document.getElementById(id).value;
+  if(v==='')return null;
+  const n=+v;
+  return Number.isFinite(n)?n:null;
+}
+
+async function saveDefaults(type){
+  if(!currentSession)return;
+  const btn=document.getElementById('btn-save-defaults-'+type);
+  const msg=document.getElementById(type+'-defaults-msg');
+  const f=type==='btl'
+    ?{ty:'b-ty',tr:'b-tr',mr:'b-mr',sol:'b-sol',mf:'b-mf',srch:'b-srch'}
+    :{ty:'h-ty',tr:'h-troi',mr:'h-mr',sol:'h-sol',mf:'h-mf',srch:'h-srch'};
+
+  const payload={
+    target_yield:numOrNull(f.ty),
+    target_roi:numOrNull(f.tr),
+    default_mortgage_rate:numOrNull(f.mr),
+    standard_fees:{solicitor:numOrNull(f.sol),mortgage:numOrNull(f.mf),searches:numOrNull(f.srch)}
+  };
+
+  btn.disabled=true;btn.textContent='Saving...';
+  msg.className='save-msg';msg.textContent='';
+
+  try{
+    const res=await fetch('/api/profile',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not save defaults.');
+    msg.textContent='Defaults saved.';msg.className='save-msg success';
+  }catch(e){
+    msg.textContent='Could not save defaults: '+e.message;msg.className='save-msg error';
+  }
+
+  btn.disabled=false;btn.textContent='Save as my defaults';
+}
+
+async function loadDefaults(){
+  try{
+    const res=await fetch('/api/profile',{
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    if(!res.ok)return;
+    const d=await res.json();
+
+    if(d.target_yield!=null){
+      document.getElementById('b-ty').value=d.target_yield;
+      document.getElementById('h-ty').value=d.target_yield;
+    }
+    if(d.target_roi!=null){
+      document.getElementById('b-tr').value=d.target_roi;
+      document.getElementById('h-troi').value=d.target_roi;
+    }
+    if(d.default_mortgage_rate!=null){
+      document.getElementById('b-mr').value=d.default_mortgage_rate;
+      document.getElementById('h-mr').value=d.default_mortgage_rate;
+    }
+    if(d.standard_fees){
+      if(d.standard_fees.solicitor!=null){
+        document.getElementById('b-sol').value=d.standard_fees.solicitor;
+        document.getElementById('h-sol').value=d.standard_fees.solicitor;
+      }
+      if(d.standard_fees.mortgage!=null){
+        document.getElementById('b-mf').value=d.standard_fees.mortgage;
+        document.getElementById('h-mf').value=d.standard_fees.mortgage;
+      }
+      if(d.standard_fees.searches!=null){
+        document.getElementById('b-srch').value=d.standard_fees.searches;
+        document.getElementById('h-srch').value=d.standard_fees.searches;
+      }
+    }
+    cBTL();cHMO();
+  }catch(e){
+    // fail silently — calculator keeps its built-in default values
+  }
 }
 
 async function loadSavedDeals(){
