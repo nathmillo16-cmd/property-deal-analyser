@@ -371,6 +371,13 @@ async function analyse(type){
   const body=document.getElementById('ai-'+type+'-body');
   const d=type==='btl'?btlData:hmoData;
 
+  if(!currentSession){
+    wrap.style.display='block';
+    body.className='ai-body';
+    body.innerHTML='Log in to use AI analysis — <a href="/login.html">log in</a>';
+    return;
+  }
+
   btn.disabled=true;btn.textContent='Analysing...';
   wrap.style.display='block';
   body.className='ai-body loading';
@@ -381,16 +388,17 @@ async function analyse(type){
   try{
     const res=await fetch('/analyse',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:prompt}]})
     });
     const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Analysis failed — check your API key and try again.');
     const text=data.content[0].text;
     body.className='ai-body';
     body.innerHTML=formatAnalysis(text);
   }catch(e){
     body.className='ai-body';
-    body.textContent='Analysis failed — check your API key and try again.';
+    body.textContent=e.message;
   }
 
   btn.disabled=false;btn.textContent='Re-analyse this deal';

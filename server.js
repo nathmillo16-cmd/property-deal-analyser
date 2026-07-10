@@ -27,6 +27,23 @@ function supabaseForRequest(req) {
   });
 }
 
+// Fail-closed: a missing profile row, or any error looking it up, is always
+// treated as 'free'. This is the one place that decision is made.
+async function getUserPlan(supabase) {
+  try {
+    const { data, error } = await supabase.from('profiles').select('plan').single();
+    if (error || !data || data.plan !== 'paid') return 'free';
+    return 'paid';
+  } catch (e) {
+    return 'free';
+  }
+}
+
+function startOfCurrentMonthISO() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
 app.post('/api/deals', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to save deals.' });
@@ -37,6 +54,17 @@ app.post('/api/deals', async (req, res) => {
   }
   if (!deal_data || typeof deal_data !== 'object') {
     return res.status(400).json({ error: 'Missing deal_data.' });
+  }
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    const { count, error: countError } = await supabase
+      .from('deals')
+      .select('id', { count: 'exact', head: true });
+    if (countError) return res.status(400).json({ error: countError.message });
+    if (count >= 2) {
+      return res.status(403).json({ error: 'Free plan limit reached — upgrade to save more deals.' });
+    }
   }
 
   const { data, error } = await supabase
@@ -63,6 +91,23 @@ app.get('/api/deals', async (req, res) => {
 });
 
 app.post('/analyse', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use AI analysis.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock AI analysis.' });
+  }
+
+  const { count, error: countError } = await supabase
+    .from('ai_usage')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', startOfCurrentMonthISO());
+  if (countError) return res.status(400).json({ error: countError.message });
+  if (count >= 50) {
+    return res.status(403).json({ error: 'Monthly AI analysis limit reached (50) — resets next month.' });
+  }
+
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -74,6 +119,9 @@ app.post('/analyse', async (req, res) => {
       body: JSON.stringify(req.body)
     });
     const data = await response.json();
+    if (response.ok) {
+      await supabase.from('ai_usage').insert({});
+    }
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
