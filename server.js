@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 app.use(cors());
@@ -117,13 +118,13 @@ app.get('/api/profile', async (req, res) => {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('target_yield, target_roi, default_mortgage_rate, standard_fees')
+    .select('target_yield, target_roi, default_mortgage_rate, standard_fees, plan')
     .single();
 
   if (error || !data) {
-    return res.json({ target_yield: null, target_roi: null, default_mortgage_rate: null, standard_fees: null });
+    return res.json({ target_yield: null, target_roi: null, default_mortgage_rate: null, standard_fees: null, plan: 'free' });
   }
-  res.json(data);
+  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free' });
 });
 
 app.post('/api/profile', async (req, res) => {
@@ -152,6 +153,39 @@ app.post('/api/profile', async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
+});
+
+app.post('/api/create-checkout-session', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to upgrade.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: 'Log in to upgrade.' });
+  }
+
+  const plan = await getUserPlan(supabase);
+  if (plan === 'paid') {
+    return res.status(400).json({ error: 'You already have a paid plan.' });
+  }
+
+  const origin = `${req.protocol}://${req.get('host')}`;
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: process.env.STRIPE_PRICE_MAIN, quantity: 1 }],
+      customer_email: userData.user.email,
+      client_reference_id: userData.user.id,
+      metadata: { user_id: userData.user.id },
+      success_url: `${origin}/?upgraded=1`,
+      cancel_url: `${origin}/`
+    });
+    res.json({ url: session.url });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/analyse', async (req, res) => {

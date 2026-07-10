@@ -64,7 +64,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <div class="w">
-  <div class="auth-bar"><a id="auth-link" href="/login.html">Log in</a></div>
+  <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
+  <p class="hint" id="upgrade-notice" style="display:none"></p>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('btl')">BTL</button>
     <button class="tab" onclick="switchTab('hmo')">HMO</button>
@@ -511,11 +512,38 @@ function formatAnalysis(text){
   return html;
 }
 
-let sbClient=null, currentSession=null;
+let sbClient=null, currentSession=null, currentPlan=null;
 
 async function logout(){
   await sbClient.auth.signOut();
   window.location.reload();
+}
+
+async function subscribeNow(){
+  if(!currentSession)return;
+  const link=document.getElementById('subscribe-link');
+  const original=link.textContent;
+  link.textContent='Redirecting…';
+  try{
+    const res=await fetch('/api/create-checkout-session',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
+    window.location.href=body.url;
+  }catch(e){
+    alert('Could not start checkout: '+e.message);
+    link.textContent=original;
+  }
+}
+
+function checkUpgradeReturn(){
+  if(location.search.includes('upgraded=1')){
+    const notice=document.getElementById('upgrade-notice');
+    notice.style.display='block';
+    notice.textContent='Thanks — your upgrade is processing. This can take a moment to reflect on your account.';
+  }
 }
 
 async function initAuth(){
@@ -544,6 +572,15 @@ function updateAuthUI(){
     authLink.textContent='Log in';
     authLink.href='/login.html';
     authLink.onclick=null;
+  }
+
+  const subLink=document.getElementById('subscribe-link');
+  if(loggedIn&&currentPlan==='free'){
+    subLink.style.display='';
+    subLink.onclick=function(e){e.preventDefault();subscribeNow();};
+  }else{
+    subLink.style.display='none';
+    subLink.onclick=null;
   }
 
   ['btl','hmo'].forEach(type=>{
@@ -646,6 +683,8 @@ async function loadDefaults(){
     });
     if(!res.ok)return;
     const d=await res.json();
+    currentPlan=d.plan==='paid'?'paid':'free';
+    updateAuthUI();
 
     if(d.target_yield!=null){
       document.getElementById('b-ty').value=d.target_yield;
@@ -705,5 +744,5 @@ async function loadSavedDeals(){
   }
 }
 
-cBTL();cHMO();initAuth();
+cBTL();cHMO();initAuth();checkUpgradeReturn();
 </script>
