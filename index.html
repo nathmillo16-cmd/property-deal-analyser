@@ -48,12 +48,23 @@
 .verdict-yes{color:var(--color-text-success);font-weight:500}
 .verdict-no{color:var(--color-text-danger);font-weight:500}
 .flag{background:var(--color-background-warning);color:var(--color-text-warning);font-size:12px;padding:4px 10px;border-radius:var(--border-radius-md);display:inline-block;margin:2px 4px 2px 0}
+.save-btn{width:100%;padding:10px;background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;font-weight:500;cursor:pointer;margin-top:.75rem}
+.save-btn:hover{opacity:.85}
+.save-btn:disabled{opacity:.4;cursor:not-allowed}
+.save-msg{font-size:12px;margin:.4rem 0 0;min-height:1em}
+.save-msg.success{color:var(--color-text-success)}
+.save-msg.error{color:var(--color-text-danger)}
+.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);margin-bottom:6px}
+.saved-type{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+.saved-detail{font-size:12px;color:var(--color-text-secondary)}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <div class="w">
   <div class="tabs">
     <button class="tab active" onclick="switchTab('btl')">BTL</button>
     <button class="tab" onclick="switchTab('hmo')">HMO</button>
+    <button class="tab" onclick="switchTab('saved')">Saved Deals</button>
   </div>
 
   <!-- BTL -->
@@ -108,6 +119,8 @@
     <p class="sl">Recommended offer prices</p>
     <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
     <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
+    <button class="save-btn" onclick="saveDeal('btl')" id="btn-save-btl">Save deal</button>
+    <p class="save-msg" id="btl-save-msg"></p>
     <button class="analyse-btn" onclick="analyse('btl')" id="btn-btl">Analyse this deal</button>
     <div id="ai-btl" style="display:none">
       <div class="ai-wrap">
@@ -181,6 +194,8 @@
     <p class="sl">Recommended offer prices</p>
     <div class="ob"><p class="ot">To achieve <span id="h-ly">10</span>% gross yield</p><p class="ov" id="h-oy">—</p><p class="on" id="h-oyn"></p></div>
     <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
+    <button class="save-btn" onclick="saveDeal('hmo')" id="btn-save-hmo">Save deal</button>
+    <p class="save-msg" id="hmo-save-msg"></p>
     <button class="analyse-btn" onclick="analyse('hmo')" id="btn-hmo">Analyse this deal</button>
     <div id="ai-hmo" style="display:none">
       <div class="ai-wrap">
@@ -192,14 +207,21 @@
       </div>
     </div>
   </div>
+
+  <!-- Saved Deals -->
+  <div class="panel" id="panel-saved">
+    <p class="sl">Your saved deals</p>
+    <div id="saved-list"><p class="hint">Loading…</p></div>
+  </div>
 </div>
 
 <script>
 const API_KEY = '';
 
 function switchTab(t){
-  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo'][i]===t));
-  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo'][i]==='panel-'+t));
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','saved'][i]===t));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-saved'][i]==='panel-'+t));
+  if(t==='saved')loadSavedDeals();
 }
 
 function stamp(p){
@@ -475,5 +497,89 @@ function formatAnalysis(text){
   return html;
 }
 
-cBTL();cHMO();
+let sbClient=null, currentSession=null;
+
+async function initAuth(){
+  const res=await fetch('/api/config');
+  const cfg=await res.json();
+  sbClient=supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+  const { data:{ session } }=await sbClient.auth.getSession();
+  currentSession=session;
+  updateAuthUI();
+  sbClient.auth.onAuthStateChange((_event, session)=>{
+    currentSession=session;
+    updateAuthUI();
+  });
+}
+
+function updateAuthUI(){
+  const loggedIn=!!currentSession;
+  ['btl','hmo'].forEach(type=>{
+    const btn=document.getElementById('btn-save-'+type);
+    const msg=document.getElementById(type+'-save-msg');
+    btn.disabled=!loggedIn;
+    btn.textContent='Save deal';
+    if(loggedIn){
+      msg.innerHTML='';
+    }else{
+      msg.innerHTML='Log in to save deals — <a href="/login.html">log in</a>';
+    }
+    msg.className='save-msg';
+  });
+  const savedPanel=document.getElementById('panel-saved');
+  if(savedPanel.classList.contains('active'))loadSavedDeals();
+}
+
+async function saveDeal(type){
+  if(!currentSession)return;
+  const btn=document.getElementById('btn-save-'+type);
+  const msg=document.getElementById(type+'-save-msg');
+  const d=type==='btl'?btlData:hmoData;
+
+  btn.disabled=true;btn.textContent='Saving...';
+  msg.className='save-msg';msg.textContent='';
+
+  try{
+    const res=await fetch('/api/deals',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({deal_type:type, deal_data:d})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Save failed');
+    msg.textContent='Saved.';msg.className='save-msg success';
+  }catch(e){
+    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
+  }
+
+  btn.disabled=false;btn.textContent='Save deal';
+}
+
+async function loadSavedDeals(){
+  const listEl=document.getElementById('saved-list');
+  if(!currentSession){
+    listEl.innerHTML='<p class="hint">Log in to see your saved deals — <a href="/login.html">log in</a></p>';
+    return;
+  }
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch('/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const deals=await res.json();
+    if(!res.ok)throw new Error(deals.error||'Could not load saved deals.');
+    if(!Array.isArray(deals)||deals.length===0){
+      listEl.innerHTML='<p class="hint">No saved deals yet.</p>';
+      return;
+    }
+    listEl.innerHTML=deals.map(d=>{
+      const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+      const label=d.deal_type.toUpperCase();
+      const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):'';
+      return `<div class="saved-item"><span class="saved-type">${label}${pp?' · '+pp:''}</span><span class="saved-detail">${date}</span></div>`;
+    }).join('');
+  }catch(e){
+    listEl.innerHTML='<p class="hint">Could not load saved deals.</p>';
+  }
+}
+
+cBTL();cHMO();initAuth();
 </script>
