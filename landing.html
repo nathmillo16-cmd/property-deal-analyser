@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Deals N Yields — Property deal analysis for sourcers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cobalt:#1D4ED8;
+  --navy:#0B1F63;
+  --paper:#F7F3EC;
+  --ink:#1C1B17;
+  --rule:#D8D3C7;
+  --red:#B23A2E;
+  --display:'Fraunces',serif;
+  --body:'Public Sans',-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:16px;
+  line-height:1.6;
+}
+a{color:inherit}
+.sheet{
+  max-width:960px;
+  margin:0 auto;
+  border-left:1px solid var(--rule);
+  border-right:1px solid var(--rule);
+  padding:0 clamp(1.25rem,4vw,3rem);
+}
+.kicker{
+  font-family:var(--body);
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--cobalt);
+  margin:0 0 1rem;
+}
+.rule{border:none;border-top:1px solid var(--rule);margin:0}
+.section{padding:clamp(3rem,7vw,5.5rem) 0}
+.placeholder{
+  background:rgba(178,58,46,.08);
+  border-bottom:1px dashed var(--red);
+  color:var(--red);
+  font-style:italic;
+  padding:0 .15em;
+}
+
+/* ---- top bar ---- */
+.topbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1.5rem 0;
+}
+.wordmark{
+  font-family:var(--body);font-size:13px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;
+}
+.topbar a.login{
+  font-family:var(--body);font-size:12px;letter-spacing:.05em;
+  text-decoration:none;color:var(--ink);
+  border-bottom:1px solid var(--rule);
+  padding-bottom:2px;
+}
+
+/* ---- hero ---- */
+.hero{padding:clamp(2.5rem,6vw,4.5rem) 0 clamp(3.5rem,8vw,6rem)}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(2rem,5vw,3.5rem);align-items:start}
+@media(max-width:760px){.hero-grid{grid-template-columns:1fr}}
+h1.headline{
+  font-family:var(--display);
+  font-weight:500;
+  font-size:clamp(2rem,4.4vw,3.1rem);
+  line-height:1.08;
+  letter-spacing:-.01em;
+  margin:0 0 1.25rem;
+}
+.pitch{
+  font-size:1.05rem;
+  color:#4B4A44;
+  max-width:34ch;
+  margin:0 0 2rem;
+}
+.cta-row{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.btn-primary{
+  display:inline-block;
+  background:var(--cobalt);
+  color:#fff;
+  font-family:var(--body);
+  font-weight:600;
+  font-size:14.5px;
+  padding:.85rem 1.6rem;
+  border-radius:3px;
+  text-decoration:none;
+  letter-spacing:.01em;
+}
+.btn-primary:hover{background:#1a44c2}
+.link-secondary{
+  font-family:var(--body);
+  font-size:12.5px;
+  letter-spacing:.03em;
+  text-decoration:none;
+  color:#4B4A44;
+  border-bottom:1px dotted var(--rule);
+  padding-bottom:2px;
+}
+
+/* ---- deal memo card ---- */
+.memo-card{
+  border:1px solid var(--ink);
+  padding:1.5rem 1.5rem 1.25rem;
+  background:#FCFAF5;
+}
+.memo-head{
+  display:flex;justify-content:space-between;align-items:baseline;
+  border-bottom:1px solid var(--ink);
+  padding-bottom:.6rem;margin-bottom:1rem;
+}
+.memo-title{font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+.memo-ref{font-family:var(--body);font-size:11px;color:#6b6a63}
+.ledger-line{display:flex;align-items:baseline;gap:.5rem;margin:.65rem 0}
+.ledger-line .label{font-size:13px;color:#4B4A44;white-space:nowrap}
+.ledger-line .fill{flex:1;border-bottom:1px dotted var(--rule);height:0;transform:translateY(-4px)}
+.ledger-line .value{font-family:var(--body);font-feature-settings:"tnum" 1,"lnum" 1;font-size:13px;white-space:nowrap;font-weight:500}
+.memo-foot{
+  margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--rule);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.mini-stamp{
+  font-family:var(--body);font-size:12px;font-weight:600;letter-spacing:.1em;
+  color:var(--cobalt);border:1.5px solid var(--cobalt);border-radius:3px;
+  padding:.2rem .55rem;transform:rotate(-4deg);display:inline-block;
+}
+.memo-caption{font-size:11px;color:#8a897f;font-style:italic}
+
+/* ---- objection ---- */
+.objection-intro{max-width:56ch}
+h2.section-title{
+  font-family:var(--display);font-weight:500;
+  font-size:clamp(1.5rem,3vw,2rem);
+  margin:0 0 .75rem;line-height:1.15;
+}
+.ledger-compare{
+  display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:2.5rem;
+}
+@media(max-width:700px){.ledger-compare{grid-template-columns:1fr}}
+.ledger-panel{border:1px solid var(--rule);padding:1.5rem}
+.ledger-panel h3{
+  font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;margin:0 0 1.25rem;color:#4B4A44;
+}
+.ledger-panel.bad h3{color:var(--red)}
+.ledger-panel.good h3{color:var(--cobalt)}
+.bad .value.wrong{color:var(--red);text-decoration:line-through;text-decoration-color:var(--red)}
+.annotation{
+  font-family:var(--display);font-style:italic;font-size:13px;color:var(--red);
+  transform:rotate(-2deg);display:block;margin:.15rem 0 .9rem 1.2rem;
+}
+.good .value{color:var(--navy);font-weight:600}
+
+/* ---- differentiators ---- */
+.clauses{margin-top:2rem}
+.clause{
+  padding:1.75rem 0;border-top:1px solid var(--rule);
+}
+.clause:last-child{border-bottom:1px solid var(--rule)}
+.clause h3{
+  font-family:var(--display);font-weight:500;font-size:1.25rem;margin:0 0 .5rem;
+}
+.clause p{margin:0 0 .75rem;color:#4B4A44;max-width:52ch;font-size:14.5px}
+.clause .figure{font-family:var(--body);font-feature-settings:"tnum" 1,"lnum" 1;font-size:12.5px;color:var(--navy);background:rgba(29,78,216,.06);display:inline-block;padding:.25rem .6rem;border-radius:2px}
+
+/* ---- STACKS section ---- */
+.stacks-band{background:var(--navy);color:#EFEEE6;margin:0 calc(-1 * clamp(1.25rem,4vw,3rem));padding:clamp(3rem,7vw,5.5rem) clamp(1.25rem,4vw,3rem)}
+.stacks-inner{max-width:600px;margin:0 auto;text-align:center}
+.stacks-band .kicker{color:#8FA8F0}
+.stacks-band h2.section-title{color:#fff}
+.stack-column{max-width:380px;margin:2.5rem auto 0;text-align:left}
+.stack-block{
+  border:1px solid var(--cobalt);
+  padding:.65rem 1rem;
+  display:flex;justify-content:space-between;align-items:center;
+  background:rgba(29,78,216,.08);
+  margin-bottom:-1px;
+}
+.stack-block .label{font-family:var(--body);font-size:12px;letter-spacing:.03em;color:#C7D3F6;text-transform:uppercase}
+.stack-block .amount{font-family:var(--body);font-feature-settings:"tnum" 1,"lnum" 1;font-size:13px;font-weight:500;color:#fff}
+.stamp-wrap{margin:2.5rem 0 1.5rem;position:relative}
+.stamp{
+  display:inline-block;
+  border:3px solid var(--cobalt);
+  border-radius:6px;
+  padding:.5rem 1.4rem;
+  color:var(--cobalt);
+  font-family:var(--body);
+  font-weight:600;
+  font-size:1.9rem;
+  letter-spacing:.14em;
+  transform:rotate(-6deg);
+  position:relative;
+  background:rgba(29,78,216,.05);
+}
+.stamp::after{
+  content:'';
+  position:absolute;inset:5px;
+  border:1px solid var(--cobalt);
+  border-radius:3px;
+  opacity:.55;
+}
+.receipt-line{font-family:var(--body);font-size:13px;color:#C7D3F6;letter-spacing:.03em}
+.receipt-line .v{color:#fff;font-weight:600;font-feature-settings:"tnum" 1,"lnum" 1}
+
+/* ---- closing cta ---- */
+.closing{text-align:center;padding:clamp(3.5rem,8vw,6rem) 0}
+.closing h2{
+  font-family:var(--display);font-weight:500;
+  font-size:clamp(1.75rem,3.6vw,2.5rem);
+  margin:0 0 1rem;
+}
+.closing .btn-primary{padding:1rem 2.2rem;font-size:15px}
+footer{
+  padding:2rem 0 3rem;
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--body);font-size:11px;color:#8a897f;
+}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <div class="topbar">
+    <span class="wordmark">Deals N Yields</span>
+    <a class="login" href="login.html">Log in</a>
+  </div>
+
+  <hr class="rule"/>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-grid">
+      <div>
+        <p class="kicker">For property sourcers</p>
+        <h1 class="headline"><span class="placeholder">[PLACEHOLDER: emotional hook — the wasted-viewing line]</span></h1>
+        <p class="pitch"><span class="placeholder">[PLACEHOLDER: one-line pitch]</span></p>
+        <div class="cta-row">
+          <a class="btn-primary" href="index.html">Try the calculator</a>
+          <a class="link-secondary" href="#objection">See how the maths works ↓</a>
+        </div>
+      </div>
+
+      <div class="memo-card">
+        <div class="memo-head">
+          <span class="memo-title">Deal memo</span>
+          <span class="memo-ref">REF. <span class="placeholder">[PLACEHOLDER]</span></span>
+        </div>
+        <div class="ledger-line"><span class="label">Purchase price</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
+        <div class="ledger-line"><span class="label">End market value</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
+        <div class="ledger-line"><span class="label">Gross yield</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
+        <div class="ledger-line"><span class="label">Max bid to hit target</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
+        <div class="memo-foot">
+          <span class="mini-stamp">STACKS</span>
+          <span class="memo-caption">Illustrative deal</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule"/>
+
+  <!-- Objection -->
+  <section class="section" id="objection">
+    <p class="kicker">The objection</p>
+    <h2 class="section-title"><span class="placeholder">[PLACEHOLDER: "already got a spreadsheet?" objection headline]</span></h2>
+    <p class="objection-intro"><span class="placeholder">[PLACEHOLDER: one line acknowledging the objection]</span></p>
+
+    <div class="ledger-compare">
+      <div class="ledger-panel bad">
+        <h3>Your spreadsheet</h3>
+        <div class="ledger-line"><span class="label">Gross yield</span><span class="fill"></span><span class="value wrong placeholder">[PLACEHOLDER]</span></div>
+        <span class="annotation">↳ <span class="placeholder">[PLACEHOLDER: spreadsheet error 1 — e.g. yield calculated on purchase price, not EMV]</span></span>
+
+        <div class="ledger-line"><span class="label">Stamp duty</span><span class="fill"></span><span class="value wrong placeholder">[PLACEHOLDER]</span></div>
+        <span class="annotation">↳ <span class="placeholder">[PLACEHOLDER: spreadsheet error 2 — e.g. wrong surcharge band applied]</span></span>
+
+        <div class="ledger-line"><span class="label">Money left in deal</span><span class="fill"></span><span class="value wrong placeholder">[PLACEHOLDER]</span></div>
+        <span class="annotation">↳ <span class="placeholder">[PLACEHOLDER: spreadsheet error 3 — e.g. shows a negative number instead of full recovery]</span></span>
+      </div>
+
+      <div class="ledger-panel good">
+        <h3>Deals N Yields</h3>
+        <div class="ledger-line"><span class="label">Gross yield</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
+        <div class="ledger-line"><span class="label">Stamp duty</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
+        <div class="ledger-line"><span class="label">Money left in deal</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule"/>
+
+  <!-- Three differentiators -->
+  <section class="section">
+    <p class="kicker">What it actually does</p>
+    <h2 class="section-title">Three things a spreadsheet won't do for you</h2>
+
+    <div class="clauses">
+      <div class="clause">
+        <div>
+          <h3>Maximum bid</h3>
+          <p>Not just whether today's asking price works — the actual ceiling you can pay and still hit your target yield or ROI. A real number to take into negotiation.</p>
+          <span class="figure">e.g. max bid <span class="placeholder">[PLACEHOLDER]</span> to hit <span class="placeholder">[PLACEHOLDER]</span>% yield</span>
+        </div>
+      </div>
+      <div class="clause">
+        <div>
+          <h3>Three-strategy verdict</h3>
+          <p>Mortgage BTL, BRRR, and cash purchase, verdicted separately against the same deal — so you know which strategy the numbers actually favour, not just whether the deal is "good."</p>
+          <span class="figure">e.g. <span class="placeholder">[PLACEHOLDER]</span> favoured over <span class="placeholder">[PLACEHOLDER]</span></span>
+        </div>
+      </div>
+      <div class="clause">
+        <div>
+          <h3>Transparent working</h3>
+          <p>Every figure traces back to a stated assumption — deposit basis, stamp duty band, bills percentage — so you can defend the number to an investor, not just hand over an output.</p>
+          <span class="figure">e.g. deposit calculated on <span class="placeholder">[PLACEHOLDER]</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule"/>
+</div>
+
+<!-- STACKS signature moment (static version — animation added next) -->
+<div class="stacks-band" id="stacks">
+  <div class="stacks-inner">
+    <p class="kicker">Does it stack?</p>
+    <h2 class="section-title">Every cost, tallied before you ever make an offer</h2>
+
+    <div class="stack-column">
+      <div class="stack-block"><span class="label">Purchase price</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
+      <div class="stack-block"><span class="label">Refurb</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
+      <div class="stack-block"><span class="label">Solicitor fees</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
+      <div class="stack-block"><span class="label">Stamp duty</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
+      <div class="stack-block"><span class="label">Mortgage fees</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
+    </div>
+
+    <div class="stamp-wrap">
+      <span class="stamp">STACKS</span>
+    </div>
+    <p class="receipt-line">MAX BID <span class="v placeholder">[PLACEHOLDER]</span> &nbsp;·&nbsp; GROSS YIELD <span class="v placeholder">[PLACEHOLDER]</span></p>
+  </div>
+</div>
+
+<div class="sheet">
+  <hr class="rule"/>
+
+  <!-- Closing CTA -->
+  <section class="closing">
+    <h2><span class="placeholder">[PLACEHOLDER: closing headline]</span></h2>
+    <a class="btn-primary" href="index.html">Try the calculator</a>
+  </section>
+
+  <hr class="rule"/>
+
+  <footer>
+    <span><span class="placeholder">[PLACEHOLDER: proof/credibility line]</span></span>
+    <span>Deals N Yields</span>
+  </footer>
+</div>
+
+</body>
+</html>
