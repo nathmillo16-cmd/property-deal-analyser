@@ -542,7 +542,12 @@ function checkUpgradeReturn(){
   if(location.search.includes('upgraded=1')){
     const notice=document.getElementById('upgrade-notice');
     notice.style.display='block';
-    notice.textContent='Thanks — your upgrade is processing. This can take a moment to reflect on your account.';
+    if(currentPlan==='paid'){
+      notice.textContent="You're all set — welcome to your upgraded plan.";
+      history.replaceState(null,'',location.pathname);
+    }else{
+      notice.textContent='Thanks — your upgrade is processing. This can take a moment to reflect on your account.';
+    }
   }
 }
 
@@ -554,6 +559,7 @@ async function initAuth(){
   currentSession=session;
   updateAuthUI();
   if(currentSession)await loadDefaults();
+  checkUpgradeReturn();
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
     updateAuthUI();
@@ -744,5 +750,5 @@ async function loadSavedDeals(){
   }
 }
 
-cBTL();cHMO();initAuth();checkUpgradeReturn();
+cBTL();cHMO();initAuth();
 </script>

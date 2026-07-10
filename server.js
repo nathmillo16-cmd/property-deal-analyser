@@ -5,8 +5,43 @@ const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
+// Service-role client used ONLY by the Stripe webhook handler below, to flip
+// a user's plan when Stripe (not the user) is the caller. Never exposed to
+// any user-facing route.
+const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
+
 const app = express();
 app.use(cors());
+
+// Must be registered with express.raw(), and BEFORE app.use(express.json())
+// below, so Stripe's signature check gets the exact raw bytes it signed.
+// The handler responds without calling next(), so express.json() (mounted
+// after) never touches this route — every other route is unaffected.
+app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (e) {
+    return res.status(400).json({ error: `Webhook signature verification failed: ${e.message}` });
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    if (session.mode === 'subscription') {
+      const userId = session.client_reference_id || (session.metadata && session.metadata.user_id);
+      if (userId) {
+        const { error } = await supabaseAdmin.from('profiles').update({ plan: 'paid' }).eq('user_id', userId);
+        if (error) console.error('Webhook: failed to set plan=paid for', userId, error.message);
+      } else {
+        console.error('Webhook: checkout.session.completed with no user_id on session', session.id);
+      }
+    }
+  }
+
+  res.json({ received: true });
+});
+
 app.use(express.json());
 app.use(express.static('.'));
 
