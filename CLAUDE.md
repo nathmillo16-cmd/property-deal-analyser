@@ -11,7 +11,7 @@ Stack (as it actually is)
 
 Backend: Node.js / Express — server.js. Serves static files and exposes POST /analyse, which proxies to the Anthropic API using a server-side API_KEY env var (keeps the key off the browser).
 Frontend: index.html (single file, HTML/CSS/JS).
-Deployed on: PythonAnywhere. (Note: repo is the current source of truth, moved to Node from an earlier Flask version — ignore any older references to app.py/Flask.)
+Deployed on: Render, auto-deploying from the GitHub main branch (pushing to main ships to production — no separate deploy step). (Note: repo is the current source of truth, moved to Node from an earlier Flask version — ignore any older references to app.py/Flask, and ignore any older references to PythonAnywhere as the deployment target.)
 Planned: Supabase for auth + Postgres when accounts get built.
 
 

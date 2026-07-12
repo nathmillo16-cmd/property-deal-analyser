@@ -111,6 +111,7 @@
         <button type="submit" class="submit-btn" id="btn-login">Log In</button>
       </form>
       <div class="msg" id="msg-login"></div>
+      <button type="button" class="submit-btn" id="btn-resend" style="display:none;margin-top:.6rem;background:var(--bg);color:var(--accent);border:1px solid var(--accent)" onclick="resendConfirmation()">Resend confirmation email</button>
     </div>
 
     <div class="panel" id="panel-signup">
@@ -148,17 +149,37 @@ async function init(){
 document.getElementById('form-login').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const btn=document.getElementById('btn-login');
+  const resendBtn=document.getElementById('btn-resend');
   const email=document.getElementById('login-email').value;
   const password=document.getElementById('login-password').value;
+  resendBtn.style.display='none';
   btn.disabled=true;btn.textContent='Logging in...';
   const { error } = await client.auth.signInWithPassword({ email, password });
   btn.disabled=false;btn.textContent='Log In';
   if(error){
-    showMsg('msg-login', error.message, 'error');
+    if(error.code==='email_not_confirmed'){
+      showMsg('msg-login', "Your email isn't confirmed yet.", 'error');
+      resendBtn.style.display='block';
+    }else{
+      showMsg('msg-login', error.message, 'error');
+    }
   }else{
     window.location.href='/';
   }
 });
+
+async function resendConfirmation(){
+  const btn=document.getElementById('btn-resend');
+  const email=document.getElementById('login-email').value;
+  btn.disabled=true;btn.textContent='Sending...';
+  const { error } = await client.auth.resend({ type:'signup', email });
+  btn.disabled=false;btn.textContent='Resend confirmation email';
+  if(error){
+    showMsg('msg-login', error.message, 'error');
+  }else{
+    showMsg('msg-login', 'New confirmation email sent — check your inbox.', 'success');
+  }
+}
 
 document.getElementById('form-signup').addEventListener('submit', async (e)=>{
   e.preventDefault();
