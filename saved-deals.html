@@ -60,14 +60,22 @@ body{
 
 .page-title{font-family:var(--display);font-size:26px;font-weight:400;margin:0 0 1.5rem}
 
-.saved-panel-inner{background:var(--paper-tint);border:1px solid var(--hairline);border-radius:16px;padding:2rem;max-width:640px}
+.saved-panel-inner{background:var(--paper-tint);border:1px solid var(--hairline);border-radius:16px;padding:2rem;max-width:760px}
 .saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:10px;margin-bottom:8px;background:#fff;gap:1rem;flex-wrap:wrap}
-.saved-info{display:flex;align-items:center;gap:10px}
-.saved-type{font-size:13px;font-weight:600;color:var(--graphite);font-family:var(--body)}
-.saved-detail{font-size:12.5px;color:var(--mist);font-variant-numeric:tabular-nums}
+.saved-info{display:flex;flex-direction:column;gap:2px}
+.saved-name{font-size:14px;font-weight:600;color:var(--graphite);font-family:var(--body)}
+.saved-detail{font-size:12px;color:var(--mist);font-variant-numeric:tabular-nums}
+.saved-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .mini-btn{font-family:var(--body);font-size:12px;font-weight:600;color:var(--jewel);background:transparent;border:1.5px solid var(--jewel);border-radius:8px;padding:6px 12px;cursor:pointer;white-space:nowrap}
 .mini-btn:hover{background:rgba(18,168,122,.07)}
+.mini-btn:disabled{opacity:.4;cursor:not-allowed}
+.mini-btn.danger{color:#C0392B;border-color:#C0392B}
+.mini-btn.danger:hover{background:rgba(192,57,43,.07)}
 .pipeline-badge{font-family:var(--body);font-size:12px;font-weight:600;color:var(--mist);background:var(--paper-tint);border:1px solid var(--hairline);border-radius:8px;padding:6px 12px;white-space:nowrap;text-transform:capitalize}
+
+.bulk-bar{display:flex;align-items:center;gap:1.25rem;margin-bottom:1rem;flex-wrap:wrap}
+.select-all-label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--graphite);cursor:pointer;font-family:var(--body)}
+.saved-select{display:flex;align-items:center}
 </style>
 </head>
 <body>
@@ -81,14 +89,46 @@ body{
   <p class="page-title">Saved Deals</p>
 
   <div class="saved-panel-inner">
+    <div class="bulk-bar" id="bulk-bar" style="display:none">
+      <label class="select-all-label"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"/> Select all</label>
+      <span class="hint" id="bulk-count">0 selected</span>
+      <button class="mini-btn danger" id="bulk-delete-btn" disabled onclick="deleteSelected()">Delete selected</button>
+    </div>
     <div id="saved-list"><p class="hint">Loading…</p></div>
   </div>
 </div>
 
 <script>
 let sbClient=null, currentSession=null;
+let savedDealsCache=[];
+let selectedForDelete=new Set();
 
 function fmt(n){return'£'+Math.round(n).toLocaleString();}
+
+function escapeHtml(s){
+  const div=document.createElement('div');
+  div.textContent=s;
+  return div.innerHTML;
+}
+
+function fallbackName(d){
+  const label=d.deal_type.toUpperCase();
+  const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):null;
+  return pp?`${label} — ${pp} — ${date}`:`${label} — ${date}`;
+}
+
+function dealDisplayName(d){
+  return (d.deal_data&&d.deal_data.name)?d.deal_data.name:fallbackName(d);
+}
+
+function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+
+function joinNatural(items){
+  if(items.length===1)return items[0];
+  if(items.length===2)return items[0]+' and '+items[1];
+  return items.slice(0,-1).join(', ')+', and '+items[items.length-1];
+}
 
 async function logout(){
   await sbClient.auth.signOut();
@@ -102,22 +142,102 @@ async function loadSavedDeals(){
     const res=await fetch('/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const deals=await res.json();
     if(!res.ok)throw new Error(deals.error||'Could not load saved deals.');
-    if(!Array.isArray(deals)||deals.length===0){
+    savedDealsCache=Array.isArray(deals)?deals:[];
+
+    const stillPresent=new Set(savedDealsCache.map(d=>d.id));
+    selectedForDelete.forEach(id=>{ if(!stillPresent.has(id)) selectedForDelete.delete(id); });
+
+    document.getElementById('bulk-bar').style.display=savedDealsCache.length>0?'flex':'none';
+
+    if(savedDealsCache.length===0){
       listEl.innerHTML='<p class="hint">No saved deals yet.</p>';
+      updateBulkBar();
       return;
     }
-    listEl.innerHTML=deals.map(d=>{
+    listEl.innerHTML=savedDealsCache.map(d=>{
       const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
       const label=d.deal_type.toUpperCase();
       const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):'';
+      const name=dealDisplayName(d);
       const action=d.pipeline_stage
         ?`<span class="pipeline-badge">In pipeline · ${d.pipeline_stage}</span>`
         :`<button class="mini-btn" onclick="addToPipeline('${d.id}')">Add to pipeline</button>`;
-      return `<div class="saved-item"><div class="saved-info"><span class="saved-type">${label}${pp?' · '+pp:''}</span><span class="saved-detail">${date}</span></div>${action}</div>`;
+      const checked=selectedForDelete.has(d.id)?'checked':'';
+      return `<div class="saved-item">
+        <label class="saved-select"><input type="checkbox" data-deal-id="${d.id}" ${checked} onchange="toggleSelect('${d.id}', this.checked)"/></label>
+        <div class="saved-info">
+          <span class="saved-name">${escapeHtml(name)}</span>
+          <span class="saved-detail">${label}${pp?' · '+pp:''} · ${date}</span>
+        </div>
+        <div class="saved-controls">
+          ${action}
+          <button class="mini-btn" onclick="renameDeal('${d.id}')">Rename</button>
+          <button class="mini-btn danger" onclick="deleteDeal('${d.id}')">Delete</button>
+        </div>
+      </div>`;
     }).join('');
+    updateBulkBar();
+    document.getElementById('select-all').checked=savedDealsCache.every(d=>selectedForDelete.has(d.id));
   }catch(e){
     listEl.innerHTML='<p class="hint">Could not load saved deals.</p>';
   }
+}
+
+function toggleSelect(dealId, checked){
+  if(checked)selectedForDelete.add(dealId); else selectedForDelete.delete(dealId);
+  document.getElementById('select-all').checked=savedDealsCache.length>0&&savedDealsCache.every(d=>selectedForDelete.has(d.id));
+  updateBulkBar();
+}
+
+function toggleSelectAll(checked){
+  selectedForDelete=new Set();
+  document.querySelectorAll('.saved-select input[type=checkbox]').forEach(cb=>{
+    cb.checked=checked;
+    if(checked)selectedForDelete.add(cb.dataset.dealId);
+  });
+  updateBulkBar();
+}
+
+function updateBulkBar(){
+  const count=selectedForDelete.size;
+  document.getElementById('bulk-count').textContent=count+' selected';
+  document.getElementById('bulk-delete-btn').disabled=count===0;
+}
+
+async function deleteSelected(){
+  const ids=[...selectedForDelete];
+  if(ids.length===0)return;
+
+  const inPipelineDeals=savedDealsCache.filter(d=>ids.includes(d.id)&&d.pipeline_stage);
+  let msg=`Delete ${ids.length} deal${ids.length===1?'':'s'}?`;
+  if(inPipelineDeals.length>0){
+    const named=inPipelineDeals.map(d=>`"${dealDisplayName(d)}" (${capitalize(d.pipeline_stage)})`);
+    const verb=inPipelineDeals.length===1?'is':'are';
+    const pronoun=inPipelineDeals.length===1?'it':'them';
+    msg+=`\n\n${joinNatural(named)} ${verb} in your pipeline — deleting removes ${pronoun} from there too.`;
+  }
+  if(!confirm(msg))return;
+
+  const btn=document.getElementById('bulk-delete-btn');
+  btn.disabled=true;btn.textContent='Deleting...';
+
+  try{
+    const results=await Promise.all(ids.map(id=>
+      fetch(`/api/deals/${id}/delete`,{method:'POST',headers:{'Authorization':'Bearer '+currentSession.access_token}})
+        .then(r=>r.json().then(body=>({ok:r.ok,body})))
+        .catch(e=>({ok:false,body:{error:e.message}}))
+    ));
+    const failed=results.filter(r=>!r.ok);
+    selectedForDelete=new Set();
+    await loadSavedDeals();
+    if(failed.length>0){
+      alert(`${failed.length} of ${ids.length} deal(s) could not be deleted.`);
+    }
+  }catch(e){
+    alert('Could not delete selected deals: '+e.message);
+  }
+
+  btn.disabled=false;btn.textContent='Delete selected';
 }
 
 async function addToPipeline(dealId){
@@ -133,6 +253,46 @@ async function addToPipeline(dealId){
     loadSavedDeals();
   }catch(e){
     alert('Could not add to pipeline: '+e.message);
+  }
+}
+
+async function renameDeal(dealId){
+  if(!currentSession)return;
+  const deal=savedDealsCache.find(d=>d.id===dealId);
+  const currentName=deal?dealDisplayName(deal):'';
+  const newName=prompt('Rename this deal:', currentName);
+  if(newName===null)return;
+  try{
+    const res=await fetch(`/api/deals/${dealId}/name`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({name:newName.trim()})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not rename deal.');
+    loadSavedDeals();
+  }catch(e){
+    alert('Could not rename deal: '+e.message);
+  }
+}
+
+async function deleteDeal(dealId){
+  if(!currentSession)return;
+  const deal=savedDealsCache.find(d=>d.id===dealId);
+  const msg=(deal&&deal.pipeline_stage)
+    ?`"${dealDisplayName(deal)}" (${capitalize(deal.pipeline_stage)}) is in your pipeline — deleting removes it from there too. Delete anyway?`
+    :'Delete this saved deal?';
+  if(!confirm(msg))return;
+  try{
+    const res=await fetch(`/api/deals/${dealId}/delete`,{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not delete deal.');
+    loadSavedDeals();
+  }catch(e){
+    alert('Could not delete deal: '+e.message);
   }
 }
 

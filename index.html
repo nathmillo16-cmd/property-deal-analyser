@@ -1141,22 +1141,53 @@ function updateAuthUI(){
   flMsg.className='save-msg';
 }
 
+const DEAL_NAME_LABEL={btl:'BTL',hmo:'HMO',sa:'SA',flip:'Flip'};
+const DEAL_NAME_PP_ID={btl:'b-pp',hmo:'h-pp',sa:'sa-pp',flip:'fl-pp'};
+
+function defaultDealName(type){
+  const pp=+document.getElementById(DEAL_NAME_PP_ID[type]).value||0;
+  const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  return `${DEAL_NAME_LABEL[type]} — ${fmt(pp)} — ${date}`;
+}
+
 async function saveDeal(type){
   if(!currentSession)return;
+
+  const suggested=defaultDealName(type);
+  const nameVal=prompt('Name this deal:', suggested);
+  if(nameVal===null)return;
+
   const btn=document.getElementById('btn-save-'+type);
   const msg=document.getElementById(type+'-save-msg');
   const d=type==='btl'?btlData:(type==='hmo'?hmoData:(type==='sa'?saData:flipData));
+  const dealData={...d,name:nameVal.trim()||suggested};
 
   btn.disabled=true;btn.textContent='Saving...';
   msg.className='save-msg';msg.textContent='';
 
   try{
-    const res=await fetch('/api/deals',{
+    let res=await fetch('/api/deals',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({deal_type:type, deal_data:d})
+      body:JSON.stringify({deal_type:type, deal_data:dealData})
     });
-    const body=await res.json();
+    let body=await res.json();
+
+    if(res.status===409&&body.duplicate){
+      const proceed=confirm('You already have a saved deal with these figures — save anyway?');
+      if(!proceed){
+        msg.textContent='Not saved.';msg.className='save-msg';
+        btn.disabled=false;btn.textContent='Save deal';
+        return;
+      }
+      res=await fetch('/api/deals',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+        body:JSON.stringify({deal_type:type, deal_data:dealData, force:true})
+      });
+      body=await res.json();
+    }
+
     if(!res.ok)throw new Error(body.error||'Save failed');
     msg.innerHTML='Saved ✓ — view in <a href="/saved-deals.html">Saved Deals</a>';msg.className='save-msg success';
   }catch(e){

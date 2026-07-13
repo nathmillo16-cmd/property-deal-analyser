@@ -186,6 +186,23 @@ function fmtField(f,v){
   return f.type==='c'?fmtC(v):fmtP(v);
 }
 
+function escapeHtml(s){
+  const div=document.createElement('div');
+  div.textContent=s;
+  return div.innerHTML;
+}
+
+function fallbackName(d){
+  const label=d.deal_type.toUpperCase();
+  const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):null;
+  return pp?`${label} — ${pp} — ${date}`:`${label} — ${date}`;
+}
+
+function dealDisplayName(d){
+  return (d.deal_data&&d.deal_data.name)?d.deal_data.name:fallbackName(d);
+}
+
 let sbClient=null, currentSession=null, currentPlan=null;
 let pipelineDeals=[], selectedIds=new Set();
 
@@ -304,14 +321,15 @@ function cardHtml(d){
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const label=d.deal_type.toUpperCase();
   const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):'';
+  const name=dealDisplayName(d);
   const checked=selectedIds.has(d.id)?'checked':'';
   const options=STAGES.map(s=>`<option value="${s}" ${s===d.pipeline_stage?'selected':''}>${STAGE_LABELS[s]}</option>`).join('');
   return `<div class="pipeline-card">
     <div class="card-top">
       <input type="checkbox" ${checked} onchange="toggleCompare('${d.id}', this.checked)"/>
-      <span class="card-type">${label}${pp?' · '+pp:''}</span>
+      <span class="card-type">${escapeHtml(name)}</span>
     </div>
-    <p class="card-date">${date}</p>
+    <p class="card-date">${label}${pp?' · '+pp:''} · ${date}</p>
     <select class="stage-select" onchange="changeStage('${d.id}', this.value)">${options}</select>
     <div class="card-actions"><button class="remove-btn" onclick="removeFromPipeline('${d.id}')">Remove from pipeline</button></div>
   </div>`;
@@ -365,8 +383,8 @@ function compareSelected(){
 
   let html='<table class="compare-table"><thead><tr><th>Figure</th>';
   selected.forEach(d=>{
-    const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):'';
-    html+=`<th>${d.deal_type.toUpperCase()}<br><span style="font-family:var(--body);font-size:11px;color:var(--mist);font-weight:600">${pp}</span></th>`;
+    const name=dealDisplayName(d);
+    html+=`<th>${escapeHtml(name)}<br><span style="font-family:var(--body);font-size:11px;color:var(--mist);font-weight:600">${d.deal_type.toUpperCase()}</span></th>`;
   });
   html+='</tr></thead><tbody>';
   rows.forEach(label=>{

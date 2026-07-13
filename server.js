@@ -112,11 +112,32 @@ function startOfCurrentMonthISO() {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 }
 
+// The stored INPUT fields per strategy (never the computed outputs, and
+// never name) — used to detect "this is the same property/figures saved
+// again", per deal_type since each strategy stores a different shape.
+const DEAL_INPUT_FIELDS = {
+  btl: ['pp', 'emv', 'rent', 'mr', 'dp', 'ref', 'sol', 'mf', 'srch', 'ins', 'mgmt', 'maint', 'ty', 'tr'],
+  hmo: ['pp', 'emv', 'totalRent', 'mr', 'dp', 'ref', 'sol', 'mf', 'lic', 'srch', 'ins', 'wifi', 'ctMonthly', 'maint', 'mgmt', 'ty', 'troi'],
+  sa: ['rate', 'occ', 'pp', 'emv', 'mr', 'dp', 'sol', 'mf', 'srch', 'ref', 'furn', 'wg', 'mgmt', 'util', 'maint', 'clean', 'ins', 'ct', 'ty', 'troi'],
+  flip: ['pp', 'bf', 'ref', 'sv', 'agentPct', 'contPct', 'troi']
+};
+
+function normalizedField(obj, field) {
+  const n = Number(obj && obj[field]) || 0;
+  return Math.round(n * 100) / 100;
+}
+
+function isDuplicateDeal(newData, existingData, dealType) {
+  const fields = DEAL_INPUT_FIELDS[dealType] || [];
+  if (!fields.length) return false;
+  return fields.every(f => normalizedField(newData, f) === normalizedField(existingData, f));
+}
+
 app.post('/api/deals', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to save deals.' });
 
-  const { deal_type, deal_data } = req.body;
+  const { deal_type, deal_data, force } = req.body;
   if (!['btl', 'hmo', 'sa', 'flip'].includes(deal_type)) {
     return res.status(400).json({ error: 'deal_type must be "btl", "hmo", "sa", or "flip".' });
   }
@@ -132,6 +153,16 @@ app.post('/api/deals', async (req, res) => {
     if (countError) return res.status(400).json({ error: countError.message });
     if (count >= 2) {
       return res.status(403).json({ error: 'Free plan limit reached — upgrade to save more deals.' });
+    }
+  }
+
+  if (!force) {
+    const { data: existing, error: existingErr } = await supabase
+      .from('deals')
+      .select('deal_data')
+      .eq('deal_type', deal_type);
+    if (!existingErr && existing && existing.some(row => isDuplicateDeal(deal_data, row.deal_data, deal_type))) {
+      return res.status(409).json({ duplicate: true, error: 'You already have a saved deal with these figures.' });
     }
   }
 
@@ -156,6 +187,48 @@ app.get('/api/deals', async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
+});
+
+app.post('/api/deals/:id/name', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to rename deals.' });
+
+  const { name } = req.body;
+  if (typeof name !== 'string') {
+    return res.status(400).json({ error: 'Missing name.' });
+  }
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('deals')
+    .select('deal_data')
+    .eq('id', req.params.id)
+    .single();
+  if (fetchErr || !existing) return res.status(404).json({ error: 'Deal not found.' });
+
+  const updatedData = { ...existing.deal_data, name };
+
+  const { data, error } = await supabase
+    .from('deals')
+    .update({ deal_data: updatedData })
+    .eq('id', req.params.id)
+    .select('id, deal_type, deal_data, created_at, pipeline_stage')
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
+  res.json(data);
+});
+
+app.post('/api/deals/:id/delete', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to delete deals.' });
+
+  const { error } = await supabase
+    .from('deals')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ deleted: true });
 });
 
 const PIPELINE_STAGES = ['analysing', 'viewing', 'offered', 'agreed', 'completed'];
