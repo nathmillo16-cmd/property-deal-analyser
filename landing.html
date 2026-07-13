@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --cobalt:#1D4ED8;
@@ -252,7 +253,7 @@ footer{
         <h1 class="headline"><span class="placeholder">[PLACEHOLDER: emotional hook — the wasted-viewing line]</span></h1>
         <p class="pitch"><span class="placeholder">[PLACEHOLDER: one-line pitch]</span></p>
         <div class="cta-row">
-          <a class="btn-primary" href="index.html">Try the calculator</a>
+          <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
           <a class="link-secondary" href="#objection">See how the maths works ↓</a>
         </div>
       </div>
@@ -366,7 +367,7 @@ footer{
   <!-- Closing CTA -->
   <section class="closing">
     <h2><span class="placeholder">[PLACEHOLDER: closing headline]</span></h2>
-    <a class="btn-primary" href="index.html">Try the calculator</a>
+    <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
   </section>
 
   <hr class="rule"/>
@@ -377,5 +378,18 @@ footer{
   </footer>
 </div>
 
+<script>
+// A returning logged-in user hitting the marketing page gets sent straight
+// to their home portal instead of seeing the pitch again.
+(async function(){
+  const res=await fetch('/api/config');
+  const cfg=await res.json();
+  const client=supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+  const { data:{ session } }=await client.auth.getSession();
+  if(session){
+    window.location.href='/home.html';
+  }
+})();
+</script>
 </body>
 </html>

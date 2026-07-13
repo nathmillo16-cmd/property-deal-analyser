@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
@@ -43,6 +44,16 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
 });
 
 app.use(express.json());
+
+// The bare root now serves the public landing page, not the calculator, so a
+// logged-out visitor lands on marketing content with sign-up/login CTAs
+// rather than the app itself. Registered before express.static so it takes
+// precedence over static's default "index.html answers /" behavior. The
+// calculator remains reachable at its own explicit /index.html path.
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'landing.html'));
+});
+
 app.use(express.static('.'));
 
 app.get('/api/config', (req, res) => {
@@ -283,8 +294,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
       customer_email: userData.user.email,
       client_reference_id: userData.user.id,
       metadata: { user_id: userData.user.id },
-      success_url: `${origin}/?upgraded=1`,
-      cancel_url: `${origin}/`
+      success_url: `${origin}/index.html?upgraded=1`,
+      cancel_url: `${origin}/index.html`
     });
     res.json({ url: session.url });
   } catch (e) {

@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
 <style>
 :root{
   --paper:#FBF9F3;
@@ -100,7 +101,7 @@ body{
 
 <div class="w">
   <div class="topbar">
-    <div class="nav-links"><a href="/">Calculator</a><a href="/pipeline.html" class="active">Pipeline</a></div>
+    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/pipeline.html" class="active">Pipeline</a></div>
     <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
   </div>
 
@@ -190,7 +191,7 @@ let pipelineDeals=[], selectedIds=new Set();
 
 async function logout(){
   await sbClient.auth.signOut();
-  window.location.reload();
+  window.location.href='/';
 }
 
 async function upgradeNow(){
@@ -241,17 +242,10 @@ function showState(state){
 }
 
 async function init(){
-  const res=await fetch('/api/config');
-  const cfg=await res.json();
-  sbClient=supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
-  const { data:{ session } }=await sbClient.auth.getSession();
-  currentSession=session;
-
-  if(!currentSession){
-    updateTopbar();
-    showState('loggedout');
-    return;
-  }
+  const auth=await requireAuth();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
 
   try{
     const profRes=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
@@ -272,8 +266,8 @@ async function init(){
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
+    if(!currentSession){window.location.href='/';return;}
     updateTopbar();
-    if(!currentSession)location.reload();
   });
 }
 

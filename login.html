@@ -175,6 +175,24 @@ async function init(){
   const res = await fetch('/api/config');
   const cfg = await res.json();
   client = supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+
+  // A password-recovery link also establishes a session via the URL hash —
+  // don't let the "already logged in" redirect below hijack that flow before
+  // the PASSWORD_RECOVERY handler gets to show the set-new-password panel.
+  const isRecovery=location.hash.includes('type=recovery');
+
+  if(!isRecovery){
+    const { data:{ session } } = await client.auth.getSession();
+    if(session){
+      window.location.href='/home.html';
+      return;
+    }
+  }
+
+  if(new URLSearchParams(location.search).get('mode')==='signup'){
+    switchMode('signup');
+  }
+
   client.auth.onAuthStateChange((event, session)=>{
     if(event==='PASSWORD_RECOVERY'){
       showResetPanel();
@@ -200,7 +218,7 @@ document.getElementById('form-login').addEventListener('submit', async (e)=>{
       showMsg('msg-login', error.message, 'error');
     }
   }else{
-    window.location.href='/';
+    window.location.href='/home.html';
   }
 });
 
@@ -249,7 +267,7 @@ document.getElementById('form-reset').addEventListener('submit', async (e)=>{
     showMsg('msg-reset', error.message, 'error');
   }else{
     history.replaceState(null,'',location.pathname);
-    window.location.href='/';
+    window.location.href='/home.html';
   }
 });
 

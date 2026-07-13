@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
 <style>
 :root{
   --paper:#FBF9F3;
@@ -44,6 +45,7 @@ body{
   border-radius:20px;
   box-shadow:0 12px 32px rgba(16,22,26,.07), 0 2px 6px rgba(16,22,26,.05);
   padding:2.25rem 2.25rem 3rem;
+  display:none;
 }
 @media(max-width:600px){.w{padding:1.5rem 1.25rem 2rem;border-radius:14px}}
 
@@ -226,9 +228,9 @@ body{
 <body>
 <h2 class="sr-only">Property deal analyser with AI summary — BTL and HMO calculator with Claude-powered deal analysis</h2>
 
-<div class="w">
+<div class="w" id="app">
   <div class="topbar">
-    <div class="nav-links"><a href="/" class="active">Calculator</a><a href="/pipeline.html">Pipeline</a></div>
+    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html" class="active">Calculator</a><a href="/pipeline.html">Pipeline</a></div>
     <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
   </div>
   <p class="hint" id="upgrade-notice" style="display:none"></p>
@@ -1047,7 +1049,7 @@ let sbClient=null, currentSession=null, currentPlan=null;
 
 async function logout(){
   await sbClient.auth.signOut();
-  window.location.reload();
+  window.location.href='/';
 }
 
 async function subscribeNow(){
@@ -1083,16 +1085,17 @@ function checkUpgradeReturn(){
 }
 
 async function initAuth(){
-  const res=await fetch('/api/config');
-  const cfg=await res.json();
-  sbClient=supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
-  const { data:{ session } }=await sbClient.auth.getSession();
-  currentSession=session;
+  const auth=await requireAuth();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+  document.getElementById('app').style.display='block';
   updateAuthUI();
   if(currentSession)await loadDefaults();
   checkUpgradeReturn();
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
+    if(!currentSession){window.location.href='/';return;}
     updateAuthUI();
   });
 }
