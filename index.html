@@ -214,15 +214,6 @@ body{
 .verdict-yes{color:var(--glow);font-weight:600}
 .verdict-no{color:#F0716B;font-weight:600}
 .flag{background:rgba(240,197,85,.15);color:#F0C555;font-size:12px;padding:4px 10px;border-radius:6px;display:inline-block;margin:2px 4px 2px 0}
-
-.saved-panel-inner{background:var(--paper-tint);border:1px solid var(--hairline);border-radius:16px;padding:2rem;max-width:640px}
-.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:10px;margin-bottom:8px;background:#fff;gap:1rem;flex-wrap:wrap}
-.saved-info{display:flex;align-items:center;gap:10px}
-.mini-btn{font-family:var(--body);font-size:12px;font-weight:600;color:var(--jewel);background:transparent;border:1.5px solid var(--jewel);border-radius:8px;padding:6px 12px;cursor:pointer;white-space:nowrap}
-.mini-btn:hover{background:rgba(18,168,122,.07)}
-.pipeline-badge{font-family:var(--body);font-size:12px;font-weight:600;color:var(--mist);background:var(--paper-tint);border:1px solid var(--hairline);border-radius:8px;padding:6px 12px;white-space:nowrap;text-transform:capitalize}
-.saved-type{font-size:13px;font-weight:600;color:var(--graphite);font-family:var(--body)}
-.saved-detail{font-size:12.5px;color:var(--mist);font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -230,7 +221,7 @@ body{
 
 <div class="w" id="app">
   <div class="topbar">
-    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html" class="active">Calculator</a><a href="/pipeline.html">Pipeline</a></div>
+    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html" class="active">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a></div>
     <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
   </div>
   <p class="hint" id="upgrade-notice" style="display:none"></p>
@@ -239,7 +230,6 @@ body{
     <button class="tab" onclick="switchTab('hmo')">HMO</button>
     <button class="tab" onclick="switchTab('sa')">SA</button>
     <button class="tab" onclick="switchTab('flip')">Flip</button>
-    <button class="tab" onclick="switchTab('saved')">Saved Deals</button>
   </div>
 
   <!-- BTL -->
@@ -535,20 +525,12 @@ body{
     </div>
   </div>
 
-  <!-- Saved Deals -->
-  <div class="panel" id="panel-saved">
-    <div class="saved-panel-inner">
-      <p class="sl">Your saved deals</p>
-      <div id="saved-list"><p class="hint">Loading…</p></div>
-    </div>
-  </div>
 </div>
 
 <script>
 function switchTab(t){
-  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip','saved'][i]===t));
-  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-saved'][i]==='panel-'+t));
-  if(t==='saved')loadSavedDeals();
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip'][i]===t));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip'][i]==='panel-'+t));
 }
 
 function stamp(p){
@@ -1157,9 +1139,6 @@ function updateAuthUI(){
     flMsg.innerHTML='Log in to save deals — <a href="/login.html">log in</a>';
   }
   flMsg.className='save-msg';
-
-  const savedPanel=document.getElementById('panel-saved');
-  if(savedPanel.classList.contains('active'))loadSavedDeals();
 }
 
 async function saveDeal(type){
@@ -1179,7 +1158,7 @@ async function saveDeal(type){
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Save failed');
-    msg.textContent='Saved.';msg.className='save-msg success';
+    msg.innerHTML='Saved ✓ — view in <a href="/saved-deals.html">Saved Deals</a>';msg.className='save-msg success';
   }catch(e){
     msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
   }
@@ -1275,51 +1254,6 @@ async function loadDefaults(){
     cBTL();cHMO();cSA();
   }catch(e){
     // fail silently — calculator keeps its built-in default values
-  }
-}
-
-async function loadSavedDeals(){
-  const listEl=document.getElementById('saved-list');
-  if(!currentSession){
-    listEl.innerHTML='<p class="hint">Log in to see your saved deals — <a href="/login.html">log in</a></p>';
-    return;
-  }
-  listEl.innerHTML='<p class="hint">Loading…</p>';
-  try{
-    const res=await fetch('/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
-    const deals=await res.json();
-    if(!res.ok)throw new Error(deals.error||'Could not load saved deals.');
-    if(!Array.isArray(deals)||deals.length===0){
-      listEl.innerHTML='<p class="hint">No saved deals yet.</p>';
-      return;
-    }
-    listEl.innerHTML=deals.map(d=>{
-      const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-      const label=d.deal_type.toUpperCase();
-      const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):'';
-      const action=d.pipeline_stage
-        ?`<span class="pipeline-badge">In pipeline · ${d.pipeline_stage}</span>`
-        :`<button class="mini-btn" onclick="addToPipeline('${d.id}')">Add to pipeline</button>`;
-      return `<div class="saved-item"><div class="saved-info"><span class="saved-type">${label}${pp?' · '+pp:''}</span><span class="saved-detail">${date}</span></div>${action}</div>`;
-    }).join('');
-  }catch(e){
-    listEl.innerHTML='<p class="hint">Could not load saved deals.</p>';
-  }
-}
-
-async function addToPipeline(dealId){
-  if(!currentSession)return;
-  try{
-    const res=await fetch('/api/pipeline',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({deal_id:dealId})
-    });
-    const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not add to pipeline.');
-    loadSavedDeals();
-  }catch(e){
-    alert('Could not add to pipeline: '+e.message);
   }
 }
 

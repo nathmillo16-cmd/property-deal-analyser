@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Deals N Yields — Saved Deals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<style>
+:root{
+  --paper:#FBF9F3;
+  --paper-tint:#F4F1E7;
+  --graphite:#171512;
+  --forest:#0B1F16;
+  --bottle:#0F3D2B;
+  --jewel:#12A87A;
+  --glow:#3FE8B8;
+  --mist:#6B665C;
+  --hairline:#E2DDD0;
+  --frost:#F3F5F3;
+  --display:'Instrument Serif',serif;
+  --body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:linear-gradient(160deg,#F2F0E8 0%,#E9E6DB 100%);
+  color:var(--graphite);
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1.5;
+  padding:2.5rem 1.5rem;
+  min-height:100vh;
+}
+@media(max-width:600px){body{padding:1.25rem .85rem}}
+
+.w{
+  max-width:1200px;margin:0 auto;
+  background:linear-gradient(180deg,#FFFFFF 0%,var(--paper) 100%);
+  border:1px solid var(--hairline);
+  border-radius:20px;
+  box-shadow:0 12px 32px rgba(16,22,26,.07), 0 2px 6px rgba(16,22,26,.05);
+  padding:2.25rem 2.25rem 3rem;
+  display:none;
+}
+@media(max-width:600px){.w{padding:1.5rem 1.25rem 2rem;border-radius:14px}}
+
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:.5rem}
+.nav-links{display:flex;gap:1.25rem}
+.nav-links a{font-family:var(--body);font-size:13px;font-weight:600;color:var(--mist);text-decoration:none;border-bottom:1px solid transparent}
+.nav-links a:hover{color:var(--jewel)}
+.nav-links a.active{color:var(--jewel);border-color:var(--jewel)}
+.auth-bar{display:flex;align-items:center;gap:1.25rem}
+.auth-bar a{font-family:var(--body);font-size:13px;font-weight:600;color:var(--jewel);text-decoration:none;border-bottom:1px solid transparent;cursor:pointer}
+.auth-bar a:hover{border-color:var(--jewel)}
+.hint{font-size:12.5px;color:var(--mist);font-style:italic}
+
+.page-title{font-family:var(--display);font-size:26px;font-weight:400;margin:0 0 1.5rem}
+
+.saved-panel-inner{background:var(--paper-tint);border:1px solid var(--hairline);border-radius:16px;padding:2rem;max-width:640px}
+.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:10px;margin-bottom:8px;background:#fff;gap:1rem;flex-wrap:wrap}
+.saved-info{display:flex;align-items:center;gap:10px}
+.saved-type{font-size:13px;font-weight:600;color:var(--graphite);font-family:var(--body)}
+.saved-detail{font-size:12.5px;color:var(--mist);font-variant-numeric:tabular-nums}
+.mini-btn{font-family:var(--body);font-size:12px;font-weight:600;color:var(--jewel);background:transparent;border:1.5px solid var(--jewel);border-radius:8px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.mini-btn:hover{background:rgba(18,168,122,.07)}
+.pipeline-badge{font-family:var(--body);font-size:12px;font-weight:600;color:var(--mist);background:var(--paper-tint);border:1px solid var(--hairline);border-radius:8px;padding:6px 12px;white-space:nowrap;text-transform:capitalize}
+</style>
+</head>
+<body>
+
+<div class="w" id="app">
+  <div class="topbar">
+    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html" class="active">Saved Deals</a><a href="/pipeline.html">Pipeline</a></div>
+    <div class="auth-bar"><a id="auth-link" href="#">Log out</a></div>
+  </div>
+
+  <p class="page-title">Saved Deals</p>
+
+  <div class="saved-panel-inner">
+    <div id="saved-list"><p class="hint">Loading…</p></div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null;
+
+function fmt(n){return'£'+Math.round(n).toLocaleString();}
+
+async function logout(){
+  await sbClient.auth.signOut();
+  window.location.href='/';
+}
+
+async function loadSavedDeals(){
+  const listEl=document.getElementById('saved-list');
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch('/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const deals=await res.json();
+    if(!res.ok)throw new Error(deals.error||'Could not load saved deals.');
+    if(!Array.isArray(deals)||deals.length===0){
+      listEl.innerHTML='<p class="hint">No saved deals yet.</p>';
+      return;
+    }
+    listEl.innerHTML=deals.map(d=>{
+      const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+      const label=d.deal_type.toUpperCase();
+      const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):'';
+      const action=d.pipeline_stage
+        ?`<span class="pipeline-badge">In pipeline · ${d.pipeline_stage}</span>`
+        :`<button class="mini-btn" onclick="addToPipeline('${d.id}')">Add to pipeline</button>`;
+      return `<div class="saved-item"><div class="saved-info"><span class="saved-type">${label}${pp?' · '+pp:''}</span><span class="saved-detail">${date}</span></div>${action}</div>`;
+    }).join('');
+  }catch(e){
+    listEl.innerHTML='<p class="hint">Could not load saved deals.</p>';
+  }
+}
+
+async function addToPipeline(dealId){
+  if(!currentSession)return;
+  try{
+    const res=await fetch('/api/pipeline',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({deal_id:dealId})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not add to pipeline.');
+    loadSavedDeals();
+  }catch(e){
+    alert('Could not add to pipeline: '+e.message);
+  }
+}
+
+async function init(){
+  const auth=await requireAuth();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
+  document.getElementById('app').style.display='block';
+
+  loadSavedDeals();
+
+  sbClient.auth.onAuthStateChange((_event, session)=>{
+    currentSession=session;
+    if(!currentSession){window.location.href='/';return;}
+  });
+}
+
+init();
+</script>
+</body>
+</html>
