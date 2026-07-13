@@ -1,67 +1,221 @@
-<h2 class="sr-only">Property deal analyser with AI summary — BTL and HMO calculator with Claude-powered deal analysis</h2>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Deals N Yields — Property Deal Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+:root{
+  --paper:#FBF9F3;
+  --paper-tint:#F4F1E7;
+  --graphite:#171512;
+  --forest:#0B1F16;
+  --bottle:#0F3D2B;
+  --jewel:#12A87A;
+  --glow:#3FE8B8;
+  --mist:#6B665C;
+  --hairline:#E2DDD0;
+  --frost:#F3F5F3;
+  --display:'Instrument Serif',serif;
+  --body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+}
 *{box-sizing:border-box}
-.w{padding:1.5rem 0;font-family:var(--font-sans)}
-.tabs{display:flex;gap:8px;margin-bottom:1.5rem}
-.tab{padding:6px 16px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary)}
-.tab.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
-.panel{display:none}.panel.active{display:block}
-.sl{font-size:11px;font-weight:500;color:var(--color-text-secondary);letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
-.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:1.25rem}
+html,body{margin:0;padding:0}
+body{
+  background:linear-gradient(160deg,#F2F0E8 0%,#E9E6DB 100%);
+  color:var(--graphite);
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1.5;
+  padding:2.5rem 1.5rem;
+  min-height:100vh;
+}
+@media(max-width:600px){body{padding:1.25rem .85rem}}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+.w{
+  max-width:1200px;margin:0 auto;
+  background:linear-gradient(180deg,#FFFFFF 0%,var(--paper) 100%);
+  border:1px solid var(--hairline);
+  border-radius:20px;
+  box-shadow:0 12px 32px rgba(16,22,26,.07), 0 2px 6px rgba(16,22,26,.05);
+  padding:2.25rem 2.25rem 3rem;
+}
+@media(max-width:600px){.w{padding:1.5rem 1.25rem 2rem;border-radius:14px}}
+
+.auth-bar{display:flex;justify-content:flex-end;align-items:center;gap:1.25rem;margin-bottom:.75rem}
+.auth-bar a{font-family:var(--body);font-size:13px;font-weight:600;color:var(--jewel);text-decoration:none;border-bottom:1px solid transparent;cursor:pointer}
+.auth-bar a:hover{border-color:var(--jewel)}
+.hint{font-size:12.5px;color:var(--mist);font-style:italic}
+
+.tabs{display:flex;gap:8px;margin-bottom:1.75rem}
+.tab{
+  font-family:var(--body);font-weight:600;letter-spacing:.02em;
+  padding:9px 20px;border:1.5px solid var(--hairline);border-radius:8px;
+  font-size:13px;cursor:pointer;background:var(--paper);color:var(--mist);
+  transition:all .15s ease;
+}
+.tab:hover{border-color:var(--jewel);color:var(--graphite)}
+.tab.active{background:var(--graphite);color:var(--frost);border-color:var(--graphite)}
+
+.panel{display:none}
+.panel.active{display:block}
+
+.split-panel{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0;
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid var(--hairline);
+  box-shadow:0 4px 18px rgba(16,22,26,.07);
+}
+@media(max-width:860px){.split-panel{grid-template-columns:1fr}}
+
+.input-col{
+  background:var(--paper-tint);
+  border-right:1px solid var(--hairline);
+  padding:2.25rem;
+}
+@media(max-width:860px){.input-col{border-right:none;border-bottom:1px solid var(--hairline)}}
+
+.results-col{
+  background:linear-gradient(155deg,var(--bottle) 0%,var(--forest) 60%,var(--forest) 100%);
+  color:var(--frost);
+  padding:2.25rem;
+  position:relative;
+  overflow:hidden;
+}
+.results-col::before{
+  content:'';
+  position:absolute;top:0;left:0;bottom:0;width:2px;
+  background:linear-gradient(180deg,var(--glow),transparent 85%);
+  z-index:1;
+}
+.results-col::after{
+  content:'';
+  position:absolute;top:-45%;left:-15%;width:70%;height:70%;
+  background:radial-gradient(circle,rgba(255,255,255,.09) 0%,rgba(255,255,255,0) 70%);
+  pointer-events:none;
+}
+@media(max-width:860px){
+  .results-col::before{top:0;left:0;right:0;bottom:auto;width:auto;height:2px;background:linear-gradient(90deg,var(--glow),transparent 85%)}
+}
+.results-col>*{position:relative;z-index:1}
+
+.sl{
+  font-family:var(--display);font-size:20px;font-weight:400;
+  letter-spacing:.005em;margin:0 0 1.1rem;
+  color:var(--graphite);
+}
+.results-col .sl{color:var(--frost)}
+.section-gap{margin-top:1.85rem;padding-top:1.85rem;border-top:1px solid var(--hairline)}
+.results-col .section-gap{border-top-color:rgba(243,245,243,.1)}
+
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.5rem}
 .f{display:flex;flex-direction:column;gap:5px}
-.f label{font-size:12px;color:var(--color-text-secondary)}
-.f input{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:7px 10px;font-size:13px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%}
-.f input:focus{outline:none;box-shadow:0 0 0 2px var(--color-border-info)}
-.div{border:none;border-top:0.5px solid var(--color-border-tertiary);margin:1.25rem 0}
-.split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem}
-.ch{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin:0 0 8px;padding-bottom:6px;border-bottom:0.5px solid var(--color-border-tertiary)}
-.m{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.7rem;margin-bottom:7px}
-.ml{font-size:11px;color:var(--color-text-secondary);margin:0 0 2px}
-.mv{font-size:18px;font-weight:500;color:var(--color-text-primary);margin:0}
-.mv.good{color:var(--color-text-success)}.mv.warn{color:var(--color-text-warning)}.mv.bad{color:var(--color-text-danger)}
-.ob{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:.9rem 1.1rem;margin-bottom:10px}
-.ot{font-size:12px;color:var(--color-text-secondary);margin:0 0 3px}
-.ov{font-size:19px;font-weight:500;color:var(--color-text-info);margin:0 0 3px}
-.on{font-size:11px;color:var(--color-text-secondary);margin:0}
-.sn{font-size:11px;color:var(--color-text-secondary);margin-top:6px;line-height:1.6}
+.f label{font-size:12px;color:var(--mist);font-weight:500}
+.f input{
+  border:1.5px solid var(--hairline);border-radius:8px;padding:8px 11px;
+  font-size:13.5px;background:#fff;color:var(--graphite);width:100%;
+  font-family:var(--body);
+}
+.f input:focus{outline:none;border-color:var(--jewel);box-shadow:0 0 0 3px rgba(18,168,122,.12)}
+
 .tr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.tr label{font-size:12px;color:var(--color-text-secondary);min-width:130px}
-.tr input{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 8px;font-size:13px;background:var(--color-background-primary);color:var(--color-text-primary);width:70px}
-.hint{font-size:11px;color:var(--color-text-secondary);margin:-8px 0 12px;font-style:italic}
+.tr label{font-size:12.5px;color:var(--mist);min-width:130px;font-weight:500}
+.tr input{border:1.5px solid var(--hairline);border-radius:8px;padding:6px 9px;font-size:13.5px;background:#fff;color:var(--graphite);width:75px;font-family:var(--body)}
+.tr input:focus{outline:none;border-color:var(--jewel)}
+
 .rg{display:grid;grid-template-columns:1.4fr 75px 55px 75px;gap:8px;align-items:center;margin-bottom:6px}
-.rg span{font-size:12px;color:var(--color-text-secondary)}
-.rg input{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 8px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%}
-.rt{font-size:12px;font-weight:500;color:var(--color-text-primary);text-align:right}
-.trow{text-align:right;font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:1rem}
-.analyse-btn{width:100%;padding:12px;background:var(--color-text-primary);color:var(--color-background-primary);border:none;border-radius:var(--border-radius-md);font-size:14px;font-weight:500;cursor:pointer;margin-top:1rem}
-.analyse-btn:hover{opacity:0.85}
-.analyse-btn:disabled{opacity:0.4;cursor:not-allowed}
-.ai-wrap{margin-top:1.5rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
-.ai-header{padding:1rem 1.25rem;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
-.ai-title{font-size:13px;font-weight:500;color:var(--color-text-primary);margin:0}
-.ai-disclaimer{font-size:11px;color:var(--color-text-secondary);margin:0}
-.ai-body{padding:1.25rem;font-size:13px;line-height:1.8;color:var(--color-text-primary)}
-.ai-body.loading{color:var(--color-text-secondary);font-style:italic}
+.rg span{font-size:12px;color:var(--mist)}
+.rg input{border:1.5px solid var(--hairline);border-radius:6px;padding:5px 8px;font-size:12.5px;background:#fff;color:var(--graphite);width:100%;font-family:var(--body)}
+.rt{font-size:12.5px;font-weight:600;color:var(--graphite);text-align:right;font-variant-numeric:tabular-nums}
+.trow{text-align:right;font-size:13px;font-weight:600;color:var(--graphite);margin-bottom:1rem;font-variant-numeric:tabular-nums}
+
+.results-split{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1rem}
+@media(max-width:520px){.results-split{grid-template-columns:1fr}}
+.ch{
+  font-family:var(--body);font-size:12px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(243,245,243,.65);margin:0 0 .85rem;padding-bottom:.5rem;
+  border-bottom:1px solid rgba(243,245,243,.12);
+}
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m{background:rgba(243,245,243,.05);border:1px solid rgba(243,245,243,.08);border-radius:10px;padding:.75rem .85rem}
+.ml{font-size:10.5px;color:rgba(243,245,243,.55);margin:0 0 4px;text-transform:uppercase;letter-spacing:.04em;font-family:var(--body)}
+.mv{font-family:var(--body);font-size:17px;font-weight:600;color:var(--frost);margin:0;font-variant-numeric:tabular-nums}
+.mv.good{color:var(--glow);text-shadow:0 0 16px rgba(63,232,184,.4)}
+.mv.warn{color:#F0C555}
+.mv.bad{color:#F0716B}
+
+.sn{font-size:11.5px;color:rgba(243,245,243,.55);margin-top:.5rem;line-height:1.6}
+
+.ob{
+  border:1.5px solid var(--jewel);border-radius:12px;
+  padding:1.15rem 1.3rem;margin-bottom:12px;
+  background:rgba(63,232,184,.07);
+  box-shadow:0 0 26px rgba(18,168,122,.16);
+}
+.ot{font-size:12px;color:rgba(243,245,243,.65);margin:0 0 6px;font-family:var(--body)}
+.ov{
+  font-family:var(--body);font-size:28px;font-weight:700;margin:0 0 3px;
+  font-variant-numeric:tabular-nums;
+  background:linear-gradient(100deg,var(--glow) 10%,var(--jewel) 90%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--glow);
+}
+.on{font-size:11.5px;color:rgba(243,245,243,.55);margin:0;font-family:var(--body)}
+
+.analyse-btn{
+  width:100%;padding:13px;background:linear-gradient(135deg,var(--jewel),var(--glow));color:var(--forest);
+  border:none;border-radius:10px;font-size:14px;font-weight:700;
+  font-family:var(--body);cursor:pointer;margin-top:1rem;
+  transition:opacity .15s ease;
+}
+.analyse-btn:hover{opacity:.88}
+.analyse-btn:disabled{opacity:.35;cursor:not-allowed}
+
+.save-btn{
+  width:100%;padding:11px;background:transparent;color:var(--jewel);
+  border:1.5px solid var(--jewel);border-radius:10px;font-size:13px;font-weight:600;
+  font-family:var(--body);cursor:pointer;margin-top:.85rem;
+}
+.results-col .save-btn{color:var(--glow);border-color:var(--glow)}
+.save-btn:hover{background:rgba(18,168,122,.07)}
+.results-col .save-btn:hover{background:rgba(63,232,184,.09)}
+.save-btn:disabled{opacity:.4;cursor:not-allowed}
+
+.save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em}
+.save-msg.success{color:var(--jewel)}
+.results-col .save-msg.success{color:var(--glow)}
+.save-msg.error{color:#C0392B}
+.results-col .save-msg.error{color:#F0716B}
+
+.ai-wrap{margin-top:1.5rem;border:1px solid rgba(243,245,243,.14);border-radius:12px;overflow:hidden;background:rgba(243,245,243,.03)}
+.ai-header{padding:1rem 1.25rem;border-bottom:1px solid rgba(243,245,243,.12);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px}
+.ai-title{font-family:var(--display);font-size:20px;font-weight:400;letter-spacing:.005em;color:var(--frost);margin:0}
+.ai-disclaimer{font-size:10.5px;color:rgba(243,245,243,.5);margin:0;font-family:var(--body)}
+.ai-body{padding:1.25rem;font-size:13.5px;line-height:1.75;color:rgba(243,245,243,.85)}
+.ai-body.loading{color:rgba(243,245,243,.55);font-style:italic}
 .ai-section{margin-bottom:1.25rem}
 .ai-section:last-child{margin-bottom:0}
-.ai-section-title{font-size:11px;font-weight:500;color:var(--color-text-secondary);letter-spacing:.08em;text-transform:uppercase;margin:0 0 6px}
-.verdict-yes{color:var(--color-text-success);font-weight:500}
-.verdict-no{color:var(--color-text-danger);font-weight:500}
-.flag{background:var(--color-background-warning);color:var(--color-text-warning);font-size:12px;padding:4px 10px;border-radius:var(--border-radius-md);display:inline-block;margin:2px 4px 2px 0}
-.save-btn{width:100%;padding:10px;background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;font-weight:500;cursor:pointer;margin-top:.75rem}
-.save-btn:hover{opacity:.85}
-.save-btn:disabled{opacity:.4;cursor:not-allowed}
-.save-msg{font-size:12px;margin:.4rem 0 0;min-height:1em}
-.auth-bar{text-align:right;margin-bottom:.75rem}
-.auth-bar a{font-size:12px;color:var(--color-text-secondary);text-decoration:none;border-bottom:1px solid var(--color-border-secondary);cursor:pointer}
-.auth-bar a:hover{opacity:.75}
-.save-msg.success{color:var(--color-text-success)}
-.save-msg.error{color:var(--color-text-danger)}
-.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);margin-bottom:6px}
-.saved-type{font-size:12px;font-weight:500;color:var(--color-text-primary)}
-.saved-detail{font-size:12px;color:var(--color-text-secondary)}
+.ai-section-title{font-family:var(--body);font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--glow);margin:0 0 6px}
+.verdict-yes{color:var(--glow);font-weight:600}
+.verdict-no{color:#F0716B;font-weight:600}
+.flag{background:rgba(240,197,85,.15);color:#F0C555;font-size:12px;padding:4px 10px;border-radius:6px;display:inline-block;margin:2px 4px 2px 0}
+
+.saved-panel-inner{background:var(--paper-tint);border:1px solid var(--hairline);border-radius:16px;padding:2rem;max-width:640px}
+.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:10px;margin-bottom:8px;background:#fff}
+.saved-type{font-size:13px;font-weight:600;color:var(--graphite);font-family:var(--body)}
+.saved-detail{font-size:12.5px;color:var(--mist);font-variant-numeric:tabular-nums}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<h2 class="sr-only">Property deal analyser with AI summary — BTL and HMO calculator with Claude-powered deal analysis</h2>
 
 <div class="w">
   <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
@@ -69,165 +223,270 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('btl')">BTL</button>
     <button class="tab" onclick="switchTab('hmo')">HMO</button>
+    <button class="tab" onclick="switchTab('sa')">SA</button>
     <button class="tab" onclick="switchTab('saved')">Saved Deals</button>
   </div>
 
   <!-- BTL -->
   <div class="panel active" id="panel-btl">
-    <p class="sl">Property details</p>
-    <div class="g2">
-      <div class="f"><label>Purchase price (£)</label><input type="number" id="b-pp" value="140000" oninput="cBTL()"/></div>
-      <div class="f"><label>End market value (£)</label><input type="number" id="b-emv" value="200000" oninput="cBTL()"/></div>
-      <div class="f"><label>Monthly rent (£)</label><input type="number" id="b-rent" value="850" oninput="cBTL()"/></div>
-      <div class="f"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="cBTL()"/></div>
-      <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="b-dp" value="25" oninput="cBTL()"/></div>
-      <div class="f"><label>Refurb (£)</label><input type="number" id="b-ref" value="10000" oninput="cBTL()"/></div>
-      <div class="f"><label>Solicitor fees (£)</label><input type="number" id="b-sol" value="1800" oninput="cBTL()"/></div>
-      <div class="f"><label>Mortgage fees (£)</label><input type="number" id="b-mf" value="300" oninput="cBTL()"/></div>
-      <div class="f"><label>Searches (£)</label><input type="number" id="b-srch" value="0" oninput="cBTL()"/></div>
-      <div class="f"><label>Insurance /mo (£)</label><input type="number" id="b-ins" value="50" oninput="cBTL()"/></div>
-      <div class="f"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="cBTL()"/></div>
-      <div class="f"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="cBTL()"/></div>
-    </div>
-    <p class="hint">Stamp duty auto-calculated with BTL surcharge. Deposit, yields and money left in use end market value.</p>
-    <p class="sl">Targets</p>
-    <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="cBTL()"/></div>
-    <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="cBTL()"/></div>
-    <button class="save-btn" onclick="saveDefaults('btl')" id="btn-save-defaults-btl">Save as my defaults</button>
-    <p class="save-msg" id="btl-defaults-msg"></p>
-    <hr class="div"/>
-    <p class="sl">Results</p>
-    <div class="split">
-      <div>
-        <p class="ch">Mortgage purchase</p>
-        <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bm-nm">—</p></div>
-        <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bm-ny">—</p></div>
-        <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bm-gy">—</p></div>
-        <div class="m"><p class="ml">Net yield</p><p class="mv" id="bm-ny2">—</p></div>
-        <div class="m"><p class="ml">ROI</p><p class="mv" id="bm-roi">—</p></div>
-        <div class="m"><p class="ml">Total investment</p><p class="mv" id="bm-ti">—</p></div>
-        <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bm-mli">—</p></div>
-        <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bm-pb">—</p></div>
-      </div>
-      <div>
-        <p class="ch">Cash purchase</p>
-        <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bc-nm">—</p></div>
-        <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bc-ny">—</p></div>
-        <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bc-gy">—</p></div>
-        <div class="m"><p class="ml">Net yield</p><p class="mv" id="bc-ny2">—</p></div>
-        <div class="m"><p class="ml">ROI</p><p class="mv" id="bc-roi">—</p></div>
-        <div class="m"><p class="ml">Total investment</p><p class="mv" id="bc-ti">—</p></div>
-        <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bc-mli">—</p></div>
-        <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bc-pb">—</p></div>
-      </div>
-    </div>
-    <div id="b-sn" class="sn"></div>
-    <hr class="div"/>
-    <p class="sl">Recommended offer prices</p>
-    <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
-    <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
-    <button class="save-btn" onclick="saveDeal('btl')" id="btn-save-btl">Save deal</button>
-    <p class="save-msg" id="btl-save-msg"></p>
-    <button class="analyse-btn" onclick="analyse('btl')" id="btn-btl">Analyse this deal</button>
-    <div id="ai-btl" style="display:none">
-      <div class="ai-wrap">
-        <div class="ai-header">
-          <p class="ai-title">AI Deal Analysis</p>
-          <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+    <div class="split-panel">
+      <div class="input-col">
+        <p class="sl">Property details</p>
+        <div class="g2">
+          <div class="f"><label>Purchase price (£)</label><input type="number" id="b-pp" value="140000" oninput="cBTL()"/></div>
+          <div class="f"><label>End market value (£)</label><input type="number" id="b-emv" value="200000" oninput="cBTL()"/></div>
+          <div class="f"><label>Monthly rent (£)</label><input type="number" id="b-rent" value="850" oninput="cBTL()"/></div>
+          <div class="f"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="cBTL()"/></div>
+          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="b-dp" value="25" oninput="cBTL()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="number" id="b-ref" value="10000" oninput="cBTL()"/></div>
+          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="b-sol" value="1800" oninput="cBTL()"/></div>
+          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="b-mf" value="300" oninput="cBTL()"/></div>
+          <div class="f"><label>Searches (£)</label><input type="number" id="b-srch" value="0" oninput="cBTL()"/></div>
+          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="b-ins" value="50" oninput="cBTL()"/></div>
+          <div class="f"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="cBTL()"/></div>
+          <div class="f"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="cBTL()"/></div>
         </div>
-        <div class="ai-body" id="ai-btl-body"></div>
+        <p class="hint">Stamp duty auto-calculated with BTL surcharge. Deposit, yields and money left in use end market value.</p>
+        <p class="sl section-gap">Targets</p>
+        <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="cBTL()"/></div>
+        <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="cBTL()"/></div>
+        <button class="save-btn" onclick="saveDefaults('btl')" id="btn-save-defaults-btl">Save as my defaults</button>
+        <p class="save-msg" id="btl-defaults-msg"></p>
+      </div>
+      <div class="results-col">
+        <p class="sl">Results</p>
+        <div class="results-split">
+          <div>
+            <p class="ch">Mortgage purchase</p>
+            <div class="metric-grid">
+              <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bm-nm">—</p></div>
+              <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bm-ny">—</p></div>
+              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bm-gy">—</p></div>
+              <div class="m"><p class="ml">Net yield</p><p class="mv" id="bm-ny2">—</p></div>
+              <div class="m"><p class="ml">ROI</p><p class="mv" id="bm-roi">—</p></div>
+              <div class="m"><p class="ml">Total investment</p><p class="mv" id="bm-ti">—</p></div>
+              <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bm-mli">—</p></div>
+              <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bm-pb">—</p></div>
+            </div>
+          </div>
+          <div>
+            <p class="ch">Cash purchase</p>
+            <div class="metric-grid">
+              <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bc-nm">—</p></div>
+              <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bc-ny">—</p></div>
+              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bc-gy">—</p></div>
+              <div class="m"><p class="ml">Net yield</p><p class="mv" id="bc-ny2">—</p></div>
+              <div class="m"><p class="ml">ROI</p><p class="mv" id="bc-roi">—</p></div>
+              <div class="m"><p class="ml">Total investment</p><p class="mv" id="bc-ti">—</p></div>
+              <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bc-mli">—</p></div>
+              <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bc-pb">—</p></div>
+            </div>
+          </div>
+        </div>
+        <div id="b-sn" class="sn"></div>
+        <p class="sl section-gap">Recommended offer prices</p>
+        <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
+        <button class="save-btn" onclick="saveDeal('btl')" id="btn-save-btl">Save deal</button>
+        <p class="save-msg" id="btl-save-msg"></p>
+        <button class="analyse-btn" onclick="analyse('btl')" id="btn-btl">Analyse this deal</button>
+        <div id="ai-btl" style="display:none">
+          <div class="ai-wrap">
+            <div class="ai-header">
+              <p class="ai-title">AI Deal Analysis</p>
+              <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+            </div>
+            <div class="ai-body" id="ai-btl-body"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- HMO -->
   <div class="panel" id="panel-hmo">
-    <p class="sl">Property details</p>
-    <div class="g2">
-      <div class="f"><label>Purchase price (£)</label><input type="number" id="h-pp" value="140000" oninput="cHMO()"/></div>
-      <div class="f"><label>End market value (£)</label><input type="number" id="h-emv" value="200000" oninput="cHMO()"/></div>
-      <div class="f"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="cHMO()"/></div>
-      <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="h-dp" value="25" oninput="cHMO()"/></div>
-      <div class="f"><label>Refurb (£)</label><input type="number" id="h-ref" value="10000" oninput="cHMO()"/></div>
-      <div class="f"><label>Solicitor fees (£)</label><input type="number" id="h-sol" value="1800" oninput="cHMO()"/></div>
-      <div class="f"><label>Mortgage fees (£)</label><input type="number" id="h-mf" value="300" oninput="cHMO()"/></div>
-      <div class="f"><label>Licensing fee (£)</label><input type="number" id="h-lic" value="650" oninput="cHMO()"/></div>
-      <div class="f"><label>Searches (£)</label><input type="number" id="h-srch" value="0" oninput="cHMO()"/></div>
-      <div class="f"><label>Insurance /mo (£)</label><input type="number" id="h-ins" value="30" oninput="cHMO()"/></div>
-      <div class="f"><label>WiFi /mo (£)</label><input type="number" id="h-wifi" value="50" oninput="cHMO()"/></div>
-      <div class="f"><label>Council tax annual (£)</label><input type="number" id="h-ct" value="2265" oninput="cHMO()"/></div>
-      <div class="f"><label>Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="cHMO()"/></div>
-      <div class="f"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="cHMO()"/></div>
-    </div>
-    <p class="hint">Bills auto-calculated as 10% of total rent. Stamp duty auto-calculated. Council tax entered annually.</p>
-    <p class="sl">Room breakdown</p>
-    <div class="rg"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
-    <div class="rg"><span>Single</span><input type="number" id="h-r1p" value="400" oninput="cHMO()"/><input type="number" id="h-r1n" value="0" oninput="cHMO()"/><span class="rt" id="h-r1t">£0</span></div>
-    <div class="rg"><span>Double</span><input type="number" id="h-r2p" value="600" oninput="cHMO()"/><input type="number" id="h-r2n" value="3" oninput="cHMO()"/><span class="rt" id="h-r2t">£0</span></div>
-    <div class="rg"><span>Single en suite</span><input type="number" id="h-r3p" value="600" oninput="cHMO()"/><input type="number" id="h-r3n" value="0" oninput="cHMO()"/><span class="rt" id="h-r3t">£0</span></div>
-    <div class="rg"><span>Double en suite</span><input type="number" id="h-r4p" value="675" oninput="cHMO()"/><input type="number" id="h-r4n" value="0" oninput="cHMO()"/><span class="rt" id="h-r4t">£0</span></div>
-    <div class="trow">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
-    <p class="sl">Targets</p>
-    <div class="tr"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="cHMO()"/></div>
-    <div class="tr"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="cHMO()"/></div>
-    <button class="save-btn" onclick="saveDefaults('hmo')" id="btn-save-defaults-hmo">Save as my defaults</button>
-    <p class="save-msg" id="hmo-defaults-msg"></p>
-    <hr class="div"/>
-    <p class="sl">Results</p>
-    <div class="split">
-      <div>
-        <p class="ch">Mortgage purchase</p>
-        <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hm-nm">—</p></div>
-        <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hm-ny">—</p></div>
-        <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hm-gy">—</p></div>
-        <div class="m"><p class="ml">Net yield</p><p class="mv" id="hm-ny2">—</p></div>
-        <div class="m"><p class="ml">ROI</p><p class="mv" id="hm-roi">—</p></div>
-        <div class="m"><p class="ml">Total investment</p><p class="mv" id="hm-ti">—</p></div>
-        <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hm-mli">—</p></div>
-        <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hm-pb">—</p></div>
-      </div>
-      <div>
-        <p class="ch">Cash purchase</p>
-        <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hc-nm">—</p></div>
-        <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hc-ny">—</p></div>
-        <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hc-gy">—</p></div>
-        <div class="m"><p class="ml">Net yield</p><p class="mv" id="hc-ny2">—</p></div>
-        <div class="m"><p class="ml">ROI</p><p class="mv" id="hc-roi">—</p></div>
-        <div class="m"><p class="ml">Total investment</p><p class="mv" id="hc-ti">—</p></div>
-        <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hc-mli">—</p></div>
-        <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hc-pb">—</p></div>
-      </div>
-    </div>
-    <div id="h-sn" class="sn"></div>
-    <hr class="div"/>
-    <p class="sl">Recommended offer prices</p>
-    <div class="ob"><p class="ot">To achieve <span id="h-ly">10</span>% gross yield</p><p class="ov" id="h-oy">—</p><p class="on" id="h-oyn"></p></div>
-    <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
-    <button class="save-btn" onclick="saveDeal('hmo')" id="btn-save-hmo">Save deal</button>
-    <p class="save-msg" id="hmo-save-msg"></p>
-    <button class="analyse-btn" onclick="analyse('hmo')" id="btn-hmo">Analyse this deal</button>
-    <div id="ai-hmo" style="display:none">
-      <div class="ai-wrap">
-        <div class="ai-header">
-          <p class="ai-title">AI Deal Analysis</p>
-          <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+    <div class="split-panel">
+      <div class="input-col">
+        <p class="sl">Property details</p>
+        <div class="g2">
+          <div class="f"><label>Purchase price (£)</label><input type="number" id="h-pp" value="140000" oninput="cHMO()"/></div>
+          <div class="f"><label>End market value (£)</label><input type="number" id="h-emv" value="200000" oninput="cHMO()"/></div>
+          <div class="f"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="cHMO()"/></div>
+          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="h-dp" value="25" oninput="cHMO()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="number" id="h-ref" value="10000" oninput="cHMO()"/></div>
+          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="h-sol" value="1800" oninput="cHMO()"/></div>
+          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="h-mf" value="300" oninput="cHMO()"/></div>
+          <div class="f"><label>Licensing fee (£)</label><input type="number" id="h-lic" value="650" oninput="cHMO()"/></div>
+          <div class="f"><label>Searches (£)</label><input type="number" id="h-srch" value="0" oninput="cHMO()"/></div>
+          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="h-ins" value="30" oninput="cHMO()"/></div>
+          <div class="f"><label>WiFi /mo (£)</label><input type="number" id="h-wifi" value="50" oninput="cHMO()"/></div>
+          <div class="f"><label>Council tax annual (£)</label><input type="number" id="h-ct" value="2265" oninput="cHMO()"/></div>
+          <div class="f"><label>Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="cHMO()"/></div>
+          <div class="f"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="cHMO()"/></div>
         </div>
-        <div class="ai-body" id="ai-hmo-body"></div>
+        <p class="hint">Bills auto-calculated as 10% of total rent. Stamp duty auto-calculated. Council tax entered annually.</p>
+        <p class="sl section-gap">Room breakdown</p>
+        <div class="rg"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
+        <div class="rg"><span>Single</span><input type="number" id="h-r1p" value="400" oninput="cHMO()"/><input type="number" id="h-r1n" value="0" oninput="cHMO()"/><span class="rt" id="h-r1t">£0</span></div>
+        <div class="rg"><span>Double</span><input type="number" id="h-r2p" value="600" oninput="cHMO()"/><input type="number" id="h-r2n" value="3" oninput="cHMO()"/><span class="rt" id="h-r2t">£0</span></div>
+        <div class="rg"><span>Single en suite</span><input type="number" id="h-r3p" value="600" oninput="cHMO()"/><input type="number" id="h-r3n" value="0" oninput="cHMO()"/><span class="rt" id="h-r3t">£0</span></div>
+        <div class="rg"><span>Double en suite</span><input type="number" id="h-r4p" value="675" oninput="cHMO()"/><input type="number" id="h-r4n" value="0" oninput="cHMO()"/><span class="rt" id="h-r4t">£0</span></div>
+        <div class="trow">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
+        <p class="sl section-gap">Targets</p>
+        <div class="tr"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="cHMO()"/></div>
+        <div class="tr"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="cHMO()"/></div>
+        <button class="save-btn" onclick="saveDefaults('hmo')" id="btn-save-defaults-hmo">Save as my defaults</button>
+        <p class="save-msg" id="hmo-defaults-msg"></p>
+      </div>
+      <div class="results-col">
+        <p class="sl">Results</p>
+        <div class="results-split">
+          <div>
+            <p class="ch">Mortgage purchase</p>
+            <div class="metric-grid">
+              <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hm-nm">—</p></div>
+              <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hm-ny">—</p></div>
+              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hm-gy">—</p></div>
+              <div class="m"><p class="ml">Net yield</p><p class="mv" id="hm-ny2">—</p></div>
+              <div class="m"><p class="ml">ROI</p><p class="mv" id="hm-roi">—</p></div>
+              <div class="m"><p class="ml">Total investment</p><p class="mv" id="hm-ti">—</p></div>
+              <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hm-mli">—</p></div>
+              <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hm-pb">—</p></div>
+            </div>
+          </div>
+          <div>
+            <p class="ch">Cash purchase</p>
+            <div class="metric-grid">
+              <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hc-nm">—</p></div>
+              <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hc-ny">—</p></div>
+              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hc-gy">—</p></div>
+              <div class="m"><p class="ml">Net yield</p><p class="mv" id="hc-ny2">—</p></div>
+              <div class="m"><p class="ml">ROI</p><p class="mv" id="hc-roi">—</p></div>
+              <div class="m"><p class="ml">Total investment</p><p class="mv" id="hc-ti">—</p></div>
+              <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hc-mli">—</p></div>
+              <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hc-pb">—</p></div>
+            </div>
+          </div>
+        </div>
+        <div id="h-sn" class="sn"></div>
+        <p class="sl section-gap">Recommended offer prices</p>
+        <div class="ob"><p class="ot">To achieve <span id="h-ly">10</span>% gross yield</p><p class="ov" id="h-oy">—</p><p class="on" id="h-oyn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
+        <button class="save-btn" onclick="saveDeal('hmo')" id="btn-save-hmo">Save deal</button>
+        <p class="save-msg" id="hmo-save-msg"></p>
+        <button class="analyse-btn" onclick="analyse('hmo')" id="btn-hmo">Analyse this deal</button>
+        <div id="ai-hmo" style="display:none">
+          <div class="ai-wrap">
+            <div class="ai-header">
+              <p class="ai-title">AI Deal Analysis</p>
+              <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+            </div>
+            <div class="ai-body" id="ai-hmo-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SA -->
+  <div class="panel" id="panel-sa">
+    <div class="split-panel">
+      <div class="input-col">
+        <p class="sl">Property details</p>
+        <div class="g2">
+          <div class="f"><label>Nightly rate (£)</label><input type="number" id="sa-rate" value="150" oninput="cSA()"/></div>
+          <div class="f"><label>Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="cSA()"/></div>
+          <div class="f"><label>Purchase price (£)</label><input type="number" id="sa-pp" value="200000" oninput="cSA()"/></div>
+          <div class="f"><label>End market value (£)</label><input type="number" id="sa-emv" value="240000" oninput="cSA()"/></div>
+          <div class="f"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="cSA()"/></div>
+          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="sa-dp" value="25" oninput="cSA()"/></div>
+        </div>
+        <p class="sl section-gap">Upfront costs</p>
+        <div class="g2">
+          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="sa-sol" value="1800" oninput="cSA()"/></div>
+          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="sa-mf" value="300" oninput="cSA()"/></div>
+          <div class="f"><label>Searches (£)</label><input type="number" id="sa-srch" value="0" oninput="cSA()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="number" id="sa-ref" value="15000" oninput="cSA()"/></div>
+          <div class="f"><label>Furnishings (£)</label><input type="number" id="sa-furn" value="8000" oninput="cSA()"/></div>
+          <div class="f"><label>White goods (£)</label><input type="number" id="sa-wg" value="2000" oninput="cSA()"/></div>
+        </div>
+        <p class="sl section-gap">Running costs</p>
+        <div class="g2">
+          <div class="f"><label>Management % of revenue</label><input type="number" id="sa-mgmt" value="10" oninput="cSA()"/></div>
+          <div class="f"><label>Utilities % of revenue</label><input type="number" id="sa-util" value="10" oninput="cSA()"/></div>
+          <div class="f"><label>Maintenance % of revenue</label><input type="number" id="sa-maint" value="10" oninput="cSA()"/></div>
+          <div class="f"><label>Cleaning /mo (£)</label><input type="number" id="sa-clean" value="400" oninput="cSA()"/></div>
+          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="sa-ins" value="40" oninput="cSA()"/></div>
+          <div class="f"><label>Council tax annual (£)</label><input type="number" id="sa-ct" value="2265" oninput="cSA()"/></div>
+        </div>
+        <p class="hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with BTL surcharge. Deposit and yields use end market value.</p>
+        <p class="sl section-gap">Targets</p>
+        <div class="tr"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="cSA()"/></div>
+        <div class="tr"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="cSA()"/></div>
+        <button class="save-btn" onclick="saveDefaults('sa')" id="btn-save-defaults-sa">Save as my defaults</button>
+        <p class="save-msg" id="sa-defaults-msg"></p>
+      </div>
+      <div class="results-col">
+        <p class="sl">Results</p>
+        <div class="results-split">
+          <div>
+            <p class="ch">Mortgage purchase</p>
+            <div class="metric-grid">
+              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sam-gy">—</p></div>
+              <div class="m"><p class="ml">Net yield</p><p class="mv" id="sam-ny">—</p></div>
+              <div class="m"><p class="ml">ROI</p><p class="mv" id="sam-roi">—</p></div>
+              <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sam-im">—</p></div>
+              <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sam-iy">—</p></div>
+              <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sam-cfm">—</p></div>
+              <div class="m"><p class="ml">Yearly cashflow</p><p class="mv" id="sam-cfy">—</p></div>
+            </div>
+          </div>
+          <div>
+            <p class="ch">Cash purchase</p>
+            <div class="metric-grid">
+              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sac-gy">—</p></div>
+              <div class="m"><p class="ml">Net yield</p><p class="mv" id="sac-ny">—</p></div>
+              <div class="m"><p class="ml">ROI</p><p class="mv" id="sac-roi">—</p></div>
+              <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sac-im">—</p></div>
+              <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sac-iy">—</p></div>
+              <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sac-cfm">—</p></div>
+              <div class="m"><p class="ml">Yearly cashflow</p><p class="mv" id="sac-cfy">—</p></div>
+            </div>
+          </div>
+        </div>
+        <div id="sa-sn" class="sn"></div>
+        <p class="sl section-gap">Recommended offer prices</p>
+        <div class="ob"><p class="ot">To achieve <span id="sa-ly">12</span>% gross yield</p><p class="ov" id="sa-oy">—</p><p class="on" id="sa-oyn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span id="sa-lr">20</span>% ROI (mortgage)</p><p class="ov" id="sa-or">—</p><p class="on" id="sa-orn"></p></div>
+        <button class="save-btn" onclick="saveDeal('sa')" id="btn-save-sa">Save deal</button>
+        <p class="save-msg" id="sa-save-msg"></p>
+        <button class="analyse-btn" onclick="analyse('sa')" id="btn-sa">Analyse this deal</button>
+        <div id="ai-sa" style="display:none">
+          <div class="ai-wrap">
+            <div class="ai-header">
+              <p class="ai-title">AI Deal Analysis</p>
+              <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+            </div>
+            <div class="ai-body" id="ai-sa-body"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Saved Deals -->
   <div class="panel" id="panel-saved">
-    <p class="sl">Your saved deals</p>
-    <div id="saved-list"><p class="hint">Loading…</p></div>
+    <div class="saved-panel-inner">
+      <p class="sl">Your saved deals</p>
+      <div id="saved-list"><p class="hint">Loading…</p></div>
+    </div>
   </div>
 </div>
 
 <script>
 function switchTab(t){
-  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','saved'][i]===t));
-  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-saved'][i]==='panel-'+t));
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','saved'][i]===t));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-saved'][i]==='panel-'+t));
   if(t==='saved')loadSavedDeals();
 }
 
@@ -245,7 +504,7 @@ function fP(n){return n.toFixed(2)+'%';}
 function cl(v,g,w){return v>=g?'good':v>=w?'warn':'bad';}
 function s(id,val,cls){const e=document.getElementById(id);if(e){e.textContent=val;if(cls!==undefined)e.className='mv '+(cls||'');}}
 
-let btlData={}, hmoData={};
+let btlData={}, hmoData={}, saData={};
 
 function cBTL(){
   const pp=+document.getElementById('b-pp').value||0;
@@ -374,11 +633,95 @@ function cHMO(){
     meetsYield:gy>=ty,meetsROI:mROI>=troi};
 }
 
+function cSA(){
+  const rate=+document.getElementById('sa-rate').value||0;
+  const occ=+document.getElementById('sa-occ').value||0;
+  const pp=+document.getElementById('sa-pp').value||0;
+  const emv=+document.getElementById('sa-emv').value||0;
+  const mr=+document.getElementById('sa-mr').value||0;
+  const dp=(+document.getElementById('sa-dp').value||25)/100;
+  const sol=+document.getElementById('sa-sol').value||0;
+  const mf=+document.getElementById('sa-mf').value||0;
+  const srch=+document.getElementById('sa-srch').value||0;
+  const ref=+document.getElementById('sa-ref').value||0;
+  const furn=+document.getElementById('sa-furn').value||0;
+  const wg=+document.getElementById('sa-wg').value||0;
+  const mgmt=(+document.getElementById('sa-mgmt').value||10)/100;
+  const util=(+document.getElementById('sa-util').value||10)/100;
+  const maint=(+document.getElementById('sa-maint').value||10)/100;
+  const clean=+document.getElementById('sa-clean').value||0;
+  const ins=+document.getElementById('sa-ins').value||0;
+  const ct=+document.getElementById('sa-ct').value||0;
+  const ty=+document.getElementById('sa-ty').value||12;
+  const troi=+document.getElementById('sa-troi').value||20;
+
+  const ag=rate*(occ/100)*365;
+  const mgmtCost=ag*mgmt, utilCost=ag*util, maintCost=ag*maint;
+  const cleanA=clean*12, insA=ins*12;
+  const totalCosts=mgmtCost+utilCost+maintCost+cleanA+insA+ct;
+  const netInc=ag-totalCosts;
+
+  const dep=emv*dp, loan=emv-dep, mm=mort(loan,mr), sd=stamp(pp);
+  const mortIntA=mm*12;
+
+  const mCFy=netInc-mortIntA, mCFm=mCFy/12;
+  const cCFy=netInc, cCFm=cCFy/12;
+  const incM=netInc/12, incY=netInc;
+
+  const gy=emv>0?(ag/emv)*100:0;
+  const mny=emv>0?(mCFy/emv)*100:0;
+  const cny=emv>0?(cCFy/emv)*100:0;
+
+  const mTI=sol+mf+srch+dep+ref+furn+wg+pp-loan;
+  const cTI=pp+sol+mf+srch+ref+furn+wg;
+  const mROI=mTI!==0?(mCFy/mTI)*100:0;
+  const cROI=cTI>0?(cCFy/cTI)*100:0;
+
+  const oY=ty>0?ag/(ty/100):0;
+  const tMLI=troi>0?mCFy/(troi/100):0, oR=tMLI+loan-sol-mf-srch-ref-furn-wg;
+
+  document.getElementById('sa-ly').textContent=ty;
+  document.getElementById('sa-lr').textContent=troi;
+
+  s('sam-gy',fP(gy),cl(gy,10,7));
+  s('sam-ny',fP(mny),cl(mny,6,4));
+  s('sam-roi',fP(mROI),cl(mROI,15,8));
+  s('sam-im',fmt(incM));
+  s('sam-iy',fmt(incY));
+  s('sam-cfm',fmt(mCFm),cl(mCFm,300,0));
+  s('sam-cfy',fmt(mCFy),cl(mCFy,3600,0));
+
+  s('sac-gy',fP(gy),cl(gy,10,7));
+  s('sac-ny',fP(cny),cl(cny,6,4));
+  s('sac-roi',fP(cROI),cl(cROI,15,8));
+  s('sac-im',fmt(incM));
+  s('sac-iy',fmt(incY));
+  s('sac-cfm',fmt(cCFm),cl(cCFm,300,0));
+  s('sac-cfy',fmt(cCFy),cl(cCFy,3600,0));
+
+  document.getElementById('sa-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
+
+  document.getElementById('sa-oy').textContent=oY>0?fmt(oY):'Cannot achieve at these inputs';
+  if(oY>0)document.getElementById('sa-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
+  document.getElementById('sa-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
+  if(oR>0)document.getElementById('sa-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
+
+  saData={rate,occ,pp,emv,mr,dp:dp*100,sol,mf,srch,ref,furn,wg,mgmt:mgmt*100,util:util*100,maint:maint*100,clean,ins,ct,ty,troi,
+    annualRevenue:Math.round(ag),netAnnualIncome:Math.round(netInc),
+    mCFy:Math.round(mCFy),mCFm:Math.round(mCFm),cCFy:Math.round(cCFy),cCFm:Math.round(cCFm),
+    incM:Math.round(incM),incY:Math.round(incY),
+    gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
+    mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
+    mTI:Math.round(mTI),cTI:Math.round(cTI),
+    stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),
+    meetsYield:gy>=ty,meetsROI:mROI>=troi};
+}
+
 async function analyse(type){
   const btn=document.getElementById('btn-'+type);
   const wrap=document.getElementById('ai-'+type);
   const body=document.getElementById('ai-'+type+'-body');
-  const d=type==='btl'?btlData:hmoData;
+  const d=type==='btl'?btlData:(type==='hmo'?hmoData:saData);
 
   if(!currentSession){
     wrap.style.display='block';
@@ -392,7 +735,7 @@ async function analyse(type){
   body.className='ai-body loading';
   body.textContent='Generating your deal analysis...';
 
-  const prompt=type==='btl'?buildBTLPrompt(d):buildHMOPrompt(d);
+  const prompt=type==='btl'?buildBTLPrompt(d):(type==='hmo'?buildHMOPrompt(d):buildSAPrompt(d));
 
   try{
     const res=await fetch('/analyse',{
@@ -502,6 +845,49 @@ If the deal does not meet criteria, give 2-3 specific numbered actions — frame
 Keep the tone direct and factual. No disclaimers needed. Do not use markdown headers — use the section names in plain text as shown above.`;
 }
 
+function buildSAPrompt(d){
+  return `You are a UK property investment analyst. A user has entered the following Serviced Accommodation (SA) deal for analysis.
+
+DEAL INPUTS:
+- Purchase price: £${d.pp.toLocaleString()}
+- End market value: £${d.emv.toLocaleString()}
+- Nightly rate: £${d.rate} | Occupancy: ${d.occ}%
+- Mortgage rate: ${d.mr}%
+- Deposit: ${d.dp}% of EMV
+- Refurbishment: £${d.ref.toLocaleString()} | Furnishings: £${d.furn.toLocaleString()} | White goods: £${d.wg.toLocaleString()}
+- Management: ${d.mgmt}% | Utilities: ${d.util}% | Maintenance: ${d.maint}% (all % of revenue)
+- Cleaning: £${d.clean}/mo | Insurance: £${d.ins}/mo | Council tax: £${d.ct.toLocaleString()}/yr
+- Stamp duty (auto-calculated BTL): £${d.stampDuty.toLocaleString()}
+
+CALCULATED RESULTS:
+- Annual revenue: £${d.annualRevenue.toLocaleString()}
+- Net annual income (before mortgage): £${d.netAnnualIncome.toLocaleString()}
+- Gross yield: ${d.gy}% (target: ${d.ty}%)
+- Net yield (mortgage): ${d.mny}%
+- ROI (mortgage): ${d.mROI}% (target: ${d.troi}%)
+- Monthly cashflow (mortgage): £${d.mCFm.toLocaleString()}
+- Monthly cashflow (cash): £${d.cCFm.toLocaleString()}
+- Total cash invested (mortgage): £${d.mTI.toLocaleString()}
+- Offer price to hit ${d.ty}% yield: £${d.oY.toLocaleString()}
+- Offer price to hit ${d.troi}% ROI: £${d.oR>0?'£'+d.oR.toLocaleString():'not achievable'}
+
+Provide a structured analysis with these exact sections:
+
+VERDICT
+One or two sentences. Does this deal meet the user's criteria at the current purchase price? If not, state clearly what price they need to achieve their targets.
+
+RISK FLAGS
+List any concerns specific to SA: occupancy risk, negative cashflow, high running-cost burden, seasonality, licensing/planning risk. Be specific with numbers. If none, say so.
+
+STRATEGY FIT
+Comment on whether this works as a straight SA hold based on the upfront costs (refurb, furnishings, white goods) and the cash invested figure.
+
+WHAT NEEDS TO CHANGE
+If the deal does not meet criteria, give 2-3 specific numbered actions — framed as factual statements about what price, rate, or occupancy would hit the targets. Do not give generic advice.
+
+Keep the tone direct and factual. No disclaimers needed. Do not use markdown headers — use the section names in plain text as shown above.`;
+}
+
 function formatAnalysis(text){
   const sections=['VERDICT','RISK FLAGS','STRATEGY FIT','WHAT NEEDS TO CHANGE'];
   let html=text;
@@ -589,7 +975,7 @@ function updateAuthUI(){
     subLink.onclick=null;
   }
 
-  ['btl','hmo'].forEach(type=>{
+  ['btl','hmo','sa'].forEach(type=>{
     const btn=document.getElementById('btn-save-'+type);
     const msg=document.getElementById(type+'-save-msg');
     btn.disabled=!loggedIn;
@@ -620,7 +1006,7 @@ async function saveDeal(type){
   if(!currentSession)return;
   const btn=document.getElementById('btn-save-'+type);
   const msg=document.getElementById(type+'-save-msg');
-  const d=type==='btl'?btlData:hmoData;
+  const d=type==='btl'?btlData:(type==='hmo'?hmoData:saData);
 
   btn.disabled=true;btn.textContent='Saving...';
   msg.className='save-msg';msg.textContent='';
@@ -654,7 +1040,9 @@ async function saveDefaults(type){
   const msg=document.getElementById(type+'-defaults-msg');
   const f=type==='btl'
     ?{ty:'b-ty',tr:'b-tr',mr:'b-mr',sol:'b-sol',mf:'b-mf',srch:'b-srch'}
-    :{ty:'h-ty',tr:'h-troi',mr:'h-mr',sol:'h-sol',mf:'h-mf',srch:'h-srch'};
+    :type==='hmo'
+    ?{ty:'h-ty',tr:'h-troi',mr:'h-mr',sol:'h-sol',mf:'h-mf',srch:'h-srch'}
+    :{ty:'sa-ty',tr:'sa-troi',mr:'sa-mr',sol:'sa-sol',mf:'sa-mf',srch:'sa-srch'};
 
   const payload={
     target_yield:numOrNull(f.ty),
@@ -695,30 +1083,36 @@ async function loadDefaults(){
     if(d.target_yield!=null){
       document.getElementById('b-ty').value=d.target_yield;
       document.getElementById('h-ty').value=d.target_yield;
+      document.getElementById('sa-ty').value=d.target_yield;
     }
     if(d.target_roi!=null){
       document.getElementById('b-tr').value=d.target_roi;
       document.getElementById('h-troi').value=d.target_roi;
+      document.getElementById('sa-troi').value=d.target_roi;
     }
     if(d.default_mortgage_rate!=null){
       document.getElementById('b-mr').value=d.default_mortgage_rate;
       document.getElementById('h-mr').value=d.default_mortgage_rate;
+      document.getElementById('sa-mr').value=d.default_mortgage_rate;
     }
     if(d.standard_fees){
       if(d.standard_fees.solicitor!=null){
         document.getElementById('b-sol').value=d.standard_fees.solicitor;
         document.getElementById('h-sol').value=d.standard_fees.solicitor;
+        document.getElementById('sa-sol').value=d.standard_fees.solicitor;
       }
       if(d.standard_fees.mortgage!=null){
         document.getElementById('b-mf').value=d.standard_fees.mortgage;
         document.getElementById('h-mf').value=d.standard_fees.mortgage;
+        document.getElementById('sa-mf').value=d.standard_fees.mortgage;
       }
       if(d.standard_fees.searches!=null){
         document.getElementById('b-srch').value=d.standard_fees.searches;
         document.getElementById('h-srch').value=d.standard_fees.searches;
+        document.getElementById('sa-srch').value=d.standard_fees.searches;
       }
     }
-    cBTL();cHMO();
+    cBTL();cHMO();cSA();
   }catch(e){
     // fail silently — calculator keeps its built-in default values
   }
@@ -750,5 +1144,7 @@ async function loadSavedDeals(){
   }
 }
 
-cBTL();cHMO();initAuth();
+cBTL();cHMO();cSA();initAuth();
 </script>
+</body>
+</html>
