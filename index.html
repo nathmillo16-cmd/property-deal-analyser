@@ -224,6 +224,7 @@ body{
     <button class="tab active" onclick="switchTab('btl')">BTL</button>
     <button class="tab" onclick="switchTab('hmo')">HMO</button>
     <button class="tab" onclick="switchTab('sa')">SA</button>
+    <button class="tab" onclick="switchTab('flip')">Flip</button>
     <button class="tab" onclick="switchTab('saved')">Saved Deals</button>
   </div>
 
@@ -474,6 +475,52 @@ body{
     </div>
   </div>
 
+  <!-- Flip -->
+  <div class="panel" id="panel-flip">
+    <div class="split-panel">
+      <div class="input-col">
+        <p class="sl">Property details</p>
+        <div class="g2">
+          <div class="f"><label>Purchase price (£)</label><input type="number" id="fl-pp" value="150000" oninput="cFlip()"/></div>
+          <div class="f"><label>Buying fees (£)</label><input type="number" id="fl-bf" value="2000" oninput="cFlip()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="number" id="fl-ref" value="25000" oninput="cFlip()"/></div>
+          <div class="f"><label>Sale value (£)</label><input type="number" id="fl-sv" value="220000" oninput="cFlip()"/></div>
+          <div class="f"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="cFlip()"/></div>
+          <div class="f"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="cFlip()"/></div>
+        </div>
+        <p class="hint">Stamp duty auto-calculated with BTL surcharge on purchase price. Contingency is optional — leave blank to treat as £0. Cash-only strategy, no mortgage version.</p>
+        <p class="sl section-gap">Target</p>
+        <div class="tr"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="cFlip()"/></div>
+      </div>
+      <div class="results-col">
+        <p class="sl">Results</p>
+        <div class="metric-grid">
+          <div class="m"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
+          <div class="m"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
+          <div class="m"><p class="ml">Profit margin</p><p class="mv" id="fl-margin">—</p></div>
+          <div class="m"><p class="ml">Total cash invested</p><p class="mv" id="fl-ti">—</p></div>
+          <div class="m"><p class="ml">Stamp duty</p><p class="mv" id="fl-sdout">—</p></div>
+          <div class="m"><p class="ml">Agent fee amount</p><p class="mv" id="fl-agentout">—</p></div>
+          <div class="m"><p class="ml">Contingency amount</p><p class="mv" id="fl-contout">—</p></div>
+        </div>
+        <p class="sl section-gap">Recommended max bid</p>
+        <div class="ob"><p class="ot">To achieve <span id="fl-lr">20</span>% ROI</p><p class="ov" id="fl-or">—</p><p class="on" id="fl-orn"></p></div>
+        <button class="save-btn" onclick="saveDeal('flip')" id="btn-save-flip">Save deal</button>
+        <p class="save-msg" id="flip-save-msg"></p>
+        <button class="analyse-btn" onclick="analyse('flip')" id="btn-flip">Analyse this deal</button>
+        <div id="ai-flip" style="display:none">
+          <div class="ai-wrap">
+            <div class="ai-header">
+              <p class="ai-title">AI Deal Analysis</p>
+              <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+            </div>
+            <div class="ai-body" id="ai-flip-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Saved Deals -->
   <div class="panel" id="panel-saved">
     <div class="saved-panel-inner">
@@ -485,8 +532,8 @@ body{
 
 <script>
 function switchTab(t){
-  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','saved'][i]===t));
-  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-saved'][i]==='panel-'+t));
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip','saved'][i]===t));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-saved'][i]==='panel-'+t));
   if(t==='saved')loadSavedDeals();
 }
 
@@ -504,7 +551,7 @@ function fP(n){return n.toFixed(2)+'%';}
 function cl(v,g,w){return v>=g?'good':v>=w?'warn':'bad';}
 function s(id,val,cls){const e=document.getElementById(id);if(e){e.textContent=val;if(cls!==undefined)e.className='mv '+(cls||'');}}
 
-let btlData={}, hmoData={}, saData={};
+let btlData={}, hmoData={}, saData={}, flipData={};
 
 function cBTL(){
   const pp=+document.getElementById('b-pp').value||0;
@@ -717,11 +764,61 @@ function cSA(){
     meetsYield:gy>=ty,meetsROI:mROI>=troi};
 }
 
+function cFlip(){
+  const pp=+document.getElementById('fl-pp').value||0;
+  const bf=+document.getElementById('fl-bf').value||0;
+  const ref=+document.getElementById('fl-ref').value||0;
+  const sv=+document.getElementById('fl-sv').value||0;
+  const agentPct=(+document.getElementById('fl-agent').value||2)/100;
+  const contPct=(+document.getElementById('fl-cont').value||0)/100;
+  const troi=+document.getElementById('fl-troi').value||20;
+
+  const sd=stamp(pp);
+  const contAmt=contPct*ref;
+  const agentAmt=agentPct*sv;
+  const ti=pp+sd.total+bf+ref+contAmt;
+  const profit=sv-pp-sd.total-bf-ref-contAmt-agentAmt;
+  const roi=ti!==0?(profit/ti)*100:0;
+  const margin=sv>0?(profit/sv)*100:0;
+
+  document.getElementById('fl-lr').textContent=troi;
+
+  s('fl-profit',fmt(profit),cl(profit,10000,0));
+  s('fl-roi',fP(roi),cl(roi,20,10));
+  s('fl-margin',fP(margin),cl(margin,15,8));
+  s('fl-ti',fmt(ti));
+  s('fl-sdout',fmt(sd.total));
+  s('fl-agentout',fmt(agentAmt));
+  s('fl-contout',fmt(contAmt));
+
+  let oR=0;
+  if(sv>0){
+    let lo=1000,hi=sv;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      const sdM=stamp(mid).total;
+      const tiM=mid+sdM+bf+ref+contAmt;
+      const profitM=sv-mid-sdM-bf-ref-contAmt-agentAmt;
+      const roiM=tiM!==0?(profitM/tiM)*100:0;
+      if(roiM>troi)lo=mid; else hi=mid;
+    }
+    oR=(lo+hi)/2;
+  }
+  document.getElementById('fl-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
+  if(oR>0)document.getElementById('fl-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
+
+  flipData={pp,bf,ref,sv,agentPct:agentPct*100,contPct:contPct*100,troi,
+    stampDuty:sd.total,agentAmt:Math.round(agentAmt),contAmt:Math.round(contAmt),
+    ti:Math.round(ti),profit:Math.round(profit),roi:+roi.toFixed(2),margin:+margin.toFixed(2),
+    oR:Math.round(oR),
+    meetsROI:roi>=troi};
+}
+
 async function analyse(type){
   const btn=document.getElementById('btn-'+type);
   const wrap=document.getElementById('ai-'+type);
   const body=document.getElementById('ai-'+type+'-body');
-  const d=type==='btl'?btlData:(type==='hmo'?hmoData:saData);
+  const d=type==='btl'?btlData:(type==='hmo'?hmoData:(type==='sa'?saData:flipData));
 
   if(!currentSession){
     wrap.style.display='block';
@@ -735,7 +832,7 @@ async function analyse(type){
   body.className='ai-body loading';
   body.textContent='Generating your deal analysis...';
 
-  const prompt=type==='btl'?buildBTLPrompt(d):(type==='hmo'?buildHMOPrompt(d):buildSAPrompt(d));
+  const prompt=type==='btl'?buildBTLPrompt(d):(type==='hmo'?buildHMOPrompt(d):(type==='sa'?buildSAPrompt(d):buildFlipPrompt(d)));
 
   try{
     const res=await fetch('/analyse',{
@@ -888,6 +985,42 @@ If the deal does not meet criteria, give 2-3 specific numbered actions — frame
 Keep the tone direct and factual. No disclaimers needed. Do not use markdown headers — use the section names in plain text as shown above.`;
 }
 
+function buildFlipPrompt(d){
+  return `You are a UK property investment analyst. A user has entered the following Flip (buy-refurbish-sell) deal for analysis. This is a cash-only strategy — there is no mortgage and no rental income.
+
+DEAL INPUTS:
+- Purchase price: £${d.pp.toLocaleString()}
+- Buying fees: £${d.bf.toLocaleString()}
+- Refurbishment: £${d.ref.toLocaleString()}
+- Sale value: £${d.sv.toLocaleString()}
+- Estate agent fee: ${d.agentPct}% of sale value
+- Contingency: ${d.contPct}% of refurb cost
+- Stamp duty (auto-calculated BTL): £${d.stampDuty.toLocaleString()}
+
+CALCULATED RESULTS:
+- Total cash invested: £${d.ti.toLocaleString()}
+- Net profit: £${d.profit.toLocaleString()}
+- ROI: ${d.roi}% (target: ${d.troi}%)
+- Profit margin: ${d.margin}%
+- Max purchase price to hit ${d.troi}% ROI: £${d.oR>0?d.oR.toLocaleString():'not achievable'}
+
+Provide a structured analysis with these exact sections:
+
+VERDICT
+One or two sentences. Does this deal meet the user's target ROI at the current purchase price? If not, state clearly the maximum price they'd need to pay to achieve it.
+
+RISK FLAGS
+List any concerns specific to a flip: thin profit margin, refurb cost overrun risk, no contingency entered, holding-cost/timing risk not modelled here, reliance on the projected sale value being accurate. Be specific with numbers. If none, say so.
+
+STRATEGY FIT
+Comment on whether the margin and ROI justify the refurb and timing risk of a flip versus holding the property as a rental instead.
+
+WHAT NEEDS TO CHANGE
+If the deal does not meet criteria, give 2-3 specific numbered actions — framed as factual statements about what purchase price, refurb budget, or sale value would hit the target. Do not give generic advice.
+
+Keep the tone direct and factual. No disclaimers needed. Do not use markdown headers — use the section names in plain text as shown above.`;
+}
+
 function formatAnalysis(text){
   const sections=['VERDICT','RISK FLAGS','STRATEGY FIT','WHAT NEEDS TO CHANGE'];
   let html=text;
@@ -998,6 +1131,18 @@ function updateAuthUI(){
     }
     defMsg.className='save-msg';
   });
+
+  const flBtn=document.getElementById('btn-save-flip');
+  const flMsg=document.getElementById('flip-save-msg');
+  flBtn.disabled=!loggedIn;
+  flBtn.textContent='Save deal';
+  if(loggedIn){
+    flMsg.innerHTML='';
+  }else{
+    flMsg.innerHTML='Log in to save deals — <a href="/login.html">log in</a>';
+  }
+  flMsg.className='save-msg';
+
   const savedPanel=document.getElementById('panel-saved');
   if(savedPanel.classList.contains('active'))loadSavedDeals();
 }
@@ -1006,7 +1151,7 @@ async function saveDeal(type){
   if(!currentSession)return;
   const btn=document.getElementById('btn-save-'+type);
   const msg=document.getElementById(type+'-save-msg');
-  const d=type==='btl'?btlData:(type==='hmo'?hmoData:saData);
+  const d=type==='btl'?btlData:(type==='hmo'?hmoData:(type==='sa'?saData:flipData));
 
   btn.disabled=true;btn.textContent='Saving...';
   msg.className='save-msg';msg.textContent='';
@@ -1144,7 +1289,7 @@ async function loadSavedDeals(){
   }
 }
 
-cBTL();cHMO();cSA();initAuth();
+cBTL();cHMO();cSA();cFlip();initAuth();
 </script>
 </body>
 </html>

@@ -106,8 +106,8 @@ app.post('/api/deals', async (req, res) => {
   if (!supabase) return res.status(401).json({ error: 'Log in to save deals.' });
 
   const { deal_type, deal_data } = req.body;
-  if (!['btl', 'hmo', 'sa'].includes(deal_type)) {
-    return res.status(400).json({ error: 'deal_type must be "btl", "hmo", or "sa".' });
+  if (!['btl', 'hmo', 'sa', 'flip'].includes(deal_type)) {
+    return res.status(400).json({ error: 'deal_type must be "btl", "hmo", "sa", or "flip".' });
   }
   if (!deal_data || typeof deal_data !== 'object') {
     return res.status(400).json({ error: 'Missing deal_data.' });
