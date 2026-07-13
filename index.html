@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
+<script src="/calc-engine.js"></script>
 <style>
 :root{
   --paper:#FBF9F3;
@@ -186,6 +187,18 @@ body{
 .analyse-btn:hover{opacity:.88}
 .analyse-btn:disabled{opacity:.35;cursor:not-allowed}
 
+.run-btn{
+  width:100%;padding:13px;background:var(--graphite);color:var(--frost);
+  border:none;border-radius:10px;font-size:14px;font-weight:700;
+  font-family:var(--body);cursor:pointer;margin-top:1.1rem;
+  transition:opacity .15s ease;
+}
+.run-btn:hover{opacity:.85}
+.stale-note{
+  display:none;font-size:12px;color:#B8860B;background:rgba(240,197,85,.15);
+  border:1px solid #F0C555;border-radius:8px;padding:.6rem .85rem;margin-bottom:1.1rem;
+}
+
 .save-btn{
   width:100%;padding:11px;background:transparent;color:var(--jewel);
   border:1.5px solid var(--jewel);border-radius:10px;font-size:13px;font-weight:600;
@@ -217,7 +230,7 @@ body{
 </style>
 </head>
 <body>
-<h2 class="sr-only">Property deal analyser with AI summary — BTL and HMO calculator with Claude-powered deal analysis</h2>
+<h2 class="sr-only">Property deal analyser with full deal analysis — BTL, HMO, SA, and Flip calculator with expert-style deal breakdowns</h2>
 
 <div class="w" id="app">
   <div class="topbar">
@@ -238,28 +251,30 @@ body{
       <div class="input-col">
         <p class="sl">Property details</p>
         <div class="g2">
-          <div class="f"><label>Purchase price (£)</label><input type="number" id="b-pp" value="140000" oninput="cBTL()"/></div>
-          <div class="f"><label>End market value (£)</label><input type="number" id="b-emv" value="200000" oninput="cBTL()"/></div>
-          <div class="f"><label>Monthly rent (£)</label><input type="number" id="b-rent" value="850" oninput="cBTL()"/></div>
-          <div class="f"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="cBTL()"/></div>
-          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="b-dp" value="25" oninput="cBTL()"/></div>
-          <div class="f"><label>Refurb (£)</label><input type="number" id="b-ref" value="10000" oninput="cBTL()"/></div>
-          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="b-sol" value="1800" oninput="cBTL()"/></div>
-          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="b-mf" value="300" oninput="cBTL()"/></div>
-          <div class="f"><label>Searches (£)</label><input type="number" id="b-srch" value="0" oninput="cBTL()"/></div>
-          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="b-ins" value="50" oninput="cBTL()"/></div>
-          <div class="f"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="cBTL()"/></div>
-          <div class="f"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="cBTL()"/></div>
+          <div class="f"><label>Purchase price (£)</label><input type="number" id="b-pp" value="140000" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>End market value (£)</label><input type="number" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Monthly rent (£)</label><input type="number" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="number" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="b-mf" value="300" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Searches (£)</label><input type="number" id="b-srch" value="0" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="b-ins" value="50" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="markStaleBTL()"/></div>
         </div>
         <p class="hint">Stamp duty auto-calculated with BTL surcharge. Deposit, yields and money left in use end market value.</p>
         <p class="sl section-gap">Targets</p>
-        <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="cBTL()"/></div>
-        <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="cBTL()"/></div>
+        <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
+        <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
+        <button class="run-btn" onclick="runBTL()" id="btn-run-btl">Analyse deal</button>
         <button class="save-btn" onclick="saveDefaults('btl')" id="btn-save-defaults-btl">Save as my defaults</button>
         <p class="save-msg" id="btl-defaults-msg"></p>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
+        <p class="stale-note" id="btl-stale">Inputs changed — press Analyse deal to update these results.</p>
         <div class="results-split">
           <div>
             <p class="ch">Mortgage purchase</p>
@@ -294,11 +309,11 @@ body{
         <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
         <button class="save-btn" onclick="saveDeal('btl')" id="btn-save-btl">Save deal</button>
         <p class="save-msg" id="btl-save-msg"></p>
-        <button class="analyse-btn" onclick="analyse('btl')" id="btn-btl">Analyse this deal</button>
+        <button class="analyse-btn" onclick="analyse('btl')" id="btn-btl">Get the Full Analysis</button>
         <div id="ai-btl" style="display:none">
           <div class="ai-wrap">
             <div class="ai-header">
-              <p class="ai-title">AI Deal Analysis</p>
+              <p class="ai-title">Deal Analysis</p>
               <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
             </div>
             <div class="ai-body" id="ai-btl-body"></div>
@@ -314,37 +329,39 @@ body{
       <div class="input-col">
         <p class="sl">Property details</p>
         <div class="g2">
-          <div class="f"><label>Purchase price (£)</label><input type="number" id="h-pp" value="140000" oninput="cHMO()"/></div>
-          <div class="f"><label>End market value (£)</label><input type="number" id="h-emv" value="200000" oninput="cHMO()"/></div>
-          <div class="f"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="cHMO()"/></div>
-          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="h-dp" value="25" oninput="cHMO()"/></div>
-          <div class="f"><label>Refurb (£)</label><input type="number" id="h-ref" value="10000" oninput="cHMO()"/></div>
-          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="h-sol" value="1800" oninput="cHMO()"/></div>
-          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="h-mf" value="300" oninput="cHMO()"/></div>
-          <div class="f"><label>Licensing fee (£)</label><input type="number" id="h-lic" value="650" oninput="cHMO()"/></div>
-          <div class="f"><label>Searches (£)</label><input type="number" id="h-srch" value="0" oninput="cHMO()"/></div>
-          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="h-ins" value="30" oninput="cHMO()"/></div>
-          <div class="f"><label>WiFi /mo (£)</label><input type="number" id="h-wifi" value="50" oninput="cHMO()"/></div>
-          <div class="f"><label>Council tax annual (£)</label><input type="number" id="h-ct" value="2265" oninput="cHMO()"/></div>
-          <div class="f"><label>Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="cHMO()"/></div>
-          <div class="f"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="cHMO()"/></div>
+          <div class="f"><label>Purchase price (£)</label><input type="number" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>End market value (£)</label><input type="number" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="number" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="h-mf" value="300" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Licensing fee (£)</label><input type="number" id="h-lic" value="650" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Searches (£)</label><input type="number" id="h-srch" value="0" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="h-ins" value="30" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>WiFi /mo (£)</label><input type="number" id="h-wifi" value="50" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Council tax annual (£)</label><input type="number" id="h-ct" value="2265" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="markStaleHMO()"/></div>
         </div>
         <p class="hint">Bills auto-calculated as 10% of total rent. Stamp duty auto-calculated. Council tax entered annually.</p>
         <p class="sl section-gap">Room breakdown</p>
         <div class="rg"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
-        <div class="rg"><span>Single</span><input type="number" id="h-r1p" value="400" oninput="cHMO()"/><input type="number" id="h-r1n" value="0" oninput="cHMO()"/><span class="rt" id="h-r1t">£0</span></div>
-        <div class="rg"><span>Double</span><input type="number" id="h-r2p" value="600" oninput="cHMO()"/><input type="number" id="h-r2n" value="3" oninput="cHMO()"/><span class="rt" id="h-r2t">£0</span></div>
-        <div class="rg"><span>Single en suite</span><input type="number" id="h-r3p" value="600" oninput="cHMO()"/><input type="number" id="h-r3n" value="0" oninput="cHMO()"/><span class="rt" id="h-r3t">£0</span></div>
-        <div class="rg"><span>Double en suite</span><input type="number" id="h-r4p" value="675" oninput="cHMO()"/><input type="number" id="h-r4n" value="0" oninput="cHMO()"/><span class="rt" id="h-r4t">£0</span></div>
+        <div class="rg"><span>Single</span><input type="number" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r1t">£0</span></div>
+        <div class="rg"><span>Double</span><input type="number" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="rt" id="h-r2t">£0</span></div>
+        <div class="rg"><span>Single en suite</span><input type="number" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r3t">£0</span></div>
+        <div class="rg"><span>Double en suite</span><input type="number" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r4t">£0</span></div>
         <div class="trow">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
         <p class="sl section-gap">Targets</p>
-        <div class="tr"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="cHMO()"/></div>
-        <div class="tr"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="cHMO()"/></div>
+        <div class="tr"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
+        <div class="tr"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
+        <button class="run-btn" onclick="runHMO()" id="btn-run-hmo">Analyse deal</button>
         <button class="save-btn" onclick="saveDefaults('hmo')" id="btn-save-defaults-hmo">Save as my defaults</button>
         <p class="save-msg" id="hmo-defaults-msg"></p>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
+        <p class="stale-note" id="hmo-stale">Inputs changed — press Analyse deal to update these results.</p>
         <div class="results-split">
           <div>
             <p class="ch">Mortgage purchase</p>
@@ -379,11 +396,11 @@ body{
         <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
         <button class="save-btn" onclick="saveDeal('hmo')" id="btn-save-hmo">Save deal</button>
         <p class="save-msg" id="hmo-save-msg"></p>
-        <button class="analyse-btn" onclick="analyse('hmo')" id="btn-hmo">Analyse this deal</button>
+        <button class="analyse-btn" onclick="analyse('hmo')" id="btn-hmo">Get the Full Analysis</button>
         <div id="ai-hmo" style="display:none">
           <div class="ai-wrap">
             <div class="ai-header">
-              <p class="ai-title">AI Deal Analysis</p>
+              <p class="ai-title">Deal Analysis</p>
               <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
             </div>
             <div class="ai-body" id="ai-hmo-body"></div>
@@ -399,40 +416,42 @@ body{
       <div class="input-col">
         <p class="sl">Property details</p>
         <div class="g2">
-          <div class="f"><label>Nightly rate (£)</label><input type="number" id="sa-rate" value="150" oninput="cSA()"/></div>
-          <div class="f"><label>Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="cSA()"/></div>
-          <div class="f"><label>Purchase price (£)</label><input type="number" id="sa-pp" value="200000" oninput="cSA()"/></div>
-          <div class="f"><label>End market value (£)</label><input type="number" id="sa-emv" value="240000" oninput="cSA()"/></div>
-          <div class="f"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="cSA()"/></div>
-          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="sa-dp" value="25" oninput="cSA()"/></div>
+          <div class="f"><label>Nightly rate (£)</label><input type="number" id="sa-rate" value="150" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Purchase price (£)</label><input type="number" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>End market value (£)</label><input type="number" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
         </div>
         <p class="sl section-gap">Upfront costs</p>
         <div class="g2">
-          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="sa-sol" value="1800" oninput="cSA()"/></div>
-          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="sa-mf" value="300" oninput="cSA()"/></div>
-          <div class="f"><label>Searches (£)</label><input type="number" id="sa-srch" value="0" oninput="cSA()"/></div>
-          <div class="f"><label>Refurbishment (£)</label><input type="number" id="sa-ref" value="15000" oninput="cSA()"/></div>
-          <div class="f"><label>Furnishings (£)</label><input type="number" id="sa-furn" value="8000" oninput="cSA()"/></div>
-          <div class="f"><label>White goods (£)</label><input type="number" id="sa-wg" value="2000" oninput="cSA()"/></div>
+          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="sa-sol" value="1800" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="sa-mf" value="300" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Searches (£)</label><input type="number" id="sa-srch" value="0" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="number" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Furnishings (£)</label><input type="number" id="sa-furn" value="8000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>White goods (£)</label><input type="number" id="sa-wg" value="2000" oninput="markStaleSA()"/></div>
         </div>
         <p class="sl section-gap">Running costs</p>
         <div class="g2">
-          <div class="f"><label>Management % of revenue</label><input type="number" id="sa-mgmt" value="10" oninput="cSA()"/></div>
-          <div class="f"><label>Utilities % of revenue</label><input type="number" id="sa-util" value="10" oninput="cSA()"/></div>
-          <div class="f"><label>Maintenance % of revenue</label><input type="number" id="sa-maint" value="10" oninput="cSA()"/></div>
-          <div class="f"><label>Cleaning /mo (£)</label><input type="number" id="sa-clean" value="400" oninput="cSA()"/></div>
-          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="sa-ins" value="40" oninput="cSA()"/></div>
-          <div class="f"><label>Council tax annual (£)</label><input type="number" id="sa-ct" value="2265" oninput="cSA()"/></div>
+          <div class="f"><label>Management % of revenue</label><input type="number" id="sa-mgmt" value="10" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Utilities % of revenue</label><input type="number" id="sa-util" value="10" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Maintenance % of revenue</label><input type="number" id="sa-maint" value="10" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Cleaning /mo (£)</label><input type="number" id="sa-clean" value="400" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="sa-ins" value="40" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Council tax annual (£)</label><input type="number" id="sa-ct" value="2265" oninput="markStaleSA()"/></div>
         </div>
         <p class="hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with BTL surcharge. Deposit and yields use end market value.</p>
         <p class="sl section-gap">Targets</p>
-        <div class="tr"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="cSA()"/></div>
-        <div class="tr"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="cSA()"/></div>
+        <div class="tr"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
+        <div class="tr"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
+        <button class="run-btn" onclick="runSA()" id="btn-run-sa">Analyse deal</button>
         <button class="save-btn" onclick="saveDefaults('sa')" id="btn-save-defaults-sa">Save as my defaults</button>
         <p class="save-msg" id="sa-defaults-msg"></p>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
+        <p class="stale-note" id="sa-stale">Inputs changed — press Analyse deal to update these results.</p>
         <div class="results-split">
           <div>
             <p class="ch">Mortgage purchase</p>
@@ -465,11 +484,11 @@ body{
         <div class="ob"><p class="ot">To achieve <span id="sa-lr">20</span>% ROI (mortgage)</p><p class="ov" id="sa-or">—</p><p class="on" id="sa-orn"></p></div>
         <button class="save-btn" onclick="saveDeal('sa')" id="btn-save-sa">Save deal</button>
         <p class="save-msg" id="sa-save-msg"></p>
-        <button class="analyse-btn" onclick="analyse('sa')" id="btn-sa">Analyse this deal</button>
+        <button class="analyse-btn" onclick="analyse('sa')" id="btn-sa">Get the Full Analysis</button>
         <div id="ai-sa" style="display:none">
           <div class="ai-wrap">
             <div class="ai-header">
-              <p class="ai-title">AI Deal Analysis</p>
+              <p class="ai-title">Deal Analysis</p>
               <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
             </div>
             <div class="ai-body" id="ai-sa-body"></div>
@@ -485,19 +504,21 @@ body{
       <div class="input-col">
         <p class="sl">Property details</p>
         <div class="g2">
-          <div class="f"><label>Purchase price (£)</label><input type="number" id="fl-pp" value="150000" oninput="cFlip()"/></div>
-          <div class="f"><label>Buying fees (£)</label><input type="number" id="fl-bf" value="2000" oninput="cFlip()"/></div>
-          <div class="f"><label>Refurbishment (£)</label><input type="number" id="fl-ref" value="25000" oninput="cFlip()"/></div>
-          <div class="f"><label>Sale value (£)</label><input type="number" id="fl-sv" value="220000" oninput="cFlip()"/></div>
-          <div class="f"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="cFlip()"/></div>
-          <div class="f"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="cFlip()"/></div>
+          <div class="f"><label>Purchase price (£)</label><input type="number" id="fl-pp" value="150000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Buying fees (£)</label><input type="number" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="number" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Sale value (£)</label><input type="number" id="fl-sv" value="220000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
         </div>
         <p class="hint">Stamp duty auto-calculated with BTL surcharge on purchase price. Contingency is optional — leave blank to treat as £0. Cash-only strategy, no mortgage version.</p>
         <p class="sl section-gap">Target</p>
-        <div class="tr"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="cFlip()"/></div>
+        <div class="tr"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
+        <button class="run-btn" onclick="runFlip()" id="btn-run-flip">Analyse deal</button>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
+        <p class="stale-note" id="flip-stale">Inputs changed — press Analyse deal to update these results.</p>
         <div class="metric-grid">
           <div class="m"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
           <div class="m"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
@@ -511,11 +532,11 @@ body{
         <div class="ob"><p class="ot">To achieve <span id="fl-lr">20</span>% ROI</p><p class="ov" id="fl-or">—</p><p class="on" id="fl-orn"></p></div>
         <button class="save-btn" onclick="saveDeal('flip')" id="btn-save-flip">Save deal</button>
         <p class="save-msg" id="flip-save-msg"></p>
-        <button class="analyse-btn" onclick="analyse('flip')" id="btn-flip">Analyse this deal</button>
+        <button class="analyse-btn" onclick="analyse('flip')" id="btn-flip">Get the Full Analysis</button>
         <div id="ai-flip" style="display:none">
           <div class="ai-wrap">
             <div class="ai-header">
-              <p class="ai-title">AI Deal Analysis</p>
+              <p class="ai-title">Deal Analysis</p>
               <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
             </div>
             <div class="ai-body" id="ai-flip-body"></div>
@@ -533,282 +554,21 @@ function switchTab(t){
   document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip'][i]==='panel-'+t));
 }
 
-function stamp(p){
-  let tax=0,detail=[];
-  if(p<=250000){tax=p*0.03;detail.push(`£0–£250k @ 3% = £${Math.round(tax).toLocaleString()}`);}
-  else if(p<=925000){tax=(p-250000)*0.08+(250000*0.03);detail.push(`£0–£250k @ 3% = £${Math.round(250000*0.03).toLocaleString()}`,`£250k–£${Math.round(p/1000)}k @ 8% = £${Math.round((p-250000)*0.08).toLocaleString()}`);}
-  else if(p<=1500000){tax=(p-925000)*0.13+(925000-250000)*0.08+(250000*0.03);}
-  else{tax=(p-1500000)*0.15+(1500000-925000)*0.13+(925000-250000)*0.08+(250000*0.03);}
-  return{total:Math.round(tax),detail};
-}
-function mort(loan,rate){return(loan*rate/100)/12;}
-function fmt(n){return'£'+Math.round(n).toLocaleString();}
-function fP(n){return n.toFixed(2)+'%';}
-function cl(v,g,w){return v>=g?'good':v>=w?'warn':'bad';}
-function s(id,val,cls){const e=document.getElementById(id);if(e){e.textContent=val;if(cls!==undefined)e.className='mv '+(cls||'');}}
+// Calculation is button-driven, not live. These just control WHEN cBTL()/cHMO()/cSA()/cFlip()
+// (unchanged, in calc-engine.js) run, and toggle the "stale results" notice — no maths here.
+let btlAnalysed=false, hmoAnalysed=false, saAnalysed=false, flipAnalysed=false;
 
-let btlData={}, hmoData={}, saData={}, flipData={};
+function runBTL(){ cBTL(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; }
+function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; }
 
-function cBTL(){
-  const pp=+document.getElementById('b-pp').value||0;
-  const emv=+document.getElementById('b-emv').value||0;
-  const rent=+document.getElementById('b-rent').value||0;
-  const mr=+document.getElementById('b-mr').value||0;
-  const dp=(+document.getElementById('b-dp').value||25)/100;
-  const ref=+document.getElementById('b-ref').value||0;
-  const sol=+document.getElementById('b-sol').value||0;
-  const mf=+document.getElementById('b-mf').value||0;
-  const srch=+document.getElementById('b-srch').value||0;
-  const ins=+document.getElementById('b-ins').value||0;
-  const mgmt=(+document.getElementById('b-mgmt').value||0)/100;
-  const maint=(+document.getElementById('b-maint').value||10)/100;
-  const ty=+document.getElementById('b-ty').value||7;
-  const tr=+document.getElementById('b-tr').value||15;
+function runHMO(){ cHMO(); hmoAnalysed=true; document.getElementById('hmo-stale').style.display='none'; }
+function markStaleHMO(){ if(hmoAnalysed) document.getElementById('hmo-stale').style.display='block'; }
 
-  const dep=emv*dp, loan=emv-dep, mm=mort(loan,mr), sd=stamp(pp);
-  const maintC=rent*maint, mgmtC=rent*mgmt;
-  const mNm=rent-ins-maintC-mgmtC-mm, mNy=mNm*12;
-  const cNm=rent-maintC-ins-mgmtC, cNy=cNm*12;
-  const ag=rent*12;
-  const mTI=sol+mf+srch+dep+ref+pp-loan, cTI=pp+sol+mf+srch+ref;
-  const gy=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
-  const mMLI=cTI-loan, mROI=mMLI!==0?(mNy/mMLI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
-  const mPB=mNy!==0?mMLI/mNy:0, cPB=cNy>0?cTI/cNy:0;
+function runSA(){ cSA(); saAnalysed=true; document.getElementById('sa-stale').style.display='none'; }
+function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style.display='block'; }
 
-  const oY=ag/(ty/100);
-  const tMLI=mNy/(tr/100), oR=tMLI+loan-sol-mf-srch-ref;
-
-  document.getElementById('b-ly').textContent=ty;
-  document.getElementById('b-lr').textContent=tr;
-  s('bm-nm',fmt(mNm),cl(mNm,200,0));s('bm-ny',fmt(mNy),cl(mNy,2400,0));
-  s('bm-gy',fP(gy),cl(gy,7,5));s('bm-ny2',fP(mny),cl(mny,4,2));
-  s('bm-roi',fP(mROI),cl(mROI,15,8));s('bm-ti',fmt(mTI));
-  s('bm-mli',fmt(mMLI),mMLI<=0?'good':'');s('bm-pb',mPB!==0?Math.abs(mPB).toFixed(2)+' yrs':'N/A');
-  s('bc-nm',fmt(cNm),cl(cNm,200,0));s('bc-ny',fmt(cNy),cl(cNy,2400,0));
-  s('bc-gy',fP(gy),cl(gy,7,5));s('bc-ny2',fP(cny),cl(cny,4,2));
-  s('bc-roi',fP(cROI),cl(cROI,15,8));s('bc-ti',fmt(cTI));
-  s('bc-mli',fmt(cTI));s('bc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
-  document.getElementById('b-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
-  document.getElementById('b-oy').textContent=fmt(oY);
-  document.getElementById('b-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
-  document.getElementById('b-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
-  if(oR>0)document.getElementById('b-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
-
-  btlData={pp,emv,rent,mr,dp:dp*100,ref,sol,mf,srch,ins,mgmt:mgmt*100,maint:maint*100,ty,tr,
-    mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
-    gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
-    mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
-    mMLI:Math.round(mMLI),mTI:Math.round(mTI),cTI:Math.round(cTI),
-    mPB:+Math.abs(mPB).toFixed(2),cPB:+cPB.toFixed(2),
-    stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),
-    meetsYield:gy>=ty,meetsROI:mROI>=tr};
-}
-
-function cHMO(){
-  const pp=+document.getElementById('h-pp').value||0;
-  const emv=+document.getElementById('h-emv').value||0;
-  const mr=+document.getElementById('h-mr').value||5;
-  const dp=(+document.getElementById('h-dp').value||25)/100;
-  const ref=+document.getElementById('h-ref').value||0;
-  const sol=+document.getElementById('h-sol').value||0;
-  const mf=+document.getElementById('h-mf').value||0;
-  const lic=+document.getElementById('h-lic').value||0;
-  const srch=+document.getElementById('h-srch').value||0;
-  const ins=+document.getElementById('h-ins').value||0;
-  const wifi=+document.getElementById('h-wifi').value||0;
-  const ct=(+document.getElementById('h-ct').value||0)/12;
-  const maint=(+document.getElementById('h-maint').value||0)/100;
-  const mgmt=(+document.getElementById('h-mgmt').value||0)/100;
-  const ty=+document.getElementById('h-ty').value||10;
-  const troi=+document.getElementById('h-troi').value||15;
-
-  const rooms=[[+document.getElementById('h-r1p').value||0,+document.getElementById('h-r1n').value||0,'h-r1t'],
-               [+document.getElementById('h-r2p').value||0,+document.getElementById('h-r2n').value||0,'h-r2t'],
-               [+document.getElementById('h-r3p').value||0,+document.getElementById('h-r3n').value||0,'h-r3t'],
-               [+document.getElementById('h-r4p').value||0,+document.getElementById('h-r4n').value||0,'h-r4t']];
-  let totalRent=0;
-  rooms.forEach(([price,num,id])=>{const t=price*num;totalRent+=t;document.getElementById(id).textContent='£'+t.toLocaleString();});
-  document.getElementById('h-tr').textContent='£'+totalRent.toLocaleString();
-  const bills=totalRent*0.1;
-  document.getElementById('h-bills').textContent='£'+Math.round(bills).toLocaleString();
-
-  const sd=stamp(pp), dep=emv*dp, loan=emv*0.75, mm=mort(loan,mr);
-  const maintC=totalRent*maint, mgmtC=totalRent*mgmt;
-  const mNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC-mm, mNy=mNm*12;
-  const cNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC, cNy=cNm*12;
-  const ag=totalRent*12;
-  const mTI=dep+sol+mf+lic+ref+sd.total, cTI=pp+sol+mf+lic+ref+sd.total+srch;
-  const gy=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
-  const mROI=mTI!==0?(mNy/mTI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
-  const mPB=mNy!==0?mTI/mNy:0, cPB=cNy>0?cTI/cNy:0;
-
-  const oY=totalRent>0?ag/(ty/100):0;
-  document.getElementById('h-ly').textContent=ty;
-  document.getElementById('h-lroi').textContent=troi;
-  s('hm-nm',fmt(mNm),cl(mNm,300,0));s('hm-ny',fmt(mNy),cl(mNy,3600,0));
-  s('hm-gy',fP(gy),cl(gy,10,7));s('hm-ny2',fP(mny),cl(mny,6,4));
-  s('hm-roi',fP(mROI),cl(mROI,15,8));s('hm-ti',fmt(mTI));
-  s('hm-mli',fmt(mTI));s('hm-pb',mPB!==0?Math.abs(mPB).toFixed(2)+' yrs':'N/A');
-  s('hc-nm',fmt(cNm),cl(cNm,300,0));s('hc-ny',fmt(cNy),cl(cNy,3600,0));
-  s('hc-gy',fP(gy),cl(gy,10,7));s('hc-ny2',fP(cny),cl(cny,6,4));
-  s('hc-roi',fP(cROI),cl(cROI,15,8));s('hc-ti',fmt(cTI));
-  s('hc-mli',fmt(cTI));s('hc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
-  document.getElementById('h-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
-  document.getElementById('h-oy').textContent=oY>0?fmt(oY):'Enter rooms first';
-  if(oY>0){document.getElementById('h-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';}
-
-  let oR=0;
-  if(totalRent>0){
-    let lo=10000,hi=2000000;
-    for(let i=0;i<80;i++){const mid=(lo+hi)/2;const sdM=stamp(mid).total;const tiM=dep+sol+mf+lic+ref+sdM;const roiM=tiM!==0?(mNy/tiM)*100:0;if(roiM>troi)hi=mid;else lo=mid;}
-    oR=(lo+hi)/2;
-  }
-  document.getElementById('h-or').textContent=oR>0&&oR<1900000?fmt(oR):'Cannot achieve at these inputs';
-  if(oR>0&&oR<1900000){document.getElementById('h-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';}
-
-  hmoData={pp,emv,totalRent,mr,dp:dp*100,ref,sol,mf,lic,srch,ins,wifi,ctMonthly:Math.round(ct),maint:maint*100,mgmt:mgmt*100,ty,troi,
-    mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
-    gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
-    mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
-    mTI:Math.round(mTI),cTI:Math.round(cTI),
-    mPB:+Math.abs(mPB).toFixed(2),cPB:+cPB.toFixed(2),
-    stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),bills:Math.round(bills),
-    meetsYield:gy>=ty,meetsROI:mROI>=troi};
-}
-
-function cSA(){
-  const rate=+document.getElementById('sa-rate').value||0;
-  const occ=+document.getElementById('sa-occ').value||0;
-  const pp=+document.getElementById('sa-pp').value||0;
-  const emv=+document.getElementById('sa-emv').value||0;
-  const mr=+document.getElementById('sa-mr').value||0;
-  const dp=(+document.getElementById('sa-dp').value||25)/100;
-  const sol=+document.getElementById('sa-sol').value||0;
-  const mf=+document.getElementById('sa-mf').value||0;
-  const srch=+document.getElementById('sa-srch').value||0;
-  const ref=+document.getElementById('sa-ref').value||0;
-  const furn=+document.getElementById('sa-furn').value||0;
-  const wg=+document.getElementById('sa-wg').value||0;
-  const mgmt=(+document.getElementById('sa-mgmt').value||10)/100;
-  const util=(+document.getElementById('sa-util').value||10)/100;
-  const maint=(+document.getElementById('sa-maint').value||10)/100;
-  const clean=+document.getElementById('sa-clean').value||0;
-  const ins=+document.getElementById('sa-ins').value||0;
-  const ct=+document.getElementById('sa-ct').value||0;
-  const ty=+document.getElementById('sa-ty').value||12;
-  const troi=+document.getElementById('sa-troi').value||20;
-
-  const ag=rate*(occ/100)*365;
-  const mgmtCost=ag*mgmt, utilCost=ag*util, maintCost=ag*maint;
-  const cleanA=clean*12, insA=ins*12;
-  const totalCosts=mgmtCost+utilCost+maintCost+cleanA+insA+ct;
-  const netInc=ag-totalCosts;
-
-  const dep=emv*dp, loan=emv-dep, mm=mort(loan,mr), sd=stamp(pp);
-  const mortIntA=mm*12;
-
-  const mCFy=netInc-mortIntA, mCFm=mCFy/12;
-  const cCFy=netInc, cCFm=cCFy/12;
-  const incM=netInc/12, incY=netInc;
-
-  const gy=emv>0?(ag/emv)*100:0;
-  const mny=emv>0?(mCFy/emv)*100:0;
-  const cny=emv>0?(cCFy/emv)*100:0;
-
-  const mTI=sol+mf+srch+dep+ref+furn+wg+pp-loan;
-  const cTI=pp+sol+mf+srch+ref+furn+wg;
-  const mROI=mTI!==0?(mCFy/mTI)*100:0;
-  const cROI=cTI>0?(cCFy/cTI)*100:0;
-
-  const oY=ty>0?ag/(ty/100):0;
-  const tMLI=troi>0?mCFy/(troi/100):0, oR=tMLI+loan-sol-mf-srch-ref-furn-wg;
-
-  document.getElementById('sa-ly').textContent=ty;
-  document.getElementById('sa-lr').textContent=troi;
-
-  s('sam-gy',fP(gy),cl(gy,10,7));
-  s('sam-ny',fP(mny),cl(mny,6,4));
-  s('sam-roi',fP(mROI),cl(mROI,15,8));
-  s('sam-im',fmt(incM));
-  s('sam-iy',fmt(incY));
-  s('sam-cfm',fmt(mCFm),cl(mCFm,300,0));
-  s('sam-cfy',fmt(mCFy),cl(mCFy,3600,0));
-
-  s('sac-gy',fP(gy),cl(gy,10,7));
-  s('sac-ny',fP(cny),cl(cny,6,4));
-  s('sac-roi',fP(cROI),cl(cROI,15,8));
-  s('sac-im',fmt(incM));
-  s('sac-iy',fmt(incY));
-  s('sac-cfm',fmt(cCFm),cl(cCFm,300,0));
-  s('sac-cfy',fmt(cCFy),cl(cCFy,3600,0));
-
-  document.getElementById('sa-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
-
-  document.getElementById('sa-oy').textContent=oY>0?fmt(oY):'Cannot achieve at these inputs';
-  if(oY>0)document.getElementById('sa-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
-  document.getElementById('sa-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
-  if(oR>0)document.getElementById('sa-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
-
-  saData={rate,occ,pp,emv,mr,dp:dp*100,sol,mf,srch,ref,furn,wg,mgmt:mgmt*100,util:util*100,maint:maint*100,clean,ins,ct,ty,troi,
-    annualRevenue:Math.round(ag),netAnnualIncome:Math.round(netInc),
-    mCFy:Math.round(mCFy),mCFm:Math.round(mCFm),cCFy:Math.round(cCFy),cCFm:Math.round(cCFm),
-    incM:Math.round(incM),incY:Math.round(incY),
-    gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
-    mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
-    mTI:Math.round(mTI),cTI:Math.round(cTI),
-    stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),
-    meetsYield:gy>=ty,meetsROI:mROI>=troi};
-}
-
-function cFlip(){
-  const pp=+document.getElementById('fl-pp').value||0;
-  const bf=+document.getElementById('fl-bf').value||0;
-  const ref=+document.getElementById('fl-ref').value||0;
-  const sv=+document.getElementById('fl-sv').value||0;
-  const agentPct=(+document.getElementById('fl-agent').value||2)/100;
-  const contPct=(+document.getElementById('fl-cont').value||0)/100;
-  const troi=+document.getElementById('fl-troi').value||20;
-
-  const sd=stamp(pp);
-  const contAmt=contPct*ref;
-  const agentAmt=agentPct*sv;
-  const ti=pp+sd.total+bf+ref+contAmt;
-  const profit=sv-pp-sd.total-bf-ref-contAmt-agentAmt;
-  const roi=ti!==0?(profit/ti)*100:0;
-  const margin=sv>0?(profit/sv)*100:0;
-
-  document.getElementById('fl-lr').textContent=troi;
-
-  s('fl-profit',fmt(profit),cl(profit,10000,0));
-  s('fl-roi',fP(roi),cl(roi,20,10));
-  s('fl-margin',fP(margin),cl(margin,15,8));
-  s('fl-ti',fmt(ti));
-  s('fl-sdout',fmt(sd.total));
-  s('fl-agentout',fmt(agentAmt));
-  s('fl-contout',fmt(contAmt));
-
-  let oR=0;
-  if(sv>0){
-    let lo=1000,hi=sv;
-    for(let i=0;i<80;i++){
-      const mid=(lo+hi)/2;
-      const sdM=stamp(mid).total;
-      const tiM=mid+sdM+bf+ref+contAmt;
-      const profitM=sv-mid-sdM-bf-ref-contAmt-agentAmt;
-      const roiM=tiM!==0?(profitM/tiM)*100:0;
-      if(roiM>troi)lo=mid; else hi=mid;
-    }
-    oR=(lo+hi)/2;
-  }
-  document.getElementById('fl-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
-  if(oR>0)document.getElementById('fl-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
-
-  flipData={pp,bf,ref,sv,agentPct:agentPct*100,contPct:contPct*100,troi,
-    stampDuty:sd.total,agentAmt:Math.round(agentAmt),contAmt:Math.round(contAmt),
-    ti:Math.round(ti),profit:Math.round(profit),roi:+roi.toFixed(2),margin:+margin.toFixed(2),
-    oR:Math.round(oR),
-    meetsROI:roi>=troi};
-}
+function runFlip(){ cFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; }
+function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; }
 
 async function analyse(type){
   const btn=document.getElementById('btn-'+type);
@@ -819,7 +579,15 @@ async function analyse(type){
   if(!currentSession){
     wrap.style.display='block';
     body.className='ai-body';
-    body.innerHTML='Log in to use AI analysis — <a href="/login.html">log in</a>';
+    body.innerHTML='Log in to use the Full Analysis — <a href="/login.html">log in</a>';
+    return;
+  }
+
+  const analysedFlag=type==='btl'?btlAnalysed:(type==='hmo'?hmoAnalysed:(type==='sa'?saAnalysed:flipAnalysed));
+  if(!analysedFlag){
+    wrap.style.display='block';
+    body.className='ai-body';
+    body.textContent='Press "Analyse deal" first so there are results to analyse.';
     return;
   }
 
@@ -846,7 +614,7 @@ async function analyse(type){
     body.textContent=e.message;
   }
 
-  btn.disabled=false;btn.textContent='Re-analyse this deal';
+  btn.disabled=false;btn.textContent='Re-run analysis';
 }
 
 function buildBTLPrompt(d){

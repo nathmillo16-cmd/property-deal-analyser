@@ -378,11 +378,11 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
 app.post('/analyse', async (req, res) => {
   const supabase = supabaseForRequest(req);
-  if (!supabase) return res.status(401).json({ error: 'Log in to use AI analysis.' });
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the Full Analysis.' });
 
   const plan = await getUserPlan(supabase);
   if (plan !== 'paid') {
-    return res.status(403).json({ error: 'Upgrade to unlock AI analysis.' });
+    return res.status(403).json({ error: 'Upgrade to unlock the Full Analysis.' });
   }
 
   const { count, error: countError } = await supabase
@@ -391,7 +391,7 @@ app.post('/analyse', async (req, res) => {
     .gte('created_at', startOfCurrentMonthISO());
   if (countError) return res.status(400).json({ error: countError.message });
   if (count >= 50) {
-    return res.status(403).json({ error: 'Monthly AI analysis limit reached (50) — resets next month.' });
+    return res.status(403).json({ error: 'Monthly analysis limit reached (50) — resets next month.' });
   }
 
   try {

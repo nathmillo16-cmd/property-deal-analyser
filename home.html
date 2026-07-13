@@ -6,77 +6,28 @@
 <title>Deals N Yields — Home</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <style>
-:root{
-  --paper:#FBF9F3;
-  --paper-tint:#F4F1E7;
-  --graphite:#171512;
-  --forest:#0B1F16;
-  --bottle:#0F3D2B;
-  --jewel:#12A87A;
-  --glow:#3FE8B8;
-  --mist:#6B665C;
-  --hairline:#E2DDD0;
-  --frost:#F3F5F3;
-  --display:'Instrument Serif',serif;
-  --body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{
-  background:linear-gradient(160deg,#F2F0E8 0%,#E9E6DB 100%);
-  color:var(--graphite);
-  font-family:var(--body);
-  font-size:15px;
-  line-height:1.5;
-  padding:2.5rem 1.5rem;
-  min-height:100vh;
-}
-@media(max-width:600px){body{padding:1.25rem .85rem}}
-
-.w{
-  max-width:1200px;margin:0 auto;
-  background:linear-gradient(180deg,#FFFFFF 0%,var(--paper) 100%);
-  border:1px solid var(--hairline);
-  border-radius:20px;
-  box-shadow:0 12px 32px rgba(16,22,26,.07), 0 2px 6px rgba(16,22,26,.05);
-  padding:2.25rem 2.25rem 3rem;
-  display:none;
-}
-@media(max-width:600px){.w{padding:1.5rem 1.25rem 2rem;border-radius:14px}}
-
-.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem;flex-wrap:wrap;gap:.5rem}
-.nav-links{display:flex;gap:1.25rem}
-.nav-links a{font-family:var(--body);font-size:13px;font-weight:600;color:var(--mist);text-decoration:none;border-bottom:1px solid transparent}
-.nav-links a:hover{color:var(--jewel)}
-.nav-links a.active{color:var(--jewel);border-color:var(--jewel)}
-.auth-bar{display:flex;align-items:center;gap:1.25rem}
-.auth-bar a{font-family:var(--body);font-size:13px;font-weight:600;color:var(--jewel);text-decoration:none;border-bottom:1px solid transparent;cursor:pointer}
-.auth-bar a:hover{border-color:var(--jewel)}
+/* page-specific layout only — colours/fonts/radius all come from styles.css */
+#app{display:none}
 
 .welcome{margin-bottom:2.5rem}
-.welcome p.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mist);margin:0 0 .5rem}
-.welcome h1{font-family:var(--display);font-size:32px;font-weight:400;margin:0}
+.welcome h1{font-size:34px;margin-top:.1rem}
 
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
-.card{
-  background:var(--paper-tint);border:1px solid var(--hairline);border-radius:16px;
-  padding:1.75rem;display:flex;flex-direction:column;gap:.6rem;
-  text-decoration:none;color:inherit;transition:box-shadow .15s ease;
-}
-.card:hover{box-shadow:0 6px 18px rgba(16,22,26,.08)}
-.card h2{font-family:var(--display);font-size:22px;font-weight:400;margin:0}
-.card p{font-size:13.5px;color:var(--mist);margin:0}
-.card .go{font-size:13px;font-weight:600;color:var(--jewel);margin-top:.4rem}
+.card{display:flex;flex-direction:column;gap:.6rem;text-decoration:none;color:inherit}
+.card h2{font-size:22px}
+.card p{font-size:13.5px;color:var(--muted)}
+.card .go{font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--accent);margin-top:.4rem}
 </style>
 </head>
 <body>
 
-<div class="w" id="app">
+<div class="shell" id="app">
   <div class="topbar">
+    <span class="wordmark">Deals N Yields</span>
     <div class="nav-links"><a href="/home.html" class="active">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a></div>
     <div class="auth-bar"><a id="auth-link" href="#">Log out</a></div>
   </div>
@@ -89,7 +40,7 @@ body{
   <div class="cards">
     <a class="card" href="/index.html">
       <h2>Calculator</h2>
-      <p>Run a BTL, HMO, SA, or Flip deal through the full breakdown, max bid, and AI verdict.</p>
+      <p>Run a BTL, HMO, SA, or Flip deal through the full breakdown, max bid, and full analysis.</p>
       <span class="go">Open the calculator →</span>
     </a>
     <a class="card" href="/saved-deals.html">

@@ -3,382 +3,729 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Deals N Yields — Property deal analysis for sourcers</title>
+<title>Deals N Yields — Property deal calculator for sourcers</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/calc-engine.js"></script>
 <style>
-:root{
-  --cobalt:#1D4ED8;
-  --navy:#0B1F63;
-  --paper:#F7F3EC;
-  --ink:#1C1B17;
-  --rule:#D8D3C7;
-  --red:#B23A2E;
-  --display:'Fraunces',serif;
-  --body:'Public Sans',-apple-system,sans-serif;
-}
-*{box-sizing:border-box}
+/* Landing-page-only layout. Colours/fonts/radius all come from styles.css. */
 html{scroll-behavior:smooth}
-body{
-  margin:0;
-  background:var(--paper);
-  color:var(--ink);
-  font-family:var(--body);
-  font-size:16px;
-  line-height:1.6;
-}
-a{color:inherit}
-.sheet{
-  max-width:960px;
-  margin:0 auto;
-  border-left:1px solid var(--rule);
-  border-right:1px solid var(--rule);
-  padding:0 clamp(1.25rem,4vw,3rem);
-}
-.kicker{
-  font-family:var(--body);
-  font-size:11px;
-  font-weight:600;
-  letter-spacing:.16em;
-  text-transform:uppercase;
-  color:var(--cobalt);
-  margin:0 0 1rem;
-}
-.rule{border:none;border-top:1px solid var(--rule);margin:0}
-.section{padding:clamp(3rem,7vw,5.5rem) 0}
-.placeholder{
-  background:rgba(178,58,46,.08);
-  border-bottom:1px dashed var(--red);
-  color:var(--red);
-  font-style:italic;
-  padding:0 .15em;
-}
+.lp-shell{max-width:1160px;margin:0 auto;padding:0 1.5rem}
+.lp-section{padding:clamp(3rem,7vw,5.5rem) 0;border-top:1px solid var(--hairline)}
+.lp-kicker{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 .75rem}
+.lp-section h2{font-size:clamp(1.6rem,3.4vw,2.3rem);margin:0 0 .75rem;max-width:26ch}
+.lp-lead{font-size:15px;color:var(--muted);max-width:56ch;margin:0 0 2.5rem}
 
-/* ---- top bar ---- */
-.topbar{
-  display:flex;justify-content:space-between;align-items:center;
+/* ---- top nav ---- */
+.lp-topbar{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;
   padding:1.5rem 0;
 }
-.wordmark{
-  font-family:var(--body);font-size:13px;font-weight:600;
-  letter-spacing:.1em;text-transform:uppercase;
-}
-.topbar a.login{
-  font-family:var(--body);font-size:12px;letter-spacing:.05em;
-  text-decoration:none;color:var(--ink);
-  border-bottom:1px solid var(--rule);
-  padding-bottom:2px;
-}
+.lp-nav{display:flex;gap:2rem;flex-wrap:wrap}
+.lp-nav a{font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--muted);text-decoration:none}
+.lp-nav a:hover{color:var(--ink)}
+.lp-auth{display:flex;align-items:center;gap:1.25rem}
+.lp-auth a.login{font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none}
+.lp-auth a.login:hover{color:var(--ink)}
 
 /* ---- hero ---- */
-.hero{padding:clamp(2.5rem,6vw,4.5rem) 0 clamp(3.5rem,8vw,6rem)}
-.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(2rem,5vw,3.5rem);align-items:start}
-@media(max-width:760px){.hero-grid{grid-template-columns:1fr}}
-h1.headline{
-  font-family:var(--display);
-  font-weight:500;
-  font-size:clamp(2rem,4.4vw,3.1rem);
-  line-height:1.08;
-  letter-spacing:-.01em;
-  margin:0 0 1.25rem;
+.hero{padding:clamp(2.5rem,7vw,4.5rem) 0 clamp(2rem,5vw,3rem);text-align:center}
+.hero h1{font-size:clamp(2.4rem,5.5vw,4rem);line-height:1.04;max-width:16ch;margin:0 auto 1.25rem}
+.hero .lp-lead{margin:0 auto 2rem;text-align:center}
+.hero-cta{display:flex;justify-content:center;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.hero-cta .btn-primary{padding:13px 26px;font-size:14.5px}
+.hero-cta .link-secondary{font-size:13px;font-weight:600;color:var(--muted);text-decoration:none}
+.hero-cta .link-secondary:hover{color:var(--accent)}
+
+/* ---- calculator taster ---- */
+.calc-head{text-align:center;margin-bottom:2rem}
+.calc-head .lp-kicker{justify-content:center}
+.free-badge{
+  display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--accent-ink);background:var(--accent);border-radius:999px;padding:3px 10px;margin-left:8px;vertical-align:middle;
 }
-.pitch{
-  font-size:1.05rem;
-  color:#4B4A44;
-  max-width:34ch;
-  margin:0 0 2rem;
+.calc-panel{display:none}
+.calc-panel.active{display:block}
+.calc-split{
+  display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;
 }
-.cta-row{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
-.btn-primary{
-  display:inline-block;
-  background:var(--cobalt);
-  color:#fff;
-  font-family:var(--body);
-  font-weight:600;
-  font-size:14.5px;
-  padding:.85rem 1.6rem;
-  border-radius:3px;
-  text-decoration:none;
-  letter-spacing:.01em;
+@media(max-width:860px){.calc-split{grid-template-columns:1fr}}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.25rem}
+.field-grid .field{margin-bottom:0}
+.target-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.target-row label{font-size:12.5px;color:var(--input-muted);min-width:120px;font-weight:600}
+.target-row input{
+  border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:7px 10px;
+  font-size:13.5px;background:var(--input-surface);color:var(--input-ink);width:75px;font-family:var(--font-body);
 }
-.btn-primary:hover{background:#1a44c2}
-.link-secondary{
-  font-family:var(--body);
-  font-size:12.5px;
-  letter-spacing:.03em;
-  text-decoration:none;
-  color:#4B4A44;
-  border-bottom:1px dotted var(--rule);
-  padding-bottom:2px;
+.target-row input:focus{outline:none;border-color:var(--input-accent)}
+.room-grid{display:grid;grid-template-columns:1.3fr 70px 55px 70px;gap:8px;align-items:center;margin-bottom:6px}
+.room-grid span{font-size:11.5px;color:var(--input-muted)}
+.room-grid input{
+  border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:6px 8px;
+  font-size:12.5px;background:var(--input-surface);color:var(--input-ink);width:100%;font-family:var(--font-body);
+}
+.room-total{font-size:12px;font-weight:700;color:var(--input-ink);text-align:right;font-variant-numeric:tabular-nums}
+.rent-total-row{text-align:right;font-size:12.5px;font-weight:600;color:var(--input-ink);margin-bottom:1rem;font-variant-numeric:tabular-nums}
+.calc-hint{font-size:12px;color:var(--input-muted);font-style:italic;margin:.75rem 0 0}
+.results-split{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+@media(max-width:520px){.results-split{grid-template-columns:1fr}}
+.stamp-note{font-size:11.5px;color:var(--muted);margin:0 0 1.5rem;line-height:1.6}
+
+/* nudge strip */
+.nudge-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:1.75rem}
+@media(max-width:700px){.nudge-strip{grid-template-columns:1fr}}
+.nudge-card{
+  border:1.5px dashed var(--hairline-strong);border-radius:var(--radius);padding:1.1rem 1.2rem;
+  text-decoration:none;color:inherit;display:block;transition:border-color .15s ease;
+}
+.nudge-card:hover{border-color:var(--accent)}
+.nudge-card .nlock{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:0 0 .4rem}
+.nudge-card h4{font-family:var(--font-head);font-size:16px;font-weight:700;margin:0 0 .35rem}
+.nudge-card p{font-size:12px;color:var(--muted);margin:0}
+
+/* at-a-glance summary + inline nudge — sits in the input column, below the fields */
+.glance-card{margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--input-hairline)}
+.glance-empty{font-size:13px;color:var(--input-muted);font-style:italic;margin:0}
+.glance-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--input-muted);margin:0 0 4px}
+.glance-bid{font-family:var(--font-head);font-weight:800;font-size:26px;color:var(--input-accent);margin:0 0 2px;font-variant-numeric:tabular-nums}
+.glance-bidnote{font-size:11.5px;color:var(--input-muted);margin:0 0 1.1rem}
+.glance-mini{display:flex;gap:1.75rem}
+.glance-mini .gl{display:block;font-size:10.5px;color:var(--input-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.glance-mini .gv{display:block;font-family:var(--font-body);font-weight:700;font-size:16px;color:var(--input-ink);font-variant-numeric:tabular-nums}
+.nudge-inline{
+  margin-top:1.5rem;padding:1.1rem 1.25rem;border-radius:var(--radius);
+  background:var(--input-surface);border:1.5px dashed var(--input-accent);
+}
+.nudge-inline p{font-size:12.5px;color:var(--input-ink);margin:0 0 .85rem;line-height:1.5}
+.nudge-inline .btn-primary{display:inline-block;padding:9px 18px;font-size:12.5px}
+.run-btn{width:100%;text-align:center;display:block;margin-top:1.1rem;padding:13px;font-size:14px}
+.stale-note{
+  display:none;font-size:12px;color:var(--accent-2);background:rgba(224,164,88,.1);
+  border:1px solid var(--accent);border-radius:var(--radius-sm);padding:.6rem .85rem;margin-bottom:1.25rem;
 }
 
-/* ---- deal memo card ---- */
-.memo-card{
-  border:1px solid var(--ink);
-  padding:1.5rem 1.5rem 1.25rem;
-  background:#FCFAF5;
-}
-.memo-head{
-  display:flex;justify-content:space-between;align-items:baseline;
-  border-bottom:1px solid var(--ink);
-  padding-bottom:.6rem;margin-bottom:1rem;
-}
-.memo-title{font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
-.memo-ref{font-family:var(--body);font-size:11px;color:#6b6a63}
-.ledger-line{display:flex;align-items:baseline;gap:.5rem;margin:.65rem 0}
-.ledger-line .label{font-size:13px;color:#4B4A44;white-space:nowrap}
-.ledger-line .fill{flex:1;border-bottom:1px dotted var(--rule);height:0;transform:translateY(-4px)}
-.ledger-line .value{font-family:var(--body);font-feature-settings:"tnum" 1,"lnum" 1;font-size:13px;white-space:nowrap;font-weight:500}
-.memo-foot{
-  margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--rule);
-  display:flex;justify-content:space-between;align-items:center;
-}
-.mini-stamp{
-  font-family:var(--body);font-size:12px;font-weight:600;letter-spacing:.1em;
-  color:var(--cobalt);border:1.5px solid var(--cobalt);border-radius:3px;
-  padding:.2rem .55rem;transform:rotate(-4deg);display:inline-block;
-}
-.memo-caption{font-size:11px;color:#8a897f;font-style:italic}
+/* ---- benefits ---- */
+.benefit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1.25rem}
+.benefit-card{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.5rem}
+.benefit-card h3{font-size:17px;margin:0 0 .5rem}
+.benefit-card p{font-size:13px;color:var(--muted);margin:0}
+.benefit-card .soon{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hairline);border-radius:999px;padding:2px 9px;display:inline-block;margin-top:.75rem}
 
-/* ---- objection ---- */
-.objection-intro{max-width:56ch}
-h2.section-title{
-  font-family:var(--display);font-weight:500;
-  font-size:clamp(1.5rem,3vw,2rem);
-  margin:0 0 .75rem;line-height:1.15;
+/* ---- how it works ---- */
+.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;counter-reset:step}
+@media(max-width:760px){.steps-grid{grid-template-columns:1fr}}
+.step{position:relative;padding-left:2.75rem}
+.step::before{
+  counter-increment:step;content:counter(step);
+  position:absolute;left:0;top:0;width:2rem;height:2rem;border-radius:var(--radius-sm);
+  background:var(--surface-2);border:1px solid var(--hairline);color:var(--accent);
+  font-family:var(--font-head);font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;
 }
-.ledger-compare{
-  display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:2.5rem;
-}
-@media(max-width:700px){.ledger-compare{grid-template-columns:1fr}}
-.ledger-panel{border:1px solid var(--rule);padding:1.5rem}
-.ledger-panel h3{
-  font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.12em;
-  text-transform:uppercase;margin:0 0 1.25rem;color:#4B4A44;
-}
-.ledger-panel.bad h3{color:var(--red)}
-.ledger-panel.good h3{color:var(--cobalt)}
-.bad .value.wrong{color:var(--red);text-decoration:line-through;text-decoration-color:var(--red)}
-.annotation{
-  font-family:var(--display);font-style:italic;font-size:13px;color:var(--red);
-  transform:rotate(-2deg);display:block;margin:.15rem 0 .9rem 1.2rem;
-}
-.good .value{color:var(--navy);font-weight:600}
+.step h3{font-size:16px;margin:0 0 .4rem}
+.step p{font-size:13px;color:var(--muted);margin:0}
 
-/* ---- differentiators ---- */
-.clauses{margin-top:2rem}
-.clause{
-  padding:1.75rem 0;border-top:1px solid var(--rule);
+/* ---- pricing ---- */
+.pricing-wrap{display:flex;justify-content:center}
+.pricing-card{
+  background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--radius);
+  padding:2.25rem 2.5rem;max-width:380px;width:100%;text-align:center;
 }
-.clause:last-child{border-bottom:1px solid var(--rule)}
-.clause h3{
-  font-family:var(--display);font-weight:500;font-size:1.25rem;margin:0 0 .5rem;
-}
-.clause p{margin:0 0 .75rem;color:#4B4A44;max-width:52ch;font-size:14.5px}
-.clause .figure{font-family:var(--body);font-feature-settings:"tnum" 1,"lnum" 1;font-size:12.5px;color:var(--navy);background:rgba(29,78,216,.06);display:inline-block;padding:.25rem .6rem;border-radius:2px}
+.price-figure{font-family:var(--font-head);font-weight:800;font-size:3rem;color:var(--ink);margin:.5rem 0 0;font-variant-numeric:tabular-nums}
+.price-figure span{font-family:var(--font-body);font-size:14px;font-weight:600;color:var(--muted)}
+.price-name{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0}
+.price-features{list-style:none;padding:0;margin:1.75rem 0;text-align:left}
+.price-features li{font-size:13.5px;color:var(--ink);padding:.55rem 0;border-top:1px solid var(--hairline);display:flex;gap:.6rem}
+.price-features li:first-child{border-top:none}
+.price-features li::before{content:'✓';color:var(--accent-2);font-weight:700}
+.price-note{font-size:11.5px;color:var(--muted);margin-top:1rem}
 
-/* ---- STACKS section ---- */
-.stacks-band{background:var(--navy);color:#EFEEE6;margin:0 calc(-1 * clamp(1.25rem,4vw,3rem));padding:clamp(3rem,7vw,5.5rem) clamp(1.25rem,4vw,3rem)}
-.stacks-inner{max-width:600px;margin:0 auto;text-align:center}
-.stacks-band .kicker{color:#8FA8F0}
-.stacks-band h2.section-title{color:#fff}
-.stack-column{max-width:380px;margin:2.5rem auto 0;text-align:left}
-.stack-block{
-  border:1px solid var(--cobalt);
-  padding:.65rem 1rem;
-  display:flex;justify-content:space-between;align-items:center;
-  background:rgba(29,78,216,.08);
-  margin-bottom:-1px;
-}
-.stack-block .label{font-family:var(--body);font-size:12px;letter-spacing:.03em;color:#C7D3F6;text-transform:uppercase}
-.stack-block .amount{font-family:var(--body);font-feature-settings:"tnum" 1,"lnum" 1;font-size:13px;font-weight:500;color:#fff}
-.stamp-wrap{margin:2.5rem 0 1.5rem;position:relative}
-.stamp{
-  display:inline-block;
-  border:3px solid var(--cobalt);
-  border-radius:6px;
-  padding:.5rem 1.4rem;
-  color:var(--cobalt);
-  font-family:var(--body);
-  font-weight:600;
-  font-size:1.9rem;
-  letter-spacing:.14em;
-  transform:rotate(-6deg);
-  position:relative;
-  background:rgba(29,78,216,.05);
-}
-.stamp::after{
-  content:'';
-  position:absolute;inset:5px;
-  border:1px solid var(--cobalt);
-  border-radius:3px;
-  opacity:.55;
-}
-.receipt-line{font-family:var(--body);font-size:13px;color:#C7D3F6;letter-spacing:.03em}
-.receipt-line .v{color:#fff;font-weight:600;font-feature-settings:"tnum" 1,"lnum" 1}
+/* ---- testimonials (placeholder) ---- */
+.testimonial-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
+.testimonial-card{background:var(--surface);border:1.5px dashed var(--hairline-strong);border-radius:var(--radius);padding:1.5rem}
+.testimonial-card p.quote{font-size:14px;font-style:italic;color:var(--muted);margin:0 0 1rem}
+.testimonial-card .who{font-size:12px;font-weight:700;color:var(--ink)}
+.testimonial-card .role{font-size:11.5px;color:var(--muted)}
+.ph-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:2px 9px;margin-bottom:1.5rem}
 
-/* ---- closing cta ---- */
-.closing{text-align:center;padding:clamp(3.5rem,8vw,6rem) 0}
-.closing h2{
-  font-family:var(--display);font-weight:500;
-  font-size:clamp(1.75rem,3.6vw,2.5rem);
-  margin:0 0 1rem;
-}
-.closing .btn-primary{padding:1rem 2.2rem;font-size:15px}
-footer{
-  padding:2rem 0 3rem;
-  display:flex;justify-content:space-between;align-items:center;
-  font-family:var(--body);font-size:11px;color:#8a897f;
-}
+/* ---- final cta ---- */
+.final-cta{text-align:center}
+.final-cta h2{margin:0 auto 1.5rem;max-width:20ch}
+.final-cta .btn-primary{padding:14px 30px;font-size:15px}
+
+/* ---- footer ---- */
+footer{padding:2.5rem 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem}
+footer .fw{font-family:var(--font-head);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.02em}
+footer .flinks{display:flex;gap:1.5rem}
+footer .flinks a{font-size:12px;color:var(--muted);text-decoration:none}
+footer .flinks a:hover{color:var(--ink)}
+footer .fcopy{font-size:11.5px;color:var(--muted)}
 </style>
 </head>
 <body>
 
-<div class="sheet">
-
-  <div class="topbar">
+<div class="lp-shell">
+  <div class="lp-topbar">
     <span class="wordmark">Deals N Yields</span>
-    <a class="login" href="login.html">Log in</a>
+    <div class="lp-nav">
+      <a href="#calculator">Free calculator</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#pricing">Pricing</a>
+    </div>
+    <div class="lp-auth">
+      <a class="login" href="/login.html">Log in</a>
+      <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+    </div>
   </div>
+</div>
 
-  <hr class="rule"/>
-
-  <!-- Hero -->
+<!-- HERO -->
+<div class="lp-shell">
   <section class="hero">
-    <div class="hero-grid">
-      <div>
-        <p class="kicker">For property sourcers</p>
-        <h1 class="headline"><span class="placeholder">[PLACEHOLDER: emotional hook — the wasted-viewing line]</span></h1>
-        <p class="pitch"><span class="placeholder">[PLACEHOLDER: one-line pitch]</span></p>
-        <div class="cta-row">
-          <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
-          <a class="link-secondary" href="#objection">See how the maths works ↓</a>
-        </div>
-      </div>
-
-      <div class="memo-card">
-        <div class="memo-head">
-          <span class="memo-title">Deal memo</span>
-          <span class="memo-ref">REF. <span class="placeholder">[PLACEHOLDER]</span></span>
-        </div>
-        <div class="ledger-line"><span class="label">Purchase price</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
-        <div class="ledger-line"><span class="label">End market value</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
-        <div class="ledger-line"><span class="label">Gross yield</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
-        <div class="ledger-line"><span class="label">Max bid to hit target</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
-        <div class="memo-foot">
-          <span class="mini-stamp">STACKS</span>
-          <span class="memo-caption">Illustrative deal</span>
-        </div>
-      </div>
+    <!-- PLACEHOLDER: real hero headline -->
+    <h1>[PLACEHOLDER: one-line hero headline — what Deals N Yields is]</h1>
+    <!-- PLACEHOLDER: real hero subtext -->
+    <p class="lp-lead">[PLACEHOLDER: one or two sentences on the pitch — free calculator, save/track/full analysis once you sign up.]</p>
+    <div class="hero-cta">
+      <a class="btn-primary" href="/login.html?mode=signup">Get started free</a>
+      <a class="link-secondary" href="#calculator">Try the calculator, no signup ↓</a>
     </div>
   </section>
-
-  <hr class="rule"/>
-
-  <!-- Objection -->
-  <section class="section" id="objection">
-    <p class="kicker">The objection</p>
-    <h2 class="section-title"><span class="placeholder">[PLACEHOLDER: "already got a spreadsheet?" objection headline]</span></h2>
-    <p class="objection-intro"><span class="placeholder">[PLACEHOLDER: one line acknowledging the objection]</span></p>
-
-    <div class="ledger-compare">
-      <div class="ledger-panel bad">
-        <h3>Your spreadsheet</h3>
-        <div class="ledger-line"><span class="label">Gross yield</span><span class="fill"></span><span class="value wrong placeholder">[PLACEHOLDER]</span></div>
-        <span class="annotation">↳ <span class="placeholder">[PLACEHOLDER: spreadsheet error 1 — e.g. yield calculated on purchase price, not EMV]</span></span>
-
-        <div class="ledger-line"><span class="label">Stamp duty</span><span class="fill"></span><span class="value wrong placeholder">[PLACEHOLDER]</span></div>
-        <span class="annotation">↳ <span class="placeholder">[PLACEHOLDER: spreadsheet error 2 — e.g. wrong surcharge band applied]</span></span>
-
-        <div class="ledger-line"><span class="label">Money left in deal</span><span class="fill"></span><span class="value wrong placeholder">[PLACEHOLDER]</span></div>
-        <span class="annotation">↳ <span class="placeholder">[PLACEHOLDER: spreadsheet error 3 — e.g. shows a negative number instead of full recovery]</span></span>
-      </div>
-
-      <div class="ledger-panel good">
-        <h3>Deals N Yields</h3>
-        <div class="ledger-line"><span class="label">Gross yield</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
-        <div class="ledger-line"><span class="label">Stamp duty</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
-        <div class="ledger-line"><span class="label">Money left in deal</span><span class="fill"></span><span class="value placeholder">[PLACEHOLDER]</span></div>
-      </div>
-    </div>
-  </section>
-
-  <hr class="rule"/>
-
-  <!-- Three differentiators -->
-  <section class="section">
-    <p class="kicker">What it actually does</p>
-    <h2 class="section-title">Three things a spreadsheet won't do for you</h2>
-
-    <div class="clauses">
-      <div class="clause">
-        <div>
-          <h3>Maximum bid</h3>
-          <p>Not just whether today's asking price works — the actual ceiling you can pay and still hit your target yield or ROI. A real number to take into negotiation.</p>
-          <span class="figure">e.g. max bid <span class="placeholder">[PLACEHOLDER]</span> to hit <span class="placeholder">[PLACEHOLDER]</span>% yield</span>
-        </div>
-      </div>
-      <div class="clause">
-        <div>
-          <h3>Three-strategy verdict</h3>
-          <p>Mortgage BTL, BRRR, and cash purchase, verdicted separately against the same deal — so you know which strategy the numbers actually favour, not just whether the deal is "good."</p>
-          <span class="figure">e.g. <span class="placeholder">[PLACEHOLDER]</span> favoured over <span class="placeholder">[PLACEHOLDER]</span></span>
-        </div>
-      </div>
-      <div class="clause">
-        <div>
-          <h3>Transparent working</h3>
-          <p>Every figure traces back to a stated assumption — deposit basis, stamp duty band, bills percentage — so you can defend the number to an investor, not just hand over an output.</p>
-          <span class="figure">e.g. deposit calculated on <span class="placeholder">[PLACEHOLDER]</span></span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <hr class="rule"/>
 </div>
 
-<!-- STACKS signature moment (static version — animation added next) -->
-<div class="stacks-band" id="stacks">
-  <div class="stacks-inner">
-    <p class="kicker">Does it stack?</p>
-    <h2 class="section-title">Every cost, tallied before you ever make an offer</h2>
-
-    <div class="stack-column">
-      <div class="stack-block"><span class="label">Purchase price</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
-      <div class="stack-block"><span class="label">Refurb</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
-      <div class="stack-block"><span class="label">Solicitor fees</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
-      <div class="stack-block"><span class="label">Stamp duty</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
-      <div class="stack-block"><span class="label">Mortgage fees</span><span class="amount placeholder">[PLACEHOLDER]</span></div>
+<!-- FREE CALCULATOR TASTER -->
+<div class="lp-shell">
+  <section class="lp-section" id="calculator">
+    <div class="calc-head">
+      <p class="lp-kicker">Run a real deal now<span class="free-badge">Free — no login</span></p>
+      <h2 style="margin-left:auto;margin-right:auto">Enter your numbers, get the full breakdown</h2>
+      <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">Same calculation engine as the paid app — BTL, HMO, Serviced Accommodation, and Flip. Nothing is saved unless you sign up.</p>
     </div>
 
-    <div class="stamp-wrap">
-      <span class="stamp">STACKS</span>
+    <div class="tabs" style="justify-content:center;margin-bottom:1.75rem" id="calc-tabs">
+      <button class="tab-btn active" onclick="switchTab('btl')">BTL</button>
+      <button class="tab-btn" onclick="switchTab('hmo')">HMO</button>
+      <button class="tab-btn" onclick="switchTab('sa')">SA</button>
+      <button class="tab-btn" onclick="switchTab('flip')">Flip</button>
     </div>
-    <p class="receipt-line">MAX BID <span class="v placeholder">[PLACEHOLDER]</span> &nbsp;·&nbsp; GROSS YIELD <span class="v placeholder">[PLACEHOLDER]</span></p>
-  </div>
+
+    <!-- BTL -->
+    <div class="calc-panel active" id="panel-btl">
+      <div class="calc-split">
+        <div class="input-zone">
+          <p class="subhead">Property details</p>
+          <div class="field-grid">
+            <div class="field"><label>Purchase price (£)</label><input type="number" id="b-pp" value="140000" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>End market value (£)</label><input type="number" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Monthly rent (£)</label><input type="number" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Deposit % (of EMV)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Refurb (£)</label><input type="number" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Solicitor fees (£)</label><input type="number" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Mortgage fees (£)</label><input type="number" id="b-mf" value="300" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Searches (£)</label><input type="number" id="b-srch" value="0" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Insurance /mo (£)</label><input type="number" id="b-ins" value="50" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="markStaleBTL()"/></div>
+            <div class="field"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="markStaleBTL()"/></div>
+          </div>
+          <p class="calc-hint">Stamp duty auto-calculated with BTL surcharge. Deposit, yields and money left in use end market value.</p>
+          <p class="subhead" style="margin-top:1.5rem">Targets</p>
+          <div class="target-row"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
+          <div class="target-row"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
+          <button class="btn-primary run-btn" onclick="runBTL()" id="btn-run-btl">Analyse deal</button>
+
+          <div class="glance-card">
+            <p class="glance-empty" id="b-glance-empty">Enter a deal above to see your results here.</p>
+            <div class="glance-results" id="b-glance-results" style="display:none">
+              <p class="glance-label">Max bid to hit target yield</p>
+              <p class="glance-bid" id="b-glance-bid">—</p>
+              <p class="glance-bidnote" id="b-glance-bidnote"></p>
+              <div class="glance-mini">
+                <div><span class="gl">Gross yield</span><span class="gv" id="b-glance-gy">—</span></div>
+                <div><span class="gl">ROI</span><span class="gv" id="b-glance-roi">—</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="nudge-inline">
+            <p>Want the full picture? Save this deal, get the Full Analysis, and track it through your pipeline.</p>
+            <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+          </div>
+        </div>
+        <div class="data-block">
+          <p class="subhead">Results</p>
+          <p class="stale-note" id="btl-stale">Inputs changed — press Analyse deal to update these results.</p>
+          <div class="results-split">
+            <div>
+              <p class="subhead">Mortgage purchase</p>
+              <div class="metric-grid">
+                <div class="metric"><p class="ml">Monthly rental net</p><p class="mv" id="bm-nm">—</p></div>
+                <div class="metric"><p class="ml">Annual rental net</p><p class="mv" id="bm-ny">—</p></div>
+                <div class="metric"><p class="ml">Gross yield</p><p class="mv" id="bm-gy">—</p></div>
+                <div class="metric"><p class="ml">Net yield</p><p class="mv" id="bm-ny2">—</p></div>
+                <div class="metric"><p class="ml">ROI</p><p class="mv" id="bm-roi">—</p></div>
+                <div class="metric"><p class="ml">Total investment</p><p class="mv" id="bm-ti">—</p></div>
+                <div class="metric"><p class="ml">Money left in deal</p><p class="mv" id="bm-mli">—</p></div>
+                <div class="metric"><p class="ml">Payback (years)</p><p class="mv" id="bm-pb">—</p></div>
+              </div>
+            </div>
+            <div>
+              <p class="subhead">Cash purchase</p>
+              <div class="metric-grid">
+                <div class="metric"><p class="ml">Monthly rental net</p><p class="mv" id="bc-nm">—</p></div>
+                <div class="metric"><p class="ml">Annual rental net</p><p class="mv" id="bc-ny">—</p></div>
+                <div class="metric"><p class="ml">Gross yield</p><p class="mv" id="bc-gy">—</p></div>
+                <div class="metric"><p class="ml">Net yield</p><p class="mv" id="bc-ny2">—</p></div>
+                <div class="metric"><p class="ml">ROI</p><p class="mv" id="bc-roi">—</p></div>
+                <div class="metric"><p class="ml">Total investment</p><p class="mv" id="bc-ti">—</p></div>
+                <div class="metric"><p class="ml">Money left in deal</p><p class="mv" id="bc-mli">—</p></div>
+                <div class="metric"><p class="ml">Payback (years)</p><p class="mv" id="bc-pb">—</p></div>
+              </div>
+            </div>
+          </div>
+          <p class="stamp-note" id="b-sn"></p>
+          <p class="subhead">Recommended offer prices</p>
+          <div class="offer-box"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
+          <div class="offer-box"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HMO -->
+    <div class="calc-panel" id="panel-hmo">
+      <div class="calc-split">
+        <div class="input-zone">
+          <p class="subhead">Property details</p>
+          <div class="field-grid">
+            <div class="field"><label>Purchase price (£)</label><input type="number" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>End market value (£)</label><input type="number" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Deposit % (of EMV)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Refurb (£)</label><input type="number" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Solicitor fees (£)</label><input type="number" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Mortgage fees (£)</label><input type="number" id="h-mf" value="300" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Licensing fee (£)</label><input type="number" id="h-lic" value="650" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Searches (£)</label><input type="number" id="h-srch" value="0" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Insurance /mo (£)</label><input type="number" id="h-ins" value="30" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>WiFi /mo (£)</label><input type="number" id="h-wifi" value="50" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Council tax annual (£)</label><input type="number" id="h-ct" value="2265" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="markStaleHMO()"/></div>
+          </div>
+          <p class="calc-hint">Bills auto-calculated as 10% of total rent. Stamp duty auto-calculated. Council tax entered annually.</p>
+          <p class="subhead" style="margin-top:1.5rem">Room breakdown</p>
+          <div class="room-grid"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
+          <div class="room-grid"><span>Single</span><input type="number" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r1t">£0</span></div>
+          <div class="room-grid"><span>Double</span><input type="number" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="room-total" id="h-r2t">£0</span></div>
+          <div class="room-grid"><span>Single en suite</span><input type="number" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r3t">£0</span></div>
+          <div class="room-grid"><span>Double en suite</span><input type="number" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r4t">£0</span></div>
+          <div class="rent-total-row">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
+          <p class="subhead">Targets</p>
+          <div class="target-row"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
+          <div class="target-row"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
+          <button class="btn-primary run-btn" onclick="runHMO()" id="btn-run-hmo">Analyse deal</button>
+
+          <div class="glance-card">
+            <p class="glance-empty" id="h-glance-empty">Enter a deal above to see your results here.</p>
+            <div class="glance-results" id="h-glance-results" style="display:none">
+              <p class="glance-label">Max bid to hit target yield</p>
+              <p class="glance-bid" id="h-glance-bid">—</p>
+              <p class="glance-bidnote" id="h-glance-bidnote"></p>
+              <div class="glance-mini">
+                <div><span class="gl">Gross yield</span><span class="gv" id="h-glance-gy">—</span></div>
+                <div><span class="gl">ROI</span><span class="gv" id="h-glance-roi">—</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="nudge-inline">
+            <p>Want the full picture? Save this deal, get the Full Analysis, and track it through your pipeline.</p>
+            <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+          </div>
+        </div>
+        <div class="data-block">
+          <p class="subhead">Results</p>
+          <p class="stale-note" id="hmo-stale">Inputs changed — press Analyse deal to update these results.</p>
+          <div class="results-split">
+            <div>
+              <p class="subhead">Mortgage purchase</p>
+              <div class="metric-grid">
+                <div class="metric"><p class="ml">Monthly rental net</p><p class="mv" id="hm-nm">—</p></div>
+                <div class="metric"><p class="ml">Annual rental net</p><p class="mv" id="hm-ny">—</p></div>
+                <div class="metric"><p class="ml">Gross yield</p><p class="mv" id="hm-gy">—</p></div>
+                <div class="metric"><p class="ml">Net yield</p><p class="mv" id="hm-ny2">—</p></div>
+                <div class="metric"><p class="ml">ROI</p><p class="mv" id="hm-roi">—</p></div>
+                <div class="metric"><p class="ml">Total investment</p><p class="mv" id="hm-ti">—</p></div>
+                <div class="metric"><p class="ml">Money left in deal</p><p class="mv" id="hm-mli">—</p></div>
+                <div class="metric"><p class="ml">Payback (years)</p><p class="mv" id="hm-pb">—</p></div>
+              </div>
+            </div>
+            <div>
+              <p class="subhead">Cash purchase</p>
+              <div class="metric-grid">
+                <div class="metric"><p class="ml">Monthly rental net</p><p class="mv" id="hc-nm">—</p></div>
+                <div class="metric"><p class="ml">Annual rental net</p><p class="mv" id="hc-ny">—</p></div>
+                <div class="metric"><p class="ml">Gross yield</p><p class="mv" id="hc-gy">—</p></div>
+                <div class="metric"><p class="ml">Net yield</p><p class="mv" id="hc-ny2">—</p></div>
+                <div class="metric"><p class="ml">ROI</p><p class="mv" id="hc-roi">—</p></div>
+                <div class="metric"><p class="ml">Total investment</p><p class="mv" id="hc-ti">—</p></div>
+                <div class="metric"><p class="ml">Money left in deal</p><p class="mv" id="hc-mli">—</p></div>
+                <div class="metric"><p class="ml">Payback (years)</p><p class="mv" id="hc-pb">—</p></div>
+              </div>
+            </div>
+          </div>
+          <p class="stamp-note" id="h-sn"></p>
+          <p class="subhead">Recommended offer prices</p>
+          <div class="offer-box"><p class="ot">To achieve <span id="h-ly">10</span>% gross yield</p><p class="ov" id="h-oy">—</p><p class="on" id="h-oyn"></p></div>
+          <div class="offer-box"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SA -->
+    <div class="calc-panel" id="panel-sa">
+      <div class="calc-split">
+        <div class="input-zone">
+          <p class="subhead">Property details</p>
+          <div class="field-grid">
+            <div class="field"><label>Nightly rate (£)</label><input type="number" id="sa-rate" value="150" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Purchase price (£)</label><input type="number" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
+            <div class="field"><label>End market value (£)</label><input type="number" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Deposit % (of EMV)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
+          </div>
+          <p class="subhead" style="margin-top:1.5rem">Upfront costs</p>
+          <div class="field-grid">
+            <div class="field"><label>Solicitor fees (£)</label><input type="number" id="sa-sol" value="1800" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Mortgage fees (£)</label><input type="number" id="sa-mf" value="300" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Searches (£)</label><input type="number" id="sa-srch" value="0" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Refurbishment (£)</label><input type="number" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Furnishings (£)</label><input type="number" id="sa-furn" value="8000" oninput="markStaleSA()"/></div>
+            <div class="field"><label>White goods (£)</label><input type="number" id="sa-wg" value="2000" oninput="markStaleSA()"/></div>
+          </div>
+          <p class="subhead" style="margin-top:1.5rem">Running costs</p>
+          <div class="field-grid">
+            <div class="field"><label>Management % of revenue</label><input type="number" id="sa-mgmt" value="10" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Utilities % of revenue</label><input type="number" id="sa-util" value="10" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Maintenance % of revenue</label><input type="number" id="sa-maint" value="10" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Cleaning /mo (£)</label><input type="number" id="sa-clean" value="400" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Insurance /mo (£)</label><input type="number" id="sa-ins" value="40" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Council tax annual (£)</label><input type="number" id="sa-ct" value="2265" oninput="markStaleSA()"/></div>
+          </div>
+          <p class="calc-hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with BTL surcharge. Deposit and yields use end market value.</p>
+          <p class="subhead" style="margin-top:1.5rem">Targets</p>
+          <div class="target-row"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
+          <div class="target-row"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
+          <button class="btn-primary run-btn" onclick="runSA()" id="btn-run-sa">Analyse deal</button>
+
+          <div class="glance-card">
+            <p class="glance-empty" id="sa-glance-empty">Enter a deal above to see your results here.</p>
+            <div class="glance-results" id="sa-glance-results" style="display:none">
+              <p class="glance-label">Max bid to hit target yield</p>
+              <p class="glance-bid" id="sa-glance-bid">—</p>
+              <p class="glance-bidnote" id="sa-glance-bidnote"></p>
+              <div class="glance-mini">
+                <div><span class="gl">Gross yield</span><span class="gv" id="sa-glance-gy">—</span></div>
+                <div><span class="gl">ROI</span><span class="gv" id="sa-glance-roi">—</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="nudge-inline">
+            <p>Want the full picture? Save this deal, get the Full Analysis, and track it through your pipeline.</p>
+            <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+          </div>
+        </div>
+        <div class="data-block">
+          <p class="subhead">Results</p>
+          <p class="stale-note" id="sa-stale">Inputs changed — press Analyse deal to update these results.</p>
+          <div class="results-split">
+            <div>
+              <p class="subhead">Mortgage purchase</p>
+              <div class="metric-grid">
+                <div class="metric"><p class="ml">Gross yield</p><p class="mv" id="sam-gy">—</p></div>
+                <div class="metric"><p class="ml">Net yield</p><p class="mv" id="sam-ny">—</p></div>
+                <div class="metric"><p class="ml">ROI</p><p class="mv" id="sam-roi">—</p></div>
+                <div class="metric"><p class="ml">Monthly income</p><p class="mv" id="sam-im">—</p></div>
+                <div class="metric"><p class="ml">Yearly income</p><p class="mv" id="sam-iy">—</p></div>
+                <div class="metric"><p class="ml">Monthly cashflow</p><p class="mv" id="sam-cfm">—</p></div>
+                <div class="metric"><p class="ml">Yearly cashflow</p><p class="mv" id="sam-cfy">—</p></div>
+              </div>
+            </div>
+            <div>
+              <p class="subhead">Cash purchase</p>
+              <div class="metric-grid">
+                <div class="metric"><p class="ml">Gross yield</p><p class="mv" id="sac-gy">—</p></div>
+                <div class="metric"><p class="ml">Net yield</p><p class="mv" id="sac-ny">—</p></div>
+                <div class="metric"><p class="ml">ROI</p><p class="mv" id="sac-roi">—</p></div>
+                <div class="metric"><p class="ml">Monthly income</p><p class="mv" id="sac-im">—</p></div>
+                <div class="metric"><p class="ml">Yearly income</p><p class="mv" id="sac-iy">—</p></div>
+                <div class="metric"><p class="ml">Monthly cashflow</p><p class="mv" id="sac-cfm">—</p></div>
+                <div class="metric"><p class="ml">Yearly cashflow</p><p class="mv" id="sac-cfy">—</p></div>
+              </div>
+            </div>
+          </div>
+          <p class="stamp-note" id="sa-sn"></p>
+          <p class="subhead">Recommended offer prices</p>
+          <div class="offer-box"><p class="ot">To achieve <span id="sa-ly">12</span>% gross yield</p><p class="ov" id="sa-oy">—</p><p class="on" id="sa-oyn"></p></div>
+          <div class="offer-box"><p class="ot">To achieve <span id="sa-lr">20</span>% ROI (mortgage)</p><p class="ov" id="sa-or">—</p><p class="on" id="sa-orn"></p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flip -->
+    <div class="calc-panel" id="panel-flip">
+      <div class="calc-split">
+        <div class="input-zone">
+          <p class="subhead">Property details</p>
+          <div class="field-grid">
+            <div class="field"><label>Purchase price (£)</label><input type="number" id="fl-pp" value="150000" oninput="markStaleFlip()"/></div>
+            <div class="field"><label>Buying fees (£)</label><input type="number" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
+            <div class="field"><label>Refurbishment (£)</label><input type="number" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
+            <div class="field"><label>Sale value (£)</label><input type="number" id="fl-sv" value="220000" oninput="markStaleFlip()"/></div>
+            <div class="field"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
+            <div class="field"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
+          </div>
+          <p class="calc-hint">Stamp duty auto-calculated with BTL surcharge on purchase price. Contingency is optional — leave blank to treat as £0. Cash-only strategy, no mortgage version.</p>
+          <p class="subhead" style="margin-top:1.5rem">Target</p>
+          <div class="target-row"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
+          <button class="btn-primary run-btn" onclick="runFlip()" id="btn-run-flip">Analyse deal</button>
+
+          <div class="glance-card">
+            <p class="glance-empty" id="fl-glance-empty">Enter a deal above to see your results here.</p>
+            <div class="glance-results" id="fl-glance-results" style="display:none">
+              <p class="glance-label">Max bid to hit target ROI</p>
+              <p class="glance-bid" id="fl-glance-bid">—</p>
+              <p class="glance-bidnote" id="fl-glance-bidnote"></p>
+              <div class="glance-mini">
+                <div><span class="gl">Net profit</span><span class="gv" id="fl-glance-profit">—</span></div>
+                <div><span class="gl">ROI</span><span class="gv" id="fl-glance-roi">—</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="nudge-inline">
+            <p>Want the full picture? Save this deal, get the Full Analysis, and track it through your pipeline.</p>
+            <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+          </div>
+        </div>
+        <div class="data-block">
+          <p class="subhead">Results</p>
+          <p class="stale-note" id="flip-stale">Inputs changed — press Analyse deal to update these results.</p>
+          <div class="metric-grid">
+            <div class="metric"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
+            <div class="metric"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
+            <div class="metric"><p class="ml">Profit margin</p><p class="mv" id="fl-margin">—</p></div>
+            <div class="metric"><p class="ml">Total cash invested</p><p class="mv" id="fl-ti">—</p></div>
+            <div class="metric"><p class="ml">Stamp duty</p><p class="mv" id="fl-sdout">—</p></div>
+            <div class="metric"><p class="ml">Agent fee amount</p><p class="mv" id="fl-agentout">—</p></div>
+            <div class="metric"><p class="ml">Contingency amount</p><p class="mv" id="fl-contout">—</p></div>
+          </div>
+          <p class="subhead" style="margin-top:1.25rem">Recommended max bid</p>
+          <div class="offer-box"><p class="ot">To achieve <span id="fl-lr">20</span>% ROI</p><p class="ov" id="fl-or">—</p><p class="on" id="fl-orn"></p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conversion nudges -->
+    <div class="nudge-strip">
+      <a class="nudge-card" href="/login.html?mode=signup">
+        <p class="nlock">🔒 Sign up to unlock</p>
+        <h4>Save this deal</h4>
+        <p>Keep every deal you run, come back to it any time.</p>
+      </a>
+      <a class="nudge-card" href="/login.html?mode=signup">
+        <p class="nlock">🔒 Sign up to unlock</p>
+        <h4>Get the Full Analysis</h4>
+        <p>A tailored risk read and strategy fit for this exact deal.</p>
+      </a>
+      <a class="nudge-card" href="/login.html?mode=signup">
+        <p class="nlock">🔒 Sign up to unlock</p>
+        <h4>Track it in your Pipeline</h4>
+        <p>Move it through analysing → viewing → offered → agreed → completed.</p>
+      </a>
+    </div>
+  </section>
 </div>
 
-<div class="sheet">
-  <hr class="rule"/>
+<!-- HOW IT HELPS -->
+<div class="lp-shell">
+  <section class="lp-section">
+    <p class="lp-kicker">What it actually does</p>
+    <h2><!-- PLACEHOLDER: real section headline -->[PLACEHOLDER: how-it-helps headline]</h2>
+    <p class="lp-lead"><!-- PLACEHOLDER: real intro line -->[PLACEHOLDER: one line framing this for property sourcers specifically]</p>
+    <div class="benefit-grid">
+      <div class="benefit-card">
+        <h3>Full deal calculator</h3>
+        <p><!-- PLACEHOLDER -->[PLACEHOLDER: BTL/HMO/SA/Flip breakdown, max bid, full analysis — benefit-led copy]</p>
+      </div>
+      <div class="benefit-card">
+        <h3>Pipeline tracking</h3>
+        <p><!-- PLACEHOLDER -->[PLACEHOLDER: kanban pipeline benefit copy — never lose track of a deal in progress]</p>
+      </div>
+      <div class="benefit-card">
+        <h3>Side-by-side comparison</h3>
+        <p><!-- PLACEHOLDER -->[PLACEHOLDER: compare deals across strategies benefit copy]</p>
+      </div>
+      <div class="benefit-card">
+        <h3>Valuation &amp; comps</h3>
+        <p><!-- PLACEHOLDER -->[PLACEHOLDER: short forward-looking line]</p>
+        <span class="soon">Coming soon</span>
+      </div>
+    </div>
+  </section>
+</div>
 
-  <!-- Closing CTA -->
-  <section class="closing">
-    <h2><span class="placeholder">[PLACEHOLDER: closing headline]</span></h2>
+<!-- HOW IT WORKS -->
+<div class="lp-shell">
+  <section class="lp-section" id="how-it-works">
+    <p class="lp-kicker">How it works</p>
+    <h2>Three steps, no spreadsheet required</h2>
+    <div class="steps-grid">
+      <div class="step">
+        <h3>Run the numbers</h3>
+        <p>Enter a listing's headline figures — free, no account needed, right on this page.</p>
+      </div>
+      <div class="step">
+        <h3>Sign up to save it</h3>
+        <p>Keep the deal, get the Full Analysis, and start tracking it through your pipeline.</p>
+      </div>
+      <div class="step">
+        <h3>Work it through</h3>
+        <p>Move it through your pipeline stages and compare it against everything else you're chasing.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- PRICING -->
+<div class="lp-shell">
+  <section class="lp-section" id="pricing">
+    <p class="lp-kicker" style="text-align:center">Pricing</p>
+    <h2 style="margin-left:auto;margin-right:auto;text-align:center">Simple, one plan</h2>
+    <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">The calculator is always free. Upgrade when you want to save deals, get the Full Analysis, and run your pipeline.</p>
+    <div class="pricing-wrap">
+      <div class="pricing-card">
+        <p class="price-name">Pro</p>
+        <p class="price-figure">£29<span>/month</span></p>
+        <ul class="price-features">
+          <li>Unlimited saved deals</li>
+          <li>Full Analysis (up to 50/month)</li>
+          <li>Full Pipeline — kanban tracking &amp; comparison</li>
+          <li>Saved defaults across BTL/HMO/SA</li>
+        </ul>
+        <a class="btn-primary" style="width:100%;text-align:center;display:block" href="/login.html?mode=signup">Sign up</a>
+        <p class="price-note">Cancel anytime.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- SOCIAL PROOF (placeholder) -->
+<div class="lp-shell">
+  <section class="lp-section">
+    <p class="lp-kicker" style="text-align:center">What sourcers say</p>
+    <div style="text-align:center">
+      <!-- These are illustrative placeholders only — no real customer quotes yet. -->
+      <span class="ph-tag">Placeholder — no real testimonials yet</span>
+    </div>
+    <div class="testimonial-grid">
+      <div class="testimonial-card">
+        <p class="quote">"[PLACEHOLDER quote]"</p>
+        <p class="who">[Placeholder name]</p>
+        <p class="role">[Placeholder role/company]</p>
+      </div>
+      <div class="testimonial-card">
+        <p class="quote">"[PLACEHOLDER quote]"</p>
+        <p class="who">[Placeholder name]</p>
+        <p class="role">[Placeholder role/company]</p>
+      </div>
+      <div class="testimonial-card">
+        <p class="quote">"[PLACEHOLDER quote]"</p>
+        <p class="who">[Placeholder name]</p>
+        <p class="role">[Placeholder role/company]</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- FINAL CTA -->
+<div class="lp-shell">
+  <section class="lp-section final-cta">
+    <h2><!-- PLACEHOLDER -->[PLACEHOLDER: closing headline]</h2>
     <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
   </section>
+</div>
 
-  <hr class="rule"/>
-
+<div class="lp-shell">
   <footer>
-    <span><span class="placeholder">[PLACEHOLDER: proof/credibility line]</span></span>
-    <span>Deals N Yields</span>
+    <span class="fw">Deals N Yields</span>
+    <div class="flinks">
+      <a href="#calculator">Calculator</a>
+      <a href="#pricing">Pricing</a>
+      <a href="/login.html">Log in</a>
+    </div>
+    <span class="fcopy">© 2026 Deals N Yields</span>
   </footer>
 </div>
 
 <script>
+function switchTab(t){
+  document.querySelectorAll('#calc-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip'][i]===t));
+  document.querySelectorAll('.calc-panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip'][i]==='panel-'+t));
+}
+
+// These just copy already-computed, already-formatted text that cBTL()/cHMO()/cSA()/cFlip()
+// (in calc-engine.js) wrote to the results column, into the "at a glance" summary that sits
+// in the input column. No maths happens here — nothing is recalculated.
+function updateGlanceBTL(){
+  document.getElementById('b-glance-empty').style.display='none';
+  document.getElementById('b-glance-results').style.display='block';
+  document.getElementById('b-glance-bid').textContent=document.getElementById('b-oy').textContent;
+  document.getElementById('b-glance-bidnote').textContent=document.getElementById('b-oyn').textContent;
+  document.getElementById('b-glance-gy').textContent=document.getElementById('bm-gy').textContent;
+  document.getElementById('b-glance-roi').textContent=document.getElementById('bm-roi').textContent;
+}
+function updateGlanceHMO(){
+  document.getElementById('h-glance-empty').style.display='none';
+  document.getElementById('h-glance-results').style.display='block';
+  document.getElementById('h-glance-bid').textContent=document.getElementById('h-oy').textContent;
+  document.getElementById('h-glance-bidnote').textContent=document.getElementById('h-oyn').textContent;
+  document.getElementById('h-glance-gy').textContent=document.getElementById('hm-gy').textContent;
+  document.getElementById('h-glance-roi').textContent=document.getElementById('hm-roi').textContent;
+}
+function updateGlanceSA(){
+  document.getElementById('sa-glance-empty').style.display='none';
+  document.getElementById('sa-glance-results').style.display='block';
+  document.getElementById('sa-glance-bid').textContent=document.getElementById('sa-oy').textContent;
+  document.getElementById('sa-glance-bidnote').textContent=document.getElementById('sa-oyn').textContent;
+  document.getElementById('sa-glance-gy').textContent=document.getElementById('sam-gy').textContent;
+  document.getElementById('sa-glance-roi').textContent=document.getElementById('sam-roi').textContent;
+}
+function updateGlanceFlip(){
+  document.getElementById('fl-glance-empty').style.display='none';
+  document.getElementById('fl-glance-results').style.display='block';
+  document.getElementById('fl-glance-bid').textContent=document.getElementById('fl-or').textContent;
+  document.getElementById('fl-glance-bidnote').textContent=document.getElementById('fl-orn').textContent;
+  document.getElementById('fl-glance-profit').textContent=document.getElementById('fl-profit').textContent;
+  document.getElementById('fl-glance-roi').textContent=document.getElementById('fl-roi').textContent;
+}
+
+// Calculation is button-driven, not live. These just control WHEN cBTL()/cHMO()/cSA()/cFlip()
+// (unchanged, in calc-engine.js) run, and toggle the "stale results" notice — no maths here.
+let btlAnalysed=false, hmoAnalysed=false, saAnalysed=false, flipAnalysed=false;
+
+function runBTL(){ cBTL(); updateGlanceBTL(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; }
+function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; }
+
+function runHMO(){ cHMO(); updateGlanceHMO(); hmoAnalysed=true; document.getElementById('hmo-stale').style.display='none'; }
+function markStaleHMO(){ if(hmoAnalysed) document.getElementById('hmo-stale').style.display='block'; }
+
+function runSA(){ cSA(); updateGlanceSA(); saAnalysed=true; document.getElementById('sa-stale').style.display='none'; }
+function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style.display='block'; }
+
+function runFlip(){ cFlip(); updateGlanceFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; }
+function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; }
+
 // A returning logged-in user hitting the marketing page gets sent straight
 // to their home portal instead of seeing the pitch again.
 (async function(){
