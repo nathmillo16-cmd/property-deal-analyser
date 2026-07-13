@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Deals N Yields — Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --paper:#FBF9F3;
+  --paper-tint:#F4F1E7;
+  --graphite:#171512;
+  --forest:#0B1F16;
+  --bottle:#0F3D2B;
+  --jewel:#12A87A;
+  --glow:#3FE8B8;
+  --mist:#6B665C;
+  --hairline:#E2DDD0;
+  --frost:#F3F5F3;
+  --display:'Instrument Serif',serif;
+  --body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:linear-gradient(160deg,#F2F0E8 0%,#E9E6DB 100%);
+  color:var(--graphite);
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1.5;
+  padding:2.5rem 1.5rem;
+  min-height:100vh;
+}
+@media(max-width:600px){body{padding:1.25rem .85rem}}
+
+.w{
+  max-width:1200px;margin:0 auto;
+  background:linear-gradient(180deg,#FFFFFF 0%,var(--paper) 100%);
+  border:1px solid var(--hairline);
+  border-radius:20px;
+  box-shadow:0 12px 32px rgba(16,22,26,.07), 0 2px 6px rgba(16,22,26,.05);
+  padding:2.25rem 2.25rem 3rem;
+}
+@media(max-width:600px){.w{padding:1.5rem 1.25rem 2rem;border-radius:14px}}
+
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:.5rem}
+.nav-links{display:flex;gap:1.25rem}
+.nav-links a{font-family:var(--body);font-size:13px;font-weight:600;color:var(--mist);text-decoration:none;border-bottom:1px solid transparent}
+.nav-links a:hover{color:var(--jewel)}
+.nav-links a.active{color:var(--jewel);border-color:var(--jewel)}
+.auth-bar{display:flex;align-items:center;gap:1.25rem}
+.auth-bar a{font-family:var(--body);font-size:13px;font-weight:600;color:var(--jewel);text-decoration:none;border-bottom:1px solid transparent;cursor:pointer}
+.auth-bar a:hover{border-color:var(--jewel)}
+.hint{font-size:12.5px;color:var(--mist);font-style:italic}
+
+.page-title{font-family:var(--display);font-size:26px;font-weight:400;margin:0 0 1.5rem}
+
+.locked-panel{text-align:center;padding:3.5rem 1rem}
+.locked-panel h2{font-family:var(--display);font-size:24px;font-weight:400;margin:0 0 .75rem}
+.locked-panel p{color:var(--mist);font-size:14px;margin:0 0 1.5rem}
+
+.btn-primary{
+  font-family:var(--body);font-weight:700;font-size:14px;
+  background:linear-gradient(135deg,var(--jewel),var(--glow));color:var(--forest);
+  border:none;border-radius:10px;padding:12px 24px;cursor:pointer;
+}
+.btn-primary:hover{opacity:.88}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed}
+
+.kanban-wrap{overflow-x:auto;padding-bottom:.5rem}
+.kanban{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:1rem}
+@media(max-width:860px){.kanban{grid-template-columns:repeat(5,240px)}}
+.kanban-col{background:var(--paper-tint);border:1px solid var(--hairline);border-radius:14px;padding:1rem}
+.col-title{font-family:var(--display);font-size:17px;font-weight:400;margin:0 0 .85rem;color:var(--graphite)}
+.col-count{font-size:11px;color:var(--mist);font-weight:600;margin-left:.35rem;font-family:var(--body)}
+.col-cards{display:flex;flex-direction:column;gap:.6rem;min-height:60px}
+
+.pipeline-card{background:#fff;border:1px solid var(--hairline);border-radius:10px;padding:.75rem .85rem}
+.card-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:2px}
+.card-type{font-size:13px;font-weight:600;color:var(--graphite)}
+.card-date{font-size:11px;color:var(--mist);margin:0 0 .6rem}
+.stage-select{width:100%;font-family:var(--body);font-size:12.5px;border:1.5px solid var(--hairline);border-radius:6px;padding:5px 7px;background:#fff;color:var(--graphite);margin-bottom:.5rem}
+.card-actions{display:flex;justify-content:flex-end}
+.remove-btn{font-family:var(--body);font-size:11px;color:#C0392B;background:transparent;border:none;cursor:pointer;padding:2px 4px}
+.remove-btn:hover{text-decoration:underline}
+
+.compare-bar{margin:1.75rem 0 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;padding-top:1.5rem;border-top:1px solid var(--hairline)}
+.compare-bar p{margin:0;font-size:13px;color:var(--mist)}
+#compare-panel{margin-top:1rem;overflow-x:auto}
+.compare-table{width:100%;border-collapse:collapse;font-size:13px;min-width:480px}
+.compare-table th,.compare-table td{border:1px solid var(--hairline);padding:.65rem .8rem;text-align:left}
+.compare-table th{background:var(--paper-tint);font-family:var(--display);font-size:16px;font-weight:400}
+.compare-table td:first-child{font-weight:600;color:var(--mist);font-size:12px;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="w">
+  <div class="topbar">
+    <div class="nav-links"><a href="/">Calculator</a><a href="/pipeline.html" class="active">Pipeline</a></div>
+    <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
+  </div>
+
+  <p class="page-title">Pipeline</p>
+
+  <div id="state-loading"><p class="hint">Loading…</p></div>
+
+  <div id="state-loggedout" style="display:none">
+    <p class="hint">Log in to use the Pipeline — <a href="/login.html">log in</a></p>
+  </div>
+
+  <div id="state-locked" style="display:none">
+    <div class="locked-panel">
+      <h2>The Pipeline is a paid feature</h2>
+      <p>Track saved deals through analysing, viewing, offered, agreed, and completed — and compare them side by side.</p>
+      <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade — £29/mo</button>
+    </div>
+  </div>
+
+  <div id="state-board" style="display:none">
+    <div class="kanban-wrap">
+      <div class="kanban" id="kanban"></div>
+    </div>
+
+    <div class="compare-bar">
+      <p id="compare-hint">Select 2 or more deals to compare them side by side.</p>
+      <button class="btn-primary" id="compare-btn" disabled onclick="compareSelected()">Compare selected</button>
+    </div>
+    <div id="compare-panel"></div>
+  </div>
+</div>
+
+<script>
+const STAGES=['analysing','viewing','offered','agreed','completed'];
+const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
+
+const COMPARE_FIELDS={
+  btl:[
+    {label:'Purchase price',key:'pp',type:'c'},
+    {label:'EMV',key:'emv',type:'c'},
+    {label:'Gross yield',key:'gy',type:'p'},
+    {label:'ROI (mortgage)',key:'mROI',type:'p'},
+    {label:'ROI (cash)',key:'cROI',type:'p'},
+    {label:'Money left in (mortgage)',key:'mMLI',type:'c'},
+    {label:'Max bid (yield)',key:'oY',type:'c'},
+    {label:'Max bid (ROI)',key:'oR',type:'c'}
+  ],
+  hmo:[
+    {label:'Purchase price',key:'pp',type:'c'},
+    {label:'EMV',key:'emv',type:'c'},
+    {label:'Gross yield',key:'gy',type:'p'},
+    {label:'ROI (mortgage)',key:'mROI',type:'p'},
+    {label:'ROI (cash)',key:'cROI',type:'p'},
+    {label:'Total investment (mortgage)',key:'mTI',type:'c'},
+    {label:'Max bid (yield)',key:'oY',type:'c'},
+    {label:'Max bid (ROI)',key:'oR',type:'c'}
+  ],
+  sa:[
+    {label:'Purchase price',key:'pp',type:'c'},
+    {label:'EMV',key:'emv',type:'c'},
+    {label:'Annual revenue',key:'annualRevenue',type:'c'},
+    {label:'Gross yield',key:'gy',type:'p'},
+    {label:'ROI (mortgage)',key:'mROI',type:'p'},
+    {label:'ROI (cash)',key:'cROI',type:'p'},
+    {label:'Max bid (yield)',key:'oY',type:'c'},
+    {label:'Max bid (ROI)',key:'oR',type:'c'}
+  ],
+  flip:[
+    {label:'Purchase price',key:'pp',type:'c'},
+    {label:'Sale value',key:'sv',type:'c'},
+    {label:'Net profit',key:'profit',type:'c'},
+    {label:'ROI',key:'roi',type:'p'},
+    {label:'Profit margin',key:'margin',type:'p'},
+    {label:'Max bid (ROI)',key:'oR',type:'c'}
+  ]
+};
+
+function fmtC(n){return '£'+Math.round(n).toLocaleString();}
+function fmtP(n){return n.toFixed(2)+'%';}
+function fmtField(f,v){
+  if(v==null)return '—';
+  return f.type==='c'?fmtC(v):fmtP(v);
+}
+
+let sbClient=null, currentSession=null, currentPlan=null;
+let pipelineDeals=[], selectedIds=new Set();
+
+async function logout(){
+  await sbClient.auth.signOut();
+  window.location.reload();
+}
+
+async function upgradeNow(){
+  if(!currentSession)return;
+  const btn=document.getElementById('upgrade-btn');
+  const original=btn.textContent;
+  btn.disabled=true;btn.textContent='Redirecting…';
+  try{
+    const res=await fetch('/api/create-checkout-session',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
+    window.location.href=body.url;
+  }catch(e){
+    alert('Could not start checkout: '+e.message);
+    btn.disabled=false;btn.textContent=original;
+  }
+}
+
+function updateTopbar(){
+  const loggedIn=!!currentSession;
+  const authLink=document.getElementById('auth-link');
+  if(loggedIn){
+    authLink.textContent='Log out';
+    authLink.href='#';
+    authLink.onclick=function(e){e.preventDefault();logout();};
+  }else{
+    authLink.textContent='Log in';
+    authLink.href='/login.html';
+    authLink.onclick=null;
+  }
+  const subLink=document.getElementById('subscribe-link');
+  if(loggedIn&&currentPlan==='free'){
+    subLink.style.display='';
+    subLink.onclick=function(e){e.preventDefault();upgradeNow();};
+  }else{
+    subLink.style.display='none';
+    subLink.onclick=null;
+  }
+}
+
+function showState(state){
+  ['loading','loggedout','locked','board'].forEach(s=>{
+    document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
+  });
+}
+
+async function init(){
+  const res=await fetch('/api/config');
+  const cfg=await res.json();
+  sbClient=supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+  const { data:{ session } }=await sbClient.auth.getSession();
+  currentSession=session;
+
+  if(!currentSession){
+    updateTopbar();
+    showState('loggedout');
+    return;
+  }
+
+  try{
+    const profRes=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const prof=await profRes.json();
+    currentPlan=prof.plan==='paid'?'paid':'free';
+  }catch(e){
+    currentPlan='free';
+  }
+  updateTopbar();
+
+  if(currentPlan!=='paid'){
+    showState('locked');
+    return;
+  }
+
+  showState('board');
+  loadPipeline();
+
+  sbClient.auth.onAuthStateChange((_event, session)=>{
+    currentSession=session;
+    updateTopbar();
+    if(!currentSession)location.reload();
+  });
+}
+
+async function loadPipeline(){
+  try{
+    const res=await fetch('/api/pipeline',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Could not load pipeline.');
+    pipelineDeals=data;
+    const stillPresent=new Set(pipelineDeals.map(d=>d.id));
+    selectedIds.forEach(id=>{ if(!stillPresent.has(id)) selectedIds.delete(id); });
+    renderBoard();
+    updateCompareBtn();
+  }catch(e){
+    document.getElementById('kanban').innerHTML='<p class="hint">Could not load pipeline.</p>';
+  }
+}
+
+function renderBoard(){
+  const kanban=document.getElementById('kanban');
+  kanban.innerHTML=STAGES.map(stage=>{
+    const dealsInStage=pipelineDeals.filter(d=>d.pipeline_stage===stage);
+    const cards=dealsInStage.length
+      ? dealsInStage.map(cardHtml).join('')
+      : '<p class="hint">No deals</p>';
+    return `<div class="kanban-col">
+      <p class="col-title">${STAGE_LABELS[stage]}<span class="col-count">${dealsInStage.length}</span></p>
+      <div class="col-cards">${cards}</div>
+    </div>`;
+  }).join('');
+}
+
+function cardHtml(d){
+  const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const label=d.deal_type.toUpperCase();
+  const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):'';
+  const checked=selectedIds.has(d.id)?'checked':'';
+  const options=STAGES.map(s=>`<option value="${s}" ${s===d.pipeline_stage?'selected':''}>${STAGE_LABELS[s]}</option>`).join('');
+  return `<div class="pipeline-card">
+    <div class="card-top">
+      <input type="checkbox" ${checked} onchange="toggleCompare('${d.id}', this.checked)"/>
+      <span class="card-type">${label}${pp?' · '+pp:''}</span>
+    </div>
+    <p class="card-date">${date}</p>
+    <select class="stage-select" onchange="changeStage('${d.id}', this.value)">${options}</select>
+    <div class="card-actions"><button class="remove-btn" onclick="removeFromPipeline('${d.id}')">Remove from pipeline</button></div>
+  </div>`;
+}
+
+async function changeStage(dealId, stage){
+  try{
+    const res=await fetch(`/api/pipeline/${dealId}/stage`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({stage})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not update stage.');
+  }catch(e){
+    alert('Could not update stage: '+e.message);
+  }
+  loadPipeline();
+}
+
+async function removeFromPipeline(dealId){
+  selectedIds.delete(dealId);
+  await changeStage(dealId, null);
+}
+
+function toggleCompare(dealId, checked){
+  if(checked)selectedIds.add(dealId); else selectedIds.delete(dealId);
+  updateCompareBtn();
+}
+
+function updateCompareBtn(){
+  const btn=document.getElementById('compare-btn');
+  const hint=document.getElementById('compare-hint');
+  btn.disabled=selectedIds.size<2;
+  hint.textContent=selectedIds.size<2
+    ? 'Select 2 or more deals to compare them side by side.'
+    : `${selectedIds.size} deals selected.`;
+}
+
+function compareSelected(){
+  const selected=pipelineDeals.filter(d=>selectedIds.has(d.id));
+  if(selected.length<2)return;
+
+  const rows=[];
+  const seen=new Set();
+  selected.forEach(d=>{
+    (COMPARE_FIELDS[d.deal_type]||[]).forEach(f=>{
+      if(!seen.has(f.label)){seen.add(f.label);rows.push(f.label);}
+    });
+  });
+
+  let html='<table class="compare-table"><thead><tr><th>Figure</th>';
+  selected.forEach(d=>{
+    const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):'';
+    html+=`<th>${d.deal_type.toUpperCase()}<br><span style="font-family:var(--body);font-size:11px;color:var(--mist);font-weight:600">${pp}</span></th>`;
+  });
+  html+='</tr></thead><tbody>';
+  rows.forEach(label=>{
+    html+=`<tr><td>${label}</td>`;
+    selected.forEach(d=>{
+      const fields=COMPARE_FIELDS[d.deal_type]||[];
+      const f=fields.find(x=>x.label===label);
+      const val=f ? fmtField(f, d.deal_data[f.key]) : '—';
+      html+=`<td>${val}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('compare-panel').innerHTML=html;
+}
+
+init();
+</script>
+</body>
+</html>

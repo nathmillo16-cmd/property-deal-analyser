@@ -140,10 +140,79 @@ app.get('/api/deals', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .select('id, deal_type, deal_data, created_at')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage')
     .order('created_at', { ascending: false });
 
   if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+const PIPELINE_STAGES = ['analysing', 'viewing', 'offered', 'agreed', 'completed'];
+
+app.post('/api/pipeline', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+  }
+
+  const { deal_id } = req.body;
+  if (!deal_id) return res.status(400).json({ error: 'Missing deal_id.' });
+
+  const { data, error } = await supabase
+    .from('deals')
+    .update({ pipeline_stage: 'analysing' })
+    .eq('id', deal_id)
+    .select('id, deal_type, deal_data, created_at, pipeline_stage')
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
+  res.json(data);
+});
+
+app.get('/api/pipeline', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+  }
+
+  const { data, error } = await supabase
+    .from('deals')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage')
+    .not('pipeline_stage', 'is', null)
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/pipeline/:id/stage', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+  }
+
+  const { stage } = req.body;
+  if (stage !== null && !PIPELINE_STAGES.includes(stage)) {
+    return res.status(400).json({ error: `stage must be one of ${PIPELINE_STAGES.join(', ')}, or null to remove from pipeline.` });
+  }
+
+  const { data, error } = await supabase
+    .from('deals')
+    .update({ pipeline_stage: stage })
+    .eq('id', req.params.id)
+    .select('id, deal_type, deal_data, created_at, pipeline_stage')
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
   res.json(data);
 });
 
