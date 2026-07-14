@@ -171,7 +171,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
     <span class="wordmark">Deals N Yields</span>
     <div class="lp-nav">
       <a href="#calculator">Free calculator</a>
-      <a href="#how-it-works">How it works</a>
+      <a href="#what-it-does">What it does</a>
       <a href="#pricing">Pricing</a>
     </div>
     <div class="lp-auth">
@@ -184,13 +184,10 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
 <!-- HERO -->
 <div class="lp-shell">
   <section class="hero">
-    <!-- PLACEHOLDER: real hero headline -->
-    <h1>[PLACEHOLDER: one-line hero headline — what Deals N Yields is]</h1>
-    <!-- PLACEHOLDER: real hero subtext -->
-    <p class="lp-lead">[PLACEHOLDER: one or two sentences on the pitch — free calculator, save/track/full analysis once you sign up.]</p>
+    <h1>Know if a Deal Meets Your Yield.</h1>
+    <p class="lp-lead">Analyse any property deal in seconds, see the maximum you should pay, and track every deal from first look to completion. Built for property investors and sourcers who haven't got time to waste on deals that don't stack.</p>
     <div class="hero-cta">
-      <a class="btn-primary" href="/login.html?mode=signup">Get started free</a>
-      <a class="link-secondary" href="#calculator">Try the calculator, no signup ↓</a>
+      <a class="btn-primary" href="#calculator">Analyse a deal free</a>
     </div>
   </section>
 </div>
@@ -199,9 +196,9 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
 <div class="lp-shell">
   <section class="lp-section" id="calculator">
     <div class="calc-head">
-      <p class="lp-kicker">Run a real deal now<span class="free-badge">Free — no login</span></p>
-      <h2 style="margin-left:auto;margin-right:auto">Enter your numbers, get the full breakdown</h2>
-      <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">Same calculation engine as the paid app — BTL, HMO, Serviced Accommodation, and Flip. Nothing is saved unless you sign up.</p>
+      <p class="lp-kicker">Run a real deal now<span class="free-badge">Free, no login</span></p>
+      <h2 style="margin-left:auto;margin-right:auto">Enter Your Numbers, Get the Full Breakdown</h2>
+      <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">Same calculation engine as the paid app: BTL, HMO, Serviced Accommodation, and Flip. Nothing is saved unless you sign up.</p>
     </div>
 
     <div class="tabs" style="justify-content:center;margin-bottom:1.75rem" id="calc-tabs">
@@ -230,7 +227,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
             <div class="field"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="markStaleBTL()"/></div>
             <div class="field"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="markStaleBTL()"/></div>
           </div>
-          <p class="calc-hint">Stamp duty auto-calculated with BTL surcharge. Deposit, yields and money left in use end market value.</p>
+          <p class="calc-hint">Stamp duty automatically calculated with BTL surcharge. Deposit, yields and money left in use end market value.</p>
           <p class="subhead" style="margin-top:1.5rem">Targets</p>
           <div class="target-row"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
           <div class="target-row"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
@@ -255,7 +252,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
         </div>
         <div class="data-block">
           <p class="subhead">Results</p>
-          <p class="stale-note" id="btl-stale">Inputs changed — press Analyse deal to update these results.</p>
+          <p class="stale-note" id="btl-stale">Inputs changed. Press Analyse deal to update these results.</p>
           <div class="results-split">
             <div>
               <p class="subhead">Mortgage purchase</p>
@@ -320,7 +317,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
             <div class="field"><label>Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="markStaleHMO()"/></div>
             <div class="field"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="markStaleHMO()"/></div>
           </div>
-          <p class="calc-hint">Bills auto-calculated as 10% of total rent. Stamp duty auto-calculated. Council tax entered annually.</p>
+          <p class="calc-hint">Bills automatically calculated as 10% of total rent. Stamp duty automatically calculated. Council tax entered annually.</p>
           <p class="subhead" style="margin-top:1.5rem">Room breakdown</p>
           <div class="room-grid"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
           <div class="room-grid"><span>Single</span><input type="number" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r1t">£0</span></div>
@@ -352,7 +349,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
         </div>
         <div class="data-block">
           <p class="subhead">Results</p>
-          <p class="stale-note" id="hmo-stale">Inputs changed — press Analyse deal to update these results.</p>
+          <p class="stale-note" id="hmo-stale">Inputs changed. Press Analyse deal to update these results.</p>
           <div class="results-split">
             <div>
               <p class="subhead">Mortgage purchase</p>
@@ -427,7 +424,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
             <div class="field"><label>Insurance /mo (£)</label><input type="number" id="sa-ins" value="40" oninput="markStaleSA()"/></div>
             <div class="field"><label>Council tax annual (£)</label><input type="number" id="sa-ct" value="2265" oninput="markStaleSA()"/></div>
           </div>
-          <p class="calc-hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with BTL surcharge. Deposit and yields use end market value.</p>
+          <p class="calc-hint">Revenue = nightly rate × occupancy % × 365. Stamp duty automatically calculated with BTL surcharge. Deposit and yields use end market value.</p>
           <p class="subhead" style="margin-top:1.5rem">Targets</p>
           <div class="target-row"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
           <div class="target-row"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
@@ -452,7 +449,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
         </div>
         <div class="data-block">
           <p class="subhead">Results</p>
-          <p class="stale-note" id="sa-stale">Inputs changed — press Analyse deal to update these results.</p>
+          <p class="stale-note" id="sa-stale">Inputs changed. Press Analyse deal to update these results.</p>
           <div class="results-split">
             <div>
               <p class="subhead">Mortgage purchase</p>
@@ -507,7 +504,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
             <div class="field"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
             <div class="field"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
           </div>
-          <p class="calc-hint">Stamp duty auto-calculated with BTL surcharge on purchase price. Contingency is optional — leave blank to treat as £0. Cash-only strategy, no mortgage version.</p>
+          <p class="calc-hint">Stamp duty automatically calculated with BTL surcharge on purchase price. Contingency is optional: leave blank to treat as £0. Cash only strategy, no mortgage version.</p>
           <p class="subhead" style="margin-top:1.5rem">Target</p>
           <div class="target-row"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
           <button class="btn-primary run-btn" onclick="runFlip()" id="btn-run-flip">Analyse deal</button>
@@ -531,7 +528,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
         </div>
         <div class="data-block">
           <p class="subhead">Results</p>
-          <p class="stale-note" id="flip-stale">Inputs changed — press Analyse deal to update these results.</p>
+          <p class="stale-note" id="flip-stale">Inputs changed. Press Analyse deal to update these results.</p>
           <div class="metric-grid">
             <div class="metric"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
             <div class="metric"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
@@ -551,7 +548,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
     <div class="nudge-strip">
       <a class="nudge-card" href="/login.html?mode=signup">
         <p class="nlock">🔒 Sign up to unlock</p>
-        <h4>Save this deal</h4>
+        <h4>Save This Deal</h4>
         <p>Keep every deal you run, come back to it any time.</p>
       </a>
       <a class="nudge-card" href="/login.html?mode=signup">
@@ -561,60 +558,48 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
       </a>
       <a class="nudge-card" href="/login.html?mode=signup">
         <p class="nlock">🔒 Sign up to unlock</p>
-        <h4>Track it in your Pipeline</h4>
+        <h4>Track It in Your Pipeline</h4>
         <p>Move it through analysing → viewing → offered → agreed → completed.</p>
       </a>
     </div>
   </section>
 </div>
 
-<!-- HOW IT HELPS -->
+<!-- WHAT IT DOES -->
 <div class="lp-shell">
-  <section class="lp-section">
-    <p class="lp-kicker">What it actually does</p>
-    <h2><!-- PLACEHOLDER: real section headline -->[PLACEHOLDER: how-it-helps headline]</h2>
-    <p class="lp-lead"><!-- PLACEHOLDER: real intro line -->[PLACEHOLDER: one line framing this for property sourcers specifically]</p>
+  <section class="lp-section" id="what-it-does">
+    <h2>What It Does</h2>
     <div class="benefit-grid">
       <div class="benefit-card">
-        <h3>Full deal calculator</h3>
-        <p><!-- PLACEHOLDER -->[PLACEHOLDER: BTL/HMO/SA/Flip breakdown, max bid, full analysis — benefit-led copy]</p>
+        <h3>Analyse Any Deal</h3>
+        <p>BTL, HMO, serviced accommodation, or flip, in seconds.</p>
       </div>
       <div class="benefit-card">
-        <h3>Pipeline tracking</h3>
-        <p><!-- PLACEHOLDER -->[PLACEHOLDER: kanban pipeline benefit copy — never lose track of a deal in progress]</p>
+        <h3>Know Your Maximum Bid</h3>
+        <p>The ceiling you can pay and still hit your target yield or ROI.</p>
       </div>
       <div class="benefit-card">
-        <h3>Side-by-side comparison</h3>
-        <p><!-- PLACEHOLDER -->[PLACEHOLDER: compare deals across strategies benefit copy]</p>
+        <h3>Value the Property</h3>
+        <p>With rental comps, so you know what it's really worth.</p>
       </div>
       <div class="benefit-card">
-        <h3>Valuation &amp; comps</h3>
-        <p><!-- PLACEHOLDER -->[PLACEHOLDER: short forward-looking line]</p>
-        <span class="soon">Coming soon</span>
+        <h3>Track Every Deal</h3>
+        <p>From analysing to completed, all in one pipeline.</p>
+      </div>
+      <div class="benefit-card">
+        <h3>See the Full Working</h3>
+        <p>Every figure shown, no black box.</p>
       </div>
     </div>
   </section>
 </div>
 
-<!-- HOW IT WORKS -->
+<!-- ONE-STOP-SHOP -->
 <div class="lp-shell">
-  <section class="lp-section" id="how-it-works">
-    <p class="lp-kicker">How it works</p>
-    <h2>Three steps, no spreadsheet required</h2>
-    <div class="steps-grid">
-      <div class="step">
-        <h3>Run the numbers</h3>
-        <p>Enter a listing's headline figures — free, no account needed, right on this page.</p>
-      </div>
-      <div class="step">
-        <h3>Sign up to save it</h3>
-        <p>Keep the deal, get the Full Analysis, and start tracking it through your pipeline.</p>
-      </div>
-      <div class="step">
-        <h3>Work it through</h3>
-        <p>Move it through your pipeline stages and compare it against everything else you're chasing.</p>
-      </div>
-    </div>
+  <section class="lp-section" id="one-stop-shop">
+    <p class="lp-kicker">One stop shop</p>
+    <h2>Every Deal, Start to Finish, in One Place.</h2>
+    <p class="lp-lead">Analyse it. Value it. Check the rental comps. Track it through your pipeline from analysing to completed. The whole deal, one place, so nothing slips and no deal gets forgotten.</p>
   </section>
 </div>
 
@@ -622,7 +607,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
 <div class="lp-shell">
   <section class="lp-section" id="pricing">
     <p class="lp-kicker" style="text-align:center">Pricing</p>
-    <h2 style="margin-left:auto;margin-right:auto;text-align:center">Simple, one plan</h2>
+    <h2 style="margin-left:auto;margin-right:auto;text-align:center">Simple, One Plan</h2>
     <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">The calculator is always free. Upgrade when you want to save deals, get the Full Analysis, and run your pipeline.</p>
     <div class="pricing-wrap">
       <div class="pricing-card">
@@ -631,7 +616,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
         <ul class="price-features">
           <li>Unlimited saved deals</li>
           <li>Full Analysis (up to 50/month)</li>
-          <li>Full Pipeline — kanban tracking &amp; comparison</li>
+          <li>Full Pipeline: kanban tracking &amp; comparison</li>
           <li>Saved defaults across BTL/HMO/SA</li>
         </ul>
         <a class="btn-primary" style="width:100%;text-align:center;display:block" href="/login.html?mode=signup">Sign up</a>
@@ -641,39 +626,12 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   </section>
 </div>
 
-<!-- SOCIAL PROOF (placeholder) -->
-<div class="lp-shell">
-  <section class="lp-section">
-    <p class="lp-kicker" style="text-align:center">What sourcers say</p>
-    <div style="text-align:center">
-      <!-- These are illustrative placeholders only — no real customer quotes yet. -->
-      <span class="ph-tag">Placeholder — no real testimonials yet</span>
-    </div>
-    <div class="testimonial-grid">
-      <div class="testimonial-card">
-        <p class="quote">"[PLACEHOLDER quote]"</p>
-        <p class="who">[Placeholder name]</p>
-        <p class="role">[Placeholder role/company]</p>
-      </div>
-      <div class="testimonial-card">
-        <p class="quote">"[PLACEHOLDER quote]"</p>
-        <p class="who">[Placeholder name]</p>
-        <p class="role">[Placeholder role/company]</p>
-      </div>
-      <div class="testimonial-card">
-        <p class="quote">"[PLACEHOLDER quote]"</p>
-        <p class="who">[Placeholder name]</p>
-        <p class="role">[Placeholder role/company]</p>
-      </div>
-    </div>
-  </section>
-</div>
-
 <!-- FINAL CTA -->
 <div class="lp-shell">
   <section class="lp-section final-cta">
-    <h2><!-- PLACEHOLDER -->[PLACEHOLDER: closing headline]</h2>
-    <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+    <h2>Try It on Your Next Deal.</h2>
+    <p class="lp-lead" style="margin-left:auto;margin-right:auto">Run a real deal through the calculator free, no card needed. Sign up to save deals, get the full analysis, and track your pipeline.</p>
+    <a class="btn-primary" href="#calculator">Analyse a deal free</a>
   </section>
 </div>
 
