@@ -1,8 +1,10 @@
 /* ============================================================
    Deals N Yields — shared design system ("Underwriter")
    Dark, dense, premium financial-tool shell with a warm amber
-   accent, plus a lighter "input zone" treatment for sustained
-   data entry (calculator fields, working areas).
+   accent, plus a calmer, muted "input zone" treatment for
+   sustained data entry (calculator fields, working areas) —
+   darker than the old ivory version, still clearly lighter
+   than the near-black shell.
 
    Every logged-in page links this file and builds page content
    from these tokens + components. Page-specific <style> blocks
@@ -26,13 +28,14 @@
   --accent-2:#F5C878;
   --accent-ink:#191205;
 
-  /* --- input / working zone: lighter, calmer, for long sessions --- */
-  --input-bg:#EDE9DD;
-  --input-surface:#F8F5EC;
-  --input-ink:#221D15;
-  --input-muted:#746E5E;
-  --input-hairline:#DED7C4;
-  --input-accent:#A85A22;
+  /* --- input / working zone: warm dark taupe/stone, calmer than the
+     shell but no longer light — for long sustained-entry sessions --- */
+  --input-bg:#423528;
+  --input-surface:#4E4030;
+  --input-ink:#F0E8DA;
+  --input-muted:#B8A88F;
+  --input-hairline:#5C4C38;
+  --input-accent:var(--accent);
 
   --font-head:'Big Shoulders Display',sans-serif;
   --font-body:'Archivo',-apple-system,BlinkMacSystemFont,sans-serif;
