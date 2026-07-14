@@ -6,101 +6,93 @@
 <title>Deals N Yields — Pipeline</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <style>
-:root{
-  --paper:#FBF9F3;
-  --paper-tint:#F4F1E7;
-  --graphite:#171512;
-  --forest:#0B1F16;
-  --bottle:#0F3D2B;
-  --jewel:#12A87A;
-  --glow:#3FE8B8;
-  --mist:#6B665C;
-  --hairline:#E2DDD0;
-  --frost:#F3F5F3;
-  --display:'Instrument Serif',serif;
-  --body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif;
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{
-  background:linear-gradient(160deg,#F2F0E8 0%,#E9E6DB 100%);
-  color:var(--graphite);
-  font-family:var(--body);
-  font-size:15px;
-  line-height:1.5;
-  padding:2.5rem 1.5rem;
-  min-height:100vh;
-}
-@media(max-width:600px){body{padding:1.25rem .85rem}}
+/* page-specific layout only — colours/fonts/radius all come from styles.css */
+.hint{font-size:12.5px;color:var(--muted);font-style:italic}
 
-.w{
-  max-width:1200px;margin:0 auto;
-  background:linear-gradient(180deg,#FFFFFF 0%,var(--paper) 100%);
-  border:1px solid var(--hairline);
-  border-radius:20px;
-  box-shadow:0 12px 32px rgba(16,22,26,.07), 0 2px 6px rgba(16,22,26,.05);
-  padding:2.25rem 2.25rem 3rem;
-}
-@media(max-width:600px){.w{padding:1.5rem 1.25rem 2rem;border-radius:14px}}
-
-.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:.5rem}
-.nav-links{display:flex;gap:1.25rem}
-.nav-links a{font-family:var(--body);font-size:13px;font-weight:600;color:var(--mist);text-decoration:none;border-bottom:1px solid transparent}
-.nav-links a:hover{color:var(--jewel)}
-.nav-links a.active{color:var(--jewel);border-color:var(--jewel)}
-.auth-bar{display:flex;align-items:center;gap:1.25rem}
-.auth-bar a{font-family:var(--body);font-size:13px;font-weight:600;color:var(--jewel);text-decoration:none;border-bottom:1px solid transparent;cursor:pointer}
-.auth-bar a:hover{border-color:var(--jewel)}
-.hint{font-size:12.5px;color:var(--mist);font-style:italic}
-
-.page-title{font-family:var(--display);font-size:26px;font-weight:400;margin:0 0 1.5rem}
+.page-title{font-family:var(--font-head);font-weight:800;font-size:28px;margin:0 0 1.5rem}
 
 .locked-panel{text-align:center;padding:3.5rem 1rem}
-.locked-panel h2{font-family:var(--display);font-size:24px;font-weight:400;margin:0 0 .75rem}
-.locked-panel p{color:var(--mist);font-size:14px;margin:0 0 1.5rem}
+.locked-panel h2{font-size:22px;margin:0 0 .75rem}
+.locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
 
-.btn-primary{
-  font-family:var(--body);font-weight:700;font-size:14px;
-  background:linear-gradient(135deg,var(--jewel),var(--glow));color:var(--forest);
-  border:none;border-radius:10px;padding:12px 24px;cursor:pointer;
+.kanban-wrap{
+  overflow-x:auto;padding-bottom:.85rem;
+  scrollbar-width:thin;scrollbar-color:var(--hairline-strong) transparent; /* Firefox */
 }
-.btn-primary:hover{opacity:.88}
-.btn-primary:disabled{opacity:.35;cursor:not-allowed}
-
-.kanban-wrap{overflow-x:auto;padding-bottom:.5rem}
+.kanban-wrap::-webkit-scrollbar{height:7px} /* Chrome/Safari/Edge */
+.kanban-wrap::-webkit-scrollbar-track{background:transparent}
+.kanban-wrap::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:999px}
+.kanban-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 .kanban{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:1rem}
 @media(max-width:860px){.kanban{grid-template-columns:repeat(5,240px)}}
-.kanban-col{background:var(--paper-tint);border:1px solid var(--hairline);border-radius:14px;padding:1rem}
-.col-title{font-family:var(--display);font-size:17px;font-weight:400;margin:0 0 .85rem;color:var(--graphite)}
-.col-count{font-size:11px;color:var(--mist);font-weight:600;margin-left:.35rem;font-family:var(--body)}
+.kanban-col{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1rem}
+.col-title{
+  font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  margin:0 0 .85rem;color:var(--muted);padding-bottom:.5rem;border-bottom:1px solid var(--hairline);
+}
+.col-count{font-size:11px;color:var(--accent-2);font-weight:700;margin-left:.35rem;font-family:var(--font-body)}
 .col-cards{display:flex;flex-direction:column;gap:.6rem;min-height:60px}
 
-.pipeline-card{background:#fff;border:1px solid var(--hairline);border-radius:10px;padding:.75rem .85rem}
+.pipeline-card{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.75rem .85rem}
 .card-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:2px}
-.card-type{font-size:13px;font-weight:600;color:var(--graphite)}
-.card-date{font-size:11px;color:var(--mist);margin:0 0 .6rem}
-.stage-select{width:100%;font-family:var(--body);font-size:12.5px;border:1.5px solid var(--hairline);border-radius:6px;padding:5px 7px;background:#fff;color:var(--graphite);margin-bottom:.5rem}
+.card-type{font-size:13px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
+.card-date{font-size:11px;color:var(--muted);margin:0 0 .6rem;font-variant-numeric:tabular-nums}
+.stage-dd{position:relative;margin-bottom:.5rem}
+.stage-dd-trigger{
+  width:100%;text-align:left;font-family:var(--font-body);font-size:12.5px;font-weight:600;
+  border:1.5px solid var(--hairline);border-radius:var(--radius-sm);
+  padding:7px 26px 7px 10px;background-color:var(--surface-3);color:var(--ink);
+  cursor:pointer;position:relative;transition:border-color .15s ease;
+}
+.stage-dd-trigger::after{
+  content:'';position:absolute;right:10px;top:50%;width:10px;height:6px;transform:translateY(-50%);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23E0A458' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-size:10px 6px;
+}
+.stage-dd-trigger:hover{border-color:var(--hairline-strong)}
+.stage-dd-trigger:focus{outline:none;border-color:var(--accent)}
+.stage-dd.open .stage-dd-trigger{border-color:var(--accent)}
+
+.stage-dd-list{
+  display:none;list-style:none;margin:0;padding:4px;
+  position:fixed;z-index:200; /* fixed + JS-positioned so .kanban-wrap's overflow-x:auto
+    (which also clips the Y axis, per spec) can't crop it — see toggleStageDD() */
+  background-color:var(--surface-3);opacity:1;
+  border:1.5px solid var(--accent);border-radius:var(--radius-sm);
+  /* two-layer shadow: a tight contact shadow for a crisp edge, plus a soft
+     wide one for real elevation — a single soft shadow read as too weak
+     against the busy dark board behind it */
+  box-shadow:0 1px 2px rgba(0,0,0,.6), 0 16px 40px rgba(0,0,0,.55);
+}
+.stage-dd.open .stage-dd-list{display:block}
+.stage-opt{
+  font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink);
+  padding:7px 10px;border-radius:var(--radius-sm);cursor:pointer;
+}
+.stage-opt:hover,.stage-opt.highlight{background:rgba(224,164,88,.12)}
+.stage-opt.selected{color:var(--accent-2)}
 .card-actions{display:flex;justify-content:flex-end}
-.remove-btn{font-family:var(--body);font-size:11px;color:#C0392B;background:transparent;border:none;cursor:pointer;padding:2px 4px}
+.remove-btn{font-family:var(--font-body);font-size:11px;color:#E8746B;background:transparent;border:none;cursor:pointer;padding:2px 4px}
 .remove-btn:hover{text-decoration:underline}
 
-.compare-bar{margin:1.75rem 0 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;padding-top:1.5rem;border-top:1px solid var(--hairline)}
-.compare-bar p{margin:0;font-size:13px;color:var(--mist)}
+.compare-bar{margin:3rem 0 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;padding-top:1.5rem;border-top:1px solid var(--hairline)}
+.compare-bar p{margin:0;font-size:13px;color:var(--muted)}
 #compare-panel{margin-top:1rem;overflow-x:auto}
-.compare-table{width:100%;border-collapse:collapse;font-size:13px;min-width:480px}
-.compare-table th,.compare-table td{border:1px solid var(--hairline);padding:.65rem .8rem;text-align:left}
-.compare-table th{background:var(--paper-tint);font-family:var(--display);font-size:16px;font-weight:400}
-.compare-table td:first-child{font-weight:600;color:var(--mist);font-size:12px;white-space:nowrap}
+.compare-table{width:100%;border-collapse:collapse;font-size:13px;min-width:480px;font-variant-numeric:tabular-nums}
+.compare-table th,.compare-table td{border:1px solid var(--hairline);padding:.65rem .8rem;text-align:left;color:var(--ink)}
+.compare-table th{background:var(--surface-2);font-family:var(--font-body);font-size:13px;font-weight:700}
+.compare-table td:first-child{font-weight:600;color:var(--muted);font-size:12px;white-space:nowrap}
 </style>
 </head>
 <body>
 
-<div class="w">
+<div class="shell">
   <div class="topbar">
+    <span class="wordmark">Deals N Yields</span>
     <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html" class="active">Pipeline</a></div>
     <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
   </div>
@@ -304,6 +296,7 @@ async function loadPipeline(){
 }
 
 function renderBoard(){
+  openStageDD=null; // the board is about to be fully rebuilt, so any open dropdown is gone with it
   const kanban=document.getElementById('kanban');
   kanban.innerHTML=STAGES.map(stage=>{
     const dealsInStage=pipelineDeals.filter(d=>d.pipeline_stage===stage);
@@ -317,20 +310,134 @@ function renderBoard(){
   }).join('');
 }
 
+// Custom stage dropdown — a native <select>'s open popup is rendered by the
+// OS on most platforms, and the currently-selected option gets special
+// treatment (e.g. bold system font on macOS) that page CSS cannot reach.
+// This listbox is fully our own markup, so every option renders identically
+// regardless of which one is selected. changeStage() (below) is unchanged —
+// this only decides which stage value gets passed to it.
+let openStageDD=null;
+
+function closeAllStageDD(){
+  document.querySelectorAll('.stage-dd.open').forEach(el=>{
+    el.classList.remove('open');
+    const btn=el.querySelector('.stage-dd-trigger');
+    if(btn)btn.setAttribute('aria-expanded','false');
+  });
+  openStageDD=null;
+}
+
+// .stage-dd-list is position:fixed (see CSS) precisely so kanban-wrap's
+// overflow-x:auto — which also clips the Y axis, per the CSS overflow spec —
+// can't crop it. Fixed elements are positioned relative to the viewport, not
+// their DOM parent, so we have to compute and set top/left/width ourselves
+// from the trigger's actual on-screen position each time it opens.
+function positionStageDDList(wrap){
+  const trigger=wrap.querySelector('.stage-dd-trigger');
+  const list=wrap.querySelector('.stage-dd-list');
+  if(!trigger||!list)return;
+  const r=trigger.getBoundingClientRect();
+  const gap=4;
+  // By the time this runs, toggleStageDD() has already added the 'open'
+  // class, so the list is display:block and has a real, measurable height —
+  // its position (top/left, set below) doesn't affect that measurement.
+  const listHeight=list.getBoundingClientRect().height;
+
+  // "Room below" has to mean room before the NEAREST real boundary, not
+  // just the viewport edge — on a tall browser window there's plenty of
+  // viewport space under a bottom-of-column card, but the compare-bar
+  // footer sits right there in normal document flow well within it, so a
+  // pure viewport-edge check alone still let the menu overlap it.
+  const compareBar=document.querySelector('.compare-bar');
+  const compareBarTop=compareBar?compareBar.getBoundingClientRect().top:window.innerHeight;
+  const lowerBoundary=Math.min(window.innerHeight, compareBarTop);
+
+  const spaceBelow=lowerBoundary-r.bottom;
+  const spaceAbove=r.top;
+  // Flip up only if it doesn't fit below AND it actually fits above —
+  // otherwise keep the default (below), rather than flipping into an
+  // equally-cramped spot above.
+  const openUpward=spaceBelow<(listHeight+gap) && spaceAbove>=(listHeight+gap);
+
+  list.style.left=r.left+'px';
+  list.style.width=r.width+'px';
+  list.style.top=openUpward ? (r.top-listHeight-gap)+'px' : (r.bottom+gap)+'px';
+}
+
+function toggleStageDD(e, dealId){
+  e.stopPropagation();
+  const wasOpen=openStageDD===dealId;
+  closeAllStageDD();
+  if(wasOpen)return;
+  const wrap=document.querySelector(`.stage-dd[data-deal-id="${dealId}"]`);
+  if(!wrap)return;
+  wrap.classList.add('open');
+  wrap.querySelector('.stage-dd-trigger').setAttribute('aria-expanded','true');
+  positionStageDDList(wrap);
+  openStageDD=dealId;
+  wrap.querySelectorAll('.stage-opt').forEach(o=>o.classList.remove('highlight'));
+  const current=wrap.querySelector('.stage-opt.selected')||wrap.querySelector('.stage-opt');
+  if(current)current.classList.add('highlight');
+}
+
+function selectStage(e, dealId, stage){
+  e.stopPropagation();
+  closeAllStageDD();
+  changeStage(dealId, stage);
+}
+
+function stageDDKeydown(e, dealId){
+  const wrap=document.querySelector(`.stage-dd[data-deal-id="${dealId}"]`);
+  if(!wrap)return;
+  const isOpen=openStageDD===dealId;
+  if(e.key==='Enter'||e.key===' '){
+    e.preventDefault();
+    if(!isOpen){toggleStageDD(e, dealId);return;}
+    const hl=wrap.querySelector('.stage-opt.highlight');
+    if(hl)selectStage(e, dealId, hl.dataset.stage);
+    return;
+  }
+  if(e.key==='Escape'){closeAllStageDD();return;}
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    if(!isOpen){toggleStageDD(e, dealId);return;}
+    const opts=[...wrap.querySelectorAll('.stage-opt')];
+    let idx=opts.findIndex(o=>o.classList.contains('highlight'));
+    idx = e.key==='ArrowDown' ? Math.min(idx+1, opts.length-1) : Math.max(idx-1, 0);
+    opts.forEach(o=>o.classList.remove('highlight'));
+    opts[idx].classList.add('highlight');
+  }
+}
+
+document.addEventListener('click', closeAllStageDD);
+// Fixed-position popups don't move with their trigger on scroll (unlike the
+// old absolute-positioned version, which was anchored in the flow). Closing
+// on any scroll — including inside the horizontally-scrollable kanban-wrap,
+// hence capture:true — is simpler and more standard than live-repositioning.
+window.addEventListener('scroll', closeAllStageDD, true);
+
 function cardHtml(d){
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const label=d.deal_type.toUpperCase();
   const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):'';
   const name=dealDisplayName(d);
   const checked=selectedIds.has(d.id)?'checked':'';
-  const options=STAGES.map(s=>`<option value="${s}" ${s===d.pipeline_stage?'selected':''}>${STAGE_LABELS[s]}</option>`).join('');
+  const options=STAGES.map(s=>
+    `<li class="stage-opt${s===d.pipeline_stage?' selected':''}" role="option" aria-selected="${s===d.pipeline_stage}" data-stage="${s}" onclick="selectStage(event,'${d.id}','${s}')">${STAGE_LABELS[s]}</li>`
+  ).join('');
   return `<div class="pipeline-card">
     <div class="card-top">
       <input type="checkbox" ${checked} onchange="toggleCompare('${d.id}', this.checked)"/>
       <span class="card-type">${escapeHtml(name)}</span>
     </div>
     <p class="card-date">${label}${pp?' · '+pp:''} · ${date}</p>
-    <select class="stage-select" onchange="changeStage('${d.id}', this.value)">${options}</select>
+    <div class="stage-dd" data-deal-id="${d.id}">
+      <button type="button" class="stage-dd-trigger" aria-haspopup="listbox" aria-expanded="false"
+        onclick="toggleStageDD(event,'${d.id}')" onkeydown="stageDDKeydown(event,'${d.id}')">
+        <span>${STAGE_LABELS[d.pipeline_stage]||'—'}</span>
+      </button>
+      <ul class="stage-dd-list" role="listbox">${options}</ul>
+    </div>
     <div class="card-actions"><button class="remove-btn" onclick="removeFromPipeline('${d.id}')">Remove from pipeline</button></div>
   </div>`;
 }
@@ -384,7 +491,7 @@ function compareSelected(){
   let html='<table class="compare-table"><thead><tr><th>Figure</th>';
   selected.forEach(d=>{
     const name=dealDisplayName(d);
-    html+=`<th>${escapeHtml(name)}<br><span style="font-family:var(--body);font-size:11px;color:var(--mist);font-weight:600">${d.deal_type.toUpperCase()}</span></th>`;
+    html+=`<th>${escapeHtml(name)}<br><span style="font-family:var(--font-body);font-size:11px;color:var(--muted);font-weight:600">${d.deal_type.toUpperCase()}</span></th>`;
   });
   html+='</tr></thead><tbody>';
   rows.forEach(label=>{
