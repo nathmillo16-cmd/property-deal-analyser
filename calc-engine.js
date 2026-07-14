@@ -53,6 +53,7 @@ function cBTL(){
   s('bm-gy',fP(gy),cl(gy,7,5));s('bm-ny2',fP(mny),cl(mny,4,2));
   s('bm-roi',fP(mROI),cl(mROI,15,8));s('bm-ti',fmt(mTI));
   s('bm-mli',fmt(mMLI),mMLI<=0?'good':'');s('bm-pb',mPB!==0?Math.abs(mPB).toFixed(2)+' yrs':'N/A');
+  s('bm-loan',fmt(loan));s('bm-rate',fP(mr));s('bm-deposit',fmt(dep));s('bm-mpay',fmt(mm));
   s('bc-nm',fmt(cNm),cl(cNm,200,0));s('bc-ny',fmt(cNy),cl(cNy,2400,0));
   s('bc-gy',fP(gy),cl(gy,7,5));s('bc-ny2',fP(cny),cl(cny,4,2));
   s('bc-roi',fP(cROI),cl(cROI,15,8));s('bc-ti',fmt(cTI));
@@ -64,6 +65,7 @@ function cBTL(){
   if(oR>0)document.getElementById('b-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
 
   btlData={pp,emv,rent,mr,dp:dp*100,ref,sol,mf,srch,ins,mgmt:mgmt*100,maint:maint*100,ty,tr,
+    loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
     gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
     mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
@@ -118,6 +120,7 @@ function cHMO(){
   s('hm-gy',fP(gy),cl(gy,10,7));s('hm-ny2',fP(mny),cl(mny,6,4));
   s('hm-roi',fP(mROI),cl(mROI,15,8));s('hm-ti',fmt(mTI));
   s('hm-mli',fmt(mTI));s('hm-pb',mPB!==0?Math.abs(mPB).toFixed(2)+' yrs':'N/A');
+  s('hm-loan',fmt(loan));s('hm-rate',fP(mr));s('hm-deposit',fmt(dep));s('hm-mpay',fmt(mm));
   s('hc-nm',fmt(cNm),cl(cNm,300,0));s('hc-ny',fmt(cNy),cl(cNy,3600,0));
   s('hc-gy',fP(gy),cl(gy,10,7));s('hc-ny2',fP(cny),cl(cny,6,4));
   s('hc-roi',fP(cROI),cl(cROI,15,8));s('hc-ti',fmt(cTI));
@@ -136,6 +139,7 @@ function cHMO(){
   if(oR>0&&oR<1900000){document.getElementById('h-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';}
 
   hmoData={pp,emv,totalRent,mr,dp:dp*100,ref,sol,mf,lic,srch,ins,wifi,ctMonthly:Math.round(ct),maint:maint*100,mgmt:mgmt*100,ty,troi,
+    loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
     gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
     mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
@@ -202,6 +206,7 @@ function cSA(){
   s('sam-iy',fmt(incY));
   s('sam-cfm',fmt(mCFm),cl(mCFm,300,0));
   s('sam-cfy',fmt(mCFy),cl(mCFy,3600,0));
+  s('sam-loan',fmt(loan));s('sam-rate',fP(mr));s('sam-deposit',fmt(dep));s('sam-mpay',fmt(mm));
 
   s('sac-gy',fP(gy),cl(gy,10,7));
   s('sac-ny',fP(cny),cl(cny,6,4));
@@ -219,6 +224,7 @@ function cSA(){
   if(oR>0)document.getElementById('sa-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
 
   saData={rate,occ,pp,emv,mr,dp:dp*100,sol,mf,srch,ref,furn,wg,mgmt:mgmt*100,util:util*100,maint:maint*100,clean,ins,ct,ty,troi,
+    loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     annualRevenue:Math.round(ag),netAnnualIncome:Math.round(netInc),
     mCFy:Math.round(mCFy),mCFm:Math.round(mCFm),cCFy:Math.round(cCFy),cCFm:Math.round(cCFm),
     incM:Math.round(incM),incY:Math.round(incY),
