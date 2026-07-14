@@ -79,6 +79,40 @@
 .remove-btn{font-family:var(--font-body);font-size:11px;color:#E8746B;background:transparent;border:none;cursor:pointer;padding:2px 4px}
 .remove-btn:hover{text-decoration:underline}
 
+.kanban-col.drag-over{border-color:var(--accent);box-shadow:0 0 0 2px rgba(224,164,88,.25) inset}
+.pipeline-card.dragging{opacity:.4}
+.drag-handle{
+  margin-left:auto;font-size:12px;color:var(--muted);letter-spacing:1px;line-height:1;
+  cursor:grab;padding:4px 6px;border-radius:var(--radius-sm);touch-action:none;-webkit-user-select:none;user-select:none;
+}
+.drag-handle:hover{color:var(--accent);background:rgba(224,164,88,.1)}
+.drag-handle:active{cursor:grabbing}
+.drag-ghost{position:fixed;z-index:300;pointer-events:none;opacity:.92;transform:rotate(-2deg);box-shadow:0 20px 40px rgba(0,0,0,.5)}
+
+/* stage-change celebration */
+@keyframes confetti-fall{
+  0%{transform:translateY(-20px) translateX(0) rotate(0deg);opacity:1}
+  100%{transform:translateY(100vh) translateX(var(--drift,0px)) rotate(540deg);opacity:0}
+}
+.confetti-piece{
+  position:fixed;top:-20px;width:7px;height:13px;pointer-events:none;z-index:500;border-radius:1px;
+  animation:confetti-fall 1.7s cubic-bezier(.25,.46,.45,.94) forwards;
+}
+@keyframes stage-flourish{
+  0%{box-shadow:0 0 0 0 rgba(224,164,88,.55)}
+  70%{box-shadow:0 0 0 10px rgba(224,164,88,0)}
+  100%{box-shadow:0 0 0 0 rgba(224,164,88,0)}
+}
+.stage-flourish{animation:stage-flourish .75s ease-out}
+.celebrate-toast{
+  position:fixed;left:50%;bottom:2rem;transform:translate(-50%,20px);
+  background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--radius);
+  padding:.85rem 1.5rem;font-family:var(--font-head);font-weight:700;font-size:15px;color:var(--accent-2);
+  box-shadow:0 16px 40px rgba(0,0,0,.5);opacity:0;pointer-events:none;
+  transition:opacity .25s ease, transform .25s ease;z-index:501;
+}
+.celebrate-toast.show{opacity:1;transform:translate(-50%,0)}
+
 .compare-bar{margin:3rem 0 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;padding-top:1.5rem;border-top:1px solid var(--hairline)}
 .compare-bar p{margin:0;font-size:13px;color:var(--muted)}
 #compare-panel{margin-top:1rem;overflow-x:auto}
@@ -197,6 +231,7 @@ function dealDisplayName(d){
 
 let sbClient=null, currentSession=null, currentPlan=null;
 let pipelineDeals=[], selectedIds=new Set();
+let draggedDealId=null, touchDrag=null;
 
 async function logout(){
   await sbClient.auth.signOut();
@@ -303,7 +338,8 @@ function renderBoard(){
     const cards=dealsInStage.length
       ? dealsInStage.map(cardHtml).join('')
       : '<p class="hint">No deals</p>';
-    return `<div class="kanban-col">
+    return `<div class="kanban-col" data-stage="${stage}"
+      ondragover="onColumnDragOver(event)" ondragleave="onColumnDragLeave(event)" ondrop="onColumnDrop(event,'${stage}')">
       <p class="col-title">${STAGE_LABELS[stage]}<span class="col-count">${dealsInStage.length}</span></p>
       <div class="col-cards">${cards}</div>
     </div>`;
@@ -425,10 +461,17 @@ function cardHtml(d){
   const options=STAGES.map(s=>
     `<li class="stage-opt${s===d.pipeline_stage?' selected':''}" role="option" aria-selected="${s===d.pipeline_stage}" data-stage="${s}" onclick="selectStage(event,'${d.id}','${s}')">${STAGE_LABELS[s]}</li>`
   ).join('');
-  return `<div class="pipeline-card">
+  // draggable="true" sits ONLY on the handle span, not the card — so a drag
+  // gesture can only ever start by grabbing the handle. The checkbox, stage
+  // dropdown, and remove button below are never draggable and never compete
+  // with a drag for the same click/touch.
+  return `<div class="pipeline-card" data-deal-id="${d.id}">
     <div class="card-top">
       <input type="checkbox" ${checked} onchange="toggleCompare('${d.id}', this.checked)"/>
       <span class="card-type">${escapeHtml(name)}</span>
+      <span class="drag-handle" draggable="true" title="Drag to move"
+        ondragstart="onHandleDragStart(event,'${d.id}')" ondragend="onHandleDragEnd(event)"
+        ontouchstart="onHandleTouchStart(event,'${d.id}')">⠿⠿</span>
     </div>
     <p class="card-date">${label}${pp?' · '+pp:''} · ${date}</p>
     <div class="stage-dd" data-deal-id="${d.id}">
@@ -442,7 +485,116 @@ function cardHtml(d){
   </div>`;
 }
 
+// Desktop drag-and-drop (native HTML5 DnD API). draggable="true" lives only
+// on the handle (see cardHtml()), so dragstart can only ever originate there.
+// The card itself is used as the custom drag image so the whole card visibly
+// lifts, even though only the small handle is the actual draggable element.
+// Drop calls changeStage() — the exact same function/endpoint the stage
+// dropdown already uses — so there is exactly one place stage changes get
+// persisted, not two.
+function onHandleDragStart(e, dealId){
+  draggedDealId=dealId;
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain', dealId);
+  const card=e.target.closest('.pipeline-card');
+  if(card){
+    card.classList.add('dragging');
+    const rect=card.getBoundingClientRect();
+    e.dataTransfer.setDragImage(card, e.clientX-rect.left, e.clientY-rect.top);
+  }
+}
+
+function onHandleDragEnd(e){
+  const card=e.target.closest('.pipeline-card');
+  if(card)card.classList.remove('dragging');
+  document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));
+  draggedDealId=null;
+}
+
+function onColumnDragOver(e){
+  e.preventDefault(); // required or the browser refuses to allow a drop here
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onColumnDragLeave(e){
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function onColumnDrop(e, stage){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const dealId=draggedDealId || e.dataTransfer.getData('text/plain');
+  draggedDealId=null;
+  if(!dealId)return;
+  const deal=pipelineDeals.find(d=>d.id===dealId);
+  if(!deal || deal.pipeline_stage===stage)return; // dropped back in its own column — no-op
+  changeStage(dealId, stage);
+}
+
+// Touch drag (best-effort): native HTML5 drag-and-drop does not fire on
+// touch devices at all, so this reimplements the same interaction by hand —
+// a floating clone of the whole card follows the finger, elementFromPoint()
+// finds which column it's over. Attached to the handle's touchstart only,
+// same as the desktop version, so it's still handle-only on touch too. Ends
+// by calling the same changeStage() as everything else; still one path.
+function onHandleTouchStart(e, dealId){
+  const cardEl=e.currentTarget.closest('.pipeline-card');
+  if(!cardEl)return;
+  e.preventDefault(); // stop this becoming a tap/scroll on the handle itself
+  const touch=e.touches[0];
+  const rect=cardEl.getBoundingClientRect();
+  const ghost=cardEl.cloneNode(true);
+  ghost.classList.add('drag-ghost');
+  ghost.style.width=rect.width+'px';
+  ghost.style.left=rect.left+'px';
+  ghost.style.top=rect.top+'px';
+  document.body.appendChild(ghost);
+  cardEl.classList.add('dragging');
+  touchDrag={dealId, ghostEl:ghost, sourceEl:cardEl, offsetX:touch.clientX-rect.left, offsetY:touch.clientY-rect.top};
+  document.addEventListener('touchmove', onTouchMove, {passive:false});
+  document.addEventListener('touchend', onTouchEnd);
+}
+
+function onTouchMove(e){
+  if(!touchDrag)return;
+  e.preventDefault(); // stop the page from scrolling while a card is being dragged
+  const touch=e.touches[0];
+  touchDrag.ghostEl.style.left=(touch.clientX-touchDrag.offsetX)+'px';
+  touchDrag.ghostEl.style.top=(touch.clientY-touchDrag.offsetY)+'px';
+  document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));
+  const under=document.elementFromPoint(touch.clientX, touch.clientY);
+  const col=under&&under.closest('.kanban-col');
+  if(col)col.classList.add('drag-over');
+}
+
+function onTouchEnd(e){
+  if(!touchDrag)return;
+  const touch=e.changedTouches[0];
+  const under=document.elementFromPoint(touch.clientX, touch.clientY);
+  const col=under&&under.closest('.kanban-col');
+  document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));
+  touchDrag.sourceEl.classList.remove('dragging');
+  touchDrag.ghostEl.remove();
+  document.removeEventListener('touchmove', onTouchMove);
+  document.removeEventListener('touchend', onTouchEnd);
+
+  const {dealId}=touchDrag;
+  touchDrag=null;
+  if(col){
+    const stage=col.dataset.stage;
+    const deal=pipelineDeals.find(d=>d.id===dealId);
+    if(deal && deal.pipeline_stage!==stage)changeStage(dealId, stage);
+  }
+}
+
 async function changeStage(dealId, stage){
+  // Captured before the request so we know what stage the deal is moving
+  // FROM — used only to decide which celebration (if any) to play below.
+  // The persistence call itself (fetch/POST/error-handling/loadPipeline) is
+  // otherwise byte-for-byte what it was before.
+  const priorDeal=pipelineDeals.find(d=>d.id===dealId);
+  const fromStage=priorDeal?priorDeal.pipeline_stage:null;
+  let succeeded=false;
   try{
     const res=await fetch(`/api/pipeline/${dealId}/stage`,{
       method:'POST',
@@ -451,10 +603,67 @@ async function changeStage(dealId, stage){
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not update stage.');
+    succeeded=true;
   }catch(e){
     alert('Could not update stage: '+e.message);
   }
-  loadPipeline();
+  await loadPipeline();
+  if(succeeded)celebrateStageChange(dealId, fromStage, stage);
+}
+
+// Celebration is purely a visual side-effect layered on top of a confirmed,
+// already-persisted stage change — it never runs on failure, and it has no
+// influence over whether/how the change is saved. Fires the same way
+// whether the change came from a drag-drop or the dropdown, since both
+// funnel through changeStage() above.
+function celebrateStageChange(dealId, fromStage, toStage){
+  const fromIdx=STAGES.indexOf(fromStage);
+  const toIdx=STAGES.indexOf(toStage);
+  if(toIdx<=fromIdx)return; // only genuine forward progress celebrates; backward/removal (-1) doesn't
+  if(toStage==='completed'){
+    celebrateCompleted();
+  }else{
+    celebrateProgress(dealId);
+  }
+}
+
+const CONFETTI_COLORS=['#E0A458','#F5C878','#ECEAE3'];
+
+function celebrateCompleted(){
+  const count=40;
+  for(let i=0;i<count;i++){
+    const piece=document.createElement('div');
+    piece.className='confetti-piece';
+    piece.style.left=(Math.random()*100)+'vw';
+    piece.style.background=CONFETTI_COLORS[i%CONFETTI_COLORS.length];
+    piece.style.animationDelay=(Math.random()*0.25)+'s';
+    piece.style.setProperty('--drift',(Math.random()*80-40)+'px');
+    document.body.appendChild(piece);
+    setTimeout(()=>piece.remove(), 1800);
+  }
+  showCelebrateToast('Deal completed 🎉');
+}
+
+function celebrateProgress(dealId){
+  const card=document.querySelector(`.pipeline-card[data-deal-id="${dealId}"]`);
+  if(!card)return;
+  card.classList.add('stage-flourish');
+  setTimeout(()=>card.classList.remove('stage-flourish'), 800);
+}
+
+let celebrateToastTimer=null;
+function showCelebrateToast(text){
+  let toast=document.getElementById('celebrate-toast');
+  if(!toast){
+    toast=document.createElement('div');
+    toast.id='celebrate-toast';
+    toast.className='celebrate-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent=text;
+  toast.classList.add('show');
+  clearTimeout(celebrateToastTimer);
+  celebrateToastTimer=setTimeout(()=>toast.classList.remove('show'), 2600);
 }
 
 async function removeFromPipeline(dealId){
