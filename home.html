@@ -12,15 +12,41 @@
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 #app{display:none}
+.hint{font-size:12.5px;color:var(--muted);font-style:italic;margin:0}
 
-.welcome{margin-bottom:2.5rem}
+.welcome{margin-bottom:1.75rem}
 .welcome h1{font-size:34px;margin-top:.1rem}
 
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
-.card{display:flex;flex-direction:column;gap:.6rem;text-decoration:none;color:inherit}
-.card h2{font-size:22px}
-.card p{font-size:13.5px;color:var(--muted)}
-.card .go{font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--accent);margin-top:.4rem}
+.quick-actions{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2.5rem}
+.quick-actions a{text-decoration:none;display:inline-block}
+
+.empty-card{text-align:center;padding:3.5rem 2rem}
+.empty-card h2{font-size:22px;margin:0 0 .6rem}
+.empty-card p{font-size:13.5px;color:var(--muted);margin:0 0 1.5rem;max-width:44ch;margin-left:auto;margin-right:auto}
+.empty-card .btn-primary{text-decoration:none;display:inline-block}
+
+.stats-grid{margin-bottom:2.5rem}
+
+.content-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+@media(max-width:760px){.content-grid{grid-template-columns:1fr}}
+.content-grid .card h2{font-size:18px;margin:0 0 1rem}
+.content-grid .card .go{display:inline-block;margin-top:1rem;text-decoration:none}
+
+.recent-item{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:.7rem 0;border-top:1px solid var(--hairline)}
+.recent-item:first-child{border-top:none;padding-top:0}
+.recent-item .rname{font-size:13.5px;font-weight:600;color:var(--ink);display:block}
+.recent-item .rmeta{font-size:11.5px;color:var(--muted);margin-top:2px;display:block}
+.recent-item .rfigure{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--accent-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+.stage-row{display:flex;flex-wrap:wrap;gap:8px}
+
+/* Cards used as plain link tiles (Calculator/Saved Deals/Pipeline used to
+   live here as the whole page — now demoted to a smaller quick-links row) */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem;margin-top:2.5rem}
+.cards .card{display:flex;flex-direction:column;gap:.5rem;text-decoration:none;color:inherit}
+.cards .card h3{font-size:16px;margin:0}
+.cards .card p{font-size:12.5px;color:var(--muted);margin:0}
+.cards .card .go{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--accent);margin-top:.3rem}
 </style>
 </head>
 <body>
@@ -37,19 +63,53 @@
     <h1 id="welcome-name">—</h1>
   </div>
 
+  <div class="quick-actions">
+    <a class="btn-primary" href="/index.html">Analyse a new deal</a>
+    <a class="btn-secondary" href="/pipeline.html">View pipeline</a>
+    <a class="btn-secondary" href="/saved-deals.html">Saved deals</a>
+  </div>
+
+  <div id="empty-state" style="display:none">
+    <div class="card empty-card">
+      <h2>Get started</h2>
+      <p>You haven't analysed any deals yet. Run the numbers on your first property to see it saved here.</p>
+      <a class="btn-primary" href="/index.html">Analyse your first deal</a>
+    </div>
+  </div>
+
+  <div id="dashboard-content" style="display:none">
+    <div class="metric-grid stats-grid">
+      <div class="metric"><p class="ml">Saved deals</p><p class="mv" id="stat-saved">—</p></div>
+      <div class="metric"><p class="ml">In pipeline</p><p class="mv" id="stat-pipeline">—</p></div>
+    </div>
+
+    <div class="content-grid">
+      <div class="card">
+        <h2>Recent saved deals</h2>
+        <div id="recent-list"><p class="hint">Loading…</p></div>
+        <a class="go" href="/saved-deals.html">View all saved deals →</a>
+      </div>
+      <div class="card">
+        <h2>Pipeline</h2>
+        <div id="pipeline-summary"><p class="hint">Loading…</p></div>
+        <a class="go" href="/pipeline.html">Open the pipeline →</a>
+      </div>
+    </div>
+  </div>
+
   <div class="cards">
     <a class="card" href="/index.html">
-      <h2>Calculator</h2>
+      <h3>Calculator</h3>
       <p>Run a BTL, HMO, SA, or Flip deal through the full breakdown, max bid, and full analysis.</p>
       <span class="go">Open the calculator →</span>
     </a>
     <a class="card" href="/saved-deals.html">
-      <h2>Saved Deals</h2>
+      <h3>Saved Deals</h3>
       <p>Every deal you've saved from the calculator, in one place.</p>
       <span class="go">View saved deals →</span>
     </a>
     <a class="card" href="/pipeline.html">
-      <h2>Pipeline</h2>
+      <h3>Pipeline</h3>
       <p>Track saved deals through analysing, viewing, offered, agreed, and completed — and compare them side by side.</p>
       <span class="go">Open the pipeline →</span>
     </a>
@@ -58,10 +118,125 @@
 
 <script>
 let sbClient=null, currentSession=null;
+let savedDeals=[], pipelineDeals=[], pipelineLocked=false;
+
+const STAGES=['analysing','viewing','offered','agreed','completed'];
+const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
+const KEY_FIGURE={
+  btl:{label:'Gross yield',key:'gy',type:'p'},
+  hmo:{label:'Gross yield',key:'gy',type:'p'},
+  sa:{label:'Gross yield',key:'gy',type:'p'},
+  flip:{label:'Net profit',key:'profit',type:'c'}
+};
+
+function fmtC(n){return '£'+Math.round(n).toLocaleString();}
+function fmtP(n){return n.toFixed(2)+'%';}
+
+function escapeHtml(s){
+  const div=document.createElement('div');
+  div.textContent=s;
+  return div.innerHTML;
+}
+
+function fallbackName(d){
+  const label=d.deal_type.toUpperCase();
+  const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):null;
+  return pp?`${label} — ${pp} — ${date}`:`${label} — ${date}`;
+}
+
+function dealDisplayName(d){
+  return (d.deal_data&&d.deal_data.name)?d.deal_data.name:fallbackName(d);
+}
+
+function keyFigure(d){
+  const f=KEY_FIGURE[d.deal_type];
+  if(!f)return null;
+  const v=d.deal_data&&d.deal_data[f.key];
+  if(v==null)return null;
+  return {label:f.label, value:f.type==='c'?fmtC(v):fmtP(v)};
+}
+
+function friendlyFirstName(email){
+  const local=(email||'').split('@')[0];
+  const parts=local.split(/[^a-zA-Z]+/).filter(Boolean);
+  if(parts.length===0)return email||'';
+  const first=parts[0];
+  return first.charAt(0).toUpperCase()+first.slice(1).toLowerCase();
+}
 
 async function logout(){
   await sbClient.auth.signOut();
   window.location.href='/';
+}
+
+async function loadDashboard(){
+  const headers={'Authorization':'Bearer '+currentSession.access_token};
+
+  try{
+    const res=await fetch('/api/deals',{headers});
+    const body=await res.json();
+    savedDeals=(res.ok&&Array.isArray(body))?body:[];
+  }catch(e){
+    savedDeals=[];
+  }
+
+  try{
+    const res=await fetch('/api/pipeline',{headers});
+    const body=await res.json();
+    if(res.ok&&Array.isArray(body)){
+      pipelineDeals=body; pipelineLocked=false;
+    }else if(res.status===403){
+      pipelineDeals=[]; pipelineLocked=true;
+    }else{
+      pipelineDeals=[]; pipelineLocked=false;
+    }
+  }catch(e){
+    pipelineDeals=[]; pipelineLocked=false;
+  }
+
+  render();
+}
+
+function render(){
+  if(savedDeals.length===0){
+    document.getElementById('empty-state').style.display='block';
+    document.getElementById('dashboard-content').style.display='none';
+    return;
+  }
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('dashboard-content').style.display='block';
+
+  document.getElementById('stat-saved').textContent=savedDeals.length;
+  document.getElementById('stat-pipeline').textContent=pipelineLocked?'—':pipelineDeals.length;
+
+  const recent=savedDeals.slice(0,4);
+  document.getElementById('recent-list').innerHTML=recent.map(d=>{
+    const label=d.deal_type.toUpperCase();
+    const fig=keyFigure(d);
+    const meta=[label, fig?fig.label:null, d.pipeline_stage?'In pipeline':null].filter(Boolean).join(' · ');
+    return `<div class="recent-item">
+      <span>
+        <span class="rname">${escapeHtml(dealDisplayName(d))}</span>
+        <span class="rmeta">${escapeHtml(meta)}</span>
+      </span>
+      <span class="rfigure">${fig?escapeHtml(fig.value):'—'}</span>
+    </div>`;
+  }).join('');
+
+  const pipeEl=document.getElementById('pipeline-summary');
+  if(pipelineLocked){
+    pipeEl.innerHTML='<p class="hint">Upgrade to unlock the Pipeline and track deals through analysing → viewing → offered → agreed → completed.</p>';
+  }else if(pipelineDeals.length===0){
+    pipeEl.innerHTML='<p class="hint">Nothing in your pipeline yet — add a saved deal to start tracking it.</p>';
+  }else{
+    const counts={};
+    STAGES.forEach(s=>counts[s]=0);
+    pipelineDeals.forEach(d=>{ if(counts[d.pipeline_stage]!==undefined) counts[d.pipeline_stage]++; });
+    pipeEl.innerHTML='<div class="stage-row">'+STAGES.map(s=>
+      `<span class="pill badge">${STAGE_LABELS[s]} · ${counts[s]}</span>`
+    ).join('')+'</div>';
+  }
 }
 
 async function init(){
@@ -70,10 +245,12 @@ async function init(){
   sbClient=auth.client;
   currentSession=auth.session;
 
-  document.getElementById('welcome-name').textContent='Welcome, '+currentSession.user.email;
+  document.getElementById('welcome-name').textContent='Welcome, '+friendlyFirstName(currentSession.user.email);
   document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
 
   document.getElementById('app').style.display='block';
+
+  loadDashboard();
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
