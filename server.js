@@ -304,6 +304,16 @@ app.post('/api/pipeline/:id/stage', async (req, res) => {
 
 const COMPS_PROPERTY_TYPES = ['D', 'S', 'T', 'F', 'O'];
 
+// Accepts any postcode format (no space, extra spaces, lower case) and
+// converts to the canonical uppercase/single-space format the postcodes
+// table uses. The inward code (after the space) is always 3 characters in
+// UK postcodes, so the space goes there if it's missing.
+function normalisePostcodeInput(raw) {
+  const stripped = raw.replace(/\s+/g, '').toUpperCase();
+  if (stripped.length <= 3) return stripped;
+  return `${stripped.slice(0, -3)} ${stripped.slice(-3)}`;
+}
+
 app.post('/api/comps', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to use Comparables.' });
@@ -320,7 +330,7 @@ app.post('/api/comps', async (req, res) => {
   }
 
   try {
-    const result = await getComps(supabase, postcode, propertyType);
+    const result = await getComps(supabase, normalisePostcodeInput(postcode), propertyType);
     res.json(result);
   } catch (e) {
     if (e instanceof ComparablesLookupError || e instanceof PostcodeLookupError) {
