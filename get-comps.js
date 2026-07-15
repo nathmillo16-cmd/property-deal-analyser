@@ -3,19 +3,25 @@
 // subject postcode, sold within the last COMPARABLE_MONTHS months.
 //
 // Uses nearbyPostcodes (nearby-postcodes.js) to get the candidate postcode
-// list, then queries sold_prices for that list. No floor area or price-per-
-// square-metre yet — Price Paid Data doesn't carry floor area (see CLAUDE.md
-// "Planned — not yet built" for the valuation/comps engine this feeds).
+// list, then queries sold_prices for that list. Each comp is then enriched
+// with floorAreaSqM and pricePerSqM via epc-floor-area.js, which looks up
+// EPC data (Price Paid Data itself doesn't carry floor area) — see that
+// file for the matching/caching approach. Matching is exact house-number
+// only; where no EPC match is found, floorAreaSqM and pricePerSqM are null
+// and floorAreaMatched is false.
 //
-// Does not create its own Supabase client — pass one in, same convention as
-// nearby-postcodes.js.
+// Does not create its own Supabase client for the sold_prices/postcodes
+// lookups — pass one in, same convention as nearby-postcodes.js. The EPC
+// floor-area cache write needs a service-role client, so epc-floor-area.js
+// creates its own internally (see that file).
 //
 // Usage:
 //   const { getComps } = require('./get-comps');
 //   const result = await getComps(supabase, 'SW1A 1AA');
-//   // -> { comps: [{ address, price, date, distanceMiles }, ...], count, averagePrice, low, high }
+//   // -> { comps: [{ address, price, date, distanceMiles, floorAreaSqM, pricePerSqM, floorAreaMatched }, ...], count, averagePrice, low, high }
 
 const { nearbyPostcodes } = require('./nearby-postcodes');
+const { enrichCompsWithFloorArea } = require('./epc-floor-area');
 
 const RADIUS_MILES = 0.5;
 const COMPARABLE_MONTHS = 24;
@@ -56,6 +62,7 @@ async function getComps(supabase, postcode) {
   const cutoffDate = cutoff.toISOString().slice(0, 10);
 
   const comps = [];
+  const epcItems = [];
   for (const postcodeBatch of chunk(nearby.map((p) => p.postcode), POSTCODE_BATCH_SIZE)) {
     let from = 0;
     for (;;) {
@@ -73,12 +80,14 @@ async function getComps(supabase, postcode) {
       if (!data || data.length === 0) break;
 
       for (const row of data) {
-        comps.push({
+        const comp = {
           address: formatAddress(row),
           price: row.price,
           date: row.date,
           distanceMiles: distanceByPostcode.get(row.postcode),
-        });
+        };
+        comps.push(comp);
+        epcItems.push({ comp, postcode: row.postcode, paon: row.paon });
       }
 
       if (data.length < PAGE_SIZE) break;
@@ -87,6 +96,8 @@ async function getComps(supabase, postcode) {
   }
 
   comps.sort((a, b) => a.distanceMiles - b.distanceMiles);
+
+  await enrichCompsWithFloorArea(epcItems);
 
   const count = comps.length;
   const prices = comps.map((c) => c.price);
