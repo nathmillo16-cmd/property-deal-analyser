@@ -5,6 +5,8 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { getComps, ComparablesLookupError } = require('./get-comps');
+const { PostcodeLookupError } = require('./nearby-postcodes');
 
 // Service-role client used ONLY by the Stripe webhook handler below, to flip
 // a user's plan when Stripe (not the user) is the caller. Never exposed to
@@ -298,6 +300,35 @@ app.post('/api/pipeline/:id/stage', async (req, res) => {
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
   res.json(data);
+});
+
+const COMPS_PROPERTY_TYPES = ['D', 'S', 'T', 'F', 'O'];
+
+app.post('/api/comps', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use Comparables.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock Comparables.' });
+
+  const { postcode, propertyType } = req.body;
+  if (typeof postcode !== 'string' || !postcode.trim()) {
+    return res.status(400).json({ error: 'Enter a postcode.' });
+  }
+  if (!COMPS_PROPERTY_TYPES.includes(propertyType)) {
+    return res.status(400).json({ error: 'propertyType must be one of D/S/T/F/O.' });
+  }
+
+  try {
+    const result = await getComps(supabase, postcode, propertyType);
+    res.json(result);
+  } catch (e) {
+    if (e instanceof ComparablesLookupError || e instanceof PostcodeLookupError) {
+      const clientCodes = ['invalid_property_type', 'invalid_postcode', 'postcode_not_found', 'postcode_no_coordinates', 'invalid_radius'];
+      return res.status(clientCodes.includes(e.code) ? 400 : 502).json({ error: e.message });
+    }
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/profile', async (req, res) => {

@@ -163,6 +163,7 @@
     <button class="tab" onclick="switchTab('hmo')">HMO</button>
     <button class="tab" onclick="switchTab('sa')">SA</button>
     <button class="tab" onclick="switchTab('flip')">Flip</button>
+    <button class="tab" onclick="switchTab('comps')">Comps</button>
   </div>
 
   <!-- BTL -->
@@ -487,12 +488,45 @@
     </div>
   </div>
 
+  <!-- Comps -->
+  <div class="panel" id="panel-comps">
+    <div class="split-panel">
+      <div class="input-col">
+        <p class="sl">Find comparables</p>
+        <div class="f"><label>Postcode</label><input type="text" id="cp-postcode" placeholder="e.g. SW1A 1AA"/></div>
+        <div class="f" style="margin-top:1rem"><label>Property type</label>
+          <select id="cp-type">
+            <option value="D">Detached</option>
+            <option value="S">Semi</option>
+            <option value="T">Terraced</option>
+            <option value="F">Flat</option>
+            <option value="O">Other</option>
+          </select>
+        </div>
+        <p class="hint" style="margin-top:1rem">Looks up Land Registry sold prices within 0.5 miles, same property type, sold in the last 24 months.</p>
+        <button class="run-btn" onclick="runComps()" id="btn-run-comps">Find comparables</button>
+        <p class="save-msg" id="comps-msg"></p>
+      </div>
+      <div class="results-col">
+        <p class="sl">Results</p>
+        <div class="ob"><p class="ot">Median sold price</p><p class="ov" id="cp-median">—</p><p class="on" id="cp-count-note"></p></div>
+        <div class="metric-grid">
+          <div class="m"><p class="ml">Range (20th–80th pct)</p><p class="mv" id="cp-range">—</p></div>
+          <div class="m"><p class="ml">£ / sqm</p><p class="mv" id="cp-psqm">—</p></div>
+          <div class="m"><p class="ml">Comparables used</p><p class="mv" id="cp-n">—</p></div>
+          <div class="m"><p class="ml">Sold between</p><p class="mv" id="cp-dates">—</p></div>
+        </div>
+        <p class="sn">Confidence: <span id="cp-confidence">—</span></p>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
 function switchTab(t){
-  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip'][i]===t));
-  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip'][i]==='panel-'+t));
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip','comps'][i]===t));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-comps'][i]==='panel-'+t));
 }
 
 // Calculation is button-driven, not live. These just control WHEN cBTL()/cHMO()/cSA()/cFlip()
@@ -510,6 +544,46 @@ function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style
 
 function runFlip(){ cFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; }
 function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; }
+
+async function runComps(){
+  const btn=document.getElementById('btn-run-comps');
+  const msg=document.getElementById('comps-msg');
+  const postcode=document.getElementById('cp-postcode').value.trim();
+  const propertyType=document.getElementById('cp-type').value;
+
+  msg.className='save-msg';msg.textContent='';
+  ['cp-median','cp-range','cp-psqm','cp-n','cp-dates','cp-confidence'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('cp-count-note').textContent='';
+
+  if(!currentSession){ msg.textContent='Log in to use Comparables.'; msg.className='save-msg error'; return; }
+  if(!postcode){ msg.textContent='Enter a postcode.'; msg.className='save-msg error'; return; }
+
+  btn.disabled=true;btn.textContent='Searching…';
+
+  try{
+    const res=await fetch('/api/comps',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({postcode,propertyType})
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Comparables lookup failed.');
+
+    document.getElementById('cp-median').textContent = d.medianPrice!=null ? '£'+Math.round(d.medianPrice).toLocaleString() : 'No comparables found';
+    document.getElementById('cp-range').textContent = (d.low!=null && d.high!=null) ? '£'+Math.round(d.low).toLocaleString()+' – £'+Math.round(d.high).toLocaleString() : 'Not enough comparable data';
+    document.getElementById('cp-psqm').textContent = d.medianPricePerSqM!=null ? '£'+Math.round(d.medianPricePerSqM).toLocaleString() : '—';
+    document.getElementById('cp-n').textContent = d.count;
+    document.getElementById('cp-dates').textContent = d.dateRange ? d.dateRange.start+' to '+d.dateRange.end : '—';
+    const confEl=document.getElementById('cp-confidence');
+    confEl.textContent = d.confidence;
+    confEl.className = d.confidence==='high'?'verdict-yes':(d.confidence==='low'?'verdict-no':'');
+    document.getElementById('cp-count-note').textContent = d.count+' comparable sale'+(d.count===1?'':'s')+' in the last 24 months, within 0.5 miles.';
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+
+  btn.disabled=false;btn.textContent='Find comparables';
+}
 
 async function analyse(type){
   const btn=document.getElementById('btn-'+type);
