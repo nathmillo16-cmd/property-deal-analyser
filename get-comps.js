@@ -1,14 +1,34 @@
-// Given a UK postcode, returns HM Land Registry sold-price comparables:
-// every sale in `sold_prices` at a postcode within RADIUS_MILES of the
-// subject postcode, sold within the last COMPARABLE_MONTHS months.
+// Given a UK postcode and a Land Registry property type (D/S/T/F/O), returns
+// an honest sold-price valuation: every sale in `sold_prices` at a postcode
+// within RADIUS_MILES of the subject postcode, of the matching property
+// type, sold within the last COMPARABLE_MONTHS months, excluding sub-£20k
+// sales (non-market: gifts, part-shares, repossessions at a discount, etc.).
 //
 // Uses nearbyPostcodes (nearby-postcodes.js) to get the candidate postcode
-// list, then queries sold_prices for that list. Each comp is then enriched
-// with floorAreaSqM and pricePerSqM via epc-floor-area.js, which looks up
-// EPC data (Price Paid Data itself doesn't carry floor area) — see that
-// file for the matching/caching approach. Matching is exact house-number
-// only; where no EPC match is found, floorAreaSqM and pricePerSqM are null
-// and floorAreaMatched is false.
+// list, then queries sold_prices for that list (property type and minimum
+// price filtered at the query itself, so `comps` only ever contains rows
+// that count toward the valuation). Each comp is then enriched with
+// floorAreaSqM and pricePerSqM via epc-floor-area.js — see that file for the
+// EPC matching/caching approach. Matching is exact house-number only; where
+// no EPC match is found, floorAreaSqM and pricePerSqM are null and
+// floorAreaMatched is false.
+//
+// Headline figure is the median price (not mean) — resistant to a single
+// unusually cheap/expensive sale skewing the estimate. low/high is the
+// 20th/80th percentile of the filtered comps' own prices: this describes
+// the actual spread of what comparable properties sold for, deliberately
+// NOT a standard-error-style interval, which would shrink toward zero width
+// as the comp count grows — that shrinkage reflects confidence in the
+// *median statistic*, not the real uncertainty in what an individual
+// property is worth, which doesn't shrink just because there happen to be
+// more sales on record. Below MIN_COMPS_FOR_RANGE (5) comps there isn't
+// enough evidence for any range at all, so low/high are both null rather
+// than a range built from too few points to mean anything.
+//
+// `confidence` is a separate high/medium/low signal (comp count, downgraded
+// one level if fewer than RECENT_SHARE_THRESHOLD of comps are from the last
+// RECENT_MONTHS) — it does NOT change the width of low/high, it just tells
+// the caller how much weight to put on the estimate.
 //
 // Does not create its own Supabase client for the sold_prices/postcodes
 // lookups — pass one in, same convention as nearby-postcodes.js. The EPC
@@ -17,14 +37,27 @@
 //
 // Usage:
 //   const { getComps } = require('./get-comps');
-//   const result = await getComps(supabase, 'SW1A 1AA');
-//   // -> { comps: [{ address, price, date, distanceMiles, floorAreaSqM, pricePerSqM, floorAreaMatched }, ...], count, averagePrice, low, high }
+//   const result = await getComps(supabase, 'SW1A 1AA', 'T');
+//   // -> {
+//   //   comps: [{ address, price, date, distanceMiles, floorAreaSqM, pricePerSqM, floorAreaMatched }, ...],
+//   //   count, medianPrice, low, high, dateRange: { start, end } | null,
+//   //   medianPricePerSqM, floorAreaMatchedCount, confidence: 'high'|'medium'|'low'
+//   // }
 
 const { nearbyPostcodes } = require('./nearby-postcodes');
 const { enrichCompsWithFloorArea } = require('./epc-floor-area');
 
 const RADIUS_MILES = 0.5;
 const COMPARABLE_MONTHS = 24;
+const MIN_SALE_PRICE = 20000; // below this, treat as non-market (gift, part-share, etc.)
+const VALID_PROPERTY_TYPES = ['D', 'S', 'T', 'F', 'O']; // Land Registry: Detached/Semi/Terraced/Flat/Other
+const RANGE_LOW_PERCENTILE = 0.2;
+const RANGE_HIGH_PERCENTILE = 0.8;
+const MIN_COMPS_FOR_RANGE = 5;
+const RECENT_MONTHS = 12; // half of COMPARABLE_MONTHS — the "recent" half of the comp window
+const RECENT_SHARE_THRESHOLD = 0.4; // below this share of recent comps, downgrade confidence a level
+const HIGH_CONFIDENCE_COUNT = 15;
+const MEDIUM_CONFIDENCE_COUNT = 5;
 const PAGE_SIZE = 1000; // PostgREST's default row cap per request; paginate past it
 const POSTCODE_BATCH_SIZE = 200; // keep the .in() filter list (and resulting query URL) a sane size
 
@@ -48,12 +81,74 @@ function chunk(array, size) {
   return chunks;
 }
 
-async function getComps(supabase, postcode) {
-  const nearby = await nearbyPostcodes(supabase, postcode, RADIUS_MILES);
+// Linear-interpolation percentile (R type 7 / NumPy default) over an
+// ascending-sorted numeric array. p is 0-1.
+function percentile(sortedValues, p) {
+  const n = sortedValues.length;
+  if (n === 0) return null;
+  if (n === 1) return sortedValues[0];
+  const idx = p * (n - 1);
+  const lower = Math.floor(idx);
+  const upper = Math.ceil(idx);
+  if (lower === upper) return sortedValues[lower];
+  const weight = idx - lower;
+  return sortedValues[lower] + (sortedValues[upper] - sortedValues[lower]) * weight;
+}
 
-  if (nearby.length === 0) {
-    return { comps: [], count: 0, averagePrice: null, low: null, high: null };
+function median(sortedValues) {
+  return percentile(sortedValues, 0.5);
+}
+
+function computeConfidence(comps) {
+  const count = comps.length;
+  if (count === 0) return 'low';
+
+  let level;
+  if (count >= HIGH_CONFIDENCE_COUNT) level = 'high';
+  else if (count >= MEDIUM_CONFIDENCE_COUNT) level = 'medium';
+  else level = 'low';
+
+  const recentCutoff = new Date();
+  recentCutoff.setMonth(recentCutoff.getMonth() - RECENT_MONTHS);
+  const recentCutoffDate = recentCutoff.toISOString().slice(0, 10);
+  const recentShare = comps.filter((c) => c.date >= recentCutoffDate).length / count;
+
+  if (recentShare < RECENT_SHARE_THRESHOLD) {
+    if (level === 'high') level = 'medium';
+    else if (level === 'medium') level = 'low';
   }
+
+  return level;
+}
+
+function validatePropertyType(propertyType) {
+  if (!VALID_PROPERTY_TYPES.includes(propertyType)) {
+    throw new ComparablesLookupError(
+      `propertyType must be one of ${VALID_PROPERTY_TYPES.join('/')} (Land Registry codes), got ${JSON.stringify(propertyType)}`,
+      'invalid_property_type'
+    );
+  }
+}
+
+function emptyResult() {
+  return {
+    comps: [],
+    count: 0,
+    medianPrice: null,
+    low: null,
+    high: null,
+    dateRange: null,
+    medianPricePerSqM: null,
+    floorAreaMatchedCount: 0,
+    confidence: 'low',
+  };
+}
+
+async function getComps(supabase, postcode, propertyType) {
+  validatePropertyType(propertyType);
+
+  const nearby = await nearbyPostcodes(supabase, postcode, RADIUS_MILES);
+  if (nearby.length === 0) return emptyResult();
 
   const distanceByPostcode = new Map(nearby.map((p) => [p.postcode, p.distanceMiles]));
 
@@ -70,6 +165,8 @@ async function getComps(supabase, postcode) {
         .from('sold_prices')
         .select('price, date, postcode, paon, saon, street, town')
         .in('postcode', postcodeBatch)
+        .eq('property_type', propertyType)
+        .gte('price', MIN_SALE_PRICE)
         .gte('date', cutoffDate)
         .order('date', { ascending: false })
         .range(from, from + PAGE_SIZE - 1);
@@ -95,17 +192,39 @@ async function getComps(supabase, postcode) {
     }
   }
 
+  if (comps.length === 0) return emptyResult();
+
   comps.sort((a, b) => a.distanceMiles - b.distanceMiles);
 
   await enrichCompsWithFloorArea(epcItems);
 
   const count = comps.length;
-  const prices = comps.map((c) => c.price);
-  const averagePrice = count > 0 ? prices.reduce((sum, p) => sum + p, 0) / count : null;
-  const low = count > 0 ? Math.min(...prices) : null;
-  const high = count > 0 ? Math.max(...prices) : null;
+  const sortedPrices = comps.map((c) => c.price).sort((a, b) => a - b);
+  const medianPrice = median(sortedPrices);
+  const low = count >= MIN_COMPS_FOR_RANGE ? percentile(sortedPrices, RANGE_LOW_PERCENTILE) : null;
+  const high = count >= MIN_COMPS_FOR_RANGE ? percentile(sortedPrices, RANGE_HIGH_PERCENTILE) : null;
 
-  return { comps, count, averagePrice, low, high };
+  const dates = comps.map((c) => c.date).sort();
+  const dateRange = { start: dates[0], end: dates[dates.length - 1] };
+
+  const matchedPricesPerSqM = comps
+    .filter((c) => c.floorAreaMatched)
+    .map((c) => c.pricePerSqM)
+    .sort((a, b) => a - b);
+  const floorAreaMatchedCount = matchedPricesPerSqM.length;
+  const medianPricePerSqM = floorAreaMatchedCount > 0 ? median(matchedPricesPerSqM) : null;
+
+  const confidence = computeConfidence(comps);
+
+  return { comps, count, medianPrice, low, high, dateRange, medianPricePerSqM, floorAreaMatchedCount, confidence };
 }
 
-module.exports = { getComps, ComparablesLookupError, RADIUS_MILES, COMPARABLE_MONTHS };
+module.exports = {
+  getComps,
+  ComparablesLookupError,
+  RADIUS_MILES,
+  COMPARABLE_MONTHS,
+  MIN_SALE_PRICE,
+  VALID_PROPERTY_TYPES,
+  MIN_COMPS_FOR_RANGE,
+};
