@@ -41,7 +41,12 @@
 //   // -> {
 //   //   comps: [{ address, price, date, distanceMiles, floorAreaSqM, pricePerSqM, floorAreaMatched }, ...],
 //   //   count, medianPrice, low, high, dateRange: { start, end } | null,
-//   //   medianPricePerSqM, floorAreaMatchedCount, confidence: 'high'|'medium'|'low'
+//   //   medianPricePerSqM, floorAreaMatchedCount,
+//   //   pricePerSqMTiers: { conservative, refurbished, bestInArea } | null
+//   //     (50th/75th/90th percentile of the same floorAreaMatched £/sqm
+//   //     comps — conservative equals medianPricePerSqM; null if
+//   //     floorAreaMatchedCount is 0),
+//   //   confidence: 'high'|'medium'|'low'
 //   // }
 
 const { nearbyPostcodes } = require('./nearby-postcodes');
@@ -140,6 +145,7 @@ function emptyResult() {
     dateRange: null,
     medianPricePerSqM: null,
     floorAreaMatchedCount: 0,
+    pricePerSqMTiers: null,
     confidence: 'low',
   };
 }
@@ -214,9 +220,19 @@ async function getComps(supabase, postcode, propertyType) {
   const floorAreaMatchedCount = matchedPricesPerSqM.length;
   const medianPricePerSqM = floorAreaMatchedCount > 0 ? median(matchedPricesPerSqM) : null;
 
+  // Three GDV tiers for a post-refurb floor area, all drawn from the same
+  // floorAreaMatched £/sqm comps (floorAreaMatchedCount) — only the
+  // percentile differs. conservative is the same figure as medianPricePerSqM
+  // above, just also exposed in this structure for the tier picker.
+  const pricePerSqMTiers = floorAreaMatchedCount > 0 ? {
+    conservative: median(matchedPricesPerSqM),
+    refurbished: percentile(matchedPricesPerSqM, 0.75),
+    bestInArea: percentile(matchedPricesPerSqM, 0.9),
+  } : null;
+
   const confidence = computeConfidence(comps);
 
-  return { comps, count, medianPrice, low, high, dateRange, medianPricePerSqM, floorAreaMatchedCount, confidence };
+  return { comps, count, medianPrice, low, high, dateRange, medianPricePerSqM, floorAreaMatchedCount, pricePerSqMTiers, confidence };
 }
 
 module.exports = {

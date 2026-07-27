@@ -146,6 +146,21 @@
 .verdict-yes{color:var(--accent-2);font-weight:600}
 .verdict-no{color:#E8746B;font-weight:600}
 .flag{background:rgba(224,164,88,.12);color:var(--accent-2);font-size:12px;padding:4px 10px;border-radius:var(--radius-sm);display:inline-block;margin:2px 4px 2px 0}
+
+.tier-list{display:flex;flex-direction:column;gap:8px}
+.tier-row{
+  display:grid;grid-template-columns:auto 1fr auto auto auto;gap:12px;align-items:center;
+  background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);
+  padding:.75rem .9rem;cursor:pointer;
+}
+.tier-row input[type="radio"]{margin:0;accent-color:var(--accent)}
+.tier-name{font-size:13px;font-weight:600;color:var(--ink)}
+.tier-name em{font-style:normal;font-size:11px;color:var(--muted);margin-left:6px}
+.tier-rate{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tier-gdv{font-family:var(--font-body);font-weight:700;font-size:16px;color:var(--accent-2);font-variant-numeric:tabular-nums}
+.tier-count{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.tier-count.warn{color:#E8C468;font-weight:600}
+@media(max-width:520px){.tier-row{grid-template-columns:auto 1fr;grid-template-rows:auto auto auto}}
 </style>
 </head>
 <body>
@@ -517,6 +532,48 @@
           <div class="m"><p class="ml">Sold between</p><p class="mv" id="cp-dates">—</p></div>
         </div>
         <p class="sn">Confidence: <span id="cp-confidence">—</span></p>
+
+        <div class="section-gap">
+          <p class="sl">GDV from floor area</p>
+          <div class="f"><label>Post-refurb floor area (sqm)</label><input type="number" id="cp-floor-area" oninput="renderGDVTiers()"/></div>
+
+          <div class="tier-list" id="cp-tier-list" style="margin-top:1rem">
+            <label class="tier-row">
+              <input type="radio" name="cp-tier" value="conservative" onchange="renderGDVTiers()"/>
+              <span class="tier-name">Conservative<em>50th pct</em></span>
+              <span class="tier-rate" id="cp-tier-conservative-rate">—</span>
+              <span class="tier-gdv" id="cp-tier-conservative-gdv">—</span>
+              <span class="tier-count" id="cp-tier-conservative-count">—</span>
+            </label>
+            <label class="tier-row">
+              <input type="radio" name="cp-tier" value="refurbished" onchange="renderGDVTiers()"/>
+              <span class="tier-name">Refurbished<em>75th pct</em></span>
+              <span class="tier-rate" id="cp-tier-refurbished-rate">—</span>
+              <span class="tier-gdv" id="cp-tier-refurbished-gdv">—</span>
+              <span class="tier-count" id="cp-tier-refurbished-count">—</span>
+            </label>
+            <label class="tier-row">
+              <input type="radio" name="cp-tier" value="bestInArea" onchange="renderGDVTiers()"/>
+              <span class="tier-name">Best-in-area<em>90th pct</em></span>
+              <span class="tier-rate" id="cp-tier-bestInArea-rate">—</span>
+              <span class="tier-gdv" id="cp-tier-bestInArea-gdv">—</span>
+              <span class="tier-count" id="cp-tier-bestInArea-count">—</span>
+            </label>
+          </div>
+          <p class="hint" id="cp-tier-empty" style="display:none">Not enough floor-area-matched comps to compute £/sqm tiers.</p>
+
+          <div class="tr" style="margin-top:1rem">
+            <label>Apply to</label>
+            <select id="cp-apply-target">
+              <option value="btl">BTL</option>
+              <option value="hmo">HMO</option>
+              <option value="sa">SA</option>
+              <option value="flip">Flip</option>
+            </select>
+          </div>
+          <button class="save-btn" onclick="applyGDV()" id="btn-use-gdv" disabled>Use this GDV →</button>
+          <p class="save-msg" id="cp-apply-msg"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -545,6 +602,11 @@ function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style
 function runFlip(){ cFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; }
 function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; }
 
+let lastCompsResult=null;
+const GDV_THIN_EVIDENCE_THRESHOLD=8;
+const GDV_TIERS=['conservative','refurbished','bestInArea'];
+const GDV_APPLY_TARGETS={btl:{field:'b-emv',label:'BTL',markStale:markStaleBTL},hmo:{field:'h-emv',label:'HMO',markStale:markStaleHMO},sa:{field:'sa-emv',label:'SA',markStale:markStaleSA},flip:{field:'fl-sv',label:'Flip',markStale:markStaleFlip}};
+
 async function runComps(){
   const btn=document.getElementById('btn-run-comps');
   const msg=document.getElementById('comps-msg');
@@ -554,6 +616,8 @@ async function runComps(){
   msg.className='save-msg';msg.textContent='';
   ['cp-median','cp-range','cp-psqm','cp-n','cp-dates','cp-confidence'].forEach(id=>document.getElementById(id).textContent='—');
   document.getElementById('cp-count-note').textContent='';
+  lastCompsResult=null;
+  renderGDVTiers();
 
   if(!currentSession){ msg.textContent='Log in to use Comparables.'; msg.className='save-msg error'; return; }
   if(!postcode){ msg.textContent='Enter a postcode.'; msg.className='save-msg error'; return; }
@@ -578,11 +642,66 @@ async function runComps(){
     confEl.textContent = d.confidence;
     confEl.className = d.confidence==='high'?'verdict-yes':(d.confidence==='low'?'verdict-no':'');
     document.getElementById('cp-count-note').textContent = d.count+' comparable sale'+(d.count===1?'':'s')+' in the last 24 months, within 0.5 miles.';
+
+    lastCompsResult=d;
+    renderGDVTiers();
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';
   }
 
   btn.disabled=false;btn.textContent='Find comparables';
+}
+
+function renderGDVTiers(){
+  const tierList=document.getElementById('cp-tier-list');
+  const emptyEl=document.getElementById('cp-tier-empty');
+  const useBtn=document.getElementById('btn-use-gdv');
+  const floorArea=Number(document.getElementById('cp-floor-area').value);
+  const tiers=lastCompsResult&&lastCompsResult.pricePerSqMTiers;
+  const matchedCount=lastCompsResult?lastCompsResult.floorAreaMatchedCount:0;
+
+  if(!tiers){
+    tierList.style.display='none';
+    emptyEl.style.display='block';
+    useBtn.disabled=true;
+    return;
+  }
+  tierList.style.display='flex';
+  emptyEl.style.display='none';
+
+  let anySelected=false;
+  GDV_TIERS.forEach(tier=>{
+    const rate=tiers[tier];
+    document.getElementById('cp-tier-'+tier+'-rate').textContent='£'+Math.round(rate).toLocaleString()+'/sqm';
+    document.getElementById('cp-tier-'+tier+'-gdv').textContent=floorArea>0?'£'+Math.round(rate*floorArea).toLocaleString():'—';
+    const countEl=document.getElementById('cp-tier-'+tier+'-count');
+    const thin=tier==='bestInArea'&&matchedCount<GDV_THIN_EVIDENCE_THRESHOLD;
+    countEl.textContent=matchedCount+' comp'+(matchedCount===1?'':'s')+(thin?' ⚠ few sales':'');
+    countEl.className='tier-count'+(thin?' warn':'');
+    const radio=document.querySelector('input[name="cp-tier"][value="'+tier+'"]');
+    if(radio.checked)anySelected=true;
+  });
+
+  useBtn.disabled=!(anySelected&&floorArea>0);
+}
+
+function applyGDV(){
+  const msg=document.getElementById('cp-apply-msg');
+  const selected=document.querySelector('input[name="cp-tier"]:checked');
+  const floorArea=Number(document.getElementById('cp-floor-area').value);
+  const tiers=lastCompsResult&&lastCompsResult.pricePerSqMTiers;
+  if(!selected||!tiers||!(floorArea>0))return;
+
+  const gdv=Math.round(tiers[selected.value]*floorArea);
+  const targetKey=document.getElementById('cp-apply-target').value;
+  const target=GDV_APPLY_TARGETS[targetKey];
+
+  document.getElementById(target.field).value=gdv;
+  target.markStale();
+  switchTab(targetKey);
+
+  msg.textContent='Copied £'+gdv.toLocaleString()+' into '+target.label+"'s "+(targetKey==='flip'?'Sale Value':'End Market Value')+'.';
+  msg.className='save-msg success';
 }
 
 async function analyse(type){
