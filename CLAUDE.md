@@ -88,17 +88,27 @@ Payments (Stripe, test mode, live and verified)
 
 Single £29/month subscription. Checkout: POST /api/create-checkout-session creates a Stripe Checkout Session for a logged-in free user, with both client_reference_id and metadata.user_id set to the Supabase user id (redundant on purpose, for whichever field the webhook ends up reading). Webhook: POST /api/stripe-webhook verifies the Stripe signature before looking at anything (rejects with 400 otherwise, never touches the database on an unverified request), mounted with express.raw() and registered before the global express.json() middleware so Stripe gets the exact raw bytes it signed while every other route keeps parsing JSON normally. On checkout.session.completed for a subscription, it flips the matching user's profiles.plan to 'paid' via a service-role client scoped to that one handler only — never exposed to any user-facing route. Redelivered webhook events are naturally idempotent (a plain UPDATE to a fixed value). The Stripe secret key, publishable key, price ID, and webhook signing secret all live in .env, never in the browser or in git.
 
+Comps engine (built)
+
+Server-side sold-price valuation and post-refurb GDV estimation, on its own tab in the calculator. Paid-gated the same way as the Pipeline and AI verdict — auth + plan checked server-side in POST /api/comps, and the EPC API key never reaches the browser (it lives entirely inside epc-floor-area.js). Postcode-radius search (nearbyPostcodes, 0.5 miles) over HM Land Registry Price Paid Data (PPD) sold prices, each comp enriched with EPC floor area (exact house-number match; permanent cache in epc_floor_area_cache, including cached "no match found" results, so any given postcode's EPC data is only ever fetched once). Headline valuation is the median sold price, with a 20th/80th percentile range (null below 5 comps — not enough evidence for a range) and a high/medium/low confidence signal based on comp count only (see open items below). A GDV tier picker (50th/75th/90th percentile of floor-area-matched £/sqm comps — conservative/refurbished/best-in-area) lets a sourcer enter a post-refurb floor area and apply the resulting GDV as the end value (EMV, or Sale Value for Flip) on any of the four strategy tabs, via an explicit "Use this GDV" button — never silently auto-filled.
+
+Open items on the comps engine:
+- PPD ingest currently only loads a 12-month window (WINDOW_MONTHS in scripts/ingest-sold-prices.js), not the 24 months get-comps.js's COMPARABLE_MONTHS is written for. Widening this needs a manual re-run of the ingest script with WINDOW_MONTHS bumped to 24.
+- The recency-based confidence downgrade in computeConfidence() (get-comps.js) is commented out, not deleted, pending that 24-month ingest — right now every comp is "recent" by definition, so the downgrade could never fire honestly.
+- PPD refresh is manual (re-running scripts/ingest-sold-prices.js against a newly downloaded yearly CSV) — nothing scheduled.
+- Stripe is still in test mode (see above) — relevant here since the comps engine, like the pipeline, is paid-gated.
+
 What's built vs not
 
-Built: BTL, HMO, SA, and Flip calculation engines (verified against worked examples), max bid per strategy, stamp duty, per-strategy AI verdict, Supabase auth (signup/confirm/resend/login/logout/forgot-password), saved deals, saved defaults, the pipeline (kanban + stages + comparison, paid-gated), Stripe subscription payments (checkout + webhook), the public landing page, the logged-in home portal, app-wide navigation, and route protection.
+Built: BTL, HMO, SA, and Flip calculation engines (verified against worked examples), max bid per strategy, stamp duty, per-strategy AI verdict, Supabase auth (signup/confirm/resend/login/logout/forgot-password), saved deals, saved defaults, the pipeline (kanban + stages + comparison, paid-gated), the comps engine (postcode search, sold-price valuation, EPC floor-area enrichment, GDV tier picker — paid-gated), Stripe subscription payments (checkout + webhook), the public landing page, the logged-in home portal, app-wide navigation, and route protection.
 
 Planned — not yet built:
 - Portfolio view (aggregate stats across a user's deals — home.html is deliberately simple until this data model exists).
-- A valuation / comps engine.
 - Community marketplace.
 - Pipeline v2: notes per deal, offer history.
 - Pipeline v1 polish: drag-and-drop (currently dropdown-based), mobile drag support.
 - Broader visual/design polish pass across the app.
+- Comps engine open items — see "Open items on the comps engine" above.
 
 How to work with me (the user)
 
