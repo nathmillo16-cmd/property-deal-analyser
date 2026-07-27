@@ -25,10 +25,14 @@
 // enough evidence for any range at all, so low/high are both null rather
 // than a range built from too few points to mean anything.
 //
-// `confidence` is a separate high/medium/low signal (comp count, downgraded
-// one level if fewer than RECENT_SHARE_THRESHOLD of comps are from the last
-// RECENT_MONTHS) — it does NOT change the width of low/high, it just tells
-// the caller how much weight to put on the estimate.
+// `confidence` is a high/medium/low signal based on comp count — it does
+// NOT change the width of low/high, it just tells the caller how much
+// weight to put on the estimate. A recency-based downgrade (fewer than
+// RECENT_SHARE_THRESHOLD of comps from the last RECENT_MONTHS) is written
+// but currently disabled in computeConfidence(), since the sold_prices
+// ingest (scripts/ingest-sold-prices.js, WINDOW_MONTHS) only loads the last
+// 12 months — every comp is "recent" by that definition, so the downgrade
+// could never fire. See the comment there for when to re-enable it.
 //
 // Does not create its own Supabase client for the sold_prices/postcodes
 // lookups — pass one in, same convention as nearby-postcodes.js. The EPC
@@ -113,15 +117,24 @@ function computeConfidence(comps) {
   else if (count >= MEDIUM_CONFIDENCE_COUNT) level = 'medium';
   else level = 'low';
 
-  const recentCutoff = new Date();
-  recentCutoff.setMonth(recentCutoff.getMonth() - RECENT_MONTHS);
-  const recentCutoffDate = recentCutoff.toISOString().slice(0, 10);
-  const recentShare = comps.filter((c) => c.date >= recentCutoffDate).length / count;
-
-  if (recentShare < RECENT_SHARE_THRESHOLD) {
-    if (level === 'high') level = 'medium';
-    else if (level === 'medium') level = 'low';
-  }
+  // Recency downgrade — DISABLED. sold_prices is currently only ever
+  // ingested with WINDOW_MONTHS = 12 (scripts/ingest-sold-prices.js), so
+  // every comp already falls within RECENT_MONTHS and recentShare is
+  // always ~1 — this branch can never fire as things stand, so it's dead
+  // code dressed up as a real signal. Re-enable once the ingest window is
+  // widened to 24+ months (bump WINDOW_MONTHS there and re-run ingestion),
+  // at which point "recent" vs. "rest of the window" becomes a real
+  // distinction again.
+  //
+  // const recentCutoff = new Date();
+  // recentCutoff.setMonth(recentCutoff.getMonth() - RECENT_MONTHS);
+  // const recentCutoffDate = recentCutoff.toISOString().slice(0, 10);
+  // const recentShare = comps.filter((c) => c.date >= recentCutoffDate).length / count;
+  //
+  // if (recentShare < RECENT_SHARE_THRESHOLD) {
+  //   if (level === 'high') level = 'medium';
+  //   else if (level === 'medium') level = 'low';
+  // }
 
   return level;
 }

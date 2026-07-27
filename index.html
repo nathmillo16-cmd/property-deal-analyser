@@ -532,6 +532,7 @@
           <div class="m"><p class="ml">Sold between</p><p class="mv" id="cp-dates">—</p></div>
         </div>
         <p class="sn">Confidence: <span id="cp-confidence">—</span></p>
+        <p class="hint">Confidence reflects comp count, not recency — all comps are from the last 12 months (our current data window).</p>
 
         <div class="section-gap">
           <p class="sl">GDV from floor area</p>
@@ -639,7 +640,8 @@ async function runComps(){
     document.getElementById('cp-n').textContent = d.count;
     document.getElementById('cp-dates').textContent = d.dateRange ? d.dateRange.start+' to '+d.dateRange.end : '—';
     const confEl=document.getElementById('cp-confidence');
-    confEl.textContent = d.confidence;
+    const confLabel = d.confidence ? d.confidence.charAt(0).toUpperCase()+d.confidence.slice(1) : '—';
+    confEl.textContent = confLabel+' ('+d.count+' comp'+(d.count===1?'':'s')+')';
     confEl.className = d.confidence==='high'?'verdict-yes':(d.confidence==='low'?'verdict-no':'');
     document.getElementById('cp-count-note').textContent = d.count+' comparable sale'+(d.count===1?'':'s')+' in the last 24 months, within 0.5 miles.';
 
