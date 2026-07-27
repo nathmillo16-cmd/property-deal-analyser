@@ -653,36 +653,52 @@ async function runComps(){
 }
 
 function renderGDVTiers(){
-  const tierList=document.getElementById('cp-tier-list');
-  const emptyEl=document.getElementById('cp-tier-empty');
-  const useBtn=document.getElementById('btn-use-gdv');
-  const floorArea=Number(document.getElementById('cp-floor-area').value);
-  const tiers=lastCompsResult&&lastCompsResult.pricePerSqMTiers;
-  const matchedCount=lastCompsResult?lastCompsResult.floorAreaMatchedCount:0;
+  try{
+    const tierList=document.getElementById('cp-tier-list');
+    const emptyEl=document.getElementById('cp-tier-empty');
+    const useBtn=document.getElementById('btn-use-gdv');
+    const floorAreaEl=document.getElementById('cp-floor-area');
+    if(!tierList||!emptyEl||!useBtn||!floorAreaEl){
+      console.error('renderGDVTiers: a required element is missing from the page',{tierList:!!tierList,emptyEl:!!emptyEl,useBtn:!!useBtn,floorAreaEl:!!floorAreaEl});
+      return;
+    }
 
-  if(!tiers){
-    tierList.style.display='none';
-    emptyEl.style.display='block';
-    useBtn.disabled=true;
-    return;
+    const floorArea=Number(floorAreaEl.value);
+    const tiers=lastCompsResult&&lastCompsResult.pricePerSqMTiers;
+    const matchedCount=lastCompsResult?lastCompsResult.floorAreaMatchedCount:0;
+
+    if(!tiers){
+      tierList.style.display='none';
+      emptyEl.style.display='block';
+      useBtn.disabled=true;
+      return;
+    }
+    tierList.style.display='flex';
+    emptyEl.style.display='none';
+
+    let anySelected=false;
+    for(const tier of GDV_TIERS){
+      const rate=tiers[tier];
+      const rateEl=document.getElementById('cp-tier-'+tier+'-rate');
+      const gdvEl=document.getElementById('cp-tier-'+tier+'-gdv');
+      const countEl=document.getElementById('cp-tier-'+tier+'-count');
+      const radio=document.querySelector('input[name="cp-tier"][value="'+tier+'"]');
+      if(!rateEl||!gdvEl||!countEl||!radio){
+        console.error('renderGDVTiers: missing DOM node for tier "'+tier+'"',{rateEl:!!rateEl,gdvEl:!!gdvEl,countEl:!!countEl,radio:!!radio});
+        continue;
+      }
+      rateEl.textContent='£'+Math.round(rate).toLocaleString()+'/sqm';
+      gdvEl.textContent=floorArea>0?'£'+Math.round(rate*floorArea).toLocaleString():'—';
+      const thin=tier==='bestInArea'&&matchedCount<GDV_THIN_EVIDENCE_THRESHOLD;
+      countEl.textContent=matchedCount+' comp'+(matchedCount===1?'':'s')+(thin?' ⚠ few sales':'');
+      countEl.className='tier-count'+(thin?' warn':'');
+      if(radio.checked)anySelected=true;
+    }
+
+    useBtn.disabled=!(anySelected&&floorArea>0);
+  }catch(e){
+    console.error('renderGDVTiers threw:',e.message,e.stack);
   }
-  tierList.style.display='flex';
-  emptyEl.style.display='none';
-
-  let anySelected=false;
-  GDV_TIERS.forEach(tier=>{
-    const rate=tiers[tier];
-    document.getElementById('cp-tier-'+tier+'-rate').textContent='£'+Math.round(rate).toLocaleString()+'/sqm';
-    document.getElementById('cp-tier-'+tier+'-gdv').textContent=floorArea>0?'£'+Math.round(rate*floorArea).toLocaleString():'—';
-    const countEl=document.getElementById('cp-tier-'+tier+'-count');
-    const thin=tier==='bestInArea'&&matchedCount<GDV_THIN_EVIDENCE_THRESHOLD;
-    countEl.textContent=matchedCount+' comp'+(matchedCount===1?'':'s')+(thin?' ⚠ few sales':'');
-    countEl.className='tier-count'+(thin?' warn':'');
-    const radio=document.querySelector('input[name="cp-tier"][value="'+tier+'"]');
-    if(radio.checked)anySelected=true;
-  });
-
-  useBtn.disabled=!(anySelected&&floorArea>0);
 }
 
 function applyGDV(){
