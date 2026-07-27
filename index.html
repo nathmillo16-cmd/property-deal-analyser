@@ -518,7 +518,7 @@
             <option value="O">Other</option>
           </select>
         </div>
-        <p class="hint" style="margin-top:1rem">Looks up Land Registry sold prices within 0.5 miles, same property type, sold in the last 24 months.</p>
+        <p class="hint" style="margin-top:1rem">Looks up Land Registry sold prices within 0.5 miles, same property type, sold in the last 12 months.</p>
         <button class="run-btn" onclick="runComps()" id="btn-run-comps">Find comparables</button>
         <p class="save-msg" id="comps-msg"></p>
       </div>
@@ -643,7 +643,7 @@ async function runComps(){
     const confLabel = d.confidence ? d.confidence.charAt(0).toUpperCase()+d.confidence.slice(1) : '—';
     confEl.textContent = confLabel+' ('+d.count+' comp'+(d.count===1?'':'s')+')';
     confEl.className = d.confidence==='high'?'verdict-yes':(d.confidence==='low'?'verdict-no':'');
-    document.getElementById('cp-count-note').textContent = d.count+' comparable sale'+(d.count===1?'':'s')+' in the last 24 months, within 0.5 miles.';
+    document.getElementById('cp-count-note').textContent = d.count+' comparable sale'+(d.count===1?'':'s')+' in the last 12 months, within 0.5 miles.';
 
     lastCompsResult=d;
     renderGDVTiers();
