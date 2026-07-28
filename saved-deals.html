@@ -33,6 +33,20 @@
 .bulk-bar{display:flex;align-items:center;gap:1.25rem;margin-bottom:1rem;flex-wrap:wrap}
 .select-all-label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);font-weight:600;cursor:pointer;font-family:var(--font-body)}
 .saved-select{display:flex;align-items:center}
+
+.save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
+.save-msg.success{color:var(--accent-2)}
+.save-msg.error{color:#E8746B}
+.save-msg a{color:inherit;font-weight:600;text-decoration:underline}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-card{max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem}
+.modal-header h2{font-size:18px;margin:0;word-break:break-word}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
+.modal-close:hover{color:var(--ink)}
+.modal-actions{display:flex;justify-content:flex-end;margin-top:1rem}
 </style>
 </head>
 <body>
@@ -53,6 +67,33 @@
       <button class="mini-btn danger" id="bulk-delete-btn" disabled onclick="deleteSelected()">Delete selected</button>
     </div>
     <div id="saved-list"><p class="hint">Loading…</p></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="mtp-modal-overlay" onclick="handleMtpOverlayClick(event)">
+  <div class="card modal-card">
+    <div class="modal-header">
+      <h2>Move to portfolio</h2>
+      <button class="modal-close" onclick="closeMoveToPortfolio()" aria-label="Close">×</button>
+    </div>
+    <p class="hint" style="margin-bottom:1rem">Pre-filled from this deal where possible — review and fill in any gaps before adding it.</p>
+    <div class="field"><label>Address</label><input type="text" id="mtp-address"/></div>
+    <div class="field"><label>Price paid (£)</label><input type="number" id="mtp-price"/></div>
+    <div class="field"><label>Property type</label>
+      <select id="mtp-type">
+        <option value="BTL">BTL</option>
+        <option value="HMO">HMO</option>
+        <option value="SA">SA</option>
+        <option value="Flip">Flip</option>
+      </select>
+    </div>
+    <div class="field"><label>Monthly rent (£)</label><input type="number" id="mtp-rent"/></div>
+    <div class="field"><label>Monthly running costs (£)</label><input type="number" id="mtp-costs"/></div>
+    <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="mtp-mortgage" placeholder="Leave blank if no mortgage"/></div>
+    <p class="save-msg" id="mtp-msg"></p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="mtp-confirm-btn" onclick="confirmMoveToPortfolio()">Add to portfolio</button>
+    </div>
   </div>
 </div>
 
@@ -130,6 +171,7 @@ async function loadSavedDeals(){
         <div class="saved-controls">
           ${action}
           <button class="mini-btn" onclick="renameDeal('${d.id}')">Rename</button>
+          <button class="mini-btn" onclick="openMoveToPortfolio('${d.id}')">Move to portfolio</button>
           <button class="mini-btn danger" onclick="deleteDeal('${d.id}')">Delete</button>
         </div>
       </div>`;
@@ -251,6 +293,116 @@ async function deleteDeal(dealId){
     loadSavedDeals();
   }catch(e){
     alert('Could not delete deal: '+e.message);
+  }
+}
+
+const DEAL_TO_PORTFOLIO_TYPE={btl:'BTL',hmo:'HMO',sa:'SA',flip:'Flip'};
+let movingDealId=null;
+
+// Maps a saved deal onto the portfolio's add-property fields. Only reads
+// fields calc-engine.js already computes and stores in deal_data (never
+// re-derives a BTL/HMO/SA formula) — running costs come from subtracting
+// the deal's own "cash purchase" net-monthly figure (cNm/cCFm) from its
+// rent, which recovers management+insurance+maintenance (+ HMO's
+// bills/wifi/council tax) without reimplementing any of those individually.
+// address is always left blank — deal_data.name is either a real user
+// title or an auto-generated "BTL — £140,000 — 15 Jul 2026" string with no
+// reliable way to tell which, so guessing from it would often be wrong.
+function mapDealToPortfolio(deal){
+  const d=deal.deal_data||{};
+  const type=deal.deal_type;
+  const result={
+    address:'',
+    price_paid:d.pp!=null?d.pp:'',
+    property_type:DEAL_TO_PORTFOLIO_TYPE[type]||'BTL',
+    monthly_rent:'',
+    monthly_running_costs:'',
+    monthly_mortgage:d.monthlyPayment!=null?Math.round(d.monthlyPayment):''
+  };
+  if(type==='btl'){
+    if(d.rent!=null)result.monthly_rent=d.rent;
+    if(d.rent!=null&&d.cNm!=null)result.monthly_running_costs=Math.round(d.rent-d.cNm);
+  }else if(type==='hmo'){
+    if(d.totalRent!=null)result.monthly_rent=d.totalRent;
+    if(d.totalRent!=null&&d.cNm!=null)result.monthly_running_costs=Math.round(d.totalRent-d.cNm);
+  }else if(type==='sa'){
+    if(d.annualRevenue!=null)result.monthly_rent=Math.round(d.annualRevenue/12);
+    if(d.annualRevenue!=null&&d.cCFm!=null)result.monthly_running_costs=Math.round(d.annualRevenue/12-d.cCFm);
+  }
+  return result;
+}
+
+function openMoveToPortfolio(dealId){
+  const deal=savedDealsCache.find(d=>d.id===dealId);
+  if(!deal)return;
+  movingDealId=dealId;
+
+  const mapped=mapDealToPortfolio(deal);
+  document.getElementById('mtp-address').value=mapped.address;
+  document.getElementById('mtp-price').value=mapped.price_paid;
+  document.getElementById('mtp-type').value=mapped.property_type;
+  document.getElementById('mtp-rent').value=mapped.monthly_rent;
+  document.getElementById('mtp-costs').value=mapped.monthly_running_costs;
+  document.getElementById('mtp-mortgage').value=mapped.monthly_mortgage;
+
+  const msg=document.getElementById('mtp-msg');
+  msg.innerHTML='';msg.className='save-msg';
+  const btn=document.getElementById('mtp-confirm-btn');
+  btn.style.display='';btn.disabled=false;btn.textContent='Add to portfolio';
+
+  document.getElementById('mtp-modal-overlay').classList.add('open');
+}
+
+function closeMoveToPortfolio(){
+  document.getElementById('mtp-modal-overlay').classList.remove('open');
+  movingDealId=null;
+}
+
+function handleMtpOverlayClick(e){
+  if(e.target.id==='mtp-modal-overlay')closeMoveToPortfolio();
+}
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape')closeMoveToPortfolio();
+});
+
+async function confirmMoveToPortfolio(){
+  if(!movingDealId||!currentSession)return;
+  const msg=document.getElementById('mtp-msg');
+  const btn=document.getElementById('mtp-confirm-btn');
+  msg.className='save-msg';msg.innerHTML='';
+
+  const payload={
+    address:document.getElementById('mtp-address').value.trim(),
+    price_paid:document.getElementById('mtp-price').value,
+    property_type:document.getElementById('mtp-type').value,
+    monthly_rent:document.getElementById('mtp-rent').value,
+    monthly_running_costs:document.getElementById('mtp-costs').value,
+    monthly_mortgage:document.getElementById('mtp-mortgage').value
+  };
+
+  btn.disabled=true;btn.textContent='Adding...';
+  try{
+    const res=await fetch('/api/portfolio',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const body=await res.json();
+    if(res.status===403){
+      msg.innerHTML=escapeHtml(body.error||'Upgrade to unlock the portfolio.')+' <a href="/portfolio.html">Upgrade →</a>';
+      msg.className='save-msg error';
+      btn.disabled=false;btn.textContent='Add to portfolio';
+      return;
+    }
+    if(!res.ok)throw new Error(body.error||'Could not add to portfolio.');
+
+    msg.innerHTML='Added ✓ — <a href="/portfolio.html">View in portfolio →</a>';
+    msg.className='save-msg success';
+    btn.style.display='none';
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+    btn.disabled=false;btn.textContent='Add to portfolio';
   }
 }
 
