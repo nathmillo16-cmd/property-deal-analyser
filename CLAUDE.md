@@ -65,12 +65,13 @@ App structure and navigation
 
 - `/` — public landing page (landing.html), the front door for logged-out visitors. Sign-up/log-in CTAs. Redirects an already-logged-in visitor straight to /home.html.
 - `/login.html` — login, signup, forgot-password. Redirects an already-logged-in visitor to /home.html (with a guard so this can't hijack an in-progress password-recovery flow). Supports ?mode=signup to open on the Sign Up tab.
-- `/home.html` — logged-in welcome portal: email, and cards linking to Calculator, Saved Deals, and Pipeline. Deliberately minimal — no portfolio stats yet, since that data doesn't exist.
-- `/index.html` — the calculator (BTL/HMO/SA/Flip tabs).
+- `/home.html` — logged-in welcome portal: email, and cards linking to Calculator, Saved Deals, Pipeline, and Portfolio. Deliberately minimal — no portfolio stats shown inline on the dashboard itself yet (proposed, not built — see Portfolio open items).
+- `/index.html` — the calculator (BTL/HMO/SA/Flip/Comps tabs).
 - `/saved-deals.html` — the user's saved deals, listing + "Add to pipeline" per deal.
 - `/pipeline.html` — the kanban pipeline (paid feature, see below).
-- Logged-in nav, present on all logged-in pages: Home / Calculator / Saved Deals / Pipeline / Log out.
-- Route protection: index.html, saved-deals.html, pipeline.html, and home.html all use a shared client-side check (auth-guard.js) that redirects to `/` if there's no Supabase session. This is a UX/onboarding mechanism, not a security boundary — it can't be one, since the calculator's own arithmetic runs entirely client-side with zero server dependency (a deliberate, separate decision — see gating below). The actual, unbypassable protection is that every real data endpoint (saved deals, pipeline, profile/defaults, AI verdict, Stripe checkout) independently requires a valid bearer token server-side regardless of this check. A forced-open protected page is an empty shell with no data — nothing of value is exposed by bypassing the redirect.
+- `/portfolio.html` — tracking properties actually bought (paid feature, see below).
+- Logged-in nav, present on all logged-in pages: Home / Calculator / Saved Deals / Pipeline / Portfolio / Log out.
+- Route protection: index.html, saved-deals.html, pipeline.html, portfolio.html, and home.html all use a shared client-side check (auth-guard.js) that redirects to `/` if there's no Supabase session. This is a UX/onboarding mechanism, not a security boundary — it can't be one, since the calculator's own arithmetic runs entirely client-side with zero server dependency (a deliberate, separate decision — see gating below). The actual, unbypassable protection is that every real data endpoint (saved deals, pipeline, portfolio, profile/defaults, AI verdict, Stripe checkout) independently requires a valid bearer token server-side regardless of this check. A forced-open protected page is an empty shell with no data — nothing of value is exposed by bypassing the redirect.
 
 Saved deals
 
@@ -98,17 +99,26 @@ Open items on the comps engine:
 - PPD refresh is manual (re-running scripts/ingest-sold-prices.js against a newly downloaded yearly CSV) — nothing scheduled.
 - Stripe is still in test mode (see above) — relevant here since the comps engine, like the pipeline, is paid-gated.
 
+Portfolio (built)
+
+Standalone page (portfolio.html), not a calculator tab — structurally like the Pipeline, and paid-gated the same way (server-side plan check on every /api/portfolio endpoint; the page itself uses the same loading/logged-out/locked/board state pattern as pipeline.html). Backed by portfolio_properties (address, price_paid, property_type, monthly_rent, monthly_running_costs, monthly_mortgage nullable), RLS-scoped to auth.uid() via user_id default auth.uid(), same convention as deals. server.js exposes POST/GET/DELETE/PUT /api/portfolio(/:id); PUT (added after the original three, which it doesn't modify) reuses the same validatePortfolioInput as POST. Per-property yield excludes mortgage; monthly cashflow includes it, treating a blank mortgage as 0; price_paid of 0 returns a null yield rather than Infinity/NaN. The page's summary row shows four server-computed figures — Properties (count), Total monthly cashflow, Blended yield (£-weighted across the portfolio, not an average of each property's own yield), and Total invested (sum of price_paid), all from computePortfolioTotals — never trusted from the client. Clicking a property row opens a modal with its computed figures, an editable form pre-filled with its current values, Save changes, and Delete (moved off the row into the modal, which closes on the × button, a backdrop click, or Escape).
+
+Open items on the portfolio:
+- No bridge yet from Saved Deals into the Portfolio (e.g. "mark this deal as bought" to create a portfolio_properties row from an existing saved deal) — the only way to add a property today is manual entry on the Portfolio page itself.
+- Photo uploads are out of scope so far — would need Supabase Storage (a bucket + its own RLS-scoped upload policy), not yet built.
+- A portfolio summary card on home.html's dashboard (alongside the existing Recent saved deals / Pipeline cards) was proposed but not built — the content-grid there is currently 2-column, so the layout call (3-column vs. wrapping) is still open.
+
 What's built vs not
 
-Built: BTL, HMO, SA, and Flip calculation engines (verified against worked examples), max bid per strategy, stamp duty, per-strategy AI verdict, Supabase auth (signup/confirm/resend/login/logout/forgot-password), saved deals, saved defaults, the pipeline (kanban + stages + comparison, paid-gated), the comps engine (postcode search, sold-price valuation, EPC floor-area enrichment, GDV tier picker — paid-gated), Stripe subscription payments (checkout + webhook), the public landing page, the logged-in home portal, app-wide navigation, and route protection.
+Built: BTL, HMO, SA, and Flip calculation engines (verified against worked examples), max bid per strategy, stamp duty, per-strategy AI verdict, Supabase auth (signup/confirm/resend/login/logout/forgot-password), saved deals, saved defaults, the pipeline (kanban + stages + comparison, paid-gated), the comps engine (postcode search, sold-price valuation, EPC floor-area enrichment, GDV tier picker — paid-gated), the portfolio (add/edit/delete owned properties, four-figure summary, paid-gated), Stripe subscription payments (checkout + webhook), the public landing page, the logged-in home portal, app-wide navigation, and route protection.
 
 Planned — not yet built:
-- Portfolio view (aggregate stats across a user's deals — home.html is deliberately simple until this data model exists).
 - Community marketplace.
 - Pipeline v2: notes per deal, offer history.
 - Pipeline v1 polish: drag-and-drop (currently dropdown-based), mobile drag support.
 - Broader visual/design polish pass across the app.
 - Comps engine open items — see "Open items on the comps engine" above.
+- Portfolio open items — see "Open items on the portfolio" above.
 
 How to work with me (the user)
 
