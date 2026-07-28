@@ -121,6 +121,7 @@ function computePortfolioTotals(properties) {
   return {
     total_monthly_cashflow: totalCashflow,
     blended_yield: totalPricePaid > 0 ? (totalAnnualNet / totalPricePaid) * 100 : null,
+    total_price_paid: totalPricePaid,
   };
 }
 
@@ -421,6 +422,29 @@ app.delete('/api/portfolio/:id', async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   res.json({ deleted: true });
+});
+
+app.put('/api/portfolio/:id', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the portfolio.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the portfolio.' });
+  }
+
+  const { value, error: validationError } = validatePortfolioInput(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const { data, error } = await supabase
+    .from('portfolio_properties')
+    .update(value)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Property not found.' });
+  res.json({ ...data, ...computePropertyFigures(data) });
 });
 
 const COMPS_PROPERTY_TYPES = ['D', 'S', 'T', 'F', 'O'];

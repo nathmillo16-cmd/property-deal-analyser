@@ -19,25 +19,40 @@
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
 
-.add-property-card{max-width:640px;margin-bottom:1.5rem}
+.split-panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media(max-width:860px){.split-panel{grid-template-columns:1fr}}
+
 .add-property-card h2{font-size:18px;margin:0 0 1.25rem}
 
 .save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
 .save-msg.success{color:var(--accent-2)}
 .save-msg.error{color:#E8746B}
 
-.totals-grid{margin-bottom:1.5rem}
+.summary-grid{margin-bottom:1.25rem}
 
-.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap}
+.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap;cursor:pointer;transition:border-color .15s ease}
+.saved-item:hover{border-color:var(--hairline-strong)}
 .saved-info{display:flex;flex-direction:column;gap:2px}
 .saved-name{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
 .saved-detail{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.saved-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.saved-chevron{color:var(--muted);font-size:18px;line-height:1}
 .mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .mini-btn:hover{background:rgba(224,164,88,.08)}
 .mini-btn:disabled{opacity:.4;cursor:not-allowed}
 .mini-btn.danger{color:#E8746B;border-color:#E8746B}
 .mini-btn.danger:hover{background:rgba(232,116,107,.08)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-card{max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem}
+.modal-header h2{font-size:18px;margin:0;word-break:break-word}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
+.modal-close:hover{color:var(--ink)}
+.modal-figures{display:flex;gap:1.75rem;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--hairline)}
+.modal-figure .ml{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.modal-figure .mv{font-family:var(--font-body);font-weight:700;font-size:17px;color:var(--ink);margin:0;font-variant-numeric:tabular-nums}
+.modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:1rem}
 </style>
 </head>
 <body>
@@ -66,37 +81,75 @@
   </div>
 
   <div id="state-board" style="display:none">
-    <div class="card add-property-card">
-      <h2>Add property</h2>
-      <div class="field"><label>Address</label><input type="text" id="pf-address" placeholder="e.g. 12 High Street, Nottingham"/></div>
-      <div class="field"><label>Price paid (£)</label><input type="number" id="pf-price"/></div>
-      <div class="field"><label>Property type</label>
-        <select id="pf-type">
-          <option value="BTL">BTL</option>
-          <option value="HMO">HMO</option>
-          <option value="SA">SA</option>
-          <option value="Flip">Flip</option>
-        </select>
+    <div class="split-panel">
+      <div class="card add-property-card">
+        <h2>Add property</h2>
+        <div class="field"><label>Address</label><input type="text" id="pf-address"/></div>
+        <div class="field"><label>Price paid (£)</label><input type="number" id="pf-price"/></div>
+        <div class="field"><label>Property type</label>
+          <select id="pf-type">
+            <option value="BTL">BTL</option>
+            <option value="HMO">HMO</option>
+            <option value="SA">SA</option>
+            <option value="Flip">Flip</option>
+          </select>
+        </div>
+        <div class="field"><label>Monthly rent (£)</label><input type="number" id="pf-rent"/></div>
+        <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pf-costs"/></div>
+        <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pf-mortgage" placeholder="Leave blank if no mortgage"/></div>
+        <p class="hint" style="margin-bottom:1rem">Running costs = management, insurance, maintenance — not mortgage. Yield excludes mortgage; cashflow includes it.</p>
+        <button class="btn-primary" onclick="addProperty()" id="btn-add-property">Add property</button>
+        <p class="save-msg" id="pf-msg"></p>
       </div>
-      <div class="field"><label>Monthly rent (£)</label><input type="number" id="pf-rent"/></div>
-      <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pf-costs"/></div>
-      <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pf-mortgage" placeholder="Leave blank if bought cash"/></div>
-      <p class="hint" style="margin-bottom:1rem">Running costs = management, insurance, maintenance — not mortgage. Yield excludes mortgage; cashflow includes it.</p>
-      <button class="btn-primary" onclick="addProperty()" id="btn-add-property">Add property</button>
-      <p class="save-msg" id="pf-msg"></p>
-    </div>
 
-    <div class="metric-grid totals-grid">
-      <div class="metric"><p class="ml">Total monthly cashflow</p><p class="mv" id="pf-total-cashflow">—</p></div>
-      <div class="metric"><p class="ml">Blended yield</p><p class="mv" id="pf-blended-yield">—</p></div>
+      <div>
+        <p class="hint" id="pf-empty-state" style="display:none">Add your first property to see your portfolio at a glance.</p>
+        <div class="metric-grid summary-grid" id="pf-summary-grid" style="display:none">
+          <div class="metric"><p class="ml">Properties</p><p class="mv" id="pf-count">—</p></div>
+          <div class="metric"><p class="ml">Total monthly cashflow</p><p class="mv" id="pf-total-cashflow">—</p></div>
+          <div class="metric"><p class="ml">Blended yield</p><p class="mv" id="pf-blended-yield">—</p></div>
+          <div class="metric"><p class="ml">Total invested</p><p class="mv" id="pf-total-invested">—</p></div>
+        </div>
+        <div id="pf-list"><p class="hint">Loading…</p></div>
+      </div>
     </div>
+  </div>
+</div>
 
-    <div id="pf-list"><p class="hint">Loading…</p></div>
+<div class="modal-overlay" id="pf-modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="card modal-card">
+    <div class="modal-header">
+      <h2 id="pf-modal-address">—</h2>
+      <button class="modal-close" onclick="closePropertyDetail()" aria-label="Close">×</button>
+    </div>
+    <div class="modal-figures">
+      <div class="modal-figure"><p class="ml">Yield</p><p class="mv" id="pf-modal-yield">—</p></div>
+      <div class="modal-figure"><p class="ml">Monthly cashflow</p><p class="mv" id="pf-modal-cashflow">—</p></div>
+    </div>
+    <div class="field"><label>Address</label><input type="text" id="pfm-address"/></div>
+    <div class="field"><label>Price paid (£)</label><input type="number" id="pfm-price"/></div>
+    <div class="field"><label>Property type</label>
+      <select id="pfm-type">
+        <option value="BTL">BTL</option>
+        <option value="HMO">HMO</option>
+        <option value="SA">SA</option>
+        <option value="Flip">Flip</option>
+      </select>
+    </div>
+    <div class="field"><label>Monthly rent (£)</label><input type="number" id="pfm-rent"/></div>
+    <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pfm-costs"/></div>
+    <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pfm-mortgage" placeholder="Leave blank if no mortgage"/></div>
+    <p class="save-msg" id="pf-modal-msg"></p>
+    <div class="modal-actions">
+      <button class="mini-btn danger" onclick="deleteFromDetail()">Delete</button>
+      <button class="btn-primary" id="pf-modal-save-btn" onclick="savePropertyChanges()">Save changes</button>
+    </div>
   </div>
 </div>
 
 <script>
 let sbClient=null, currentSession=null, currentPlan=null;
+let portfolioProperties=[], editingId=null;
 
 function fmtGBP(v){ return v!=null ? '£'+Math.round(v).toLocaleString() : '—'; }
 function fmtPct(v){ return v!=null ? v.toFixed(1)+'%' : '—'; }
@@ -191,31 +244,39 @@ async function init(){
 
 async function loadPortfolio(){
   const listEl=document.getElementById('pf-list');
+  const emptyEl=document.getElementById('pf-empty-state');
+  const summaryEl=document.getElementById('pf-summary-grid');
   listEl.innerHTML='<p class="hint">Loading…</p>';
+  emptyEl.style.display='none';
+  summaryEl.style.display='none';
+
   try{
     const res=await fetch('/api/portfolio',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not load your portfolio.');
 
-    document.getElementById('pf-total-cashflow').textContent=fmtGBP(d.totals.total_monthly_cashflow);
-    document.getElementById('pf-blended-yield').textContent=fmtPct(d.totals.blended_yield);
+    portfolioProperties=d.properties;
 
-    if(d.properties.length===0){
-      listEl.innerHTML='<p class="hint">No properties added yet.</p>';
+    if(portfolioProperties.length===0){
+      emptyEl.style.display='block';
+      listEl.innerHTML='';
       return;
     }
-    listEl.innerHTML=d.properties.map(p=>`<div class="saved-item">
+
+    summaryEl.style.display='';
+    document.getElementById('pf-count').textContent=portfolioProperties.length;
+    document.getElementById('pf-total-cashflow').textContent=fmtGBP(d.totals.total_monthly_cashflow);
+    document.getElementById('pf-blended-yield').textContent=fmtPct(d.totals.blended_yield);
+    document.getElementById('pf-total-invested').textContent=fmtGBP(d.totals.total_price_paid);
+
+    listEl.innerHTML=portfolioProperties.map(p=>`<div class="saved-item" onclick="openPropertyDetail('${p.id}')">
       <div class="saved-info">
         <span class="saved-name">${escapeHtml(p.address)} <span class="hint">(${escapeHtml(p.property_type)})</span></span>
         <span class="saved-detail">Yield ${fmtPct(p.yield)} · Cashflow ${fmtGBP(p.monthly_cashflow)}/mo · Paid ${fmtGBP(p.price_paid)}</span>
       </div>
-      <div class="saved-controls">
-        <button class="mini-btn danger" onclick="deletePortfolioProperty('${p.id}')">Delete</button>
-      </div>
+      <span class="saved-chevron">›</span>
     </div>`).join('');
   }catch(e){
-    document.getElementById('pf-total-cashflow').textContent='—';
-    document.getElementById('pf-blended-yield').textContent='—';
     listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
   }
 }
@@ -253,15 +314,84 @@ async function addProperty(){
   btn.disabled=false;btn.textContent='Add property';
 }
 
-async function deletePortfolioProperty(id){
+function openPropertyDetail(id){
+  const p=portfolioProperties.find(x=>x.id===id);
+  if(!p)return;
+  editingId=id;
+
+  document.getElementById('pf-modal-address').textContent=p.address;
+  document.getElementById('pf-modal-yield').textContent=fmtPct(p.yield);
+  document.getElementById('pf-modal-cashflow').textContent=fmtGBP(p.monthly_cashflow);
+
+  document.getElementById('pfm-address').value=p.address;
+  document.getElementById('pfm-price').value=p.price_paid;
+  document.getElementById('pfm-type').value=p.property_type;
+  document.getElementById('pfm-rent').value=p.monthly_rent;
+  document.getElementById('pfm-costs').value=p.monthly_running_costs;
+  document.getElementById('pfm-mortgage').value=p.monthly_mortgage!=null?p.monthly_mortgage:'';
+
+  const msg=document.getElementById('pf-modal-msg');
+  msg.textContent='';msg.className='save-msg';
+
+  document.getElementById('pf-modal-overlay').classList.add('open');
+}
+
+function closePropertyDetail(){
+  document.getElementById('pf-modal-overlay').classList.remove('open');
+  editingId=null;
+}
+
+function handleOverlayClick(e){
+  if(e.target.id==='pf-modal-overlay')closePropertyDetail();
+}
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape')closePropertyDetail();
+});
+
+async function savePropertyChanges(){
+  if(!editingId)return;
+  const msg=document.getElementById('pf-modal-msg');
+  const btn=document.getElementById('pf-modal-save-btn');
+  msg.className='save-msg';msg.textContent='';
+
+  const payload={
+    address:document.getElementById('pfm-address').value.trim(),
+    price_paid:document.getElementById('pfm-price').value,
+    property_type:document.getElementById('pfm-type').value,
+    monthly_rent:document.getElementById('pfm-rent').value,
+    monthly_running_costs:document.getElementById('pfm-costs').value,
+    monthly_mortgage:document.getElementById('pfm-mortgage').value
+  };
+
+  btn.disabled=true;btn.textContent='Saving...';
+  try{
+    const res=await fetch('/api/portfolio/'+editingId,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not save changes.');
+    closePropertyDetail();
+    await loadPortfolio();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;btn.textContent='Save changes';
+}
+
+async function deleteFromDetail(){
+  if(!editingId)return;
   if(!confirm('Delete this property from your portfolio?'))return;
   try{
-    const res=await fetch('/api/portfolio/'+id,{
+    const res=await fetch('/api/portfolio/'+editingId,{
       method:'DELETE',
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not delete property.');
+    closePropertyDetail();
     await loadPortfolio();
   }catch(e){
     alert('Could not delete property: '+e.message);
