@@ -161,6 +161,17 @@
 .tier-count{font-size:11.5px;color:var(--muted);white-space:nowrap}
 .tier-count.warn{color:#E8C468;font-weight:600}
 @media(max-width:520px){.tier-row{grid-template-columns:auto 1fr;grid-template-rows:auto auto auto}}
+
+.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap}
+.saved-info{display:flex;flex-direction:column;gap:2px}
+.saved-name{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
+.saved-detail{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.saved-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.mini-btn:hover{background:rgba(224,164,88,.08)}
+.mini-btn:disabled{opacity:.4;cursor:not-allowed}
+.mini-btn.danger{color:#E8746B;border-color:#E8746B}
+.mini-btn.danger:hover{background:rgba(232,116,107,.08)}
 </style>
 </head>
 <body>
@@ -179,6 +190,7 @@
     <button class="tab" onclick="switchTab('sa')">SA</button>
     <button class="tab" onclick="switchTab('flip')">Flip</button>
     <button class="tab" onclick="switchTab('comps')">Comps</button>
+    <button class="tab" onclick="switchTab('portfolio')">Portfolio</button>
   </div>
 
   <!-- BTL -->
@@ -579,12 +591,48 @@
     </div>
   </div>
 
+  <!-- Portfolio -->
+  <div class="panel" id="panel-portfolio">
+    <div class="split-panel">
+      <div class="input-col">
+        <p class="sl">Add property</p>
+        <div class="f"><label>Address</label><input type="text" id="pf-address" placeholder="e.g. 12 High Street, Nottingham"/></div>
+        <div class="g2" style="margin-top:1rem">
+          <div class="f"><label>Price paid (£)</label><input type="number" id="pf-price"/></div>
+          <div class="f"><label>Property type</label>
+            <select id="pf-type">
+              <option value="BTL">BTL</option>
+              <option value="HMO">HMO</option>
+              <option value="SA">SA</option>
+              <option value="Flip">Flip</option>
+            </select>
+          </div>
+          <div class="f"><label>Monthly rent (£)</label><input type="number" id="pf-rent"/></div>
+          <div class="f"><label>Monthly running costs (£)</label><input type="number" id="pf-costs"/></div>
+          <div class="f"><label>Monthly mortgage (£)</label><input type="number" id="pf-mortgage" placeholder="Leave blank if bought cash"/></div>
+        </div>
+        <p class="hint" style="margin-top:1rem">Running costs = management, insurance, maintenance — not mortgage. Yield excludes mortgage; cashflow includes it.</p>
+        <button class="run-btn" onclick="addProperty()" id="btn-add-property">Add property</button>
+        <p class="save-msg" id="pf-msg"></p>
+      </div>
+      <div class="results-col">
+        <p class="sl">Portfolio</p>
+        <div class="metric-grid">
+          <div class="m"><p class="ml">Total monthly cashflow</p><p class="mv" id="pf-total-cashflow">—</p></div>
+          <div class="m"><p class="ml">Blended yield</p><p class="mv" id="pf-blended-yield">—</p></div>
+        </div>
+        <div id="pf-list" style="margin-top:1.25rem"><p class="hint">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
 function switchTab(t){
-  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip','comps'][i]===t));
-  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-comps'][i]==='panel-'+t));
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip','comps','portfolio'][i]===t));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-comps','panel-portfolio'][i]==='panel-'+t));
+  if(t==='portfolio')loadPortfolio();
 }
 
 // Calculation is button-driven, not live. These just control WHEN cBTL()/cHMO()/cSA()/cFlip()
@@ -720,6 +768,101 @@ function applyGDV(){
 
   msg.textContent='Copied £'+gdv.toLocaleString()+' into '+target.label+"'s "+(targetKey==='flip'?'Sale Value':'End Market Value')+'.';
   msg.className='save-msg success';
+}
+
+function escapeHtml(s){
+  const div=document.createElement('div');
+  div.textContent=s;
+  return div.innerHTML;
+}
+
+function fmtPct(v){ return v!=null ? v.toFixed(1)+'%' : '—'; }
+function fmtGBP(v){ return v!=null ? '£'+Math.round(v).toLocaleString() : '—'; }
+
+async function loadPortfolio(){
+  const listEl=document.getElementById('pf-list');
+  if(!currentSession){
+    listEl.innerHTML='<p class="hint">Log in to use the Portfolio — <a href="/login.html">log in</a></p>';
+    return;
+  }
+
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch('/api/portfolio',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not load your portfolio.');
+
+    document.getElementById('pf-total-cashflow').textContent=fmtGBP(d.totals.total_monthly_cashflow);
+    document.getElementById('pf-blended-yield').textContent=fmtPct(d.totals.blended_yield);
+
+    if(d.properties.length===0){
+      listEl.innerHTML='<p class="hint">No properties added yet.</p>';
+      return;
+    }
+    listEl.innerHTML=d.properties.map(p=>`<div class="saved-item">
+      <div class="saved-info">
+        <span class="saved-name">${escapeHtml(p.address)} <span class="hint">(${escapeHtml(p.property_type)})</span></span>
+        <span class="saved-detail">Yield ${fmtPct(p.yield)} · Cashflow ${fmtGBP(p.monthly_cashflow)}/mo · Paid ${fmtGBP(p.price_paid)}</span>
+      </div>
+      <div class="saved-controls">
+        <button class="mini-btn danger" onclick="deletePortfolioProperty('${p.id}')">Delete</button>
+      </div>
+    </div>`).join('');
+  }catch(e){
+    document.getElementById('pf-total-cashflow').textContent='—';
+    document.getElementById('pf-blended-yield').textContent='—';
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+async function addProperty(){
+  const msg=document.getElementById('pf-msg');
+  const btn=document.getElementById('btn-add-property');
+  msg.className='save-msg';msg.textContent='';
+
+  if(!currentSession){ msg.textContent='Log in to use the Portfolio.'; msg.className='save-msg error'; return; }
+
+  const payload={
+    address:document.getElementById('pf-address').value.trim(),
+    price_paid:document.getElementById('pf-price').value,
+    property_type:document.getElementById('pf-type').value,
+    monthly_rent:document.getElementById('pf-rent').value,
+    monthly_running_costs:document.getElementById('pf-costs').value,
+    monthly_mortgage:document.getElementById('pf-mortgage').value
+  };
+
+  btn.disabled=true;btn.textContent='Adding...';
+  try{
+    const res=await fetch('/api/portfolio',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not add property.');
+
+    ['pf-address','pf-price','pf-rent','pf-costs','pf-mortgage'].forEach(id=>document.getElementById(id).value='');
+    msg.textContent='Property added.';msg.className='save-msg success';
+    await loadPortfolio();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;btn.textContent='Add property';
+}
+
+async function deletePortfolioProperty(id){
+  if(!confirm('Delete this property from your portfolio?'))return;
+  try{
+    const res=await fetch('/api/portfolio/'+id,{
+      method:'DELETE',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not delete property.');
+    await loadPortfolio();
+  }catch(e){
+    alert('Could not delete property: '+e.message);
+  }
 }
 
 async function analyse(type){

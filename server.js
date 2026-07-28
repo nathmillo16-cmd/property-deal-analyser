@@ -97,6 +97,67 @@ function toStandardFeesOrNull(v) {
   return fees;
 }
 
+const PORTFOLIO_PROPERTY_TYPES = ['BTL', 'HMO', 'SA', 'Flip'];
+
+// Yield excludes mortgage on purpose (it's a return-on-asset figure);
+// monthly_cashflow includes it, treating a null/blank mortgage (bought
+// cash) as 0. price_paid of 0 returns null rather than Infinity/NaN.
+function computePropertyFigures(p) {
+  const mortgage = p.monthly_mortgage || 0;
+  const annualNet = (p.monthly_rent * 12) - (p.monthly_running_costs * 12);
+  return {
+    yield: p.price_paid > 0 ? (annualNet / p.price_paid) * 100 : null,
+    monthly_cashflow: p.monthly_rent - p.monthly_running_costs - mortgage,
+  };
+}
+
+// £-weighted blend (sum of net income over sum of price paid), not an
+// average of each property's own yield — a £1m property and a £50k
+// property shouldn't count equally toward the portfolio figure.
+function computePortfolioTotals(properties) {
+  const totalCashflow = properties.reduce((sum, p) => sum + computePropertyFigures(p).monthly_cashflow, 0);
+  const totalPricePaid = properties.reduce((sum, p) => sum + p.price_paid, 0);
+  const totalAnnualNet = properties.reduce((sum, p) => sum + (p.monthly_rent * 12) - (p.monthly_running_costs * 12), 0);
+  return {
+    total_monthly_cashflow: totalCashflow,
+    blended_yield: totalPricePaid > 0 ? (totalAnnualNet / totalPricePaid) * 100 : null,
+  };
+}
+
+function validatePortfolioInput(body) {
+  const { address, price_paid, property_type, monthly_rent, monthly_running_costs, monthly_mortgage } = body;
+
+  if (typeof address !== 'string' || !address.trim()) {
+    return { error: 'Enter an address.' };
+  }
+  if (!PORTFOLIO_PROPERTY_TYPES.includes(property_type)) {
+    return { error: `property_type must be one of ${PORTFOLIO_PROPERTY_TYPES.join('/')}.` };
+  }
+  const pricePaid = Number(price_paid);
+  const rent = Number(monthly_rent);
+  const runningCosts = Number(monthly_running_costs);
+  if (!Number.isFinite(pricePaid) || pricePaid < 0) return { error: 'Price paid must be a number ≥ 0.' };
+  if (!Number.isFinite(rent) || rent < 0) return { error: 'Monthly rent must be a number ≥ 0.' };
+  if (!Number.isFinite(runningCosts) || runningCosts < 0) return { error: 'Monthly running costs must be a number ≥ 0.' };
+
+  let mortgage = null;
+  if (monthly_mortgage !== null && monthly_mortgage !== undefined && monthly_mortgage !== '') {
+    mortgage = Number(monthly_mortgage);
+    if (!Number.isFinite(mortgage) || mortgage < 0) return { error: 'Monthly mortgage must be a number ≥ 0, or blank if bought cash.' };
+  }
+
+  return {
+    value: {
+      address: address.trim(),
+      price_paid: pricePaid,
+      property_type,
+      monthly_rent: rent,
+      monthly_running_costs: runningCosts,
+      monthly_mortgage: mortgage,
+    },
+  };
+}
+
 // Fail-closed: a missing profile row, or any error looking it up, is always
 // treated as 'free'. This is the one place that decision is made.
 async function getUserPlan(supabase) {
@@ -300,6 +361,66 @@ app.post('/api/pipeline/:id/stage', async (req, res) => {
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
   res.json(data);
+});
+
+app.post('/api/portfolio', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the portfolio.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the portfolio.' });
+  }
+
+  const { value, error: validationError } = validatePortfolioInput(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const { data, error } = await supabase
+    .from('portfolio_properties')
+    .insert(value)
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ...data, ...computePropertyFigures(data) });
+});
+
+app.get('/api/portfolio', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the portfolio.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the portfolio.' });
+  }
+
+  const { data, error } = await supabase
+    .from('portfolio_properties')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(400).json({ error: error.message });
+
+  const properties = data.map((p) => ({ ...p, ...computePropertyFigures(p) }));
+  res.json({ properties, totals: computePortfolioTotals(data) });
+});
+
+app.delete('/api/portfolio/:id', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the portfolio.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the portfolio.' });
+  }
+
+  const { error } = await supabase
+    .from('portfolio_properties')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ deleted: true });
 });
 
 const COMPS_PROPERTY_TYPES = ['D', 'S', 'T', 'F', 'O'];
