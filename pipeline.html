@@ -75,9 +75,43 @@
 }
 .stage-opt:hover,.stage-opt.highlight{background:rgba(224,164,88,.12)}
 .stage-opt.selected{color:var(--accent-2)}
-.card-actions{display:flex;justify-content:flex-end}
+.card-actions{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .remove-btn{font-family:var(--font-body);font-size:11px;color:#E8746B;background:transparent;border:none;cursor:pointer;padding:2px 4px}
 .remove-btn:hover{text-decoration:underline}
+
+.mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.mini-btn:hover{background:rgba(224,164,88,.08)}
+.mini-btn:disabled{opacity:.4;cursor:not-allowed}
+.mini-btn.danger{color:#E8746B;border-color:#E8746B}
+.mini-btn.danger:hover{background:rgba(232,116,107,.08)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-card{max-width:560px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem}
+.modal-header h2{font-size:18px;margin:0;word-break:break-word}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
+.modal-close:hover{color:var(--ink)}
+.modal-section{margin-bottom:1.75rem}
+.modal-section:last-child{margin-bottom:0}
+.modal-form-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
+.modal-form-row .field{flex:1;min-width:110px;margin-bottom:0}
+
+.note-item{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.65rem .85rem;margin-bottom:8px}
+.note-date{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.note-text{font-size:13px;color:var(--ink);margin-top:3px;white-space:pre-wrap;word-break:break-word}
+.note-item .note-delete{float:right}
+
+.offer-item{display:flex;justify-content:space-between;align-items:center;padding:.65rem .85rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap}
+.offer-info{display:flex;flex-direction:column;gap:2px}
+.offer-amount{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body);font-variant-numeric:tabular-nums}
+.offer-date{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.offer-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.offer-outcome-select{font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink);background:var(--surface-3);border:1.5px solid var(--hairline);border-radius:var(--radius-sm);padding:6px 8px}
+
+.save-msg{font-size:12px;margin:.5rem 0 .75rem;min-height:1em;color:var(--muted)}
+.save-msg.success{color:var(--accent-2)}
+.save-msg.error{color:#E8746B}
 
 .kanban-col.drag-over{border-color:var(--accent);box-shadow:0 0 0 2px rgba(224,164,88,.25) inset}
 .pipeline-card.dragging{opacity:.4}
@@ -157,6 +191,44 @@
       <button class="btn-primary" id="compare-btn" disabled onclick="compareSelected()">Compare selected</button>
     </div>
     <div id="compare-panel"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="details-modal-overlay" onclick="handleDetailsOverlayClick(event)">
+  <div class="card modal-card">
+    <div class="modal-header">
+      <h2 id="details-modal-title">—</h2>
+      <button class="modal-close" onclick="closeDealDetails()" aria-label="Close">×</button>
+    </div>
+
+    <div class="modal-section">
+      <p class="subhead">Notes</p>
+      <div class="modal-form-row">
+        <div class="field"><label>Note</label><input type="text" id="note-input"/></div>
+        <button class="btn-primary" onclick="addNote()">Add note</button>
+      </div>
+      <p class="save-msg" id="note-msg"></p>
+      <div id="notes-list"><p class="hint">Loading…</p></div>
+    </div>
+
+    <div class="modal-section">
+      <p class="subhead">Offer history</p>
+      <div class="modal-form-row">
+        <div class="field"><label>Amount (£)</label><input type="number" id="offer-amount"/></div>
+        <div class="field"><label>Date</label><input type="date" id="offer-date"/></div>
+        <div class="field"><label>Outcome</label>
+          <select id="offer-outcome">
+            <option value="Pending">Pending</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Accepted">Accepted</option>
+            <option value="Withdrawn">Withdrawn</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="addOffer()">Add offer</button>
+      </div>
+      <p class="save-msg" id="offer-msg"></p>
+      <div id="offers-list"><p class="hint">Loading…</p></div>
+    </div>
   </div>
 </div>
 
@@ -481,7 +553,10 @@ function cardHtml(d){
       </button>
       <ul class="stage-dd-list" role="listbox">${options}</ul>
     </div>
-    <div class="card-actions"><button class="remove-btn" onclick="removeFromPipeline('${d.id}')">Remove from pipeline</button></div>
+    <div class="card-actions">
+      <button class="mini-btn" onclick="openDealDetails('${d.id}')">Notes &amp; offers</button>
+      <button class="remove-btn" onclick="removeFromPipeline('${d.id}')">Remove from pipeline</button>
+    </div>
   </div>`;
 }
 
@@ -669,6 +744,201 @@ function showCelebrateToast(text){
 async function removeFromPipeline(dealId){
   selectedIds.delete(dealId);
   await changeStage(dealId, null);
+}
+
+let detailsDealId=null;
+
+// Constructs the Date in local time from the Y/M/D parts directly, rather
+// than new Date('YYYY-MM-DD') (which parses as UTC midnight and can render
+// as the previous day in a negative-UTC-offset timezone) — offer_date is a
+// plain date with no time component, so it must never shift.
+function fmtDateOnly(iso){
+  const [y,m,d]=iso.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+
+function fmtTimestamp(iso){
+  return new Date(iso).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function openDealDetails(dealId){
+  const deal=pipelineDeals.find(d=>d.id===dealId);
+  if(!deal)return;
+  detailsDealId=dealId;
+
+  document.getElementById('details-modal-title').textContent=dealDisplayName(deal);
+  document.getElementById('note-input').value='';
+  document.getElementById('note-msg').textContent='';document.getElementById('note-msg').className='save-msg';
+  document.getElementById('offer-amount').value='';
+  document.getElementById('offer-date').value='';
+  document.getElementById('offer-outcome').value='Pending';
+  document.getElementById('offer-msg').textContent='';document.getElementById('offer-msg').className='save-msg';
+
+  document.getElementById('details-modal-overlay').classList.add('open');
+  loadNotes(dealId);
+  loadOffers(dealId);
+}
+
+function closeDealDetails(){
+  document.getElementById('details-modal-overlay').classList.remove('open');
+  detailsDealId=null;
+}
+
+function handleDetailsOverlayClick(e){
+  if(e.target.id==='details-modal-overlay')closeDealDetails();
+}
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape')closeDealDetails();
+});
+
+async function loadNotes(dealId){
+  const listEl=document.getElementById('notes-list');
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch(`/api/deals/${dealId}/notes`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const notes=await res.json();
+    if(!res.ok)throw new Error(notes.error||'Could not load notes.');
+
+    if(notes.length===0){
+      listEl.innerHTML='<p class="hint">No notes yet.</p>';
+      return;
+    }
+    listEl.innerHTML=notes.map(n=>`<div class="note-item">
+      <button class="mini-btn danger note-delete" onclick="deleteNote('${n.id}')">Delete</button>
+      <p class="note-date">${fmtTimestamp(n.created_at)}</p>
+      <p class="note-text">${escapeHtml(n.note_text)}</p>
+    </div>`).join('');
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+async function addNote(){
+  if(!detailsDealId)return;
+  const input=document.getElementById('note-input');
+  const msg=document.getElementById('note-msg');
+  const text=input.value.trim();
+  if(!text){ msg.textContent='Enter a note.'; msg.className='save-msg error'; return; }
+
+  msg.className='save-msg';msg.textContent='';
+  try{
+    const res=await fetch(`/api/deals/${detailsDealId}/notes`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({note_text:text})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not add note.');
+    input.value='';
+    await loadNotes(detailsDealId);
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+async function deleteNote(noteId){
+  if(!detailsDealId)return;
+  if(!confirm('Delete this note?'))return;
+  try{
+    const res=await fetch(`/api/notes/${noteId}`,{
+      method:'DELETE',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not delete note.');
+    await loadNotes(detailsDealId);
+  }catch(e){
+    alert('Could not delete note: '+e.message);
+  }
+}
+
+async function loadOffers(dealId){
+  const listEl=document.getElementById('offers-list');
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch(`/api/deals/${dealId}/offers`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const offers=await res.json();
+    if(!res.ok)throw new Error(offers.error||'Could not load offers.');
+
+    if(offers.length===0){
+      listEl.innerHTML='<p class="hint">No offers yet.</p>';
+      return;
+    }
+    listEl.innerHTML=offers.map(o=>`<div class="offer-item">
+      <div class="offer-info">
+        <span class="offer-amount">${fmtC(o.amount)}</span>
+        <span class="offer-date">${fmtDateOnly(o.offer_date)}</span>
+      </div>
+      <div class="offer-controls">
+        <select class="offer-outcome-select" onchange="updateOfferOutcome('${o.id}', this.value)">
+          ${['Pending','Rejected','Accepted','Withdrawn'].map(v=>`<option value="${v}"${v===o.outcome?' selected':''}>${v}</option>`).join('')}
+        </select>
+        <button class="mini-btn danger" onclick="deleteOffer('${o.id}')">Delete</button>
+      </div>
+    </div>`).join('');
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+async function addOffer(){
+  if(!detailsDealId)return;
+  const msg=document.getElementById('offer-msg');
+  const payload={
+    amount:document.getElementById('offer-amount').value,
+    offer_date:document.getElementById('offer-date').value,
+    outcome:document.getElementById('offer-outcome').value
+  };
+
+  msg.className='save-msg';msg.textContent='';
+  try{
+    const res=await fetch(`/api/deals/${detailsDealId}/offers`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not add offer.');
+    document.getElementById('offer-amount').value='';
+    document.getElementById('offer-date').value='';
+    document.getElementById('offer-outcome').value='Pending';
+    await loadOffers(detailsDealId);
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+async function updateOfferOutcome(offerId, outcome){
+  if(!detailsDealId)return;
+  try{
+    const res=await fetch(`/api/offers/${offerId}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({outcome})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not update offer.');
+    await loadOffers(detailsDealId);
+  }catch(e){
+    alert('Could not update offer: '+e.message);
+  }
+}
+
+async function deleteOffer(offerId){
+  if(!detailsDealId)return;
+  if(!confirm('Delete this offer?'))return;
+  try{
+    const res=await fetch(`/api/offers/${offerId}`,{
+      method:'DELETE',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not delete offer.');
+    await loadOffers(detailsDealId);
+  }catch(e){
+    alert('Could not delete offer: '+e.message);
+  }
 }
 
 function toggleCompare(dealId, checked){

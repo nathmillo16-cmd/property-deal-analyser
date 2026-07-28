@@ -364,6 +364,176 @@ app.post('/api/pipeline/:id/stage', async (req, res) => {
   res.json(data);
 });
 
+// Cheap ownership check before attaching a note/offer to a deal_id — RLS on
+// deal_notes/deal_offers alone would still let someone attach a row to an
+// arbitrary deal_id that isn't theirs (it just wouldn't leak anything, since
+// their own select policy only ever returns their own rows), but this is a
+// correct, nearly-free guard rather than relying on that being harmless.
+async function dealBelongsToRequester(supabase, dealId) {
+  const { data, error } = await supabase.from('deals').select('id').eq('id', dealId).single();
+  return !error && !!data;
+}
+
+function validateNoteInput(body) {
+  const { note_text } = body;
+  if (typeof note_text !== 'string' || !note_text.trim()) {
+    return { error: 'Enter a note.' };
+  }
+  return { value: { note_text: note_text.trim() } };
+}
+
+const OFFER_OUTCOMES = ['Pending', 'Rejected', 'Accepted', 'Withdrawn'];
+
+function validateOfferInput(body) {
+  const { amount, offer_date, outcome } = body;
+  const amt = Number(amount);
+  if (!Number.isFinite(amt) || amt < 0) return { error: 'Amount must be a number ≥ 0.' };
+  if (typeof offer_date !== 'string' || !offer_date.trim()) return { error: 'Enter an offer date.' };
+  const resolvedOutcome = outcome || 'Pending';
+  if (!OFFER_OUTCOMES.includes(resolvedOutcome)) {
+    return { error: `outcome must be one of ${OFFER_OUTCOMES.join('/')}.` };
+  }
+  return { value: { amount: amt, offer_date, outcome: resolvedOutcome } };
+}
+
+app.post('/api/deals/:dealId/notes', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  if (!(await dealBelongsToRequester(supabase, req.params.dealId))) {
+    return res.status(404).json({ error: 'Deal not found.' });
+  }
+
+  const { value, error: validationError } = validateNoteInput(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const { data, error } = await supabase
+    .from('deal_notes')
+    .insert({ deal_id: req.params.dealId, note_text: value.note_text })
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/deals/:dealId/notes', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  const { data, error } = await supabase
+    .from('deal_notes')
+    .select('*')
+    .eq('deal_id', req.params.dealId)
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete('/api/notes/:id', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  const { error } = await supabase
+    .from('deal_notes')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ deleted: true });
+});
+
+app.post('/api/deals/:dealId/offers', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  if (!(await dealBelongsToRequester(supabase, req.params.dealId))) {
+    return res.status(404).json({ error: 'Deal not found.' });
+  }
+
+  const { value, error: validationError } = validateOfferInput(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const { data, error } = await supabase
+    .from('deal_offers')
+    .insert({ deal_id: req.params.dealId, ...value })
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/deals/:dealId/offers', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  const { data, error } = await supabase
+    .from('deal_offers')
+    .select('*')
+    .eq('deal_id', req.params.dealId)
+    .order('offer_date', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.put('/api/offers/:id', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  const { outcome } = req.body;
+  if (!OFFER_OUTCOMES.includes(outcome)) {
+    return res.status(400).json({ error: `outcome must be one of ${OFFER_OUTCOMES.join('/')}.` });
+  }
+
+  const { data, error } = await supabase
+    .from('deal_offers')
+    .update({ outcome })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Offer not found.' });
+  res.json(data);
+});
+
+app.delete('/api/offers/:id', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  const { error } = await supabase
+    .from('deal_offers')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ deleted: true });
+});
+
 app.post('/api/portfolio', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to use the portfolio.' });
