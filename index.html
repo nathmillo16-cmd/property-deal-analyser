@@ -61,19 +61,14 @@
   font-family:var(--font-body);
 }
 .f input:focus{outline:none;border-color:var(--input-accent)}
-.f select{
-  border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:10px 30px 10px 12px;
-  font-size:14px;background-color:var(--input-surface);color:var(--input-ink);width:100%;
-  font-family:var(--font-body);
-}
-.f select:focus{outline:none;border-color:var(--input-accent)}
+.f .dd-trigger{width:100%}
 
 .tr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .tr label{font-size:12.5px;color:var(--input-muted);min-width:130px;font-weight:600}
 .tr input{border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:7px 10px;font-size:13.5px;background:var(--input-surface);color:var(--input-ink);width:75px;font-family:var(--font-body)}
 .tr input:focus{outline:none;border-color:var(--input-accent)}
-.tr select{border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:7px 24px 7px 10px;font-size:13.5px;background-color:var(--input-surface);color:var(--input-ink);width:100px;font-family:var(--font-body)}
-.tr select:focus{outline:none;border-color:var(--input-accent)}
+.tr .dd{width:100px}
+.tr .dd-trigger{padding:7px 24px 7px 10px;font-size:13.5px}
 
 .rg{display:grid;grid-template-columns:1.3fr 70px 55px 70px;gap:8px;align-items:center;margin-bottom:6px}
 .rg span{font-size:11.5px;color:var(--input-muted)}
@@ -518,13 +513,18 @@
         <p class="sl">Find comparables</p>
         <div class="f"><label>Postcode</label><input type="text" id="cp-postcode" placeholder="e.g. SW1A 1AA"/></div>
         <div class="f" style="margin-top:1rem"><label>Property type</label>
-          <select id="cp-type">
-            <option value="D">Detached</option>
-            <option value="S">Semi</option>
-            <option value="T">Terraced</option>
-            <option value="F">Flat</option>
-            <option value="O">Other</option>
-          </select>
+          <div class="dd" id="cp-type" data-value="D">
+            <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'cp-type')" onkeydown="ddKeydown(event,'cp-type')">
+              <span>Detached</span>
+            </button>
+            <ul class="dd-list" role="listbox">
+              <li class="dd-opt selected" role="option" aria-selected="true" data-value="D" onclick="selectDDOption(event,'cp-type','D','Detached')">Detached</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="S" onclick="selectDDOption(event,'cp-type','S','Semi')">Semi</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="T" onclick="selectDDOption(event,'cp-type','T','Terraced')">Terraced</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="F" onclick="selectDDOption(event,'cp-type','F','Flat')">Flat</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="O" onclick="selectDDOption(event,'cp-type','O','Other')">Other</li>
+            </ul>
+          </div>
         </div>
         <p class="hint" style="margin-top:1rem">Looks up Land Registry sold prices within 0.5 miles, same property type, sold in the last 12 months.</p>
         <button class="run-btn" onclick="runComps()" id="btn-run-comps">Find comparables</button>
@@ -573,12 +573,17 @@
 
           <div class="tr" style="margin-top:1rem">
             <label>Apply to</label>
-            <select id="cp-apply-target">
-              <option value="btl">BTL</option>
-              <option value="hmo">HMO</option>
-              <option value="sa">SA</option>
-              <option value="flip">Flip</option>
-            </select>
+            <div class="dd" id="cp-apply-target" data-value="btl">
+              <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'cp-apply-target')" onkeydown="ddKeydown(event,'cp-apply-target')">
+                <span>BTL</span>
+              </button>
+              <ul class="dd-list" role="listbox">
+                <li class="dd-opt selected" role="option" aria-selected="true" data-value="btl" onclick="selectDDOption(event,'cp-apply-target','btl','BTL')">BTL</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="hmo" onclick="selectDDOption(event,'cp-apply-target','hmo','HMO')">HMO</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="sa" onclick="selectDDOption(event,'cp-apply-target','sa','SA')">SA</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="flip" onclick="selectDDOption(event,'cp-apply-target','flip','Flip')">Flip</li>
+              </ul>
+            </div>
           </div>
           <button class="save-btn" onclick="applyGDV()" id="btn-use-gdv" disabled>Use this GDV →</button>
           <p class="save-msg" id="cp-apply-msg"></p>
@@ -590,6 +595,107 @@
 </div>
 
 <script>
+// Custom themed dropdown, replacing native <select> everywhere in this app —
+// same visual treatment and interaction mechanics as pipeline.html's original
+// stage-dd component (which stays as its own separate, untouched
+// implementation there), generalized here so it can back any value+options
+// picker. A <select>'s .value has no equivalent once it's gone, so the
+// wrapper div carries the current value in data-value instead, keyed by the
+// same id the old <select> had — getDDValue/setDDValue read/write it.
+let openDD=null;
+
+function closeAllDD(){
+  document.querySelectorAll('.dd.open').forEach(el=>{
+    el.classList.remove('open');
+    const btn=el.querySelector('.dd-trigger');
+    if(btn)btn.setAttribute('aria-expanded','false');
+  });
+  openDD=null;
+}
+
+function positionDDList(wrap){
+  const trigger=wrap.querySelector('.dd-trigger');
+  const list=wrap.querySelector('.dd-list');
+  if(!trigger||!list)return;
+  const r=trigger.getBoundingClientRect();
+  const gap=4;
+  const listHeight=list.getBoundingClientRect().height;
+  const spaceBelow=window.innerHeight-r.bottom, spaceAbove=r.top;
+  const openUpward=spaceBelow<(listHeight+gap) && spaceAbove>=(listHeight+gap);
+  list.style.left=r.left+'px';
+  list.style.width=r.width+'px';
+  list.style.top=openUpward ? (r.top-listHeight-gap)+'px' : (r.bottom+gap)+'px';
+}
+
+function toggleDD(e, id){
+  e.stopPropagation();
+  const wasOpen=openDD===id;
+  closeAllDD();
+  if(wasOpen)return;
+  const wrap=document.getElementById(id);
+  if(!wrap)return;
+  wrap.classList.add('open');
+  wrap.querySelector('.dd-trigger').setAttribute('aria-expanded','true');
+  positionDDList(wrap);
+  openDD=id;
+  wrap.querySelectorAll('.dd-opt').forEach(o=>o.classList.remove('highlight'));
+  const current=wrap.querySelector('.dd-opt.selected')||wrap.querySelector('.dd-opt');
+  if(current)current.classList.add('highlight');
+}
+
+function setDDValue(id, value, label){
+  const wrap=document.getElementById(id);
+  if(!wrap)return;
+  wrap.dataset.value=value;
+  const span=wrap.querySelector('.dd-trigger span');
+  if(span)span.textContent=label!=null?label:value;
+  wrap.querySelectorAll('.dd-opt').forEach(o=>{
+    const match=o.dataset.value===String(value);
+    o.classList.toggle('selected',match);
+    o.setAttribute('aria-selected',match?'true':'false');
+  });
+}
+
+function getDDValue(id){
+  const wrap=document.getElementById(id);
+  return wrap?wrap.dataset.value:null;
+}
+
+function selectDDOption(e, id, value, label){
+  e.stopPropagation();
+  closeAllDD();
+  setDDValue(id, value, label);
+  const wrap=document.getElementById(id);
+  const cb=wrap&&wrap.dataset.onchange;
+  if(cb&&typeof window[cb]==='function')window[cb](id, value);
+}
+
+function ddKeydown(e, id){
+  const wrap=document.getElementById(id);
+  if(!wrap)return;
+  const isOpen=openDD===id;
+  if(e.key==='Enter'||e.key===' '){
+    e.preventDefault();
+    if(!isOpen){toggleDD(e, id);return;}
+    const hl=wrap.querySelector('.dd-opt.highlight');
+    if(hl)selectDDOption(e, id, hl.dataset.value, hl.textContent);
+    return;
+  }
+  if(e.key==='Escape'){closeAllDD();return;}
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    if(!isOpen){toggleDD(e, id);return;}
+    const opts=[...wrap.querySelectorAll('.dd-opt')];
+    let idx=opts.findIndex(o=>o.classList.contains('highlight'));
+    idx = e.key==='ArrowDown' ? Math.min(idx+1, opts.length-1) : Math.max(idx-1, 0);
+    opts.forEach(o=>o.classList.remove('highlight'));
+    opts[idx].classList.add('highlight');
+  }
+}
+
+document.addEventListener('click', closeAllDD);
+window.addEventListener('scroll', closeAllDD, true);
+
 function switchTab(t){
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip','comps'][i]===t));
   document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-comps'][i]==='panel-'+t));
@@ -620,7 +726,7 @@ async function runComps(){
   const btn=document.getElementById('btn-run-comps');
   const msg=document.getElementById('comps-msg');
   const postcode=document.getElementById('cp-postcode').value.trim();
-  const propertyType=document.getElementById('cp-type').value;
+  const propertyType=getDDValue('cp-type');
 
   msg.className='save-msg';msg.textContent='';
   ['cp-median','cp-range','cp-psqm','cp-n','cp-dates','cp-confidence'].forEach(id=>document.getElementById(id).textContent='—');
@@ -719,7 +825,7 @@ function applyGDV(){
   if(!selected||!tiers||!(floorArea>0))return;
 
   const gdv=Math.round(tiers[selected.value]*floorArea);
-  const targetKey=document.getElementById('cp-apply-target').value;
+  const targetKey=getDDValue('cp-apply-target');
   const target=GDV_APPLY_TARGETS[targetKey];
 
   document.getElementById(target.field).value=gdv;

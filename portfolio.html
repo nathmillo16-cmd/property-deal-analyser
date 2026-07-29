@@ -87,12 +87,17 @@
         <div class="field"><label>Address</label><input type="text" id="pf-address"/></div>
         <div class="field"><label>Price paid (£)</label><input type="number" id="pf-price"/></div>
         <div class="field"><label>Property type</label>
-          <select id="pf-type">
-            <option value="BTL">BTL</option>
-            <option value="HMO">HMO</option>
-            <option value="SA">SA</option>
-            <option value="Flip">Flip</option>
-          </select>
+          <div class="dd" id="pf-type" data-value="BTL">
+            <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'pf-type')" onkeydown="ddKeydown(event,'pf-type')">
+              <span>BTL</span>
+            </button>
+            <ul class="dd-list" role="listbox">
+              <li class="dd-opt selected" role="option" aria-selected="true" data-value="BTL" onclick="selectDDOption(event,'pf-type','BTL','BTL')">BTL</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="HMO" onclick="selectDDOption(event,'pf-type','HMO','HMO')">HMO</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="SA" onclick="selectDDOption(event,'pf-type','SA','SA')">SA</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="Flip" onclick="selectDDOption(event,'pf-type','Flip','Flip')">Flip</li>
+            </ul>
+          </div>
         </div>
         <div class="field"><label>Monthly rent (£)</label><input type="number" id="pf-rent"/></div>
         <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pf-costs"/></div>
@@ -129,12 +134,17 @@
     <div class="field"><label>Address</label><input type="text" id="pfm-address"/></div>
     <div class="field"><label>Price paid (£)</label><input type="number" id="pfm-price"/></div>
     <div class="field"><label>Property type</label>
-      <select id="pfm-type">
-        <option value="BTL">BTL</option>
-        <option value="HMO">HMO</option>
-        <option value="SA">SA</option>
-        <option value="Flip">Flip</option>
-      </select>
+      <div class="dd" id="pfm-type" data-value="BTL">
+        <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'pfm-type')" onkeydown="ddKeydown(event,'pfm-type')">
+          <span>BTL</span>
+        </button>
+        <ul class="dd-list" role="listbox">
+          <li class="dd-opt selected" role="option" aria-selected="true" data-value="BTL" onclick="selectDDOption(event,'pfm-type','BTL','BTL')">BTL</li>
+          <li class="dd-opt" role="option" aria-selected="false" data-value="HMO" onclick="selectDDOption(event,'pfm-type','HMO','HMO')">HMO</li>
+          <li class="dd-opt" role="option" aria-selected="false" data-value="SA" onclick="selectDDOption(event,'pfm-type','SA','SA')">SA</li>
+          <li class="dd-opt" role="option" aria-selected="false" data-value="Flip" onclick="selectDDOption(event,'pfm-type','Flip','Flip')">Flip</li>
+        </ul>
+      </div>
     </div>
     <div class="field"><label>Monthly rent (£)</label><input type="number" id="pfm-rent"/></div>
     <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pfm-costs"/></div>
@@ -148,6 +158,107 @@
 </div>
 
 <script>
+// Custom themed dropdown, replacing native <select> — same visual treatment
+// and interaction mechanics as pipeline.html's original stage-dd component
+// (which stays as its own separate, untouched implementation there),
+// generalized so it can back any value+options picker. A <select>'s .value
+// has no equivalent once it's gone, so the wrapper div carries the current
+// value in data-value instead, keyed by the same id the old <select> had —
+// getDDValue/setDDValue read/write it.
+let openDD=null;
+
+function closeAllDD(){
+  document.querySelectorAll('.dd.open').forEach(el=>{
+    el.classList.remove('open');
+    const btn=el.querySelector('.dd-trigger');
+    if(btn)btn.setAttribute('aria-expanded','false');
+  });
+  openDD=null;
+}
+
+function positionDDList(wrap){
+  const trigger=wrap.querySelector('.dd-trigger');
+  const list=wrap.querySelector('.dd-list');
+  if(!trigger||!list)return;
+  const r=trigger.getBoundingClientRect();
+  const gap=4;
+  const listHeight=list.getBoundingClientRect().height;
+  const spaceBelow=window.innerHeight-r.bottom, spaceAbove=r.top;
+  const openUpward=spaceBelow<(listHeight+gap) && spaceAbove>=(listHeight+gap);
+  list.style.left=r.left+'px';
+  list.style.width=r.width+'px';
+  list.style.top=openUpward ? (r.top-listHeight-gap)+'px' : (r.bottom+gap)+'px';
+}
+
+function toggleDD(e, id){
+  e.stopPropagation();
+  const wasOpen=openDD===id;
+  closeAllDD();
+  if(wasOpen)return;
+  const wrap=document.getElementById(id);
+  if(!wrap)return;
+  wrap.classList.add('open');
+  wrap.querySelector('.dd-trigger').setAttribute('aria-expanded','true');
+  positionDDList(wrap);
+  openDD=id;
+  wrap.querySelectorAll('.dd-opt').forEach(o=>o.classList.remove('highlight'));
+  const current=wrap.querySelector('.dd-opt.selected')||wrap.querySelector('.dd-opt');
+  if(current)current.classList.add('highlight');
+}
+
+function setDDValue(id, value, label){
+  const wrap=document.getElementById(id);
+  if(!wrap)return;
+  wrap.dataset.value=value;
+  const span=wrap.querySelector('.dd-trigger span');
+  if(span)span.textContent=label!=null?label:value;
+  wrap.querySelectorAll('.dd-opt').forEach(o=>{
+    const match=o.dataset.value===String(value);
+    o.classList.toggle('selected',match);
+    o.setAttribute('aria-selected',match?'true':'false');
+  });
+}
+
+function getDDValue(id){
+  const wrap=document.getElementById(id);
+  return wrap?wrap.dataset.value:null;
+}
+
+function selectDDOption(e, id, value, label){
+  e.stopPropagation();
+  closeAllDD();
+  setDDValue(id, value, label);
+  const wrap=document.getElementById(id);
+  const cb=wrap&&wrap.dataset.onchange;
+  if(cb&&typeof window[cb]==='function')window[cb](id, value);
+}
+
+function ddKeydown(e, id){
+  const wrap=document.getElementById(id);
+  if(!wrap)return;
+  const isOpen=openDD===id;
+  if(e.key==='Enter'||e.key===' '){
+    e.preventDefault();
+    if(!isOpen){toggleDD(e, id);return;}
+    const hl=wrap.querySelector('.dd-opt.highlight');
+    if(hl)selectDDOption(e, id, hl.dataset.value, hl.textContent);
+    return;
+  }
+  if(e.key==='Escape'){closeAllDD();return;}
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    if(!isOpen){toggleDD(e, id);return;}
+    const opts=[...wrap.querySelectorAll('.dd-opt')];
+    let idx=opts.findIndex(o=>o.classList.contains('highlight'));
+    idx = e.key==='ArrowDown' ? Math.min(idx+1, opts.length-1) : Math.max(idx-1, 0);
+    opts.forEach(o=>o.classList.remove('highlight'));
+    opts[idx].classList.add('highlight');
+  }
+}
+
+document.addEventListener('click', closeAllDD);
+window.addEventListener('scroll', closeAllDD, true);
+
 let sbClient=null, currentSession=null, currentPlan=null;
 let portfolioProperties=[], editingId=null;
 
@@ -289,7 +400,7 @@ async function addProperty(){
   const payload={
     address:document.getElementById('pf-address').value.trim(),
     price_paid:document.getElementById('pf-price').value,
-    property_type:document.getElementById('pf-type').value,
+    property_type:getDDValue('pf-type'),
     monthly_rent:document.getElementById('pf-rent').value,
     monthly_running_costs:document.getElementById('pf-costs').value,
     monthly_mortgage:document.getElementById('pf-mortgage').value
@@ -325,7 +436,7 @@ function openPropertyDetail(id){
 
   document.getElementById('pfm-address').value=p.address;
   document.getElementById('pfm-price').value=p.price_paid;
-  document.getElementById('pfm-type').value=p.property_type;
+  setDDValue('pfm-type', p.property_type, p.property_type);
   document.getElementById('pfm-rent').value=p.monthly_rent;
   document.getElementById('pfm-costs').value=p.monthly_running_costs;
   document.getElementById('pfm-mortgage').value=p.monthly_mortgage!=null?p.monthly_mortgage:'';
@@ -358,7 +469,7 @@ async function savePropertyChanges(){
   const payload={
     address:document.getElementById('pfm-address').value.trim(),
     price_paid:document.getElementById('pfm-price').value,
-    property_type:document.getElementById('pfm-type').value,
+    property_type:getDDValue('pfm-type'),
     monthly_rent:document.getElementById('pfm-rent').value,
     monthly_running_costs:document.getElementById('pfm-costs').value,
     monthly_mortgage:document.getElementById('pfm-mortgage').value

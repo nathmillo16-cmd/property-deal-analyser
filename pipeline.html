@@ -107,7 +107,6 @@
 .offer-amount{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body);font-variant-numeric:tabular-nums}
 .offer-date{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .offer-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.offer-outcome-select{font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink);background-color:var(--surface-3);border:1.5px solid var(--hairline);border-radius:var(--radius-sm);padding:6px 26px 6px 8px}
 
 .save-msg{font-size:12px;margin:.5rem 0 .75rem;min-height:1em;color:var(--muted)}
 .save-msg.success{color:var(--accent-2)}
@@ -217,12 +216,17 @@
         <div class="field"><label>Amount (£)</label><input type="number" id="offer-amount"/></div>
         <div class="field"><label>Date</label><input type="date" id="offer-date"/></div>
         <div class="field"><label>Outcome</label>
-          <select id="offer-outcome">
-            <option value="Pending">Pending</option>
-            <option value="Rejected">Rejected</option>
-            <option value="Accepted">Accepted</option>
-            <option value="Withdrawn">Withdrawn</option>
-          </select>
+          <div class="dd" id="offer-outcome" data-value="Pending">
+            <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'offer-outcome')" onkeydown="ddKeydown(event,'offer-outcome')">
+              <span>Pending</span>
+            </button>
+            <ul class="dd-list" role="listbox">
+              <li class="dd-opt selected" role="option" aria-selected="true" data-value="Pending" onclick="selectDDOption(event,'offer-outcome','Pending','Pending')">Pending</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="Rejected" onclick="selectDDOption(event,'offer-outcome','Rejected','Rejected')">Rejected</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="Accepted" onclick="selectDDOption(event,'offer-outcome','Accepted','Accepted')">Accepted</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="Withdrawn" onclick="selectDDOption(event,'offer-outcome','Withdrawn','Withdrawn')">Withdrawn</li>
+            </ul>
+          </div>
         </div>
         <button class="btn-primary" onclick="addOffer()">Add offer</button>
       </div>
@@ -524,6 +528,116 @@ document.addEventListener('click', closeAllStageDD);
 // hence capture:true — is simpler and more standard than live-repositioning.
 window.addEventListener('scroll', closeAllStageDD, true);
 
+// Custom themed dropdown, replacing native <select> for the offer-outcome
+// pickers — a separate, generic implementation from the stage dropdown
+// above (which stays exactly as it was, untouched), since that one is
+// hardcoded to deal ids and changeStage(). Same visual treatment and
+// interaction mechanics, generalized so it can back any value+options
+// picker. A <select>'s .value has no equivalent once it's gone, so the
+// wrapper div carries the current value in data-value instead, keyed by
+// the same id the old <select> had — getDDValue/setDDValue read/write it.
+let openDD=null;
+
+function closeAllDD(){
+  document.querySelectorAll('.dd.open').forEach(el=>{
+    el.classList.remove('open');
+    const btn=el.querySelector('.dd-trigger');
+    if(btn)btn.setAttribute('aria-expanded','false');
+  });
+  openDD=null;
+}
+
+function positionDDList(wrap){
+  const trigger=wrap.querySelector('.dd-trigger');
+  const list=wrap.querySelector('.dd-list');
+  if(!trigger||!list)return;
+  const r=trigger.getBoundingClientRect();
+  const gap=4;
+  const listHeight=list.getBoundingClientRect().height;
+  const spaceBelow=window.innerHeight-r.bottom, spaceAbove=r.top;
+  const openUpward=spaceBelow<(listHeight+gap) && spaceAbove>=(listHeight+gap);
+  list.style.left=r.left+'px';
+  list.style.width=r.width+'px';
+  list.style.top=openUpward ? (r.top-listHeight-gap)+'px' : (r.bottom+gap)+'px';
+}
+
+function toggleDD(e, id){
+  e.stopPropagation();
+  const wasOpen=openDD===id;
+  closeAllDD();
+  if(wasOpen)return;
+  const wrap=document.getElementById(id);
+  if(!wrap)return;
+  wrap.classList.add('open');
+  wrap.querySelector('.dd-trigger').setAttribute('aria-expanded','true');
+  positionDDList(wrap);
+  openDD=id;
+  wrap.querySelectorAll('.dd-opt').forEach(o=>o.classList.remove('highlight'));
+  const current=wrap.querySelector('.dd-opt.selected')||wrap.querySelector('.dd-opt');
+  if(current)current.classList.add('highlight');
+}
+
+function setDDValue(id, value, label){
+  const wrap=document.getElementById(id);
+  if(!wrap)return;
+  wrap.dataset.value=value;
+  const span=wrap.querySelector('.dd-trigger span');
+  if(span)span.textContent=label!=null?label:value;
+  wrap.querySelectorAll('.dd-opt').forEach(o=>{
+    const match=o.dataset.value===String(value);
+    o.classList.toggle('selected',match);
+    o.setAttribute('aria-selected',match?'true':'false');
+  });
+}
+
+function getDDValue(id){
+  const wrap=document.getElementById(id);
+  return wrap?wrap.dataset.value:null;
+}
+
+function selectDDOption(e, id, value, label){
+  e.stopPropagation();
+  closeAllDD();
+  setDDValue(id, value, label);
+  const wrap=document.getElementById(id);
+  const cb=wrap&&wrap.dataset.onchange;
+  if(cb&&typeof window[cb]==='function')window[cb](id, value);
+}
+
+function ddKeydown(e, id){
+  const wrap=document.getElementById(id);
+  if(!wrap)return;
+  const isOpen=openDD===id;
+  if(e.key==='Enter'||e.key===' '){
+    e.preventDefault();
+    if(!isOpen){toggleDD(e, id);return;}
+    const hl=wrap.querySelector('.dd-opt.highlight');
+    if(hl)selectDDOption(e, id, hl.dataset.value, hl.textContent);
+    return;
+  }
+  if(e.key==='Escape'){closeAllDD();return;}
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    if(!isOpen){toggleDD(e, id);return;}
+    const opts=[...wrap.querySelectorAll('.dd-opt')];
+    let idx=opts.findIndex(o=>o.classList.contains('highlight'));
+    idx = e.key==='ArrowDown' ? Math.min(idx+1, opts.length-1) : Math.max(idx-1, 0);
+    opts.forEach(o=>o.classList.remove('highlight'));
+    opts[idx].classList.add('highlight');
+  }
+}
+
+document.addEventListener('click', closeAllDD);
+window.addEventListener('scroll', closeAllDD, true);
+
+// Bridges the generic dropdown's data-onchange callback back to the
+// per-offer outcome id embedded in the dd's own element id (dd-offer-
+// outcome-<offerId>) — updateOfferOutcome() itself is unchanged.
+function handleOfferOutcomeChange(id, value){
+  const offerId=id.replace('dd-offer-outcome-','');
+  updateOfferOutcome(offerId, value);
+}
+
 function cardHtml(d){
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const label=d.deal_type.toUpperCase();
@@ -771,7 +885,7 @@ function openDealDetails(dealId){
   document.getElementById('note-msg').textContent='';document.getElementById('note-msg').className='save-msg';
   document.getElementById('offer-amount').value='';
   document.getElementById('offer-date').value='';
-  document.getElementById('offer-outcome').value='Pending';
+  setDDValue('offer-outcome', 'Pending', 'Pending');
   document.getElementById('offer-msg').textContent='';document.getElementById('offer-msg').className='save-msg';
 
   document.getElementById('details-modal-overlay').classList.add('open');
@@ -865,18 +979,27 @@ async function loadOffers(dealId){
       listEl.innerHTML='<p class="hint">No offers yet.</p>';
       return;
     }
-    listEl.innerHTML=offers.map(o=>`<div class="offer-item">
+    listEl.innerHTML=offers.map(o=>{
+      const ddId='dd-offer-outcome-'+o.id;
+      const opts=['Pending','Rejected','Accepted','Withdrawn'].map(v=>
+        `<li class="dd-opt${v===o.outcome?' selected':''}" role="option" aria-selected="${v===o.outcome}" data-value="${v}" onclick="selectDDOption(event,'${ddId}','${v}','${v}')">${v}</li>`
+      ).join('');
+      return `<div class="offer-item">
       <div class="offer-info">
         <span class="offer-amount">${fmtC(o.amount)}</span>
         <span class="offer-date">${fmtDateOnly(o.offer_date)}</span>
       </div>
       <div class="offer-controls">
-        <select class="offer-outcome-select" onchange="updateOfferOutcome('${o.id}', this.value)">
-          ${['Pending','Rejected','Accepted','Withdrawn'].map(v=>`<option value="${v}"${v===o.outcome?' selected':''}>${v}</option>`).join('')}
-        </select>
+        <div class="dd" id="${ddId}" data-value="${o.outcome}" data-onchange="handleOfferOutcomeChange">
+          <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'${ddId}')" onkeydown="ddKeydown(event,'${ddId}')">
+            <span>${o.outcome}</span>
+          </button>
+          <ul class="dd-list" role="listbox">${opts}</ul>
+        </div>
         <button class="mini-btn danger" onclick="deleteOffer('${o.id}')">Delete</button>
       </div>
-    </div>`).join('');
+    </div>`;
+    }).join('');
   }catch(e){
     listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
   }
@@ -888,7 +1011,7 @@ async function addOffer(){
   const payload={
     amount:document.getElementById('offer-amount').value,
     offer_date:document.getElementById('offer-date').value,
-    outcome:document.getElementById('offer-outcome').value
+    outcome:getDDValue('offer-outcome')
   };
 
   msg.className='save-msg';msg.textContent='';
@@ -902,7 +1025,7 @@ async function addOffer(){
     if(!res.ok)throw new Error(body.error||'Could not add offer.');
     document.getElementById('offer-amount').value='';
     document.getElementById('offer-date').value='';
-    document.getElementById('offer-outcome').value='Pending';
+    setDDValue('offer-outcome', 'Pending', 'Pending');
     await loadOffers(detailsDealId);
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';

@@ -123,7 +123,6 @@ p{margin:0}
   background-color:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);
   padding:10px 12px;width:100%;
 }
-.field select{padding:10px 30px 10px 12px} /* extra right padding clears the chevron (see native control resets) */
 .field input:focus,.field select:focus{outline:none;border-color:var(--input-accent)}
 
 /* ---------- native control resets ----------
@@ -158,6 +157,47 @@ input[type="checkbox"]:checked::after{
   border:solid var(--accent-ink);border-width:0 2px 2px 0;transform:rotate(45deg);
 }
 input[type="checkbox"]:focus-visible{outline:none;border-color:var(--accent)}
+
+/* ---------- custom dropdown (replaces native <select> everywhere) ----------
+   Same visual treatment and interaction mechanics as pipeline.html's original
+   stage-dd component (which stays as-is, untouched) — generalized here under
+   generic names so it can back any value+options picker, not just the stage
+   selector it was first built for. Markup: <div class="dd" id="X"
+   data-value="v"><button class="dd-trigger"><span>Label</span></button>
+   <ul class="dd-list"><li class="dd-opt" data-value="v">Label</li>...</ul></div>
+   z-index is higher than .stage-dd-list's original 200 — several instances of
+   this generic version live inside a .modal-overlay (z-index 400), which the
+   stage dropdown never does, so its popup must render above that. */
+.dd{position:relative}
+.dd-trigger{
+  width:100%;text-align:left;font-family:var(--font-body);font-size:14px;font-weight:600;
+  border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);
+  padding:10px 30px 10px 12px;background-color:var(--input-surface);color:var(--input-ink);
+  cursor:pointer;position:relative;transition:border-color .15s ease;
+}
+.dd-trigger::after{
+  content:'';position:absolute;right:10px;top:50%;width:10px;height:6px;transform:translateY(-50%);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23E0A458' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-size:10px 6px;
+}
+.dd-trigger:hover{border-color:var(--hairline-strong)}
+.dd-trigger:focus{outline:none;border-color:var(--accent)}
+.dd.open .dd-trigger{border-color:var(--accent)}
+
+.dd-list{
+  display:none;list-style:none;margin:0;padding:4px;
+  position:fixed;z-index:450;
+  background-color:var(--surface-3);opacity:1;
+  border:1.5px solid var(--accent);border-radius:var(--radius-sm);
+  box-shadow:0 1px 2px rgba(0,0,0,.6), 0 16px 40px rgba(0,0,0,.55);
+}
+.dd.open .dd-list{display:block}
+.dd-opt{
+  font-family:var(--font-body);font-size:13.5px;font-weight:600;color:var(--ink);
+  padding:7px 10px;border-radius:var(--radius-sm);cursor:pointer;
+}
+.dd-opt:hover,.dd-opt.highlight{background:rgba(224,164,88,.12)}
+.dd-opt.selected{color:var(--accent-2)}
 
 /* ---------- data / results block ---------- */
 .data-block{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.75rem}
