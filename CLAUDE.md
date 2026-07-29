@@ -121,6 +121,8 @@ Planned — not yet built:
 - Broader visual/design polish pass across the app.
 - Comps engine open items — see "Open items on the comps engine" above.
 - Portfolio open items — see "Open items on the portfolio" above.
+- Property pack builder: assembles a deal's figures, comps/GDV, area stats, and photos into an investor-ready shareable document (likely PDF). Depends on the other features here being further along first, since it's purely an aggregation of what they produce — notably area research/stats (below) and portfolio photo uploads (see Portfolio open items), neither of which exist yet.
+- Area research/stats: crime rate, employment, schools, major employers, etc. for a target investment area. Needs a data-sourcing scoping session first — like the one that grounded the comps engine (HM Land Registry PPD + EPC) — before building anything, since each stat likely comes from a different source with its own availability/access/licensing quirks, not one uniform API.
 
 How to work with me (the user)
 
