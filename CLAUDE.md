@@ -107,9 +107,7 @@ Standalone page (portfolio.html), not a calculator tab — structurally like the
 
 A "Move to portfolio" button on each saved deal (saved-deals.html) bridges the two: it opens a modal — same look, pre-filled from that deal — mapping deal_data onto the portfolio fields (price_paid and property_type map directly; monthly_rent/monthly_running_costs/monthly_mortgage are derived from the deal's own computed figures, e.g. running costs = rent − the deal's cNm/cCFm; address is always left blank, since deal_data.name can't be reliably told apart from an auto-generated label). The user reviews and explicitly confirms — it never auto-adds — and reuses the existing POST /api/portfolio as-is (no new endpoint), so it inherits the same validation and paid-gating.
 
-Open items on the portfolio:
-- Photo uploads are out of scope so far — would need Supabase Storage (a bucket + its own RLS-scoped upload policy), not yet built.
-- A portfolio summary card on home.html's dashboard (alongside the existing Recent saved deals / Pipeline cards) was proposed but not built — the content-grid there is currently 2-column, so the layout call (3-column vs. wrapping) is still open.
+home.html's dashboard also has a Portfolio summary card now, at the top of the dashboard content above the Recent saved deals / Pipeline row — same three-state pattern (normal/empty/locked) as the existing Pipeline card, fetching the same GET /api/portfolio with no server changes.
 
 What's built vs not
 
@@ -120,8 +118,7 @@ Planned — not yet built:
 - Pipeline v1 polish: drag-and-drop (currently dropdown-based), mobile drag support.
 - Broader visual/design polish pass across the app.
 - Comps engine open items — see "Open items on the comps engine" above.
-- Portfolio open items — see "Open items on the portfolio" above.
-- Property pack builder: assembles a deal's figures, comps/GDV, area stats, and photos into an investor-ready shareable document (likely PDF). Depends on the other features here being further along first, since it's purely an aggregation of what they produce — notably area research/stats (below) and portfolio photo uploads (see Portfolio open items), neither of which exist yet.
+- Property pack builder: assembles a deal's figures, comps/GDV, area stats, and photos into an investor-ready shareable document (likely PDF). Photo upload lives here, not on the Portfolio — an investor-facing document needs images; a portfolio tracker doesn't, so there's no standalone "photos on portfolio" feature anymore. Depends on the other features here being further along first, since it's purely an aggregation of what they produce — notably area research/stats (below) and this pack builder's own photo upload, neither of which exist yet.
 - Area research/stats: crime rate, employment, schools, major employers, etc. for a target investment area. Needs a data-sourcing scoping session first — like the one that grounded the comps engine (HM Land Registry PPD + EPC) — before building anything, since each stat likely comes from a different source with its own availability/access/licensing quirks, not one uniform API.
 - Customisable dashboard: let users choose/arrange which widgets appear on home.html — show/hide, reorder — with the current fixed layout as the default preset. Deferred until there are enough dashboard widgets to make customising worthwhile, and likely built alongside a user settings page (doesn't exist yet). Persisting per-user layout needs a new table or a profiles column.
 
