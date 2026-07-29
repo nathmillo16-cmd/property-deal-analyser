@@ -70,6 +70,7 @@ p{margin:0}
 .wordmark{
   font-family:var(--font-head);font-weight:800;font-size:19px;
   letter-spacing:.02em;text-transform:uppercase;color:var(--ink);
+  text-decoration:none;
 }
 .nav-links{display:flex;gap:1.75rem;flex-wrap:wrap}
 .nav-links a{
