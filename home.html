@@ -79,6 +79,12 @@
   </div>
 
   <div id="dashboard-content" style="display:none">
+    <div class="card" style="margin-bottom:1.75rem">
+      <h2>Portfolio</h2>
+      <div id="portfolio-summary"><p class="hint">Loading…</p></div>
+      <a class="go" href="/portfolio.html">Open the portfolio →</a>
+    </div>
+
     <div class="metric-grid stats-grid">
       <div class="metric"><p class="ml">Saved deals</p><p class="mv" id="stat-saved">—</p></div>
       <div class="metric"><p class="ml">In pipeline</p><p class="mv" id="stat-pipeline">—</p></div>
@@ -125,6 +131,7 @@
 <script>
 let sbClient=null, currentSession=null;
 let savedDeals=[], pipelineDeals=[], pipelineLocked=false;
+let portfolioCount=0, portfolioTotals=null, portfolioLocked=false;
 
 const STAGES=['analysing','viewing','offered','agreed','completed'];
 const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
@@ -201,6 +208,22 @@ async function loadDashboard(){
     pipelineDeals=[]; pipelineLocked=false;
   }
 
+  try{
+    const res=await fetch('/api/portfolio',{headers});
+    const body=await res.json();
+    if(res.ok&&body&&Array.isArray(body.properties)){
+      portfolioCount=body.properties.length;
+      portfolioTotals=body.totals;
+      portfolioLocked=false;
+    }else if(res.status===403){
+      portfolioCount=0; portfolioTotals=null; portfolioLocked=true;
+    }else{
+      portfolioCount=0; portfolioTotals=null; portfolioLocked=false;
+    }
+  }catch(e){
+    portfolioCount=0; portfolioTotals=null; portfolioLocked=false;
+  }
+
   render();
 }
 
@@ -242,6 +265,21 @@ function render(){
     pipeEl.innerHTML='<div class="stage-row">'+STAGES.map(s=>
       `<span class="pill badge">${STAGE_LABELS[s]} · ${counts[s]}</span>`
     ).join('')+'</div>';
+  }
+
+  const portEl=document.getElementById('portfolio-summary');
+  if(portfolioLocked){
+    portEl.innerHTML='<p class="hint">Upgrade to unlock the Portfolio and track properties you\'ve actually bought.</p>';
+  }else if(portfolioCount===0){
+    portEl.innerHTML='<p class="hint"><a href="/portfolio.html">Add your first property →</a></p>';
+  }else{
+    const y=portfolioTotals.blended_yield;
+    portEl.innerHTML=`<div class="metric-grid">
+      <div class="metric"><p class="ml">Properties</p><p class="mv">${portfolioCount}</p></div>
+      <div class="metric"><p class="ml">Total monthly cashflow</p><p class="mv">${fmtC(portfolioTotals.total_monthly_cashflow)}</p></div>
+      <div class="metric"><p class="ml">Blended yield</p><p class="mv">${y!=null?fmtP(y):'—'}</p></div>
+      <div class="metric"><p class="ml">Total invested</p><p class="mv">${fmtC(portfolioTotals.total_price_paid)}</p></div>
+    </div>`;
   }
 }
 
