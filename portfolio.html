@@ -69,13 +69,13 @@
   <div id="state-loading"><p class="hint">Loading…</p></div>
 
   <div id="state-loggedout" style="display:none">
-    <p class="hint">Log in to use the Portfolio — <a href="/login.html">log in</a></p>
+    <p class="hint">Log in to use the Portfolio: <a href="/login.html">log in</a></p>
   </div>
 
   <div id="state-locked" style="display:none">
     <div class="locked-panel">
       <h2>The Portfolio is a paid feature</h2>
-      <p>Track properties you've actually bought — see per-property yield and cashflow, plus blended totals across everything you own.</p>
+      <p>Track properties you've actually bought and see per-property yield and cashflow, plus blended totals across everything you own.</p>
       <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade — £29/mo</button>
     </div>
   </div>
@@ -97,7 +97,7 @@
         <div class="field"><label>Monthly rent (£)</label><input type="number" id="pf-rent"/></div>
         <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pf-costs"/></div>
         <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pf-mortgage" placeholder="Leave blank if no mortgage"/></div>
-        <p class="hint" style="margin-bottom:1rem">Running costs = management, insurance, maintenance — not mortgage. Yield excludes mortgage; cashflow includes it.</p>
+        <p class="hint" style="margin-bottom:1rem">Running costs = management, insurance, maintenance, not mortgage. Yield excludes mortgage; cashflow includes it.</p>
         <button class="btn-primary" onclick="addProperty()" id="btn-add-property">Add property</button>
         <p class="save-msg" id="pf-msg"></p>
       </div>

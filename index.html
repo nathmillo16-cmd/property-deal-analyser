@@ -61,11 +61,19 @@
   font-family:var(--font-body);
 }
 .f input:focus{outline:none;border-color:var(--input-accent)}
+.f select{
+  border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:10px 30px 10px 12px;
+  font-size:14px;background-color:var(--input-surface);color:var(--input-ink);width:100%;
+  font-family:var(--font-body);
+}
+.f select:focus{outline:none;border-color:var(--input-accent)}
 
 .tr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .tr label{font-size:12.5px;color:var(--input-muted);min-width:130px;font-weight:600}
 .tr input{border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:7px 10px;font-size:13.5px;background:var(--input-surface);color:var(--input-ink);width:75px;font-family:var(--font-body)}
 .tr input:focus{outline:none;border-color:var(--input-accent)}
+.tr select{border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:7px 24px 7px 10px;font-size:13.5px;background-color:var(--input-surface);color:var(--input-ink);width:100px;font-family:var(--font-body)}
+.tr select:focus{outline:none;border-color:var(--input-accent)}
 
 .rg{display:grid;grid-template-columns:1.3fr 70px 55px 70px;gap:8px;align-items:center;margin-bottom:6px}
 .rg span{font-size:11.5px;color:var(--input-muted)}
@@ -164,7 +172,7 @@
 </style>
 </head>
 <body>
-<h2 class="sr-only">Property deal analyser with full deal analysis — BTL, HMO, SA, and Flip calculator with expert-style deal breakdowns</h2>
+<h2 class="sr-only">Property deal analyser with full deal analysis: a BTL, HMO, SA, and Flip calculator with expert-style deal breakdowns</h2>
 
 <div class="shell" id="app">
   <div class="topbar">
@@ -210,7 +218,7 @@
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
-        <p class="stale-note" id="btl-stale">Inputs changed — press Analyse deal to update these results.</p>
+        <p class="stale-note" id="btl-stale">Inputs changed. Press Analyse deal to update these results.</p>
         <div class="results-split">
           <div>
             <p class="ch">Mortgage purchase</p>
@@ -257,7 +265,7 @@
           <div class="ai-wrap">
             <div class="ai-header">
               <p class="ai-title">Deal Analysis</p>
-              <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+              <p class="ai-disclaimer">Analysis only, not financial or investment advice</p>
             </div>
             <div class="ai-body" id="ai-btl-body"></div>
           </div>
@@ -304,7 +312,7 @@
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
-        <p class="stale-note" id="hmo-stale">Inputs changed — press Analyse deal to update these results.</p>
+        <p class="stale-note" id="hmo-stale">Inputs changed. Press Analyse deal to update these results.</p>
         <div class="results-split">
           <div>
             <p class="ch">Mortgage purchase</p>
@@ -351,7 +359,7 @@
           <div class="ai-wrap">
             <div class="ai-header">
               <p class="ai-title">Deal Analysis</p>
-              <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+              <p class="ai-disclaimer">Analysis only, not financial or investment advice</p>
             </div>
             <div class="ai-body" id="ai-hmo-body"></div>
           </div>
@@ -401,7 +409,7 @@
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
-        <p class="stale-note" id="sa-stale">Inputs changed — press Analyse deal to update these results.</p>
+        <p class="stale-note" id="sa-stale">Inputs changed. Press Analyse deal to update these results.</p>
         <div class="results-split">
           <div>
             <p class="ch">Mortgage purchase</p>
@@ -446,7 +454,7 @@
           <div class="ai-wrap">
             <div class="ai-header">
               <p class="ai-title">Deal Analysis</p>
-              <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+              <p class="ai-disclaimer">Analysis only, not financial or investment advice</p>
             </div>
             <div class="ai-body" id="ai-sa-body"></div>
           </div>
@@ -468,14 +476,14 @@
           <div class="f"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
           <div class="f"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
         </div>
-        <p class="hint">Stamp duty auto-calculated with BTL surcharge on purchase price. Contingency is optional — leave blank to treat as £0. Cash-only strategy, no mortgage version.</p>
+        <p class="hint">Stamp duty auto-calculated with BTL surcharge on purchase price. Contingency is optional; leave it blank to treat as £0. Cash-only strategy, no mortgage version.</p>
         <p class="sl section-gap">Target</p>
         <div class="tr"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
         <button class="run-btn" onclick="runFlip()" id="btn-run-flip">Analyse deal</button>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
-        <p class="stale-note" id="flip-stale">Inputs changed — press Analyse deal to update these results.</p>
+        <p class="stale-note" id="flip-stale">Inputs changed. Press Analyse deal to update these results.</p>
         <div class="metric-grid">
           <div class="m"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
           <div class="m"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
@@ -494,7 +502,7 @@
           <div class="ai-wrap">
             <div class="ai-header">
               <p class="ai-title">Deal Analysis</p>
-              <p class="ai-disclaimer">Analysis only — not financial or investment advice</p>
+              <p class="ai-disclaimer">Analysis only, not financial or investment advice</p>
             </div>
             <div class="ai-body" id="ai-flip-body"></div>
           </div>
@@ -532,7 +540,7 @@
           <div class="m"><p class="ml">Sold between</p><p class="mv" id="cp-dates">—</p></div>
         </div>
         <p class="sn">Confidence: <span id="cp-confidence">—</span></p>
-        <p class="hint">Confidence reflects comp count, not recency — all comps are from the last 12 months (our current data window).</p>
+        <p class="hint">Confidence reflects comp count, not recency, since all comps are from the last 12 months (our current data window).</p>
 
         <div class="section-gap">
           <p class="sl">GDV from floor area</p>
@@ -731,7 +739,7 @@ async function analyse(type){
   if(!currentSession){
     wrap.style.display='block';
     body.className='ai-body';
-    body.innerHTML='Log in to use the Full Analysis — <a href="/login.html">log in</a>';
+    body.innerHTML='Log in to use the Full Analysis: <a href="/login.html">log in</a>';
     return;
   }
 
@@ -757,7 +765,7 @@ async function analyse(type){
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:prompt}]})
     });
     const data=await res.json();
-    if(!res.ok)throw new Error(data.error||'Analysis failed — check your API key and try again.');
+    if(!res.ok)throw new Error(data.error||'Analysis failed. Check your API key and try again.');
     const text=data.content[0].text;
     body.className='ai-body';
     body.innerHTML=formatAnalysis(text);
@@ -978,10 +986,10 @@ function checkUpgradeReturn(){
     const notice=document.getElementById('upgrade-notice');
     notice.style.display='block';
     if(currentPlan==='paid'){
-      notice.textContent="You're all set — welcome to your upgraded plan.";
+      notice.textContent="You're all set. Welcome to your upgraded plan.";
       history.replaceState(null,'',location.pathname);
     }else{
-      notice.textContent='Thanks — your upgrade is processing. This can take a moment to reflect on your account.';
+      notice.textContent='Thanks, your upgrade is processing. This can take a moment to reflect on your account.';
     }
   }
 }
@@ -1033,7 +1041,7 @@ function updateAuthUI(){
     if(loggedIn){
       msg.innerHTML='';
     }else{
-      msg.innerHTML='Log in to save deals — <a href="/login.html">log in</a>';
+      msg.innerHTML='Log in to save deals: <a href="/login.html">log in</a>';
     }
     msg.className='save-msg';
 
@@ -1044,7 +1052,7 @@ function updateAuthUI(){
     if(loggedIn){
       defMsg.innerHTML='';
     }else{
-      defMsg.innerHTML='Log in to save your defaults — <a href="/login.html">log in</a>';
+      defMsg.innerHTML='Log in to save your defaults: <a href="/login.html">log in</a>';
     }
     defMsg.className='save-msg';
   });
@@ -1056,7 +1064,7 @@ function updateAuthUI(){
   if(loggedIn){
     flMsg.innerHTML='';
   }else{
-    flMsg.innerHTML='Log in to save deals — <a href="/login.html">log in</a>';
+    flMsg.innerHTML='Log in to save deals: <a href="/login.html">log in</a>';
   }
   flMsg.className='save-msg';
 }
@@ -1094,7 +1102,7 @@ async function saveDeal(type){
     let body=await res.json();
 
     if(res.status===409&&body.duplicate){
-      const proceed=confirm('You already have a saved deal with these figures — save anyway?');
+      const proceed=confirm('You already have a saved deal with these figures. Save anyway?');
       if(!proceed){
         msg.textContent='Not saved.';msg.className='save-msg';
         btn.disabled=false;btn.textContent='Save deal';
@@ -1109,7 +1117,7 @@ async function saveDeal(type){
     }
 
     if(!res.ok)throw new Error(body.error||'Save failed');
-    msg.innerHTML='Saved ✓ — view in <a href="/saved-deals.html">Saved Deals</a>';msg.className='save-msg success';
+    msg.innerHTML='Saved ✓. View in <a href="/saved-deals.html">Saved Deals</a>';msg.className='save-msg success';
   }catch(e){
     msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
   }

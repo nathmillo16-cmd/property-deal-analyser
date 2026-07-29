@@ -188,7 +188,7 @@ async function resendConfirmation(){
   if(error){
     showMsg('msg-login', error.message, 'error');
   }else{
-    showMsg('msg-login', 'New confirmation email sent — check your inbox.', 'success');
+    showMsg('msg-login', 'New confirmation email sent. Check your inbox.', 'success');
   }
 }
 
@@ -204,7 +204,7 @@ document.getElementById('form-forgot').addEventListener('submit', async (e)=>{
   if(error){
     showMsg('msg-forgot', error.message, 'error');
   }else{
-    showMsg('msg-forgot', 'Password reset email sent — check your inbox.', 'success');
+    showMsg('msg-forgot', 'Password reset email sent. Check your inbox.', 'success');
   }
 });
 

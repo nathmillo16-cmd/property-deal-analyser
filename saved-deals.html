@@ -76,7 +76,7 @@
       <h2>Move to portfolio</h2>
       <button class="modal-close" onclick="closeMoveToPortfolio()" aria-label="Close">×</button>
     </div>
-    <p class="hint" style="margin-bottom:1rem">Pre-filled from this deal where possible — review and fill in any gaps before adding it.</p>
+    <p class="hint" style="margin-bottom:1rem">Pre-filled from this deal where possible. Review and fill in any gaps before adding it.</p>
     <div class="field"><label>Address</label><input type="text" id="mtp-address"/></div>
     <div class="field"><label>Price paid (£)</label><input type="number" id="mtp-price"/></div>
     <div class="field"><label>Property type</label>
@@ -214,7 +214,7 @@ async function deleteSelected(){
     const named=inPipelineDeals.map(d=>`"${dealDisplayName(d)}" (${capitalize(d.pipeline_stage)})`);
     const verb=inPipelineDeals.length===1?'is':'are';
     const pronoun=inPipelineDeals.length===1?'it':'them';
-    msg+=`\n\n${joinNatural(named)} ${verb} in your pipeline — deleting removes ${pronoun} from there too.`;
+    msg+=`\n\n${joinNatural(named)} ${verb} in your pipeline, so deleting removes ${pronoun} from there too.`;
   }
   if(!confirm(msg))return;
 
@@ -280,7 +280,7 @@ async function deleteDeal(dealId){
   if(!currentSession)return;
   const deal=savedDealsCache.find(d=>d.id===dealId);
   const msg=(deal&&deal.pipeline_stage)
-    ?`"${dealDisplayName(deal)}" (${capitalize(deal.pipeline_stage)}) is in your pipeline — deleting removes it from there too. Delete anyway?`
+    ?`"${dealDisplayName(deal)}" (${capitalize(deal.pipeline_stage)}) is in your pipeline, so deleting removes it from there too. Delete anyway?`
     :'Delete this saved deal?';
   if(!confirm(msg))return;
   try{
@@ -397,7 +397,7 @@ async function confirmMoveToPortfolio(){
     }
     if(!res.ok)throw new Error(body.error||'Could not add to portfolio.');
 
-    msg.innerHTML='Added ✓ — <a href="/portfolio.html">View in portfolio →</a>';
+    msg.innerHTML='Added ✓. <a href="/portfolio.html">View in portfolio →</a>';
     msg.className='save-msg success';
     btn.style.display='none';
   }catch(e){

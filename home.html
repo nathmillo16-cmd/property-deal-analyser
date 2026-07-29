@@ -117,12 +117,12 @@
     </a>
     <a class="card" href="/pipeline.html">
       <h3>Pipeline</h3>
-      <p>Track saved deals through analysing, viewing, offered, agreed, and completed — and compare them side by side.</p>
+      <p>Track saved deals through analysing, viewing, offered, agreed, and completed, and compare them side by side.</p>
       <span class="go">Open the pipeline →</span>
     </a>
     <a class="card" href="/portfolio.html">
       <h3>Portfolio</h3>
-      <p>Track properties you've actually bought — per-property yield and cashflow, plus blended totals.</p>
+      <p>Track properties you've actually bought: per-property yield and cashflow, plus blended totals.</p>
       <span class="go">Open the portfolio →</span>
     </a>
   </div>
@@ -257,7 +257,7 @@ function render(){
   if(pipelineLocked){
     pipeEl.innerHTML='<p class="hint">Upgrade to unlock the Pipeline and track deals through analysing → viewing → offered → agreed → completed.</p>';
   }else if(pipelineDeals.length===0){
-    pipeEl.innerHTML='<p class="hint">Nothing in your pipeline yet — add a saved deal to start tracking it.</p>';
+    pipeEl.innerHTML='<p class="hint">Nothing in your pipeline yet. Add a saved deal to start tracking it.</p>';
   }else{
     const counts={};
     STAGES.forEach(s=>counts[s]=0);
