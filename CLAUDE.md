@@ -109,6 +109,29 @@ A "Move to portfolio" button on each saved deal (saved-deals.html) bridges the t
 
 home.html's dashboard also has a Portfolio summary card now, at the top of the dashboard content above the Recent saved deals / Pipeline row — same three-state pattern (normal/empty/locked) as the existing Pipeline card, fetching the same GET /api/portfolio with no server changes.
 
+Feature ideas — researched, with data-source verdicts
+
+From a research session into how other property sites source several often-requested features. All of these are post-design, post-launch candidates — none jump ahead of the current design work. Prioritise by real user demand after launch, not now.
+
+Buildable now, no external data:
+- Refurbishment tab: an editable works list (painting, skimming, electrics, plumbing, etc.) with rough costs. Start user-entered; regional price suggestions could follow later. No data dependency.
+- Deal comparison for saved deals: a side-by-side view of two saved deals. Note: a comparison view already exists, but only inside the Pipeline (paid-gated, pipelined deals only — see Pipeline above). This would extend the same pattern (the existing per-strategy field-map table-building) to any two saved deals, not just pipelined ones — not a new comparison mechanism.
+- Letter templates for empty/derelict property owners: text templates with address merge fields. Straightforward.
+
+Buildable, external data source exists:
+- Article 4 (HMO) flag: free. planning.data.gov.uk has an authoritative "article-4-direction" dataset with geographic boundaries, Open Government Licence. Check whether a deal's postcode falls inside an Article 4 area and flag it during analysis. Caveat: the dataset is self-described as incomplete (not yet full England coverage), so this is "flag when known", not a guaranteed nationwide check.
+- Selective licensing flag: same shape as Article 4 — partially on planning.data.gov.uk, partial coverage, "flag when known".
+- Council tax band by postcode: paid API only (PropertyData / Homedata / PropertyInsights) — there's no official VOA API, and VOA's own site is scrape-only and rate-limited. Buy the feed rather than build a scraper.
+- Crime rate: free, via Police UK's open data by location.
+
+Buy, don't build:
+- Rental comparables: PropertyData's "quoting rent" is a proprietary dataset built from VOA 2026 rateable values plus MHCLG floor areas, reconciled and market-adjusted — not a technique we're missing, a licensed commercial data product. The real choice is buy their API, or license the same VOA/MHCLG feeds and build the reconciliation ourselves; buying is the sane option.
+
+Researched, no clean data source found — park unless one emerges:
+- Probate property finder: probate records exist but aren't a live property feed.
+- Auction-unsold finder: "lots that didn't sell" isn't published centrally anywhere.
+- Derelict/old property scanner: "derelict" isn't a field in any dataset; the closest proxy is councils' long-term empty-homes data, held inconsistently and not centrally available.
+
 What's built vs not
 
 Built: BTL, HMO, SA, and Flip calculation engines (verified against worked examples), max bid per strategy, stamp duty, per-strategy AI verdict, Supabase auth (signup/confirm/resend/login/logout/forgot-password), saved deals, saved defaults, the pipeline (kanban + stages + comparison + per-deal notes and offer history, paid-gated), the comps engine (postcode search, sold-price valuation, EPC floor-area enrichment, GDV tier picker — paid-gated), the portfolio (add/edit/delete owned properties, four-figure summary, a "Move to portfolio" bridge from saved deals, paid-gated), Stripe subscription payments (checkout + webhook), the public landing page, the logged-in home portal, app-wide navigation, and route protection.
@@ -119,8 +142,9 @@ Planned — not yet built:
 - Broader visual/design polish pass across the app.
 - Comps engine open items — see "Open items on the comps engine" above.
 - Property pack builder: assembles a deal's figures, comps/GDV, area stats, and photos into an investor-ready shareable document (likely PDF). Photo upload lives here, not on the Portfolio — an investor-facing document needs images; a portfolio tracker doesn't, so there's no standalone "photos on portfolio" feature anymore. Depends on the other features here being further along first, since it's purely an aggregation of what they produce — notably area research/stats (below) and this pack builder's own photo upload, neither of which exist yet.
-- Area research/stats: crime rate, employment, schools, major employers, etc. for a target investment area. Needs a data-sourcing scoping session first — like the one that grounded the comps engine (HM Land Registry PPD + EPC) — before building anything, since each stat likely comes from a different source with its own availability/access/licensing quirks, not one uniform API.
+- Area research/stats: crime rate and council tax band now have sourcing verdicts (free/paid respectively — see "Feature ideas — researched, with data-source verdicts" above); employment, schools, and major employers are still unresearched and need the same scoping treatment before building.
 - Customisable dashboard: let users choose/arrange which widgets appear on home.html — show/hide, reorder — with the current fixed layout as the default preset. Deferred until there are enough dashboard widgets to make customising worthwhile, and likely built alongside a user settings page (doesn't exist yet). Persisting per-user layout needs a new table or a profiles column.
+- Feature ideas from data-source research — see "Feature ideas — researched, with data-source verdicts" above.
 
 How to work with me (the user)
 
