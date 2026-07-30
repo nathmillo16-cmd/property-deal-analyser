@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Pricing · Deals N Yields</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* Pricing-page-only layout. Colours/fonts/radius all come from styles.css.
+   Same lp-* shell pattern as landing.html, duplicated locally per this app's convention. */
+.lp-shell{max-width:1160px;margin:0 auto;padding:0 1.5rem}
+.lp-section{padding:clamp(3rem,7vw,5.5rem) 0;border-top:1px solid var(--hairline)}
+.lp-kicker{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 .75rem}
+.lp-lead{font-size:15px;color:var(--muted);max-width:56ch;margin:0 0 2.5rem}
+
+.lp-topbar{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;
+  padding:1.5rem 0;
+}
+.lp-nav{display:flex;gap:2rem;flex-wrap:wrap}
+.lp-nav a{font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--muted);text-decoration:none}
+.lp-nav a:hover{color:var(--ink)}
+.lp-nav a.current{color:var(--ink)}
+.lp-auth{display:flex;align-items:center;gap:1.25rem}
+.lp-auth a.login{font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none}
+.lp-auth a.login:hover{color:var(--ink)}
+
+/* ---- page header ---- */
+.pricing-head{padding:clamp(2.5rem,6vw,4rem) 0 clamp(1.5rem,4vw,2.5rem);text-align:center}
+.pricing-head .lp-kicker{justify-content:center;text-align:center}
+.pricing-head h1{font-size:clamp(2.1rem,4.4vw,3rem);line-height:1.06;margin:0 auto .9rem;max-width:18ch}
+.pricing-head .lp-lead{margin:0 auto;text-align:center}
+
+/* ---- plan grid: structured to hold more than one card later without a redesign ---- */
+.pricing-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,380px));
+  justify-content:center;gap:1.5rem;
+}
+.pricing-card{
+  background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--radius);
+  padding:2.25rem 2.5rem;text-align:center;
+}
+.price-name{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0}
+.price-figure{font-family:var(--font-head);font-weight:800;font-size:3rem;color:var(--ink);margin:.5rem 0 0;font-variant-numeric:tabular-nums}
+.price-figure span{font-family:var(--font-body);font-size:14px;font-weight:600;color:var(--muted)}
+.price-features{list-style:none;padding:0;margin:1.75rem 0;text-align:left}
+.price-features li{font-size:13.5px;color:var(--ink);padding:.55rem 0;border-top:1px solid var(--hairline);display:flex;gap:.6rem}
+.price-features li:first-child{border-top:none}
+.price-features li::before{content:'✓';color:var(--accent-2);font-weight:700}
+.price-note{font-size:11.5px;color:var(--muted);margin-top:1rem}
+
+/* ---- free vs paid ---- */
+.gate-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:700px){.gate-grid{grid-template-columns:1fr}}
+.gate-card{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.5rem 1.75rem}
+.gate-card h3{font-size:15px;margin:0 0 1rem}
+.gate-card ul{list-style:none;padding:0;margin:0}
+.gate-card li{font-size:13px;color:var(--muted);padding:.4rem 0;display:flex;gap:.6rem}
+.gate-card.free li::before{content:'✓';color:var(--accent-2);font-weight:700}
+.gate-card.paid li::before{content:'🔒';font-size:11px}
+
+/* ---- scroll reveal (same pattern as landing.html) ---- */
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+.reveal.in-view{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;transition:none}
+}
+
+/* ---- footer ---- */
+footer{padding:2.5rem 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem}
+footer .fw{font-family:var(--font-head);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.02em}
+footer .flinks{display:flex;gap:1.5rem}
+footer .flinks a{font-size:12px;color:var(--muted);text-decoration:none}
+footer .flinks a:hover{color:var(--ink)}
+footer .fcopy{font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="lp-shell">
+  <div class="lp-topbar">
+    <a class="wordmark" href="/" style="text-decoration:none;color:inherit">Deals N Yields</a>
+    <div class="lp-nav">
+      <a href="/#what-it-does">What it does</a>
+      <a href="/#calculator">Try it free</a>
+      <a href="/pricing.html" class="current">Pricing</a>
+    </div>
+    <div class="lp-auth">
+      <a class="login" href="/login.html">Log in</a>
+      <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="lp-shell">
+  <section class="pricing-head">
+    <p class="lp-kicker">Pricing</p>
+    <h1>Simple, one plan.</h1>
+    <p class="lp-lead">One plan covers the whole app. No tiers to compare, nothing to figure out.</p>
+  </section>
+</div>
+
+<!-- PLAN -->
+<div class="lp-shell">
+  <section class="lp-section reveal">
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <p class="price-name">Pro</p>
+        <p class="price-figure">£29<span>/month</span></p>
+        <ul class="price-features">
+          <li>Deal analysis: BTL, HMO, serviced accommodation and flip</li>
+          <li>Comparables &amp; end value (GDV)</li>
+          <li>Full pipeline: kanban tracking, notes and offer history</li>
+          <li>Portfolio management</li>
+          <li>Unlimited saved deals</li>
+          <li>AI verdict (up to 50/month)</li>
+        </ul>
+        <a class="btn-primary" style="width:100%;text-align:center;display:block" href="/login.html?mode=signup">Sign up</a>
+        <p class="price-note">Cancel anytime.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- FREE VS PAID -->
+<div class="lp-shell">
+  <section class="lp-section reveal" id="whats-included">
+    <p class="lp-kicker">Free vs paid</p>
+    <h2>What you get without an account, and what needs the paid plan.</h2>
+    <div class="gate-grid" style="margin-top:1.5rem">
+      <div class="gate-card free">
+        <h3>Free</h3>
+        <ul>
+          <li>The calculator itself: BTL, HMO, serviced accommodation and flip, in full, no account needed</li>
+          <li>Sign up free to save deals, up to 2</li>
+        </ul>
+      </div>
+      <div class="gate-card paid">
+        <h3>Needs the paid plan</h3>
+        <ul>
+          <li>Unlimited saved deals</li>
+          <li>AI verdict (Full Analysis)</li>
+          <li>Comparables &amp; end value (GDV)</li>
+          <li>Pipeline tracking</li>
+          <li>Portfolio management</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="lp-shell">
+  <footer>
+    <span class="fw">Deals N Yields</span>
+    <div class="flinks">
+      <a href="/#calculator">Calculator</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="/login.html">Log in</a>
+    </div>
+    <span class="fcopy">© 2026 Deals N Yields</span>
+  </footer>
+</div>
+
+<script>
+if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  const revealObserver=new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
+}
+
+// A returning logged-in user hitting the pricing page gets sent straight
+// to their home portal instead of seeing the pitch again.
+(async function(){
+  const res=await fetch('/api/config');
+  const cfg=await res.json();
+  const client=supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+  const { data:{ session } }=await client.auth.getSession();
+  if(session){
+    window.location.href='/home.html';
+  }
+})();
+</script>
+</body>
+</html>

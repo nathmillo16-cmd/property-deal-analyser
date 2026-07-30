@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Deals N Yields — Property deal calculator for sourcers</title>
+<title>Deals N Yields · Analyse, value and track property deals</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
@@ -31,9 +31,9 @@ html{scroll-behavior:smooth}
 .lp-auth a.login:hover{color:var(--ink)}
 
 /* ---- hero ---- */
-.hero{padding:clamp(2.5rem,7vw,4.5rem) 0 clamp(2rem,5vw,3rem);text-align:center}
-.hero h1{font-size:clamp(2.4rem,5.5vw,4rem);line-height:1.04;max-width:16ch;margin:0 auto 1.25rem}
-.hero .lp-lead{margin:0 auto 2rem;text-align:center}
+.hero{padding:clamp(3.5rem,9vw,6.5rem) 0 clamp(2.5rem,6vw,4rem);text-align:center}
+.hero h1{font-size:clamp(2.6rem,6.2vw,4.6rem);line-height:1.03;max-width:17ch;margin:0 auto 1.5rem}
+.hero .lp-lead{margin:0 auto 2.25rem;text-align:center;font-size:16px;max-width:52ch}
 .hero-cta{display:flex;justify-content:center;align-items:center;gap:1.5rem;flex-wrap:wrap}
 .hero-cta .btn-primary{padding:13px 26px;font-size:14.5px}
 .hero-cta .link-secondary{font-size:13px;font-weight:600;color:var(--muted);text-decoration:none}
@@ -114,6 +114,22 @@ html{scroll-behavior:smooth}
 .benefit-card p{font-size:13px;color:var(--muted);margin:0}
 .benefit-card .soon{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hairline);border-radius:999px;padding:2px 9px;display:inline-block;margin-top:.75rem}
 
+/* ---- screenshot placeholders ---- */
+.screenshot-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.25rem}
+@media(max-width:700px){.screenshot-grid{grid-template-columns:1fr}}
+.screenshot-placeholder{
+  aspect-ratio:16/10;border:1.5px dashed var(--hairline-strong);border-radius:var(--radius);
+  display:flex;align-items:center;justify-content:center;background:var(--surface);
+}
+.screenshot-placeholder span{font-size:12px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
+
+/* ---- scroll reveal ---- */
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+.reveal.in-view{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;transition:none}
+}
+
 /* ---- how it works ---- */
 .steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;counter-reset:step}
 @media(max-width:760px){.steps-grid{grid-template-columns:1fr}}
@@ -127,20 +143,11 @@ html{scroll-behavior:smooth}
 .step h3{font-size:16px;margin:0 0 .4rem}
 .step p{font-size:13px;color:var(--muted);margin:0}
 
-/* ---- pricing ---- */
-.pricing-wrap{display:flex;justify-content:center}
-.pricing-card{
-  background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--radius);
-  padding:2.25rem 2.5rem;max-width:380px;width:100%;text-align:center;
-}
-.price-figure{font-family:var(--font-head);font-weight:800;font-size:3rem;color:var(--ink);margin:.5rem 0 0;font-variant-numeric:tabular-nums}
-.price-figure span{font-family:var(--font-body);font-size:14px;font-weight:600;color:var(--muted)}
-.price-name{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0}
-.price-features{list-style:none;padding:0;margin:1.75rem 0;text-align:left}
-.price-features li{font-size:13.5px;color:var(--ink);padding:.55rem 0;border-top:1px solid var(--hairline);display:flex;gap:.6rem}
-.price-features li:first-child{border-top:none}
-.price-features li::before{content:'✓';color:var(--accent-2);font-weight:700}
-.price-note{font-size:11.5px;color:var(--muted);margin-top:1rem}
+/* ---- pricing teaser ---- */
+.pricing-teaser{text-align:center}
+.price-from{font-family:var(--font-head);font-weight:800;font-size:2.4rem;color:var(--ink);margin:0 0 .75rem;font-variant-numeric:tabular-nums}
+.price-from span{font-family:var(--font-body);font-size:15px;font-weight:600;color:var(--muted)}
+.pricing-teaser .btn-primary{margin-top:1.5rem;padding:13px 26px;font-size:14.5px}
 
 /* ---- testimonials (placeholder) ---- */
 .testimonial-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
@@ -149,11 +156,6 @@ html{scroll-behavior:smooth}
 .testimonial-card .who{font-size:12px;font-weight:700;color:var(--ink)}
 .testimonial-card .role{font-size:11.5px;color:var(--muted)}
 .ph-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:2px 9px;margin-bottom:1.5rem}
-
-/* ---- final cta ---- */
-.final-cta{text-align:center}
-.final-cta h2{margin:0 auto 1.5rem;max-width:20ch}
-.final-cta .btn-primary{padding:14px 30px;font-size:15px}
 
 /* ---- footer ---- */
 footer{padding:2.5rem 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem}
@@ -170,9 +172,9 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   <div class="lp-topbar">
     <span class="wordmark">Deals N Yields</span>
     <div class="lp-nav">
-      <a href="#calculator">Free calculator</a>
       <a href="#what-it-does">What it does</a>
-      <a href="#pricing">Pricing</a>
+      <a href="#calculator">Try it free</a>
+      <a href="/pricing.html">Pricing</a>
     </div>
     <div class="lp-auth">
       <a class="login" href="/login.html">Log in</a>
@@ -184,21 +186,50 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
 <!-- HERO -->
 <div class="lp-shell">
   <section class="hero">
-    <h1>Know if a Deal Meets Your Yield.</h1>
-    <p class="lp-lead">Analyse any property deal in seconds, see the maximum you should pay, and track every deal from first look to completion. Built for property investors and sourcers who haven't got time to waste on deals that don't stack.</p>
+    <h1>Analyse, value and track. All in one place.</h1>
+    <p class="lp-lead">Full analysis across BTL, HMO, serviced accommodation and flip, real sold-price comparables and end-value estimates, and a pipeline and portfolio to track every deal through to completion.</p>
     <div class="hero-cta">
-      <a class="btn-primary" href="#calculator">Analyse a deal free</a>
+      <a class="btn-primary" href="#calculator">Start analysing</a>
+      <a class="link-secondary" href="/login.html?mode=signup">or sign up free</a>
+    </div>
+  </section>
+</div>
+
+<!-- WHAT IT DOES -->
+<div class="lp-shell">
+  <section class="lp-section reveal" id="what-it-does">
+    <p class="lp-kicker">Capabilities</p>
+    <h2>What it does</h2>
+    <p class="lp-lead">Four things, working from the same numbers, so nothing gets re-entered or re-checked by hand.</p>
+    <div class="benefit-grid">
+      <div class="benefit-card reveal">
+        <h3>Deal analysis</h3>
+        <p>BTL, HMO, serviced accommodation and flip, side by side.</p>
+      </div>
+      <div class="benefit-card reveal">
+        <h3>Comparables &amp; end value</h3>
+        <p>Real sold-price comparables and a GDV estimate for every deal.</p>
+      </div>
+      <div class="benefit-card reveal">
+        <h3>Pipeline tracking</h3>
+        <p>Every deal from first look to completion, stage by stage.</p>
+      </div>
+      <div class="benefit-card reveal">
+        <h3>Portfolio management</h3>
+        <p>One view across everything you own or are chasing.</p>
+      </div>
     </div>
   </section>
 </div>
 
 <!-- FREE CALCULATOR TASTER -->
 <div class="lp-shell">
-  <section class="lp-section" id="calculator">
+  <section class="lp-section reveal" id="calculator">
     <div class="calc-head">
       <p class="lp-kicker">Run a real deal now<span class="free-badge">Free, no login</span></p>
-      <h2 style="margin-left:auto;margin-right:auto">Enter Your Numbers, Get the Full Breakdown</h2>
-      <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">Same calculation engine as the paid app: BTL, HMO, Serviced Accommodation, and Flip. Nothing is saved unless you sign up.</p>
+      <h2 style="margin-left:auto;margin-right:auto">Know if a Deal Meets Your Yield.</h2>
+      <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">Enter your numbers, get the full picture.</p>
+      <p class="calc-hint" style="text-align:center">Same calculation engine as the paid app: BTL, HMO, serviced accommodation and flip. Nothing is saved unless you sign up.</p>
     </div>
 
     <div class="tabs" style="justify-content:center;margin-bottom:1.75rem" id="calc-tabs">
@@ -565,73 +596,26 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   </section>
 </div>
 
-<!-- WHAT IT DOES -->
+<!-- SCREENSHOTS -->
 <div class="lp-shell">
-  <section class="lp-section" id="what-it-does">
-    <h2>What It Does</h2>
-    <div class="benefit-grid">
-      <div class="benefit-card">
-        <h3>Analyse Any Deal</h3>
-        <p>BTL, HMO, serviced accommodation, or flip, in seconds.</p>
-      </div>
-      <div class="benefit-card">
-        <h3>Know Your Maximum Bid</h3>
-        <p>The ceiling you can pay and still hit your target yield or ROI.</p>
-      </div>
-      <div class="benefit-card">
-        <h3>Value the Property</h3>
-        <p>With rental comps, so you know what it's really worth.</p>
-      </div>
-      <div class="benefit-card">
-        <h3>Track Every Deal</h3>
-        <p>From analysing to completed, all in one pipeline.</p>
-      </div>
-      <div class="benefit-card">
-        <h3>See the Full Working</h3>
-        <p>Every figure shown, no black box.</p>
-      </div>
+  <section class="lp-section reveal" id="screenshots">
+    <p class="lp-kicker">Inside the app</p>
+    <h2>See it in place</h2>
+    <div class="screenshot-grid">
+      <div class="screenshot-placeholder reveal"><span>Screenshot: Deal analysis</span></div>
+      <div class="screenshot-placeholder reveal"><span>Screenshot: Comparables &amp; GDV</span></div>
+      <div class="screenshot-placeholder reveal"><span>Screenshot: Pipeline</span></div>
+      <div class="screenshot-placeholder reveal"><span>Screenshot: Portfolio</span></div>
     </div>
   </section>
 </div>
 
-<!-- ONE-STOP-SHOP -->
+<!-- PRICING TEASER -->
 <div class="lp-shell">
-  <section class="lp-section" id="one-stop-shop">
-    <p class="lp-kicker">One stop shop</p>
-    <h2>Every Deal, Start to Finish, in One Place.</h2>
-    <p class="lp-lead">Analyse it. Value it. Check the rental comps. Track it through your pipeline from analysing to completed. The whole deal, one place, so nothing slips and no deal gets forgotten.</p>
-  </section>
-</div>
-
-<!-- PRICING -->
-<div class="lp-shell">
-  <section class="lp-section" id="pricing">
-    <p class="lp-kicker" style="text-align:center">Pricing</p>
-    <h2 style="margin-left:auto;margin-right:auto;text-align:center">Simple, One Plan</h2>
-    <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">The calculator is always free. Upgrade when you want to save deals, get the Full Analysis, and run your pipeline.</p>
-    <div class="pricing-wrap">
-      <div class="pricing-card">
-        <p class="price-name">Pro</p>
-        <p class="price-figure">£29<span>/month</span></p>
-        <ul class="price-features">
-          <li>Unlimited saved deals</li>
-          <li>Full Analysis (up to 50/month)</li>
-          <li>Full Pipeline: kanban tracking &amp; comparison</li>
-          <li>Saved defaults across BTL/HMO/SA</li>
-        </ul>
-        <a class="btn-primary" style="width:100%;text-align:center;display:block" href="/login.html?mode=signup">Sign up</a>
-        <p class="price-note">Cancel anytime.</p>
-      </div>
-    </div>
-  </section>
-</div>
-
-<!-- FINAL CTA -->
-<div class="lp-shell">
-  <section class="lp-section final-cta">
-    <h2>Try It on Your Next Deal.</h2>
-    <p class="lp-lead" style="margin-left:auto;margin-right:auto">Run a real deal through the calculator free, no card needed. Sign up to save deals, get the full analysis, and track your pipeline.</p>
-    <a class="btn-primary" href="#calculator">Analyse a deal free</a>
+  <section class="lp-section pricing-teaser reveal" id="pricing">
+    <p class="price-from">From £29<span>/month</span></p>
+    <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">The calculator is free to try. Everything else, from £29 a month.</p>
+    <a class="btn-primary" href="/pricing.html">See pricing</a>
   </section>
 </div>
 
@@ -640,7 +624,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
     <span class="fw">Deals N Yields</span>
     <div class="flinks">
       <a href="#calculator">Calculator</a>
-      <a href="#pricing">Pricing</a>
+      <a href="/pricing.html">Pricing</a>
       <a href="/login.html">Log in</a>
     </div>
     <span class="fcopy">© 2026 Deals N Yields</span>
@@ -704,6 +688,20 @@ function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style
 
 function runFlip(){ cFlip(); updateGlanceFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; }
 function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; }
+
+// Subtle scroll-reveal: fades .reveal elements in as they enter view.
+// Purely presentational, skipped entirely under prefers-reduced-motion.
+if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  const revealObserver=new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
+}
 
 // A returning logged-in user hitting the marketing page gets sent straight
 // to their home portal instead of seeing the pitch again.
