@@ -25,11 +25,20 @@
 //   13 County                 (not stored — no matching column)
 //   14 PPD Category Type      (not stored — no matching column)
 //
-// PREREQUISITE: run db/003_sold_prices_transaction_id.sql in the Supabase
-// SQL editor first. sold_prices has no column that naturally dedupes PPD
-// rows, so that migration adds `transaction_id` (+ a unique index) and
-// this script upserts on it (onConflict: 'transaction_id') — without that
-// column this script's upserts will fail.
+// PREREQUISITE: run db/003_sold_prices_transaction_id.sql (transaction_id,
+// this script upserts on it) AND db/012_sold_prices_lat_lng.sql (lat/lng
+// columns, this script now writes to them) in the Supabase SQL editor
+// first — without either, this script's upserts will fail.
+//
+// Every batch is geocoded via postcodes.io (postcodes-io.js) before being
+// upserted — the same bulk-lookup approach scripts/backfill-sold-prices-lat-lng.js
+// used for the one-off historical backfill, just run inline per batch here
+// so newly-ingested rows get comps-ready lat/lng immediately rather than
+// needing a separate backfill pass after every future PPD import. A
+// postcode postcodes.io doesn't recognise, or a failed lookup chunk, just
+// leaves that batch's rows with lat/lng = null (never blocks the sale-price
+// data itself from being stored) — re-running this script, or running the
+// backfill script, will retry geocoding for anything still null.
 //
 // Only rows dated within the last WINDOW_MONTHS are inserted (see the
 // constant below — bump it to 24 to widen the window; already-loaded rows
@@ -44,16 +53,20 @@
 //
 // Safe to re-run: upserts are keyed on transaction_id, so re-running (e.g.
 // after a failed batch, or over a freshly downloaded file covering the
-// same period) just overwrites rows rather than duplicating them.
+// same period) just overwrites rows rather than duplicating them — geocoding
+// is attempted fresh each time too, so a re-run also fills in any lat/lng
+// that failed to resolve on a previous pass.
 
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse');
 const { createClient } = require('@supabase/supabase-js');
+const { bulkLookupPostcodes, BULK_MAX } = require('../postcodes-io');
 
 const BATCH_SIZE = 1000;
 const LOG_EVERY = 50; // batches
+const GEOCODE_CHUNK_DELAY_MS = 150; // politeness gap between bulk postcodes.io calls, same as scripts/backfill-sold-prices-lat-lng.js
 
 // How far back to keep rows from, in months. Raise to 24 to widen the
 // window on a future run — this only affects which rows get inserted going
@@ -111,6 +124,50 @@ async function upsertBatch(supabase, rows) {
   return { count: rows.length, error };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function chunkArray(array, size) {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += size) chunks.push(array.slice(i, i + size));
+  return chunks;
+}
+
+// Mutates each row in `rows` with lat/lng (or null/null if postcodes.io has
+// no match, or the lookup itself failed). Never throws — a geocoding
+// problem should never block the underlying sale-price data from being
+// stored; see the file header for why. Returns counts for the run summary.
+async function geocodeBatch(rows) {
+  const distinctPostcodes = [...new Set(rows.map((r) => r.postcode))];
+  const coordsByPostcode = new Map();
+  let lookupFailures = 0;
+
+  const chunks = chunkArray(distinctPostcodes, BULK_MAX);
+  for (let i = 0; i < chunks.length; i++) {
+    try {
+      const results = await bulkLookupPostcodes(chunks[i]);
+      results.forEach(({ query, lat, lng }) => coordsByPostcode.set(query, { lat, lng }));
+    } catch (e) {
+      lookupFailures++;
+      console.error(`  ! geocoding chunk failed (${chunks[i].length} postcodes): ${e.message}`);
+    }
+    if (i + 1 < chunks.length) await sleep(GEOCODE_CHUNK_DELAY_MS);
+  }
+
+  let geocoded = 0;
+  let notFound = 0;
+  for (const row of rows) {
+    const coords = coordsByPostcode.get(row.postcode);
+    row.lat = coords ? coords.lat : null;
+    row.lng = coords ? coords.lng : null;
+    if (coords && coords.lat !== null) geocoded++;
+    else notFound++;
+  }
+
+  return { geocoded, notFound, lookupFailures };
+}
+
 function processFile(filePath, supabase, stats, cutoffDate) {
   return new Promise((resolve, reject) => {
     const parser = fs.createReadStream(filePath).pipe(
@@ -121,7 +178,13 @@ function processFile(filePath, supabase, stats, cutoffDate) {
 
     const flush = (rows) => {
       chain = chain
-        .then(() => upsertBatch(supabase, rows))
+        .then(() => geocodeBatch(rows))
+        .then(({ geocoded, notFound, lookupFailures }) => {
+          stats.geocoded += geocoded;
+          stats.notFound += notFound;
+          stats.geocodeLookupFailures += lookupFailures;
+          return upsertBatch(supabase, rows);
+        })
         .then(({ count, error }) => {
           if (error) {
             stats.batchErrors++;
@@ -133,7 +196,7 @@ function processFile(filePath, supabase, stats, cutoffDate) {
           if (stats.batches % LOG_EVERY === 0) {
             const mb = (stats.estimatedBytes / (1024 * 1024)).toFixed(1);
             console.log(
-              `  ... ${stats.seen.toLocaleString()} rows read, ${stats.inserted.toLocaleString()} upserted, ~${mb} MB estimated`
+              `  ... ${stats.seen.toLocaleString()} rows read, ${stats.inserted.toLocaleString()} upserted, ~${mb} MB estimated, ${stats.geocoded.toLocaleString()} geocoded`
             );
           }
         });
@@ -217,7 +280,10 @@ async function main() {
     skippedOutOfWindow: 0,
     estimatedBytes: 0,
     batches: 0,
-    batchErrors: 0
+    batchErrors: 0,
+    geocoded: 0,
+    notFound: 0,
+    geocodeLookupFailures: 0
   };
   const startedAt = Date.now();
 
@@ -234,11 +300,14 @@ async function main() {
   console.log(`  Skipped (malformed):  ${stats.skippedMalformed.toLocaleString()}`);
   console.log(`  Skipped (out of ${WINDOW_MONTHS}mo window): ${stats.skippedOutOfWindow.toLocaleString()}`);
   console.log(`  Estimated size added: ~${mb} MB (rough proxy, not exact Postgres storage)`);
+  console.log(`  Geocoded (lat/lng):   ${stats.geocoded.toLocaleString()}`);
+  console.log(`  Not found (postcodes.io): ${stats.notFound.toLocaleString()}`);
+  console.log(`  Geocode chunk failures: ${stats.geocodeLookupFailures}`);
   console.log(`  Failed batches:       ${stats.batchErrors}`);
   console.log(`  Time:                 ${elapsed}s`);
-  if (stats.batchErrors > 0) {
+  if (stats.batchErrors > 0 || stats.geocodeLookupFailures > 0) {
     console.log('');
-    console.log('Some batches failed — safe to just re-run this script (upserts are keyed on transaction_id).');
+    console.log('Some batches/geocoding failed — safe to just re-run this script (upserts are keyed on transaction_id, geocoding is retried fresh each run), or run scripts/backfill-sold-prices-lat-lng.js afterward to mop up any rows still missing lat/lng.');
     process.exitCode = 1;
   }
 }
