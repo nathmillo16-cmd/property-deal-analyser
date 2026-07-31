@@ -617,6 +617,142 @@ app.put('/api/portfolio/:id', async (req, res) => {
   res.json({ ...data, ...computePropertyFigures(data) });
 });
 
+const REFURB_MODES = ['detailed', 'quick'];
+const REFURB_VAT_RATES = [0, 5, 20];
+const REFURB_NAME_MAX_LENGTH = 120;
+const REFURB_LINE_ITEMS_MAX_KEYS = 300;
+const REFURB_LINE_ITEMS_MAX_JSON_LENGTH = 20000;
+
+// line_items is opaque, per-mode-shaped jsonb the estimator never computes
+// against server-side (unlike portfolio's figures) — validated structurally
+// (object, bounded key count, bounded serialized size) rather than
+// field-by-field, same lighter touch already applied to deals.deal_data.
+function validateRefurbEstimateInput(body) {
+  const { name, mode, line_items, contingency_enabled, contingency_pct, vat_rate } = body;
+
+  if (typeof name !== 'string' || !name.trim()) {
+    return { error: 'Enter a name for this estimate.' };
+  }
+  if (name.trim().length > REFURB_NAME_MAX_LENGTH) {
+    return { error: `Name must be ${REFURB_NAME_MAX_LENGTH} characters or fewer.` };
+  }
+  if (!REFURB_MODES.includes(mode)) {
+    return { error: `mode must be one of ${REFURB_MODES.join('/')}.` };
+  }
+  if (line_items === null || typeof line_items !== 'object' || Array.isArray(line_items)) {
+    return { error: 'line_items must be an object.' };
+  }
+  if (Object.keys(line_items).length > REFURB_LINE_ITEMS_MAX_KEYS) {
+    return { error: 'Too many line items.' };
+  }
+  if (JSON.stringify(line_items).length > REFURB_LINE_ITEMS_MAX_JSON_LENGTH) {
+    return { error: 'Estimate data is too large.' };
+  }
+  if (typeof contingency_enabled !== 'boolean') {
+    return { error: 'contingency_enabled must be true or false.' };
+  }
+  const contingencyPct = Number(contingency_pct);
+  if (!Number.isFinite(contingencyPct) || contingencyPct < 0) {
+    return { error: 'Contingency % must be a number ≥ 0.' };
+  }
+  const vatRate = Number(vat_rate);
+  if (!REFURB_VAT_RATES.includes(vatRate)) {
+    return { error: `vat_rate must be one of ${REFURB_VAT_RATES.join('/')}.` };
+  }
+
+  return {
+    value: {
+      name: name.trim(),
+      mode,
+      line_items,
+      contingency_enabled,
+      contingency_pct: contingencyPct,
+      vat_rate: vatRate,
+    },
+  };
+}
+
+app.post('/api/refurb-estimates', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the refurb estimator.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the refurb estimator.' });
+  }
+
+  const { value, error: validationError } = validateRefurbEstimateInput(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const { data, error } = await supabase
+    .from('refurb_estimates')
+    .insert(value)
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/refurb-estimates', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the refurb estimator.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the refurb estimator.' });
+  }
+
+  const { data, error } = await supabase
+    .from('refurb_estimates')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ estimates: data });
+});
+
+app.put('/api/refurb-estimates/:id', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the refurb estimator.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the refurb estimator.' });
+  }
+
+  const { value, error: validationError } = validateRefurbEstimateInput(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const { data, error } = await supabase
+    .from('refurb_estimates')
+    .update(value)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Estimate not found.' });
+  res.json(data);
+});
+
+app.delete('/api/refurb-estimates/:id', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the refurb estimator.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the refurb estimator.' });
+  }
+
+  const { error } = await supabase
+    .from('refurb_estimates')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ deleted: true });
+});
+
 const COMPS_PROPERTY_TYPES = ['D', 'S', 'T', 'F', 'O'];
 
 // Accepts any postcode format (no space, extra spaces, lower case) and

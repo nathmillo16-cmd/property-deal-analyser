@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Deals N Yields — Refurbishment Estimator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<style>
+/* page-specific layout only — colours/fonts/radius all come from styles.css */
+.hint{font-size:12.5px;color:var(--muted);font-style:italic}
+
+.page-title{font-family:var(--font-head);font-weight:800;font-size:28px;margin:0 0 .4rem}
+.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 1.75rem}
+
+.locked-panel{text-align:center;padding:3.5rem 1rem}
+.locked-panel h2{font-size:22px;margin:0 0 .75rem}
+.locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
+
+/* ---- mode + saved estimates ---- */
+.mode-toggle{display:flex;gap:8px;margin-bottom:1.75rem}
+
+.saved-strip{margin-bottom:2rem}
+.saved-strip-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem;gap:1rem;flex-wrap:wrap}
+.saved-strip-head h2{font-size:15px;margin:0}
+.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap;cursor:pointer;transition:border-color .15s ease}
+.saved-item:hover{border-color:var(--hairline-strong)}
+.saved-item.active{border-color:var(--accent)}
+.saved-info{display:flex;flex-direction:column;gap:2px}
+.saved-name{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
+.saved-detail{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.saved-chevron{color:var(--muted);font-size:18px;line-height:1}
+.mode-badge{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hairline);border-radius:999px;padding:2px 8px;margin-left:2px}
+
+.save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
+.save-msg.success{color:var(--accent-2)}
+.save-msg.error{color:#E8746B}
+
+/* ---- layout: line items + sticky summary ---- */
+.rf-layout{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+@media(max-width:960px){.rf-layout{grid-template-columns:1fr}}
+.rf-summary{position:sticky;top:1.5rem}
+.rf-summary h2{font-size:16px;margin:0 0 1.1rem}
+
+.rf-name-field{margin-bottom:1.75rem}
+
+.rf-guide-note{margin-bottom:1.25rem}
+
+/* ---- detailed: collapsible sections ---- */
+.refurb-section{margin-bottom:12px;padding:0}
+.refurb-section summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:1.15rem 1.5rem;user-select:none}
+.refurb-section summary::-webkit-details-marker{display:none}
+.refurb-section-name{font-family:var(--font-head);font-weight:700;font-size:15px;letter-spacing:.01em}
+.refurb-section-right{display:flex;align-items:center;gap:14px;margin-left:auto}
+.refurb-section-subtotal{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--accent-2);font-variant-numeric:tabular-nums}
+.refurb-chevron{width:9px;height:9px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .15s ease;flex-shrink:0}
+.refurb-section[open] .refurb-chevron{transform:rotate(-135deg)}
+.refurb-section-body{padding:0 1.5rem 1.4rem}
+
+.refurb-row{display:grid;grid-template-columns:1fr 96px 76px 96px;gap:10px;align-items:center;padding:.55rem 0;border-top:1px solid var(--input-hairline)}
+.refurb-row:first-child{border-top:none}
+.refurb-row-head{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding-bottom:.6rem;padding-left:3.25rem;padding-right:3.25rem;border-top:none}
+.refurb-row-head span:nth-child(2),.refurb-row-head span:nth-child(3),.refurb-row-head span:nth-child(4){text-align:right}
+.refurb-item-name{display:block;font-size:13px;color:var(--ink)}
+.refurb-item-note{display:block;font-size:10.5px;color:var(--muted);font-style:italic;margin-top:2px}
+.refurb-row input{
+  font-family:var(--font-body);font-size:13px;color:var(--input-ink);
+  background:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);
+  padding:6px 8px;width:100%;text-align:right;
+}
+.refurb-row input::placeholder{color:var(--input-muted);opacity:.85}
+.refurb-row input:focus{outline:none;border-color:var(--input-accent)}
+.refurb-row-total{font-family:var(--font-body);font-weight:700;font-size:13px;color:var(--accent-2);text-align:right;font-variant-numeric:tabular-nums}
+@media(max-width:600px){
+  .refurb-row{grid-template-columns:1fr;gap:4px;padding:.75rem 0}
+  .refurb-row-head{display:none}
+  .refurb-row input{text-align:left}
+  .refurb-row-total{text-align:left;font-size:12px;color:var(--muted)}
+}
+
+/* ---- quick mode ---- */
+.refurb-quick-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 0;border-top:1px solid var(--input-hairline)}
+.refurb-quick-row:first-child{border-top:none}
+.refurb-quick-row label{font-size:13.5px;color:var(--ink);font-weight:600}
+.refurb-quick-row input{
+  width:150px;font-family:var(--font-body);font-size:14px;color:var(--input-ink);
+  background:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);
+  padding:9px 11px;text-align:right;
+}
+.refurb-quick-row input::placeholder{color:var(--input-muted);opacity:.85}
+.refurb-quick-row input:focus{outline:none;border-color:var(--input-accent)}
+.refurb-quick-row-head{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:0 0 .6rem;border-top:none}
+.refurb-quick-row-head span:last-child{width:150px;text-align:right}
+
+/* ---- summary card ---- */
+.rf-cont-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.85rem}
+.rf-cont-row label{font-size:13px;color:var(--ink);display:flex;align-items:center;gap:8px;cursor:pointer;margin:0}
+.rf-cont-pct-field{display:flex;align-items:center;gap:8px;margin-bottom:1.1rem}
+.rf-cont-pct-field input{width:64px;text-align:right}
+.rf-cont-pct-field span{font-size:12.5px;color:var(--muted)}
+.rf-cont-pct-field.disabled{opacity:.45;pointer-events:none}
+
+.vat-tabs{display:flex;gap:6px;margin-bottom:.65rem;flex-wrap:wrap}
+.vat-tip{margin-bottom:1.25rem}
+
+.rf-summary-line{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-top:1px solid var(--hairline);font-size:13px}
+.rf-summary-line:first-of-type{border-top:none}
+.rf-summary-line .rsl-v{font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+
+.rf-delete-row{display:flex;justify-content:flex-end;margin-top:.75rem}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="topbar">
+    <a class="wordmark" href="/home.html">Deals N Yields</a>
+    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html" class="active">Refurb Estimator</a></div>
+    <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
+  </div>
+
+  <p class="page-title">Refurbishment Estimator</p>
+  <p class="page-sub">Cost a refurb line by line, or as a quick trade-by-trade total. Add contingency and VAT, then save it against a deal.</p>
+
+  <div id="state-loading"><p class="hint">Loading…</p></div>
+
+  <div id="state-loggedout" style="display:none">
+    <p class="hint">Log in to use the Refurbishment Estimator: <a href="/login.html">log in</a></p>
+  </div>
+
+  <div id="state-locked" style="display:none">
+    <div class="locked-panel">
+      <h2>The Refurbishment Estimator is a paid feature</h2>
+      <p>Cost a refurb by section and line item, or as a quick trade-by-trade total, then apply contingency and VAT and save the result.</p>
+      <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade — £29/mo</button>
+    </div>
+  </div>
+
+  <div id="state-board" style="display:none">
+
+    <div class="saved-strip">
+      <div class="saved-strip-head">
+        <h2>Saved estimates</h2>
+        <button class="btn-secondary" onclick="newEstimate()">New estimate</button>
+      </div>
+      <div id="rf-saved-list"><p class="hint">Loading…</p></div>
+    </div>
+
+    <div class="field rf-name-field">
+      <label>Estimate name</label>
+      <input type="text" id="rf-name" placeholder="e.g. 14 Foundry Street — full refurb"/>
+    </div>
+
+    <div class="mode-toggle" id="rf-mode-toggle">
+      <button type="button" class="tab-btn" id="mode-btn-detailed" onclick="switchMode('detailed')">Detailed</button>
+      <button type="button" class="tab-btn" id="mode-btn-quick" onclick="switchMode('quick')">Quick</button>
+    </div>
+
+    <div class="rf-layout">
+      <div>
+        <div id="rf-detailed-panel">
+          <p class="hint rf-guide-note">Guide prices are examples from one contractor and area. Adjust for your own quotes and region.</p>
+          <div class="refurb-row refurb-row-head"><span>Item</span><span>Rate (£)</span><span>Qty</span><span>Total</span></div>
+          <div id="rf-sections"></div>
+        </div>
+        <div id="rf-quick-panel" class="card" style="display:none">
+          <div class="refurb-quick-row refurb-quick-row-head"><span>Trade</span><span>Cost (£)</span></div>
+          <div id="rf-quick-rows"></div>
+        </div>
+      </div>
+
+      <div class="card rf-summary">
+        <h2>Estimate summary</h2>
+
+        <div class="rf-summary-line"><span>Subtotal</span><span class="rsl-v" id="rf-subtotal">£0</span></div>
+
+        <div class="rf-cont-row" style="margin-top:1rem">
+          <label><input type="checkbox" id="rf-cont-on" checked onchange="onContingencyToggle()"/> Apply contingency</label>
+        </div>
+        <div class="rf-cont-pct-field" id="rf-cont-pct-wrap">
+          <input type="number" id="rf-cont-pct" value="10" min="0" oninput="recalcSummary()"/>
+          <span>% of subtotal</span>
+        </div>
+        <div class="rf-summary-line"><span>Contingency</span><span class="rsl-v" id="rf-contingency-amt">£0</span></div>
+
+        <p class="hint" style="margin:1rem 0 .6rem">VAT</p>
+        <div class="vat-tabs" id="rf-vat-tabs">
+          <button type="button" class="tab-btn" id="vat-btn-0" onclick="switchVat(0)">No VAT</button>
+          <button type="button" class="tab-btn" id="vat-btn-20" onclick="switchVat(20)">20%</button>
+          <button type="button" class="tab-btn" id="vat-btn-5" onclick="switchVat(5)">5%</button>
+        </div>
+        <p class="hint vat-tip">The 5% reduced rate can apply to renovations of properties empty 2+ years, or certain conversions of qualifying uninhabitable properties. Check eligibility before relying on it — it isn't guaranteed.</p>
+        <div class="rf-summary-line"><span>VAT</span><span class="rsl-v" id="rf-vat-amt">£0</span></div>
+
+        <div class="offer-box" style="margin-top:1.25rem">
+          <p class="ot">Grand total</p>
+          <p class="ov" id="rf-grand-total">£0</p>
+        </div>
+
+        <button class="btn-primary" style="width:100%;margin-top:1rem" id="rf-save-btn" onclick="saveEstimate()">Save estimate</button>
+        <p class="save-msg" id="rf-msg"></p>
+        <div class="rf-delete-row">
+          <button class="mini-btn danger" id="rf-delete-btn" style="display:none" onclick="deleteEstimate()">Delete</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------
+// Data: every line item from the owner's costing structure, verbatim.
+// guideRate is shown as a vanishing placeholder only — never a value.
+// ---------------------------------------------------------------------
+const REFURB_SECTIONS = [
+  { id:'demolition', name:'Demolition & Alterations', items:[
+    { id:'strip-out', label:'Strip out of internals (back to brick)', rate:130, note:'Day rate, 1 labourer, excludes waste disposal' },
+    { id:'skip-8yd', label:'Skip 8yd (without permit)', rate:290 },
+    { id:'skip-12yd', label:'Skip 12yd (without permit)', rate:340 },
+    { id:'skip-permit', label:'Skip permit', rate:65 },
+  ]},
+  { id:'masonry', name:'Masonry & Groundworks', items:[
+    { id:'extension-m2', label:'Extension per m²', rate:2500 },
+    { id:'repointing-m2', label:'Repointing per m²', rate:50, note:'Incl. materials/travel/time; add extra for raking out mortar' },
+    { id:'underpinning-m2', label:'Underpinning per m²', rate:2500 },
+    { id:'large-lintel', label:'Large lintel incl. fit', rate:null },
+    { id:'small-lintel', label:'Small lintel incl. fit', rate:null },
+    { id:'beams', label:'Beams incl. fit', rate:null },
+    { id:'rendering-m2', label:'Rendering per m²', rate:null },
+    { id:'dpc-metre', label:'DPC per metre', rate:75 },
+    { id:'brick-big-window', label:'Brick up big window', rate:700, note:'2 days incl. materials' },
+    { id:'brick-small-window', label:'Brick up small window', rate:475, note:'1 day incl. materials' },
+    { id:'structural-engineer', label:'Structural engineer', rate:750 },
+  ]},
+  { id:'roofing', name:'Roofing & Scaffolding', items:[
+    { id:'new-roof-m2', label:'New roof per m²', rate:200, note:'Includes scaffolding' },
+    { id:'scaffolding', label:'Scaffolding', rate:null },
+    { id:'chimney-flashing', label:'Chimney flashing', rate:null },
+  ]},
+  { id:'plastering', name:'Plastering', items:[
+    { id:'skimming-room', label:'Skimming per room', rate:null },
+    { id:'skimming-m2', label:'Skimming per m²', rate:15.5 },
+    { id:'boarding-m2', label:'Boarding per m²', rate:null },
+    { id:'boarding-ceiling', label:'Boarding ceiling', rate:null },
+  ]},
+  { id:'joinery', name:'Joinery', items:[
+    { id:'kitchen-fit-only', label:'Kitchen fit only', rate:750, note:'2.5 days labour' },
+    { id:'skirting-m2', label:'Skirting per m²', rate:22 },
+    { id:'fire-door-fit', label:'Fire door fit only', rate:null },
+    { id:'fire-door-supply', label:'Fire door supply only', rate:null },
+    { id:'standard-door-supply', label:'Standard door supply only', rate:null },
+    { id:'standard-door-fit', label:'Standard door fit only', rate:null },
+    { id:'ironmongery', label:'Ironmongery', rate:null },
+    { id:'stud-walls', label:'Stud walls', rate:null },
+    { id:'roof-rafters', label:'Roof rafters', rate:null },
+    { id:'stairs-internal', label:'Stairs internal', rate:null },
+  ]},
+  { id:'windows-doors', name:'Windows & Doors (all supply and fit)', items:[
+    { id:'small-window', label:'Small window', rate:null },
+    { id:'large-window', label:'Large window', rate:null },
+    { id:'bifold-doors', label:'Bi-folding doors', rate:2200 },
+    { id:'upvc-door', label:'uPVC door', rate:650 },
+    { id:'french-door', label:'French door', rate:900 },
+    { id:'sash-window', label:'Sash window', rate:null },
+  ]},
+  { id:'electrics', name:'Electrics', items:[
+    { id:'full-rewire', label:'Full rewire', rate:null, note:'Includes materials' },
+    { id:'consumer-unit', label:'New consumer unit', rate:null },
+    { id:'emergency-lighting', label:'Emergency lighting', rate:null },
+    { id:'automatic-lighting', label:'Automatic lighting', rate:null },
+    { id:'wired-fire-alarm', label:'Wired fire alarm', rate:null },
+    { id:'battery-fire-alarm', label:'Battery fire alarm', rate:null },
+    { id:'plug-socket', label:'Plug socket', rate:25 },
+    { id:'light-switch', label:'Light switch', rate:null },
+    { id:'ip-rated-pendant', label:'IP rated pendant', rate:55 },
+    { id:'fire-alarm-system', label:'Fire alarm system', rate:null },
+    { id:'cctv-cameras', label:'CCTV cameras', rate:null },
+    { id:'eicr-test', label:'EICR test', rate:null },
+  ]},
+  { id:'plumbing', name:'Plumbing', items:[
+    { id:'full-replumb', label:'Full replumb', rate:11250, note:'New boiler, all radiators, TRVs, lock shield, inhibitor' },
+    { id:'plumber-hourly', label:'Hourly rate for plumber', rate:60 },
+    { id:'bathroom-fit', label:'Bathroom fit', rate:null },
+    { id:'boiler-supply-fit', label:'Boiler supply & fit', rate:3300 },
+    { id:'guttering', label:'Guttering', rate:null },
+    { id:'manhole-installation', label:'New manhole installation', rate:null },
+    { id:'kitchen-fit', label:'Kitchen fit', rate:null },
+    { id:'gas-safety-cert', label:'Gas safety cert', rate:105 },
+    { id:'radiators', label:'Radiators', rate:null },
+    { id:'boiler-relocation', label:'Boiler relocation', rate:null },
+  ]},
+  { id:'flooring', name:'Flooring & Tiling', items:[
+    { id:'laminate-m2', label:'Laminate per m²', rate:null },
+    { id:'vinyl-m2', label:'Vinyl per m²', rate:null },
+    { id:'grouting-m2', label:'Grouting per m²', rate:null },
+    { id:'herringbone-m2', label:'Herringbone flooring per m²', rate:null },
+    { id:'aqua-panels', label:'Aqua panels', rate:null },
+    { id:'tiling-m2', label:'Tiling per m²', rate:84.5, note:'Tiles incl.' },
+    { id:'carpet-m2', label:'Carpet per m²', rate:null },
+  ]},
+  { id:'bathroom-kitchen-supply', name:'Bathroom & Kitchen Supply (supply only)', items:[
+    { id:'shower-tray', label:'Shower tray', rate:380 },
+    { id:'shower-enclosure', label:'Shower enclosure', rate:150 },
+    { id:'toilet', label:'Toilet', rate:80 },
+    { id:'sink-basin', label:'Sink basin', rate:50 },
+    { id:'basin-taps', label:'Basin taps', rate:30 },
+    { id:'bathroom-supply-only', label:'Bathroom supply only', rate:null },
+    { id:'kitchen-supply-only', label:'Kitchen supply only', rate:null },
+    { id:'grouting-m2', label:'Grouting per m²', rate:20 },
+    { id:'tiling-m2', label:'Tiling per m²', rate:null },
+  ]},
+  { id:'painting', name:'Painting & Decorating', items:[
+    { id:'mist-coat-room', label:'Mist coat per room', rate:null },
+    { id:'paint-standard-m2', label:'Paint (standard white) per m²', rate:15, note:'2 coat mist + 1 coat paint' },
+    { id:'full-room-paint', label:'Full room paint per room (standard white)', rate:null },
+    { id:'wallpaper-m2', label:'Wallpaper per m²', rate:null },
+    { id:'feature-wall', label:'Feature wall', rate:null },
+    { id:'sanding-patching-m2', label:'Sanding & patching per m²', rate:28 },
+  ]},
+  { id:'garden', name:'Garden & Landscaping', items:[
+    { id:'garden-clear', label:'Garden clear', rate:null },
+    { id:'new-lawn-m2', label:'New lawn per m²', rate:null },
+    { id:'slabbing-paving-m2', label:'Slabbing/paving per m²', rate:null },
+    { id:'patio-m2', label:'Patio per m²', rate:null },
+    { id:'decking-m2', label:'Decking per m²', rate:null },
+  ]},
+];
+
+const QUICK_TRADES = [
+  { id:'electrics', label:'Electrics' },
+  { id:'plumbing', label:'Plumbing' },
+  { id:'bathroom', label:'Bathroom' },
+  { id:'kitchen', label:'Kitchen' },
+  { id:'plastering', label:'Plastering' },
+  { id:'painting', label:'Painting & decorating' },
+  { id:'flooring', label:'Flooring & tiling' },
+  { id:'roofing', label:'Roofing' },
+  { id:'windows-doors', label:'Windows & doors' },
+  { id:'masonry', label:'Masonry/structural' },
+  { id:'garden', label:'Garden & landscaping' },
+  { id:'demolition', label:'Demolition/strip-out' },
+];
+
+let sbClient=null, currentSession=null, currentPlan=null;
+let currentMode='detailed', currentVatRate=20;
+let savedEstimates=[], editingId=null;
+
+function fmtGBP(v){ return '£'+Math.round(v||0).toLocaleString(); }
+function fmtGuidePrice(rate){
+  if(rate==null)return '';
+  const hasDecimal = rate % 1 !== 0;
+  return '£'+rate.toLocaleString('en-GB', hasDecimal ? {minimumFractionDigits:2,maximumFractionDigits:2} : {});
+}
+function fmtDate(iso){
+  const d=new Date(iso);
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+function escapeHtml(s){
+  const div=document.createElement('div');
+  div.textContent=s;
+  return div.innerHTML;
+}
+
+async function logout(){
+  await sbClient.auth.signOut();
+  window.location.href='/';
+}
+
+async function upgradeNow(){
+  if(!currentSession)return;
+  const btn=document.getElementById('upgrade-btn');
+  const original=btn.textContent;
+  btn.disabled=true;btn.textContent='Redirecting…';
+  try{
+    const res=await fetch('/api/create-checkout-session',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
+    window.location.href=body.url;
+  }catch(e){
+    alert('Could not start checkout: '+e.message);
+    btn.disabled=false;btn.textContent=original;
+  }
+}
+
+function updateTopbar(){
+  const loggedIn=!!currentSession;
+  const authLink=document.getElementById('auth-link');
+  if(loggedIn){
+    authLink.textContent='Log out';
+    authLink.href='#';
+    authLink.onclick=function(e){e.preventDefault();logout();};
+  }else{
+    authLink.textContent='Log in';
+    authLink.href='/login.html';
+    authLink.onclick=null;
+  }
+  const subLink=document.getElementById('subscribe-link');
+  if(loggedIn&&currentPlan==='free'){
+    subLink.style.display='';
+    subLink.onclick=function(e){e.preventDefault();upgradeNow();};
+  }else{
+    subLink.style.display='none';
+    subLink.onclick=null;
+  }
+}
+
+function showState(state){
+  ['loading','loggedout','locked','board'].forEach(s=>{
+    document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
+  });
+}
+
+// ---------------------------------------------------------------------
+// Build the static row/section markup once. Guide rates are placeholder
+// text only — never a value attribute — so they vanish on typing and are
+// never part of what gets read/saved.
+// ---------------------------------------------------------------------
+function buildDetailedPanel(){
+  const container=document.getElementById('rf-sections');
+  container.innerHTML = REFURB_SECTIONS.map((s,i)=>`
+    <details class="card refurb-section"${i===0?' open':''}>
+      <summary>
+        <span class="refurb-section-name">${escapeHtml(s.name)}</span>
+        <span class="refurb-section-right">
+          <span class="refurb-section-subtotal" id="ds-${s.id}-subtotal">£0</span>
+          <span class="refurb-chevron"></span>
+        </span>
+      </summary>
+      <div class="refurb-section-body">
+        ${s.items.map(it=>`
+          <div class="refurb-row">
+            <div>
+              <span class="refurb-item-name">${escapeHtml(it.label)}</span>
+              ${it.note?`<span class="refurb-item-note">${escapeHtml(it.note)}</span>`:''}
+            </div>
+            <input type="number" placeholder="${fmtGuidePrice(it.rate)}" id="di-${s.id}-${it.id}-rate" oninput="recalcSummary()"/>
+            <input type="number" id="di-${s.id}-${it.id}-qty" oninput="recalcSummary()"/>
+            <span class="refurb-row-total" id="di-${s.id}-${it.id}-total">£0</span>
+          </div>
+        `).join('')}
+      </div>
+    </details>
+  `).join('');
+}
+
+function buildQuickPanel(){
+  const container=document.getElementById('rf-quick-rows');
+  container.innerHTML = QUICK_TRADES.map(t=>`
+    <div class="refurb-quick-row">
+      <label for="qi-${t.id}">${escapeHtml(t.label)}</label>
+      <input type="number" id="qi-${t.id}" placeholder="£0" oninput="recalcSummary()"/>
+    </div>
+  `).join('');
+}
+
+function resetFormFields(){
+  REFURB_SECTIONS.forEach(s=>s.items.forEach(it=>{
+    document.getElementById(`di-${s.id}-${it.id}-rate`).value='';
+    document.getElementById(`di-${s.id}-${it.id}-qty`).value='';
+  }));
+  QUICK_TRADES.forEach(t=>{ document.getElementById(`qi-${t.id}`).value=''; });
+}
+
+function switchMode(mode, skipRecalc){
+  currentMode=mode;
+  document.getElementById('mode-btn-detailed').classList.toggle('active', mode==='detailed');
+  document.getElementById('mode-btn-quick').classList.toggle('active', mode==='quick');
+  document.getElementById('rf-detailed-panel').style.display = mode==='detailed' ? '' : 'none';
+  document.getElementById('rf-quick-panel').style.display = mode==='quick' ? '' : 'none';
+  if(!skipRecalc)recalcSummary();
+}
+
+function switchVat(rate, skipRecalc){
+  currentVatRate=rate;
+  document.getElementById('vat-btn-0').classList.toggle('active', rate===0);
+  document.getElementById('vat-btn-20').classList.toggle('active', rate===20);
+  document.getElementById('vat-btn-5').classList.toggle('active', rate===5);
+  if(!skipRecalc)recalcSummary();
+}
+
+function onContingencyToggle(){
+  const on=document.getElementById('rf-cont-on').checked;
+  document.getElementById('rf-cont-pct-wrap').classList.toggle('disabled', !on);
+  recalcSummary();
+}
+
+// ---------------------------------------------------------------------
+// Pure arithmetic — takes plain data, never touches the DOM. Used both for
+// the live form (fed from readDetailedLineItems/readQuickLineItems) and
+// for showing a grand total against each saved estimate in the list.
+// ---------------------------------------------------------------------
+function computeDetailedSubtotal(lineItems){
+  let total=0; const sectionTotals={};
+  REFURB_SECTIONS.forEach(s=>{
+    let sTotal=0;
+    s.items.forEach(it=>{
+      const li=lineItems[`${s.id}.${it.id}`];
+      const rate=li&&li.rate!=null?li.rate:0;
+      const qty=li&&li.qty!=null?li.qty:0;
+      sTotal += rate*qty;
+    });
+    sectionTotals[s.id]=sTotal;
+    total+=sTotal;
+  });
+  return { total, sectionTotals };
+}
+
+function computeQuickSubtotal(lineItems){
+  let total=0;
+  QUICK_TRADES.forEach(t=>{ total += (lineItems[t.id]||0); });
+  return total;
+}
+
+function computeTotals(mode, lineItems, contingencyEnabled, contingencyPct, vatRate){
+  const subtotal = mode==='quick' ? computeQuickSubtotal(lineItems) : computeDetailedSubtotal(lineItems).total;
+  const contingencyAmt = contingencyEnabled ? subtotal*(contingencyPct/100) : 0;
+  const vatAmt = (subtotal+contingencyAmt)*(vatRate/100);
+  const grandTotal = subtotal+contingencyAmt+vatAmt;
+  return { subtotal, contingencyAmt, vatAmt, grandTotal };
+}
+
+function readDetailedLineItems(){
+  const items={};
+  REFURB_SECTIONS.forEach(s=>s.items.forEach(it=>{
+    const rateEl=document.getElementById(`di-${s.id}-${it.id}-rate`);
+    const qtyEl=document.getElementById(`di-${s.id}-${it.id}-qty`);
+    const rate = rateEl.value!=='' && Number.isFinite(parseFloat(rateEl.value)) ? parseFloat(rateEl.value) : null;
+    const qty = qtyEl.value!=='' && Number.isFinite(parseFloat(qtyEl.value)) ? parseFloat(qtyEl.value) : null;
+    if(rate!=null || qty!=null) items[`${s.id}.${it.id}`] = { rate, qty };
+  }));
+  return items;
+}
+
+function readQuickLineItems(){
+  const items={};
+  QUICK_TRADES.forEach(t=>{
+    const el=document.getElementById(`qi-${t.id}`);
+    const v = el.value!=='' && Number.isFinite(parseFloat(el.value)) ? parseFloat(el.value) : null;
+    if(v!=null && v!==0) items[t.id]=v;
+  });
+  return items;
+}
+
+function recalcSummary(){
+  const lineItems = currentMode==='detailed' ? readDetailedLineItems() : readQuickLineItems();
+
+  if(currentMode==='detailed'){
+    const { sectionTotals } = computeDetailedSubtotal(lineItems);
+    REFURB_SECTIONS.forEach(s=>{
+      document.getElementById(`ds-${s.id}-subtotal`).textContent = fmtGBP(sectionTotals[s.id]);
+      s.items.forEach(it=>{
+        const li=lineItems[`${s.id}.${it.id}`];
+        const rate=li&&li.rate!=null?li.rate:0, qty=li&&li.qty!=null?li.qty:0;
+        document.getElementById(`di-${s.id}-${it.id}-total`).textContent = fmtGBP(rate*qty);
+      });
+    });
+  }
+
+  const contingencyEnabled = document.getElementById('rf-cont-on').checked;
+  const contingencyPct = parseFloat(document.getElementById('rf-cont-pct').value) || 0;
+  const totals = computeTotals(currentMode, lineItems, contingencyEnabled, contingencyPct, currentVatRate);
+
+  document.getElementById('rf-subtotal').textContent = fmtGBP(totals.subtotal);
+  document.getElementById('rf-contingency-amt').textContent = fmtGBP(totals.contingencyAmt);
+  document.getElementById('rf-vat-amt').textContent = fmtGBP(totals.vatAmt);
+  document.getElementById('rf-grand-total').textContent = fmtGBP(totals.grandTotal);
+}
+
+// ---------------------------------------------------------------------
+// Save / load / delete
+// ---------------------------------------------------------------------
+function newEstimate(){
+  editingId=null;
+  document.getElementById('rf-name').value='';
+  resetFormFields();
+  switchMode('detailed', true);
+  document.getElementById('rf-cont-on').checked=true;
+  document.getElementById('rf-cont-pct').value=10;
+  onContingencyToggle();
+  switchVat(20, true);
+  recalcSummary();
+  document.getElementById('rf-delete-btn').style.display='none';
+  document.getElementById('rf-save-btn').textContent='Save estimate';
+  const msg=document.getElementById('rf-msg');
+  msg.textContent='';msg.className='save-msg';
+  renderSavedList();
+}
+
+function loadEstimate(id){
+  const est=savedEstimates.find(e=>e.id===id);
+  if(!est)return;
+  editingId=id;
+
+  document.getElementById('rf-name').value=est.name;
+  resetFormFields();
+  switchMode(est.mode, true);
+
+  if(est.mode==='detailed'){
+    Object.keys(est.line_items).forEach(key=>{
+      const [sid,iid]=key.split('.');
+      const li=est.line_items[key];
+      const rateEl=document.getElementById(`di-${sid}-${iid}-rate`);
+      const qtyEl=document.getElementById(`di-${sid}-${iid}-qty`);
+      if(!rateEl||!qtyEl)return;
+      if(li.rate!=null)rateEl.value=li.rate;
+      if(li.qty!=null)qtyEl.value=li.qty;
+    });
+  }else{
+    Object.keys(est.line_items).forEach(tid=>{
+      const el=document.getElementById(`qi-${tid}`);
+      if(el)el.value=est.line_items[tid];
+    });
+  }
+
+  document.getElementById('rf-cont-on').checked=est.contingency_enabled;
+  document.getElementById('rf-cont-pct').value=est.contingency_pct;
+  onContingencyToggle();
+  switchVat(est.vat_rate, true);
+  recalcSummary();
+
+  document.getElementById('rf-delete-btn').style.display='';
+  document.getElementById('rf-save-btn').textContent='Update estimate';
+  const msg=document.getElementById('rf-msg');
+  msg.textContent='';msg.className='save-msg';
+  renderSavedList();
+  window.scrollTo({ top: document.getElementById('rf-name').getBoundingClientRect().top + window.scrollY - 90, behavior:'smooth' });
+}
+
+async function loadEstimates(){
+  const listEl=document.getElementById('rf-saved-list');
+  try{
+    const res=await fetch('/api/refurb-estimates',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not load your saved estimates.');
+    savedEstimates=d.estimates;
+    renderSavedList();
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+function renderSavedList(){
+  const listEl=document.getElementById('rf-saved-list');
+  if(savedEstimates.length===0){
+    listEl.innerHTML='<p class="hint">No saved estimates yet — build one below and save it.</p>';
+    return;
+  }
+  listEl.innerHTML=savedEstimates.map(e=>{
+    const totals=computeTotals(e.mode, e.line_items, e.contingency_enabled, e.contingency_pct, e.vat_rate);
+    return `<div class="saved-item${e.id===editingId?' active':''}" onclick="loadEstimate('${e.id}')">
+      <div class="saved-info">
+        <span class="saved-name">${escapeHtml(e.name)}<span class="mode-badge">${e.mode==='quick'?'Quick':'Detailed'}</span></span>
+        <span class="saved-detail">Grand total ${fmtGBP(totals.grandTotal)} · ${fmtDate(e.created_at)}</span>
+      </div>
+      <span class="saved-chevron">›</span>
+    </div>`;
+  }).join('');
+}
+
+async function saveEstimate(){
+  const msg=document.getElementById('rf-msg');
+  const btn=document.getElementById('rf-save-btn');
+  msg.className='save-msg';msg.textContent='';
+
+  const name=document.getElementById('rf-name').value.trim();
+  if(!name){
+    msg.textContent='Enter a name for this estimate.';msg.className='save-msg error';
+    return;
+  }
+
+  const payload={
+    name,
+    mode: currentMode,
+    line_items: currentMode==='detailed' ? readDetailedLineItems() : readQuickLineItems(),
+    contingency_enabled: document.getElementById('rf-cont-on').checked,
+    contingency_pct: parseFloat(document.getElementById('rf-cont-pct').value) || 0,
+    vat_rate: currentVatRate,
+  };
+
+  const isUpdate=!!editingId;
+  btn.disabled=true;btn.textContent=isUpdate?'Saving...':'Saving...';
+  try{
+    const res=await fetch(isUpdate?('/api/refurb-estimates/'+editingId):'/api/refurb-estimates',{
+      method: isUpdate?'PUT':'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not save this estimate.');
+
+    editingId=d.id;
+    msg.textContent='Estimate saved.';msg.className='save-msg success';
+    document.getElementById('rf-delete-btn').style.display='';
+    document.getElementById('rf-save-btn').textContent='Update estimate';
+    await loadEstimates();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;
+}
+
+async function deleteEstimate(){
+  if(!editingId)return;
+  if(!confirm('Delete this saved estimate?'))return;
+  try{
+    const res=await fetch('/api/refurb-estimates/'+editingId,{
+      method:'DELETE',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not delete this estimate.');
+    newEstimate();
+    await loadEstimates();
+  }catch(e){
+    alert('Could not delete estimate: '+e.message);
+  }
+}
+
+async function init(){
+  const auth=await requireAuth();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  try{
+    const profRes=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const prof=await profRes.json();
+    currentPlan=prof.plan==='paid'?'paid':'free';
+  }catch(e){
+    currentPlan='free';
+  }
+  updateTopbar();
+
+  if(currentPlan!=='paid'){
+    showState('locked');
+    return;
+  }
+
+  buildDetailedPanel();
+  buildQuickPanel();
+  switchMode('detailed', true);
+  switchVat(20, true);
+  recalcSummary();
+
+  showState('board');
+  loadEstimates();
+
+  sbClient.auth.onAuthStateChange((_event, session)=>{
+    currentSession=session;
+    if(!currentSession){window.location.href='/';return;}
+    updateTopbar();
+  });
+}
+
+init();
+</script>
+</body>
+</html>
