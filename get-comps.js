@@ -1,17 +1,18 @@
 // Given a UK postcode and a Land Registry property type (D/S/T/F/O), returns
-// an honest sold-price valuation: every sale in `sold_prices` at a postcode
-// within RADIUS_MILES of the subject postcode, of the matching property
-// type, sold within the last COMPARABLE_MONTHS months, excluding sub-£20k
-// sales (non-market: gifts, part-shares, repossessions at a discount, etc.).
+// an honest sold-price valuation: every sale in `sold_prices` within
+// RADIUS_MILES of the subject postcode, of the matching property type, sold
+// within the last COMPARABLE_MONTHS months, excluding sub-£20k sales
+// (non-market: gifts, part-shares, repossessions at a discount, etc.).
 //
-// Uses nearbyPostcodes (nearby-postcodes.js) to get the candidate postcode
-// list, then queries sold_prices for that list (property type and minimum
-// price filtered at the query itself, so `comps` only ever contains rows
-// that count toward the valuation). Each comp is then enriched with
-// floorAreaSqM and pricePerSqM via epc-floor-area.js — see that file for the
-// EPC matching/caching approach. Matching is exact house-number only; where
-// no EPC match is found, floorAreaSqM and pricePerSqM are null and
-// floorAreaMatched is false.
+// The subject postcode is resolved live via postcodes.io (postcodes-io.js)
+// — no `postcodes` table (it's been dropped from the schema entirely).
+// sold_prices carries its own lat/lng (backfilled via
+// scripts/backfill-sold-prices-lat-lng.js), so the candidate set is a
+// single bounding-box-pre-filtered, paginated query directly against
+// sold_prices, with an exact haversine check applied to each page — same
+// two-stage approach (cheap box filter, then precise distance check) the
+// old postcode-table lookup used, just applied to sold_prices directly
+// instead of joining through a list of nearby postcode strings.
 //
 // Headline figure is the median price (not mean) — resistant to a single
 // unusually cheap/expensive sale skewing the estimate. low/high is the
@@ -34,26 +35,18 @@
 // 12 months — every comp is "recent" by that definition, so the downgrade
 // could never fire. See the comment there for when to re-enable it.
 //
-// Does not create its own Supabase client for the sold_prices/postcodes
-// lookups — pass one in, same convention as nearby-postcodes.js. The EPC
-// floor-area cache write needs a service-role client, so epc-floor-area.js
-// creates its own internally (see that file).
+// Does not create its own Supabase client for the sold_prices lookup —
+// pass one in. The EPC floor-area cache write needs a service-role client,
+// so epc-floor-area.js creates its own internally (see that file).
 //
 // Usage:
 //   const { getComps } = require('./get-comps');
 //   const result = await getComps(supabase, 'SW1A 1AA', 'T');
-//   // -> {
-//   //   comps: [{ address, price, date, distanceMiles, floorAreaSqM, pricePerSqM, floorAreaMatched }, ...],
-//   //   count, medianPrice, low, high, dateRange: { start, end } | null,
-//   //   medianPricePerSqM, floorAreaMatchedCount,
-//   //   pricePerSqMTiers: { conservative, refurbished, bestInArea } | null
-//   //     (50th/75th/90th percentile of the same floorAreaMatched £/sqm
-//   //     comps — conservative equals medianPricePerSqM; null if
-//   //     floorAreaMatchedCount is 0),
-//   //   confidence: 'high'|'medium'|'low'
-//   // }
+//   // -> { comps, count, medianPrice, low, high, dateRange,
+//   //      medianPricePerSqM, floorAreaMatchedCount, pricePerSqMTiers,
+//   //      confidence }
 
-const { nearbyPostcodes } = require('./nearby-postcodes');
+const { lookupPostcode } = require('./postcodes-io');
 const { enrichCompsWithFloorArea } = require('./epc-floor-area');
 
 const RADIUS_MILES = 0.5;
@@ -68,7 +61,7 @@ const RECENT_SHARE_THRESHOLD = 0.4; // below this share of recent comps, downgra
 const HIGH_CONFIDENCE_COUNT = 15;
 const MEDIUM_CONFIDENCE_COUNT = 5;
 const PAGE_SIZE = 1000; // PostgREST's default row cap per request; paginate past it
-const POSTCODE_BATCH_SIZE = 200; // keep the .in() filter list (and resulting query URL) a sane size
+const EARTH_RADIUS_MILES = 3958.8;
 
 class ComparablesLookupError extends Error {
   constructor(message, code) {
@@ -78,16 +71,22 @@ class ComparablesLookupError extends Error {
   }
 }
 
-function formatAddress(row) {
-  return [row.saon, row.paon, row.street, row.town].filter(Boolean).join(', ');
+function toRadians(deg) {
+  return (deg * Math.PI) / 180;
 }
 
-function chunk(array, size) {
-  const chunks = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
+function haversineMiles(lat1, lng1, lat2, lng2) {
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_MILES * c;
+}
+
+function formatAddress(row) {
+  return [row.saon, row.paon, row.street, row.town].filter(Boolean).join(', ');
 }
 
 // Linear-interpolation percentile (R type 7 / NumPy default) over an
@@ -117,14 +116,13 @@ function computeConfidence(comps) {
   else if (count >= MEDIUM_CONFIDENCE_COUNT) level = 'medium';
   else level = 'low';
 
-  // Recency downgrade — DISABLED. sold_prices is currently only ever
-  // ingested with WINDOW_MONTHS = 12 (scripts/ingest-sold-prices.js), so
-  // every comp already falls within RECENT_MONTHS and recentShare is
-  // always ~1 — this branch can never fire as things stand, so it's dead
-  // code dressed up as a real signal. Re-enable once the ingest window is
-  // widened to 24+ months (bump WINDOW_MONTHS there and re-run ingestion),
-  // at which point "recent" vs. "rest of the window" becomes a real
-  // distinction again.
+  // Recency downgrade — DISABLED, same as get-comps.js. sold_prices is
+  // currently only ever ingested with WINDOW_MONTHS = 12
+  // (scripts/ingest-sold-prices.js), so every comp already falls within
+  // RECENT_MONTHS and recentShare is always ~1 — this branch can never
+  // fire as things stand. Re-enable once the ingest window is widened to
+  // 24+ months, at which point "recent" vs. "rest of the window" becomes a
+  // real distinction again.
   //
   // const recentCutoff = new Date();
   // recentCutoff.setMonth(recentCutoff.getMonth() - RECENT_MONTHS);
@@ -166,49 +164,75 @@ function emptyResult() {
 async function getComps(supabase, postcode, propertyType) {
   validatePropertyType(propertyType);
 
-  const nearby = await nearbyPostcodes(supabase, postcode, RADIUS_MILES);
-  if (nearby.length === 0) return emptyResult();
+  // Resolves the SUBJECT postcode's coordinates live — no `postcodes`
+  // table lookup. Throws PostcodeLookupError (postcodes-io.js) on an
+  // invalid/unrecognised postcode or an unreachable postcodes.io, same
+  // error class server.js's /api/comps route already catches.
+  const { lat: subjectLat, lng: subjectLng } = await lookupPostcode(postcode);
 
-  const distanceByPostcode = new Map(nearby.map((p) => [p.postcode, p.distanceMiles]));
+  // Bounding box in degrees, sized generously enough to fully contain the
+  // radius circle, around the live-resolved subject point.
+  const milesPerDegreeLat = (EARTH_RADIUS_MILES * Math.PI) / 180; // ~69.09
+  const deltaLat = RADIUS_MILES / milesPerDegreeLat;
+  const milesPerDegreeLng = milesPerDegreeLat * Math.max(Math.cos(toRadians(subjectLat)), 1e-6);
+  const deltaLng = RADIUS_MILES / milesPerDegreeLng;
+
+  const minLat = subjectLat - deltaLat;
+  const maxLat = subjectLat + deltaLat;
+  const minLng = subjectLng - deltaLng;
+  const maxLng = subjectLng + deltaLng;
 
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - COMPARABLE_MONTHS);
   const cutoffDate = cutoff.toISOString().slice(0, 10);
 
+  // One paginated query directly against sold_prices, combining the
+  // bounding-box pre-filter with the same property_type/price/date filters
+  // get-comps.js already applied in its .in('postcode', batch) step. No
+  // postcode list, no batching — the whole two-step (nearby postcodes,
+  // then IN-filter sold_prices) collapses into this single query shape.
   const comps = [];
   const epcItems = [];
-  for (const postcodeBatch of chunk(nearby.map((p) => p.postcode), POSTCODE_BATCH_SIZE)) {
-    let from = 0;
-    for (;;) {
-      const { data, error } = await supabase
-        .from('sold_prices')
-        .select('price, date, postcode, paon, saon, street, town')
-        .in('postcode', postcodeBatch)
-        .eq('property_type', propertyType)
-        .gte('price', MIN_SALE_PRICE)
-        .gte('date', cutoffDate)
-        .order('date', { ascending: false })
-        .range(from, from + PAGE_SIZE - 1);
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from('sold_prices')
+      .select('price, date, postcode, paon, saon, street, town, lat, lng')
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .gte('lat', minLat)
+      .lte('lat', maxLat)
+      .gte('lng', minLng)
+      .lte('lng', maxLng)
+      .eq('property_type', propertyType)
+      .gte('price', MIN_SALE_PRICE)
+      .gte('date', cutoffDate)
+      .order('date', { ascending: false }) // stable order required for .range() paging to not skip/repeat rows
+      .range(from, from + PAGE_SIZE - 1);
 
-      if (error) {
-        throw new ComparablesLookupError(`Comps query failed: ${error.message}`, 'query_failed');
-      }
-      if (!data || data.length === 0) break;
-
-      for (const row of data) {
-        const comp = {
-          address: formatAddress(row),
-          price: row.price,
-          date: row.date,
-          distanceMiles: distanceByPostcode.get(row.postcode),
-        };
-        comps.push(comp);
-        epcItems.push({ comp, postcode: row.postcode, paon: row.paon });
-      }
-
-      if (data.length < PAGE_SIZE) break;
-      from += PAGE_SIZE;
+    if (error) {
+      throw new ComparablesLookupError(`Comps query failed: ${error.message}`, 'query_failed');
     }
+    if (!data || data.length === 0) break;
+
+    for (const row of data) {
+      // Bounding box over-approximates the circle (up to ~27% extra area
+      // at the corners), so this exact check still has real work to do.
+      const distanceMiles = haversineMiles(subjectLat, subjectLng, row.lat, row.lng);
+      if (distanceMiles > RADIUS_MILES) continue;
+
+      const comp = {
+        address: formatAddress(row),
+        price: row.price,
+        date: row.date,
+        distanceMiles,
+      };
+      comps.push(comp);
+      epcItems.push({ comp, postcode: row.postcode, paon: row.paon });
+    }
+
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
 
   if (comps.length === 0) return emptyResult();

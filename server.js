@@ -6,7 +6,7 @@ const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { getComps, ComparablesLookupError } = require('./get-comps');
-const { PostcodeLookupError } = require('./nearby-postcodes');
+const { PostcodeLookupError } = require('./postcodes-io');
 
 // Service-role client used ONLY by the Stripe webhook handler below, to flip
 // a user's plan when Stripe (not the user) is the caller. Never exposed to
@@ -756,8 +756,8 @@ app.delete('/api/refurb-estimates/:id', async (req, res) => {
 const COMPS_PROPERTY_TYPES = ['D', 'S', 'T', 'F', 'O'];
 
 // Accepts any postcode format (no space, extra spaces, lower case) and
-// converts to the canonical uppercase/single-space format the postcodes
-// table uses. The inward code (after the space) is always 3 characters in
+// converts to the canonical uppercase/single-space format postcodes.io
+// expects. The inward code (after the space) is always 3 characters in
 // UK postcodes, so the space goes there if it's missing.
 function normalisePostcodeInput(raw) {
   const stripped = raw.replace(/\s+/g, '').toUpperCase();

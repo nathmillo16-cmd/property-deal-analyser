@@ -39,8 +39,8 @@
 //   node scripts/ingest-sold-prices.js <path-to-yearly-csv>
 //
 // Requires SUPABASE_URL and SUPABASE_SECRET_KEY (service role) in .env —
-// same as scripts/ingest-postcodes.js, since sold_prices' RLS policy only
-// grants SELECT to normal roles.
+// same as scripts/backfill-sold-prices-lat-lng.js, since sold_prices' RLS
+// policy only grants SELECT to normal roles.
 //
 // Safe to re-run: upserts are keyed on transaction_id, so re-running (e.g.
 // after a failed batch, or over a freshly downloaded file covering the
