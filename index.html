@@ -102,6 +102,12 @@
 .ov{font-family:var(--font-body);font-size:26px;font-weight:700;margin:0 0 3px;color:var(--accent-2);font-variant-numeric:tabular-nums}
 .on{font-size:11px;color:var(--muted);margin:0}
 
+/* same three-tier good/warn/bad palette as .mv.good/.warn/.bad and
+   .verdict-yes/.verdict-no above — reused, not a new colour */
+.crime-band.low{color:var(--accent-2)}
+.crime-band.medium{color:#E8C468}
+.crime-band.high{color:#E8746B}
+
 .analyse-btn{
   width:100%;padding:13px;background:var(--accent);color:var(--accent-ink);
   border:none;border-radius:var(--radius);font-size:14px;font-weight:700;
@@ -172,7 +178,7 @@
 <div class="shell" id="app">
   <div class="topbar">
     <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html" class="active">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a></div>
+    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html" class="active">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html">Letter Templates</a></div>
     <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
   </div>
   <p class="hint" id="upgrade-notice" style="display:none"></p>
@@ -543,6 +549,17 @@
         <p class="hint">Confidence reflects comp count, not recency, since all comps are from the last 12 months (our current data window).</p>
 
         <div class="section-gap">
+          <p class="sl">Crime</p>
+          <div class="ob">
+            <p class="ot">Crime rate</p>
+            <p class="ov" id="cp-crime-percentile">—</p>
+            <p class="on" id="cp-crime-summary"></p>
+            <p class="on" id="cp-crime-detail"></p>
+          </div>
+          <p class="hint">Per 1,000 residents for the wider MSOA area (~7,500 people), latest available month. Town centres and retail zones often read higher, since recorded crime concentrates where people gather, not where they live. Treat as an area indicator, not a street-level figure.</p>
+        </div>
+
+        <div class="section-gap">
           <p class="sl">GDV from floor area</p>
           <div class="f"><label>Post-refurb floor area (sqm)</label><input type="number" id="cp-floor-area" oninput="renderGDVTiers()"/></div>
 
@@ -722,6 +739,69 @@ const GDV_THIN_EVIDENCE_THRESHOLD=8;
 const GDV_TIERS=['conservative','refurbished','bestInArea'];
 const GDV_APPLY_TARGETS={btl:{field:'b-emv',label:'BTL',markStale:markStaleBTL},hmo:{field:'h-emv',label:'HMO',markStale:markStaleHMO},sa:{field:'sa-emv',label:'SA',markStale:markStaleSA},flip:{field:'fl-sv',label:'Flip',markStale:markStaleFlip}};
 
+function ordinalSuffix(n){
+  const rem100=n%100;
+  if(rem100>=11&&rem100<=13)return n+'th';
+  switch(n%10){
+    case 1:return n+'st';
+    case 2:return n+'nd';
+    case 3:return n+'rd';
+    default:return n+'th';
+  }
+}
+
+// Fired alongside runComps() (not awaited there) off the same postcode, so
+// it never blocks or gates the comps results. Never throws — a bad
+// postcode here is already surfaced by runComps()'s own error message
+// (same postcode, same failure), so this just leaves the crime box at its
+// neutral reset state rather than showing a second, duplicate error.
+//
+// Percentile is the headline (a band alone is too coarse — it labels a
+// moderately-high and a very-high area both "High"); band is kept as a
+// smaller secondary descriptor alongside rate and month.
+async function fetchCrimeRate(postcode){
+  const pctEl=document.getElementById('cp-crime-percentile');
+  const summaryEl=document.getElementById('cp-crime-summary');
+  const detailEl=document.getElementById('cp-crime-detail');
+  try{
+    const res=await fetch('/api/crime?postcode='+encodeURIComponent(postcode),{
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const d=await res.json();
+    if(!res.ok||!d.available){
+      pctEl.textContent='No data';pctEl.className='ov';
+      summaryEl.textContent=d.available===false?'No crime data for this area.':'';
+      detailEl.textContent='';
+      return;
+    }
+
+    const bandLabel=d.band?d.band.charAt(0).toUpperCase()+d.band.slice(1):'';
+    const monthLabel=d.data_month?new Date(d.data_month+'-01').toLocaleDateString('en-GB',{month:'long',year:'numeric'}):'';
+
+    if(d.percentile!=null){
+      const pctRounded=Math.round(d.percentile);
+      pctEl.textContent=ordinalSuffix(pctRounded)+' percentile';
+      summaryEl.textContent='Higher crime than '+pctRounded+'% of areas in England & Wales';
+    }else{
+      // Percentile not yet populated (e.g. compute-crime-benchmark.js
+      // hasn't been re-run against the new column yet) — fall back to the
+      // band rather than showing a broken "NaNth percentile".
+      pctEl.textContent=bandLabel||'—';
+      summaryEl.textContent='';
+    }
+    pctEl.className='ov crime-band '+(d.band||'');
+
+    const detailParts=[d.rate_per_1000.toFixed(1)+' per 1,000'];
+    if(bandLabel)detailParts.push(bandLabel);
+    if(monthLabel)detailParts.push(monthLabel);
+    detailEl.textContent=detailParts.join(' · ');
+  }catch(e){
+    pctEl.textContent='—';pctEl.className='ov';
+    summaryEl.textContent='';
+    detailEl.textContent='';
+  }
+}
+
 async function runComps(){
   const btn=document.getElementById('btn-run-comps');
   const msg=document.getElementById('comps-msg');
@@ -731,11 +811,17 @@ async function runComps(){
   msg.className='save-msg';msg.textContent='';
   ['cp-median','cp-range','cp-psqm','cp-n','cp-dates','cp-confidence'].forEach(id=>document.getElementById(id).textContent='—');
   document.getElementById('cp-count-note').textContent='';
+  document.getElementById('cp-crime-percentile').textContent='—';
+  document.getElementById('cp-crime-percentile').className='ov';
+  document.getElementById('cp-crime-summary').textContent='';
+  document.getElementById('cp-crime-detail').textContent='';
   lastCompsResult=null;
   renderGDVTiers();
 
   if(!currentSession){ msg.textContent='Log in to use Comparables.'; msg.className='save-msg error'; return; }
   if(!postcode){ msg.textContent='Enter a postcode.'; msg.className='save-msg error'; return; }
+
+  fetchCrimeRate(postcode);
 
   btn.disabled=true;btn.textContent='Searching…';
 

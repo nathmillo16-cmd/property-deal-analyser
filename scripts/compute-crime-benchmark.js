@@ -99,6 +99,22 @@ function percentile(sortedValues, p) {
   return sortedValues[lower] + (sortedValues[upper] - sortedValues[lower]) * weight;
 }
 
+// Inverse of percentile() above: percentile() finds the VALUE at a given
+// percentile (used for the low/high band thresholds below); this finds the
+// percentile RANK of a given value — what % of sortedValues are strictly
+// less than it. Binary search for the lower-bound insertion point (the
+// count of values < target), divided by n.
+function percentileRankOf(sortedValues, value) {
+  let lo = 0;
+  let hi = sortedValues.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sortedValues[mid] < value) lo = mid + 1;
+    else hi = mid;
+  }
+  return (lo / sortedValues.length) * 100;
+}
+
 function findLatestMonthDir(archiveRoot) {
   const entries = fs.readdirSync(archiveRoot, { withFileTypes: true })
     .filter((e) => e.isDirectory() && MONTH_DIR_PATTERN.test(e.name))
@@ -275,7 +291,8 @@ async function main() {
   const crimeRateRows = joined.map((r) => {
     const band = r.rate_per_1000 <= lowThreshold ? 'low' : r.rate_per_1000 <= highThreshold ? 'medium' : 'high';
     bandCounts[band]++;
-    return { ...r, band };
+    const percentileRank = percentileRankOf(sortedRates, r.rate_per_1000);
+    return { ...r, band, percentile: percentileRank };
   });
   console.log(`  Bands: low=${bandCounts.low.toLocaleString()}, medium=${bandCounts.medium.toLocaleString()}, high=${bandCounts.high.toLocaleString()}`);
 

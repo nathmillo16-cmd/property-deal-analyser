@@ -6,7 +6,7 @@ const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { getComps, ComparablesLookupError } = require('./get-comps');
-const { PostcodeLookupError } = require('./postcodes-io');
+const { PostcodeLookupError, lookupPostcode, reverseGeocodeMsoa } = require('./postcodes-io');
 
 // Service-role client used ONLY by the Stripe webhook handler below, to flip
 // a user's plan when Stripe (not the user) is the caller. Never exposed to
@@ -786,6 +786,68 @@ app.post('/api/comps', async (req, res) => {
   } catch (e) {
     if (e instanceof ComparablesLookupError || e instanceof PostcodeLookupError) {
       const clientCodes = ['invalid_property_type', 'invalid_postcode', 'postcode_not_found', 'postcode_no_coordinates', 'invalid_radius'];
+      return res.status(clientCodes.includes(e.code) ? 400 : 502).json({ error: e.message });
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Crime rate: resolves the subject postcode's MSOA via the same
+// postcodes.io lookup comps uses, then reads the precomputed benchmark
+// (msoa_crime_rate / crime_benchmark_meta — see db/013/014/015 and
+// scripts/compute-crime-benchmark.js). percentile is the primary signal
+// (national percentile rank by rate_per_1000 — a band alone is too coarse,
+// it labels a moderately-high and a very-high area both "High"); band is
+// kept as a secondary descriptor. Read-only against both tables, nothing
+// is written here. A postcode postcodes.io can't resolve at all is a real
+// error (400/502), same as comps; a TERMINATED postcode (real, retired —
+// has coordinates but no MSOA of its own) falls back to reverseGeocodeMsoa
+// (postcodes-io.js); an MSOA that simply isn't in the benchmark, or that
+// the fallback couldn't resolve either, is a clean { available: false },
+// not an error.
+app.get('/api/crime', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to see crime data.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock crime data.' });
+
+  const { postcode } = req.query;
+  if (typeof postcode !== 'string' || !postcode.trim()) {
+    return res.status(400).json({ error: 'Enter a postcode.' });
+  }
+
+  try {
+    const { lat, lng, msoaCode, terminated } = await lookupPostcode(normalisePostcodeInput(postcode));
+    // A terminated postcode has coordinates but no MSOA of its own (see
+    // postcodes-io.js) — fall back to the MSOA of the nearest live
+    // postcode rather than failing outright. If that also finds nothing,
+    // this degrades to the same clean { available: false } used below for
+    // "valid MSOA just isn't in the benchmark", not an error.
+    let resolvedMsoaCode = msoaCode;
+    if (!resolvedMsoaCode && terminated) {
+      resolvedMsoaCode = await reverseGeocodeMsoa(lat, lng);
+    }
+    if (!resolvedMsoaCode) return res.json({ available: false });
+
+    const { data, error } = await supabase
+      .from('msoa_crime_rate')
+      .select('rate_per_1000, band, percentile')
+      .eq('msoa_code', resolvedMsoaCode)
+      .maybeSingle();
+    if (error) return res.status(400).json({ error: error.message });
+    if (!data) return res.json({ available: false });
+
+    const { data: meta } = await supabase
+      .from('crime_benchmark_meta')
+      .select('data_month')
+      .eq('id', 1)
+      .maybeSingle();
+
+    res.json({ available: true, rate_per_1000: data.rate_per_1000, band: data.band, percentile: data.percentile, data_month: meta ? meta.data_month : null });
+  } catch (e) {
+    if (e instanceof PostcodeLookupError) {
+      const clientCodes = ['invalid_postcode', 'postcode_not_found'];
       return res.status(clientCodes.includes(e.code) ? 400 : 502).json({ error: e.message });
     }
     res.status(500).json({ error: e.message });
