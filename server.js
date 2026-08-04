@@ -927,7 +927,7 @@ app.get('/api/planning-constraints', async (req, res) => {
   }
 
   try {
-    const { lat, lng } = await lookupPostcode(normalisePostcodeInput(postcode));
+    const { lat, lng, adminDistrict } = await lookupPostcode(normalisePostcodeInput(postcode));
 
     const params = new URLSearchParams({ latitude: lat, longitude: lng, limit: '100' });
     Object.values(PLANNING_DATASETS).forEach((slug) => params.append('dataset', slug));
@@ -962,7 +962,7 @@ app.get('/api/planning-constraints', async (req, res) => {
     // scanning past the "none found" rows.
     constraints.sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0));
 
-    res.json({ available: true, constraints });
+    res.json({ available: true, constraints, councilName: adminDistrict });
   } catch (e) {
     if (e instanceof PostcodeLookupError) {
       const clientCodes = ['invalid_postcode', 'postcode_not_found'];

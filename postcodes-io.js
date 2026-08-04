@@ -95,7 +95,9 @@ async function lookupPostcode(postcode) {
     }
     const term = body && body.terminated;
     if (term && typeof term.latitude === 'number' && typeof term.longitude === 'number') {
-      return { lat: term.latitude, lng: term.longitude, msoaCode: null, terminated: true };
+      // The terminated object (see file header) has no admin_district of
+      // its own — null here, not a lookup, so callers can fall back cleanly.
+      return { lat: term.latitude, lng: term.longitude, msoaCode: null, terminated: true, adminDistrict: null };
     }
     throw new PostcodeLookupError(`Postcode not found: ${clean}`, 'postcode_not_found');
   }
@@ -117,8 +119,9 @@ async function lookupPostcode(postcode) {
   }
 
   const msoaCode = body.result.codes && body.result.codes.msoa21 ? body.result.codes.msoa21 : null;
+  const adminDistrict = body.result.admin_district || null;
 
-  return { lat, lng, msoaCode, terminated: false };
+  return { lat, lng, msoaCode, terminated: false, adminDistrict };
 }
 
 // Reverse geocode — only called when the subject postcode is terminated

@@ -1058,7 +1058,9 @@ function renderPlanningResult(d){
       // The other five flags are comparatively well-covered and keep the
       // plain "None found" text.
       const negativeText=c.key==='article4'
-        ?'None recorded — Article 4 coverage in this dataset is nationally incomplete; verify with the local authority.'
+        ?(d.councilName
+            ?`None recorded — Article 4 coverage in this dataset is nationally incomplete; verify with the local council (${d.councilName}).`
+            :'None recorded — Article 4 coverage in this dataset is nationally incomplete; verify with the local authority.')
         :'None found';
       return `<div class="pc-row">
         <div class="pc-row-head"><span class="pc-row-label">${c.label}</span><span class="pc-status inactive">${negativeText}</span></div>
