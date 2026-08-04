@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Deals N Yields · Letter Templates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/draft-state.js"></script>
+<style>
+/* page-specific layout only, colours/fonts/radius all come from styles.css */
+.hint{font-size:12.5px;color:var(--muted);font-style:italic}
+
+.page-title{font-family:var(--font-head);font-weight:800;font-size:28px;margin:0 0 .4rem}
+.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 1.75rem}
+
+.locked-panel{text-align:center;padding:3.5rem 1rem}
+.locked-panel h2{font-size:22px;margin:0 0 .75rem}
+.locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
+
+.letter-type-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.75rem}
+
+.lt-layout{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.lt-layout{grid-template-columns:1fr}}
+
+.lt-fields h2{font-size:16px;margin:0 0 1.1rem}
+.lt-remember-note{margin-top:-.5rem;margin-bottom:1.25rem}
+
+.letter-body{
+  display:block;width:100%;box-sizing:border-box;
+  white-space:pre-wrap;font-family:var(--font-body);font-size:14px;line-height:1.7;color:var(--ink);
+  min-height:280px;resize:none;overflow:hidden;
+  border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;
+  padding:.75rem;margin:-.75rem;outline:none;
+}
+.letter-body:focus{border-color:var(--input-hairline);background:var(--surface-2)}
+
+.lt-edited-hint{margin-top:.5rem}
+
+.letter-tip{
+  background:rgba(224,164,88,.08);border:1px solid var(--accent);border-radius:var(--radius-sm);
+  padding:.85rem 1rem;font-size:12.5px;color:var(--ink);margin:1.25rem 0;
+}
+.letter-tip strong{color:var(--accent-2)}
+
+.lt-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lt-copy-msg{font-size:12px;color:var(--accent-2);min-height:1em}
+
+@media print{
+  body *{visibility:hidden}
+  #letter-print-area,#letter-print-area *{visibility:visible}
+  #letter-print-area{position:absolute;top:0;left:0;width:100%;padding:0}
+  .letter-body{color:#000;border:none;background:transparent;padding:0;margin:0}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="topbar">
+    <a class="wordmark" href="/home.html">Deals N Yields</a>
+    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html" class="active">Letter Templates</a></div>
+    <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade · £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
+  </div>
+
+  <p class="page-title">Letter Templates</p>
+  <p class="page-sub">Ready-made letters for reaching out to owners of empty, derelict, or inherited properties. Fill in your details once, pick a letter, and copy or print it.</p>
+
+  <div id="state-loading"><p class="hint">Loading…</p></div>
+
+  <div id="state-loggedout" style="display:none">
+    <p class="hint">Log in to use Letter Templates: <a href="/login.html">log in</a></p>
+  </div>
+
+  <div id="state-locked" style="display:none">
+    <div class="locked-panel">
+      <h2>Letter Templates is a paid feature</h2>
+      <p>Ready-made letters for reaching out to property owners, with your details merged in automatically.</p>
+      <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
+    </div>
+  </div>
+
+  <div id="state-board" style="display:none">
+
+    <div class="letter-type-tabs" id="letter-type-tabs">
+      <button type="button" class="tab-btn" id="type-btn-enquiry" onclick="switchLetterType('enquiry')">Empty property enquiry</button>
+      <button type="button" class="tab-btn" id="type-btn-followup" onclick="switchLetterType('followup')">Follow-up (no response)</button>
+      <button type="button" class="tab-btn" id="type-btn-probate" onclick="switchLetterType('probate')">Probate / inherited property</button>
+      <button type="button" class="tab-btn" id="type-btn-offer" onclick="switchLetterType('offer')">Direct offer in writing</button>
+    </div>
+
+    <div class="lt-layout">
+      <div class="card lt-fields">
+        <h2>Your details</h2>
+        <div class="field"><label>Owner name</label><input type="text" id="lt-owner-name" placeholder="Leave blank to use &quot;Homeowner&quot;" oninput="onFieldInput()"/></div>
+        <div class="field"><label>Property address</label><input type="text" id="lt-property-address" oninput="onFieldInput()"/></div>
+        <div class="field" id="lt-offer-amount-field" style="display:none"><label>Offer amount</label><input type="text" id="lt-offer-amount" placeholder="e.g. £145,000" oninput="onFieldInput()"/></div>
+        <div class="field"><label>Your name</label><input type="text" id="lt-your-name" oninput="onFieldInput()"/></div>
+        <div class="field"><label>Your area</label><input type="text" id="lt-your-area" oninput="onFieldInput()"/></div>
+        <div class="field"><label>Your phone</label><input type="tel" id="lt-your-phone" oninput="onFieldInput()"/></div>
+        <div class="field"><label>Your email</label><input type="email" id="lt-your-email" oninput="onFieldInput()"/></div>
+        <p class="hint lt-remember-note">Your details and this letter are remembered on this device for next time. <a href="#" onclick="clearLettersDraft();return false;">Clear saved draft</a></p>
+      </div>
+
+      <div class="card">
+        <div id="letter-print-area">
+          <textarea class="letter-body" id="letter-preview" oninput="onLetterManualEdit()"></textarea>
+        </div>
+        <p class="hint lt-edited-hint" id="lt-edited-hint" style="display:none">Edited manually. Form changes won't overwrite this until you reset to the template.</p>
+
+        <div class="letter-tip">
+          <strong>Tip:</strong> hand-write the envelope rather than printing a label. Handwritten envelopes feel personal and get opened far more often than printed ones.
+        </div>
+
+        <div class="lt-actions">
+          <button class="btn-secondary" onclick="resetToTemplate()">Reset to template</button>
+          <button class="btn-primary" onclick="copyLetter()" id="copy-btn">Copy letter</button>
+          <button class="btn-secondary" onclick="window.print()">Print</button>
+          <span class="lt-copy-msg" id="copy-msg"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const LETTER_TYPES = ['enquiry', 'followup', 'probate', 'offer'];
+
+const LETTER_TEMPLATES = {
+  enquiry: (v) => `Dear ${v.ownerName},
+
+I hope this finds you well. My name is ${v.yourName} and I'm a local property investor based in ${v.yourArea}.
+
+I noticed that the property at ${v.propertyAddress} has been empty for a little while, and I wanted to reach out directly in case you'd ever consider selling it. There's no obligation at all, and I'm not an agent, so there'd be no fees involved.
+
+If it's something you'd be open to exploring, I'd be glad to have a friendly, no-pressure chat whenever suits you. And if the timing isn't right, I completely understand.
+
+You can reach me on ${v.yourPhone} or ${v.yourEmail}.
+
+Kind regards,
+${v.yourName}`,
+
+  followup: (v) => `Dear ${v.ownerName},
+
+I wrote to you a little while ago about your property at ${v.propertyAddress}. I appreciate you're busy, so I just wanted to follow up gently in case my first letter didn't reach you.
+
+If you'd ever consider selling, I'd still be very happy to talk it through, with no obligation and no fees. And if you'd rather I didn't write again, just let me know and I'll respect that.
+
+Either way, I wish you well. You can reach me on ${v.yourPhone} or ${v.yourEmail}.
+
+Kind regards,
+${v.yourName}`,
+
+  probate: (v) => `Dear ${v.ownerName},
+
+My name is ${v.yourName} and I'm a local property investor. I understand the property at ${v.propertyAddress} may have recently passed to you, and I'm sorry if this comes at a difficult time.
+
+I wanted to reach out quietly in case selling it would ever be helpful to you. I buy properties directly, so there are no agent fees, and I can work to whatever timescale suits you, whether that's soon or further down the line.
+
+There's absolutely no pressure. If now isn't the right time, please do just ignore this. And if it would help to talk, I'm on ${v.yourPhone} or ${v.yourEmail} whenever you're ready.
+
+With kind regards,
+${v.yourName}`,
+
+  offer: (v) => `Dear ${v.ownerName},
+
+Thank you for taking the time to speak with me about ${v.propertyAddress}. As promised, I'm putting my offer in writing so you have it clearly.
+
+I'd be pleased to offer ${v.offerAmount} for the property, as a direct purchase with no agent fees. I'm a cash buyer and can move at whatever pace works best for you.
+
+This is simply a starting point, and I'm very happy to discuss it. There's no pressure and no deadline from my side.
+
+Whenever you're ready, you can reach me on ${v.yourPhone} or ${v.yourEmail}.
+
+Kind regards,
+${v.yourName}`
+};
+
+let currentLetterType = 'enquiry';
+let letterManuallyEdited = false;
+let sbClient=null, currentSession=null, currentPlan=null;
+
+function showState(state){
+  ['loading','loggedout','locked','board'].forEach(s=>{
+    document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
+  });
+}
+
+async function logout(){
+  await sbClient.auth.signOut();
+  window.location.href='/';
+}
+
+async function upgradeNow(){
+  if(!currentSession)return;
+  const btn=document.getElementById('upgrade-btn');
+  const original=btn.textContent;
+  btn.disabled=true;btn.textContent='Redirecting…';
+  try{
+    const res=await fetch('/api/create-checkout-session',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
+    window.location.href=body.url;
+  }catch(e){
+    alert('Could not start checkout: '+e.message);
+    btn.disabled=false;btn.textContent=original;
+  }
+}
+
+function updateTopbar(){
+  const loggedIn=!!currentSession;
+  const authLink=document.getElementById('auth-link');
+  if(loggedIn){
+    authLink.textContent='Log out';
+    authLink.href='#';
+    authLink.onclick=function(e){e.preventDefault();logout();};
+  }else{
+    authLink.textContent='Log in';
+    authLink.href='/login.html';
+    authLink.onclick=null;
+  }
+  const subLink=document.getElementById('subscribe-link');
+  if(loggedIn&&currentPlan==='free'){
+    subLink.style.display='';
+    subLink.onclick=function(e){e.preventDefault();upgradeNow();};
+  }else{
+    subLink.style.display='none';
+    subLink.onclick=null;
+  }
+}
+
+function switchLetterType(type){
+  currentLetterType=type;
+  LETTER_TYPES.forEach(t=>{
+    document.getElementById('type-btn-'+t).classList.toggle('active', t===type);
+  });
+  document.getElementById('lt-offer-amount-field').style.display = type==='offer' ? '' : 'none';
+  regenerateIfNotEdited();
+  saveLettersDraft();
+}
+
+function collectFieldValues(){
+  const ownerNameRaw=document.getElementById('lt-owner-name').value.trim();
+  return {
+    ownerName: ownerNameRaw || 'Homeowner',
+    propertyAddress: document.getElementById('lt-property-address').value.trim(),
+    offerAmount: document.getElementById('lt-offer-amount').value.trim(),
+    yourName: document.getElementById('lt-your-name').value.trim(),
+    yourArea: document.getElementById('lt-your-area').value.trim(),
+    yourPhone: document.getElementById('lt-your-phone').value.trim(),
+    yourEmail: document.getElementById('lt-your-email').value.trim()
+  };
+}
+
+function autoGrowLetterBox(){
+  const el=document.getElementById('letter-preview');
+  el.style.height='auto';
+  el.style.height=el.scrollHeight+'px';
+}
+
+// Regenerates the merged letter from the current type + field values, unless
+// the box has been hand-edited. Hand edits must survive field changes and
+// type switches alike, and the only way back to a clean template is the
+// explicit Reset to template button (resetToTemplate below).
+function regenerateIfNotEdited(){
+  if(letterManuallyEdited)return;
+  document.getElementById('letter-preview').value = LETTER_TEMPLATES[currentLetterType](collectFieldValues());
+  autoGrowLetterBox();
+}
+
+function onFieldInput(){
+  regenerateIfNotEdited();
+  saveLettersDraft();
+}
+
+function onLetterManualEdit(){
+  letterManuallyEdited=true;
+  autoGrowLetterBox();
+  document.getElementById('lt-edited-hint').style.display='block';
+  saveLettersDraft();
+}
+
+function resetToTemplate(){
+  letterManuallyEdited=false;
+  document.getElementById('letter-preview').value = LETTER_TEMPLATES[currentLetterType](collectFieldValues());
+  autoGrowLetterBox();
+  document.getElementById('lt-edited-hint').style.display='none';
+  saveLettersDraft();
+}
+
+// ---------------------------------------------------------------------
+// Draft persistence (draft-state.js) — saves/restores this page's
+// in-progress work to localStorage so an accidental refresh doesn't lose
+// it. Replaces the old one-off "remembered sender details" mechanism this
+// page used to have (dny-letter-sender-details) — this covers the same 4
+// fields plus everything else on the page in one place.
+// ---------------------------------------------------------------------
+function saveLettersDraft(){
+  saveDraft('letters', {
+    letterType: currentLetterType,
+    fields: collectFieldValues(),
+    ownerNameRaw: document.getElementById('lt-owner-name').value,
+    manuallyEdited: letterManuallyEdited,
+    letterBody: letterManuallyEdited ? document.getElementById('letter-preview').value : null
+  });
+}
+
+function restoreLettersDraft(){
+  const d=loadDraft('letters');
+  if(!d){ switchLetterType('enquiry'); return; }
+
+  try{
+    const f=d.fields;
+    if(f&&typeof f==='object'){
+      if(typeof d.ownerNameRaw==='string')document.getElementById('lt-owner-name').value=d.ownerNameRaw;
+      if(typeof f.propertyAddress==='string')document.getElementById('lt-property-address').value=f.propertyAddress;
+      if(typeof f.offerAmount==='string')document.getElementById('lt-offer-amount').value=f.offerAmount;
+      if(typeof f.yourName==='string')document.getElementById('lt-your-name').value=f.yourName;
+      if(typeof f.yourArea==='string')document.getElementById('lt-your-area').value=f.yourArea;
+      if(typeof f.yourPhone==='string')document.getElementById('lt-your-phone').value=f.yourPhone;
+      if(typeof f.yourEmail==='string')document.getElementById('lt-your-email').value=f.yourEmail;
+    }
+  }catch(e){ /* leave fields at their defaults */ }
+
+  try{
+    switchLetterType(LETTER_TYPES.includes(d.letterType)?d.letterType:'enquiry');
+  }catch(e){
+    switchLetterType('enquiry');
+  }
+
+  try{
+    if(d.manuallyEdited&&typeof d.letterBody==='string'){
+      document.getElementById('letter-preview').value=d.letterBody;
+      letterManuallyEdited=true;
+      autoGrowLetterBox();
+      document.getElementById('lt-edited-hint').style.display='block';
+    }
+  }catch(e){ /* leave the regenerated template in place */ }
+}
+
+function clearLettersDraft(){
+  clearDraft('letters');
+  clearScrollPosition('letters');
+  location.reload();
+}
+
+async function copyLetter(){
+  const text=document.getElementById('letter-preview').value;
+  const msg=document.getElementById('copy-msg');
+  const btn=document.getElementById('copy-btn');
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+    }else{
+      const ta=document.createElement('textarea');
+      ta.value=text;
+      ta.style.position='fixed';
+      ta.style.opacity='0';
+      document.body.appendChild(ta);
+      ta.focus();ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    const original=btn.textContent;
+    btn.textContent='Copied ✓';
+    msg.textContent='';
+    setTimeout(()=>{ btn.textContent=original; }, 1800);
+  }catch(e){
+    msg.textContent='Could not copy automatically. Select the text and copy it manually.';
+  }
+}
+
+async function init(){
+  const auth=await requireAuth();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  try{
+    const profRes=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const prof=await profRes.json();
+    currentPlan=prof.plan==='paid'?'paid':'free';
+  }catch(e){
+    currentPlan='free';
+  }
+  updateTopbar();
+
+  if(currentPlan!=='paid'){
+    showState('locked');
+    return;
+  }
+
+  showState('board');
+  restoreLettersDraft();
+  restoreScrollPosition('letters');
+  attachScrollSaver('letters');
+
+  sbClient.auth.onAuthStateChange((_event, session)=>{
+    currentSession=session;
+    if(!currentSession){window.location.href='/';return;}
+    updateTopbar();
+  });
+}
+
+init();
+</script>
+</body>
+</html>

@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
+<script src="/draft-state.js"></script>
 <script src="/calc-engine.js"></script>
 <style>
 /* Page-specific layout only — colours/fonts/radius all come from styles.css (Underwriter). */
@@ -189,6 +190,7 @@
     <button class="tab" onclick="switchTab('flip')">Flip</button>
     <button class="tab" onclick="switchTab('comps')">Comps</button>
   </div>
+  <p class="hint" style="margin:-1.35rem 0 1.75rem;text-align:right"><a href="#" onclick="clearIndexDraft();return false;">Clear draft</a></p>
 
   <!-- BTL -->
   <div class="panel active" id="panel-btl">
@@ -517,9 +519,9 @@
     <div class="split-panel">
       <div class="input-col">
         <p class="sl">Find comparables</p>
-        <div class="f"><label>Postcode</label><input type="text" id="cp-postcode" placeholder="e.g. SW1A 1AA"/></div>
+        <div class="f"><label>Postcode</label><input type="text" id="cp-postcode" placeholder="e.g. SW1A 1AA" oninput="saveIndexDraft()"/></div>
         <div class="f" style="margin-top:1rem"><label>Property type</label>
-          <div class="dd" id="cp-type" data-value="D">
+          <div class="dd" id="cp-type" data-value="D" data-onchange="saveIndexDraft">
             <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'cp-type')" onkeydown="ddKeydown(event,'cp-type')">
               <span>Detached</span>
             </button>
@@ -590,7 +592,7 @@
 
           <div class="tr" style="margin-top:1rem">
             <label>Apply to</label>
-            <div class="dd" id="cp-apply-target" data-value="btl">
+            <div class="dd" id="cp-apply-target" data-value="btl" data-onchange="saveIndexDraft">
               <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'cp-apply-target')" onkeydown="ddKeydown(event,'cp-apply-target')">
                 <span>BTL</span>
               </button>
@@ -713,28 +715,132 @@ function ddKeydown(e, id){
 document.addEventListener('click', closeAllDD);
 window.addEventListener('scroll', closeAllDD, true);
 
+let currentTab='btl';
+
 function switchTab(t){
+  currentTab=t;
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip','comps'][i]===t));
   document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-comps'][i]==='panel-'+t));
+  saveIndexDraft();
+}
+
+// ---------------------------------------------------------------------
+// Draft persistence (draft-state.js) — saves/restores this page's
+// in-progress work to localStorage so an accidental refresh doesn't lose
+// it. Never a substitute for Save deal / saved defaults.
+// ---------------------------------------------------------------------
+const DRAFT_FIELD_IDS={
+  btl:['b-pp','b-emv','b-rent','b-mr','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr'],
+  hmo:['h-pp','h-emv','h-mr','h-dp','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-maint','h-mgmt','h-r1p','h-r1n','h-r2p','h-r2n','h-r3p','h-r3n','h-r4p','h-r4n','h-ty','h-troi'],
+  sa:['sa-rate','sa-occ','sa-pp','sa-emv','sa-mr','sa-dp','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-mgmt','sa-util','sa-maint','sa-clean','sa-ins','sa-ct','sa-ty','sa-troi'],
+  flip:['fl-pp','fl-bf','fl-ref','fl-sv','fl-agent','fl-cont','fl-troi'],
+};
+const CP_TYPE_LABELS={D:'Detached',S:'Semi',T:'Terraced',F:'Flat',O:'Other'};
+
+function currentIndexDraftState(){
+  const fields={};
+  Object.keys(DRAFT_FIELD_IDS).forEach(strategy=>{
+    const obj={};
+    DRAFT_FIELD_IDS[strategy].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)obj[id]=el.value;
+    });
+    fields[strategy]=obj;
+  });
+  const tierRadio=document.querySelector('input[name="cp-tier"]:checked');
+  const floorAreaEl=document.getElementById('cp-floor-area');
+  const postcodeEl=document.getElementById('cp-postcode');
+  return {
+    activeTab: currentTab,
+    fields,
+    comps:{
+      postcode: postcodeEl?postcodeEl.value:'',
+      propertyType: getDDValue('cp-type'),
+      floorArea: floorAreaEl?floorAreaEl.value:'',
+      applyTarget: getDDValue('cp-apply-target'),
+      selectedTier: tierRadio?tierRadio.value:null,
+      lastCompsResult: lastCompsResult,
+      lastCrime: lastCrimeResult
+    }
+  };
+}
+
+function saveIndexDraft(){
+  saveDraft('index', currentIndexDraftState());
+}
+
+function restoreIndexDraft(){
+  const d=loadDraft('index');
+  if(!d)return;
+
+  try{
+    if(d.fields&&typeof d.fields==='object'){
+      Object.keys(DRAFT_FIELD_IDS).forEach(strategy=>{
+        const saved=d.fields[strategy];
+        if(!saved||typeof saved!=='object')return;
+        DRAFT_FIELD_IDS[strategy].forEach(id=>{
+          try{
+            if(saved[id]!=null){
+              const el=document.getElementById(id);
+              if(el)el.value=saved[id];
+            }
+          }catch(e){ /* one bad field shouldn't block the rest */ }
+        });
+      });
+    }
+  }catch(e){ /* whole-strategy restore failed — leave those fields at their defaults */ }
+
+  try{
+    const c=d.comps;
+    if(c&&typeof c==='object'){
+      if(typeof c.postcode==='string')document.getElementById('cp-postcode').value=c.postcode;
+      if(c.propertyType)setDDValue('cp-type', c.propertyType, CP_TYPE_LABELS[c.propertyType]||c.propertyType);
+      if(c.floorArea!=null)document.getElementById('cp-floor-area').value=c.floorArea;
+      if(c.applyTarget&&GDV_APPLY_TARGETS[c.applyTarget])setDDValue('cp-apply-target', c.applyTarget, GDV_APPLY_TARGETS[c.applyTarget].label);
+      if(c.selectedTier){
+        const radio=document.querySelector('input[name="cp-tier"][value="'+c.selectedTier+'"]');
+        if(radio)radio.checked=true;
+      }
+      if(c.lastCompsResult){
+        lastCompsResult=c.lastCompsResult;
+        renderCompsResult(lastCompsResult);
+      }
+      renderGDVTiers();
+      if(c.lastCrime){
+        lastCrimeResult=c.lastCrime;
+        renderCrimeResult(lastCrimeResult);
+      }
+    }
+  }catch(e){ /* comps restore failed — leave that panel at its blank default */ }
+
+  try{
+    if(d.activeTab)switchTab(d.activeTab);
+  }catch(e){ /* stay on the default tab */ }
+}
+
+function clearIndexDraft(){
+  clearDraft('index');
+  clearScrollPosition('index');
+  location.reload();
 }
 
 // Calculation is button-driven, not live. These just control WHEN cBTL()/cHMO()/cSA()/cFlip()
 // (unchanged, in calc-engine.js) run, and toggle the "stale results" notice — no maths here.
 let btlAnalysed=false, hmoAnalysed=false, saAnalysed=false, flipAnalysed=false;
 
-function runBTL(){ cBTL(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; }
-function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; }
+function runBTL(){ cBTL(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; saveIndexDraft(); }
+function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; saveIndexDraft(); }
 
-function runHMO(){ cHMO(); hmoAnalysed=true; document.getElementById('hmo-stale').style.display='none'; }
-function markStaleHMO(){ if(hmoAnalysed) document.getElementById('hmo-stale').style.display='block'; }
+function runHMO(){ cHMO(); hmoAnalysed=true; document.getElementById('hmo-stale').style.display='none'; saveIndexDraft(); }
+function markStaleHMO(){ if(hmoAnalysed) document.getElementById('hmo-stale').style.display='block'; saveIndexDraft(); }
 
-function runSA(){ cSA(); saAnalysed=true; document.getElementById('sa-stale').style.display='none'; }
-function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style.display='block'; }
+function runSA(){ cSA(); saAnalysed=true; document.getElementById('sa-stale').style.display='none'; saveIndexDraft(); }
+function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style.display='block'; saveIndexDraft(); }
 
-function runFlip(){ cFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; }
-function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; }
+function runFlip(){ cFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; saveIndexDraft(); }
+function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; saveIndexDraft(); }
 
-let lastCompsResult=null;
+let lastCompsResult=null, lastCrimeResult=null;
 const GDV_THIN_EVIDENCE_THRESHOLD=8;
 const GDV_TIERS=['conservative','refurbished','bestInArea'];
 const GDV_APPLY_TARGETS={btl:{field:'b-emv',label:'BTL',markStale:markStaleBTL},hmo:{field:'h-emv',label:'HMO',markStale:markStaleHMO},sa:{field:'sa-emv',label:'SA',markStale:markStaleSA},flip:{field:'fl-sv',label:'Flip',markStale:markStaleFlip}};
@@ -759,47 +865,84 @@ function ordinalSuffix(n){
 // Percentile is the headline (a band alone is too coarse — it labels a
 // moderately-high and a very-high area both "High"); band is kept as a
 // smaller secondary descriptor alongside rate and month.
-async function fetchCrimeRate(postcode){
+// DOM-population half of a crime result, split out from fetchCrimeRate()
+// below so a restored draft can render the same last result without
+// re-firing the network call. d is either null (no result — the blank
+// reset state) or an /api/crime-shaped body; noData forces the "No data"
+// state regardless of d.available (used for a non-2xx HTTP response, where
+// d is whatever error body came back, not a real available:false result).
+function renderCrimeResult(d, noData){
   const pctEl=document.getElementById('cp-crime-percentile');
   const summaryEl=document.getElementById('cp-crime-summary');
   const detailEl=document.getElementById('cp-crime-detail');
+  if(noData||!d||!d.available){
+    pctEl.textContent=d?'No data':'—';pctEl.className='ov';
+    summaryEl.textContent=(d&&d.available===false)?'No crime data for this area.':'';
+    detailEl.textContent='';
+    return;
+  }
+
+  const bandLabel=d.band?d.band.charAt(0).toUpperCase()+d.band.slice(1):'';
+  const monthLabel=d.data_month?new Date(d.data_month+'-01').toLocaleDateString('en-GB',{month:'long',year:'numeric'}):'';
+
+  if(d.percentile!=null){
+    const pctRounded=Math.round(d.percentile);
+    pctEl.textContent=ordinalSuffix(pctRounded)+' percentile';
+    summaryEl.textContent='Higher crime than '+pctRounded+'% of areas in England & Wales';
+  }else{
+    // Percentile not yet populated (e.g. compute-crime-benchmark.js
+    // hasn't been re-run against the new column yet) — fall back to the
+    // band rather than showing a broken "NaNth percentile".
+    pctEl.textContent=bandLabel||'—';
+    summaryEl.textContent='';
+  }
+  pctEl.className='ov crime-band '+(d.band||'');
+
+  const detailParts=[d.rate_per_1000.toFixed(1)+' per 1,000'];
+  if(bandLabel)detailParts.push(bandLabel);
+  if(monthLabel)detailParts.push(monthLabel);
+  detailEl.textContent=detailParts.join(' · ');
+}
+
+// Fired alongside runComps() (not awaited there) off the same postcode, so
+// it never blocks or gates the comps results. Never throws — a bad
+// postcode here is already surfaced by runComps()'s own error message
+// (same postcode, same failure), so this just leaves the crime box at its
+// neutral reset state rather than showing a second, duplicate error.
+async function fetchCrimeRate(postcode){
   try{
     const res=await fetch('/api/crime?postcode='+encodeURIComponent(postcode),{
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
     const d=await res.json();
-    if(!res.ok||!d.available){
-      pctEl.textContent='No data';pctEl.className='ov';
-      summaryEl.textContent=d.available===false?'No crime data for this area.':'';
-      detailEl.textContent='';
-      return;
-    }
-
-    const bandLabel=d.band?d.band.charAt(0).toUpperCase()+d.band.slice(1):'';
-    const monthLabel=d.data_month?new Date(d.data_month+'-01').toLocaleDateString('en-GB',{month:'long',year:'numeric'}):'';
-
-    if(d.percentile!=null){
-      const pctRounded=Math.round(d.percentile);
-      pctEl.textContent=ordinalSuffix(pctRounded)+' percentile';
-      summaryEl.textContent='Higher crime than '+pctRounded+'% of areas in England & Wales';
-    }else{
-      // Percentile not yet populated (e.g. compute-crime-benchmark.js
-      // hasn't been re-run against the new column yet) — fall back to the
-      // band rather than showing a broken "NaNth percentile".
-      pctEl.textContent=bandLabel||'—';
-      summaryEl.textContent='';
-    }
-    pctEl.className='ov crime-band '+(d.band||'');
-
-    const detailParts=[d.rate_per_1000.toFixed(1)+' per 1,000'];
-    if(bandLabel)detailParts.push(bandLabel);
-    if(monthLabel)detailParts.push(monthLabel);
-    detailEl.textContent=detailParts.join(' · ');
+    lastCrimeResult=d;
+    renderCrimeResult(d, !res.ok);
+    saveIndexDraft();
   }catch(e){
-    pctEl.textContent='—';pctEl.className='ov';
-    summaryEl.textContent='';
-    detailEl.textContent='';
+    lastCrimeResult=null;
+    renderCrimeResult(null);
   }
+}
+
+// DOM-population half of a comps result, split out from runComps() below
+// so a restored draft can render the same last result without re-firing
+// the network call.
+function renderCompsResult(d){
+  document.getElementById('cp-median').textContent = d.medianPrice!=null ? '£'+Math.round(d.medianPrice).toLocaleString() : 'No comparables found';
+  document.getElementById('cp-range').textContent = (d.low!=null && d.high!=null) ? '£'+Math.round(d.low).toLocaleString()+' – £'+Math.round(d.high).toLocaleString() : 'Not enough comparable data';
+  document.getElementById('cp-psqm').textContent = d.medianPricePerSqM!=null ? '£'+Math.round(d.medianPricePerSqM).toLocaleString() : '—';
+  document.getElementById('cp-n').textContent = d.count;
+  document.getElementById('cp-dates').textContent = d.dateRange ? d.dateRange.start+' to '+d.dateRange.end : '—';
+  const confEl=document.getElementById('cp-confidence');
+  const confLabel = d.confidence ? d.confidence.charAt(0).toUpperCase()+d.confidence.slice(1) : '—';
+  confEl.textContent = confLabel+' ('+d.count+' comp'+(d.count===1?'':'s')+')';
+  confEl.className = d.confidence==='high'?'verdict-yes':(d.confidence==='low'?'verdict-no':'');
+  document.getElementById('cp-count-note').textContent = d.count+' comparable sale'+(d.count===1?'':'s')+' in the last 12 months, within 0.5 miles.';
+}
+
+function resetCompsDisplay(){
+  ['cp-median','cp-range','cp-psqm','cp-n','cp-dates','cp-confidence'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('cp-count-note').textContent='';
 }
 
 async function runComps(){
@@ -809,13 +952,13 @@ async function runComps(){
   const propertyType=getDDValue('cp-type');
 
   msg.className='save-msg';msg.textContent='';
-  ['cp-median','cp-range','cp-psqm','cp-n','cp-dates','cp-confidence'].forEach(id=>document.getElementById(id).textContent='—');
-  document.getElementById('cp-count-note').textContent='';
+  resetCompsDisplay();
   document.getElementById('cp-crime-percentile').textContent='—';
   document.getElementById('cp-crime-percentile').className='ov';
   document.getElementById('cp-crime-summary').textContent='';
   document.getElementById('cp-crime-detail').textContent='';
   lastCompsResult=null;
+  lastCrimeResult=null;
   renderGDVTiers();
 
   if(!currentSession){ msg.textContent='Log in to use Comparables.'; msg.className='save-msg error'; return; }
@@ -834,19 +977,11 @@ async function runComps(){
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Comparables lookup failed.');
 
-    document.getElementById('cp-median').textContent = d.medianPrice!=null ? '£'+Math.round(d.medianPrice).toLocaleString() : 'No comparables found';
-    document.getElementById('cp-range').textContent = (d.low!=null && d.high!=null) ? '£'+Math.round(d.low).toLocaleString()+' – £'+Math.round(d.high).toLocaleString() : 'Not enough comparable data';
-    document.getElementById('cp-psqm').textContent = d.medianPricePerSqM!=null ? '£'+Math.round(d.medianPricePerSqM).toLocaleString() : '—';
-    document.getElementById('cp-n').textContent = d.count;
-    document.getElementById('cp-dates').textContent = d.dateRange ? d.dateRange.start+' to '+d.dateRange.end : '—';
-    const confEl=document.getElementById('cp-confidence');
-    const confLabel = d.confidence ? d.confidence.charAt(0).toUpperCase()+d.confidence.slice(1) : '—';
-    confEl.textContent = confLabel+' ('+d.count+' comp'+(d.count===1?'':'s')+')';
-    confEl.className = d.confidence==='high'?'verdict-yes':(d.confidence==='low'?'verdict-no':'');
-    document.getElementById('cp-count-note').textContent = d.count+' comparable sale'+(d.count===1?'':'s')+' in the last 12 months, within 0.5 miles.';
+    renderCompsResult(d);
 
     lastCompsResult=d;
     renderGDVTiers();
+    saveIndexDraft();
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';
   }
@@ -898,6 +1033,7 @@ function renderGDVTiers(){
     }
 
     useBtn.disabled=!(anySelected&&floorArea>0);
+    saveIndexDraft();
   }catch(e){
     console.error('renderGDVTiers threw:',e.message,e.stack);
   }
@@ -920,6 +1056,7 @@ function applyGDV(){
 
   msg.textContent='Copied £'+gdv.toLocaleString()+' into '+target.label+"'s "+(targetKey==='flip'?'Sale Value':'End Market Value')+'.';
   msg.className='save-msg success';
+  saveIndexDraft();
 }
 
 async function analyse(type){
@@ -1408,7 +1545,13 @@ async function loadDefaults(){
   }
 }
 
-cBTL();cHMO();cSA();cFlip();initAuth();
+restoreIndexDraft();
+cBTL();cHMO();cSA();cFlip();
+// Scroll restore waits for initAuth() to fully settle (it can re-render
+// via loadDefaults(), which would otherwise shift the page after we'd
+// already scrolled) — .finally() so it still happens even if auth itself
+// errors, rather than silently never restoring scroll.
+initAuth().finally(function(){ restoreScrollPosition('index'); attachScrollSaver('index'); });
 </script>
 </body>
 </html>

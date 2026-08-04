@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
+<script src="/compare-deals.js"></script>
+<script src="/draft-state.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
@@ -160,7 +162,7 @@
 <div class="shell">
   <div class="topbar">
     <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html" class="active">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a></div>
+    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html" class="active">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html">Letter Templates</a></div>
     <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
   </div>
 
@@ -240,53 +242,15 @@
 const STAGES=['analysing','viewing','offered','agreed','completed'];
 const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
 
-const COMPARE_FIELDS={
-  btl:[
-    {label:'Purchase price',key:'pp',type:'c'},
-    {label:'EMV',key:'emv',type:'c'},
-    {label:'Gross yield',key:'gy',type:'p'},
-    {label:'ROI (mortgage)',key:'mROI',type:'p'},
-    {label:'ROI (cash)',key:'cROI',type:'p'},
-    {label:'Money left in (mortgage)',key:'mMLI',type:'c'},
-    {label:'Max bid (yield)',key:'oY',type:'c'},
-    {label:'Max bid (ROI)',key:'oR',type:'c'}
-  ],
-  hmo:[
-    {label:'Purchase price',key:'pp',type:'c'},
-    {label:'EMV',key:'emv',type:'c'},
-    {label:'Gross yield',key:'gy',type:'p'},
-    {label:'ROI (mortgage)',key:'mROI',type:'p'},
-    {label:'ROI (cash)',key:'cROI',type:'p'},
-    {label:'Total investment (mortgage)',key:'mTI',type:'c'},
-    {label:'Max bid (yield)',key:'oY',type:'c'},
-    {label:'Max bid (ROI)',key:'oR',type:'c'}
-  ],
-  sa:[
-    {label:'Purchase price',key:'pp',type:'c'},
-    {label:'EMV',key:'emv',type:'c'},
-    {label:'Annual revenue',key:'annualRevenue',type:'c'},
-    {label:'Gross yield',key:'gy',type:'p'},
-    {label:'ROI (mortgage)',key:'mROI',type:'p'},
-    {label:'ROI (cash)',key:'cROI',type:'p'},
-    {label:'Max bid (yield)',key:'oY',type:'c'},
-    {label:'Max bid (ROI)',key:'oR',type:'c'}
-  ],
-  flip:[
-    {label:'Purchase price',key:'pp',type:'c'},
-    {label:'Sale value',key:'sv',type:'c'},
-    {label:'Net profit',key:'profit',type:'c'},
-    {label:'ROI',key:'roi',type:'p'},
-    {label:'Profit margin',key:'margin',type:'p'},
-    {label:'Max bid (ROI)',key:'oR',type:'c'}
-  ]
-};
+// COMPARE_FIELDS / fmtCompareC / fmtCompareP / fmtCompareField / the compare
+// table builder itself all live in compare-deals.js now (shared with
+// saved-deals.html, which has the same comparison feature) — see
+// compareSelected() below for the one place this page still touches it.
+// fmtC below is this page's own general currency formatter (cards,
+// fallbackName, offer amounts) — a separate concern that just used to share
+// a name with the compare-specific formatter before this split.
 
 function fmtC(n){return '£'+Math.round(n).toLocaleString();}
-function fmtP(n){return n.toFixed(2)+'%';}
-function fmtField(f,v){
-  if(v==null)return '—';
-  return f.type==='c'?fmtC(v):fmtP(v);
-}
 
 function escapeHtml(s){
   const div=document.createElement('div');
@@ -382,7 +346,9 @@ async function init(){
   }
 
   showState('board');
-  loadPipeline();
+  // Scroll restore waits for the kanban board to finish loading and
+  // render, since the board's height depends on how many deals are in it.
+  loadPipeline().finally(function(){ restoreScrollPosition('pipeline'); attachScrollSaver('pipeline'); });
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
@@ -1081,33 +1047,8 @@ function updateCompareBtn(){
 function compareSelected(){
   const selected=pipelineDeals.filter(d=>selectedIds.has(d.id));
   if(selected.length<2)return;
-
-  const rows=[];
-  const seen=new Set();
-  selected.forEach(d=>{
-    (COMPARE_FIELDS[d.deal_type]||[]).forEach(f=>{
-      if(!seen.has(f.label)){seen.add(f.label);rows.push(f.label);}
-    });
-  });
-
-  let html='<table class="compare-table"><thead><tr><th>Figure</th>';
-  selected.forEach(d=>{
-    const name=dealDisplayName(d);
-    html+=`<th>${escapeHtml(name)}<br><span style="font-family:var(--font-body);font-size:11px;color:var(--muted);font-weight:600">${d.deal_type.toUpperCase()}</span></th>`;
-  });
-  html+='</tr></thead><tbody>';
-  rows.forEach(label=>{
-    html+=`<tr><td>${label}</td>`;
-    selected.forEach(d=>{
-      const fields=COMPARE_FIELDS[d.deal_type]||[];
-      const f=fields.find(x=>x.label===label);
-      const val=f ? fmtField(f, d.deal_data[f.key]) : '—';
-      html+=`<td>${val}</td>`;
-    });
-    html+='</tr>';
-  });
-  html+='</tbody></table>';
-  document.getElementById('compare-panel').innerHTML=html;
+  const deals=selected.map(d=>({ deal_type:d.deal_type, deal_data:d.deal_data, displayName:dealDisplayName(d) }));
+  document.getElementById('compare-panel').innerHTML=buildCompareTableHTML(deals);
 }
 
 init();

@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
+<script src="/draft-state.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 #app{display:none}
@@ -54,7 +55,7 @@
 <div class="shell" id="app">
   <div class="topbar">
     <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html" class="active">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a></div>
+    <div class="nav-links"><a href="/home.html" class="active">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html">Letter Templates</a></div>
     <div class="auth-bar"><a id="auth-link" href="#">Log out</a></div>
   </div>
 
@@ -294,7 +295,11 @@ async function init(){
 
   document.getElementById('app').style.display='block';
 
-  loadDashboard();
+  // Scroll restore waits for the dashboard's data (saved deals, pipeline,
+  // portfolio) to finish loading and render() to run — the page switches
+  // between an empty-state and a populated layout of very different
+  // heights, so restoring any earlier is restoring against the wrong one.
+  loadDashboard().finally(function(){ restoreScrollPosition('home'); attachScrollSaver('home'); });
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;

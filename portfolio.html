@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
+<script src="/draft-state.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
@@ -60,7 +61,7 @@
 <div class="shell">
   <div class="topbar">
     <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html" class="active">Portfolio</a><a href="/refurb.html">Refurb Estimator</a></div>
+    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html" class="active">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html">Letter Templates</a></div>
     <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
   </div>
 
@@ -84,10 +85,10 @@
     <div class="split-panel">
       <div class="card add-property-card">
         <h2>Add property</h2>
-        <div class="field"><label>Address</label><input type="text" id="pf-address"/></div>
-        <div class="field"><label>Price paid (£)</label><input type="number" id="pf-price"/></div>
+        <div class="field"><label>Address</label><input type="text" id="pf-address" oninput="savePortfolioDraft()"/></div>
+        <div class="field"><label>Price paid (£)</label><input type="number" id="pf-price" oninput="savePortfolioDraft()"/></div>
         <div class="field"><label>Property type</label>
-          <div class="dd" id="pf-type" data-value="BTL">
+          <div class="dd" id="pf-type" data-value="BTL" data-onchange="savePortfolioDraft">
             <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'pf-type')" onkeydown="ddKeydown(event,'pf-type')">
               <span>BTL</span>
             </button>
@@ -99,11 +100,12 @@
             </ul>
           </div>
         </div>
-        <div class="field"><label>Monthly rent (£)</label><input type="number" id="pf-rent"/></div>
-        <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pf-costs"/></div>
-        <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pf-mortgage" placeholder="Leave blank if no mortgage"/></div>
+        <div class="field"><label>Monthly rent (£)</label><input type="number" id="pf-rent" oninput="savePortfolioDraft()"/></div>
+        <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pf-costs" oninput="savePortfolioDraft()"/></div>
+        <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pf-mortgage" placeholder="Leave blank if no mortgage" oninput="savePortfolioDraft()"/></div>
         <p class="hint" style="margin-bottom:1rem">Running costs = management, insurance, maintenance, not mortgage. Yield excludes mortgage; cashflow includes it.</p>
         <button class="btn-primary" onclick="addProperty()" id="btn-add-property">Add property</button>
+        <a href="#" class="hint" onclick="clearPortfolioDraft();return false;" style="display:inline-block;margin-top:.5rem">Clear</a>
         <p class="save-msg" id="pf-msg"></p>
       </div>
 
@@ -323,6 +325,50 @@ function showState(state){
   });
 }
 
+// ---------------------------------------------------------------------
+// Draft persistence (draft-state.js) — saves/restores the "Add property"
+// form to localStorage so an accidental refresh doesn't lose a half-filled
+// entry. The edit modal (pfm-*) is excluded — it's always freshly
+// pre-filled from already-saved data each time it opens, and isn't open by
+// default on load, so there's nothing mid-flight to restore there.
+// ---------------------------------------------------------------------
+const PORTFOLIO_FIELD_IDS=['pf-address','pf-price','pf-rent','pf-costs','pf-mortgage'];
+
+function savePortfolioDraft(){
+  const fields={};
+  PORTFOLIO_FIELD_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)fields[id]=el.value;
+  });
+  saveDraft('portfolio', { fields, propertyType: getDDValue('pf-type') });
+}
+
+function restorePortfolioDraft(){
+  const d=loadDraft('portfolio');
+  if(!d)return;
+  try{
+    if(d.fields&&typeof d.fields==='object'){
+      PORTFOLIO_FIELD_IDS.forEach(id=>{
+        try{
+          if(d.fields[id]!=null){
+            const el=document.getElementById(id);
+            if(el)el.value=d.fields[id];
+          }
+        }catch(e){ /* one bad field shouldn't block the rest */ }
+      });
+    }
+  }catch(e){ /* leave fields at their defaults */ }
+  try{
+    if(d.propertyType)setDDValue('pf-type', d.propertyType, d.propertyType);
+  }catch(e){ /* leave property type at its default */ }
+}
+
+function clearPortfolioDraft(){
+  clearDraft('portfolio');
+  PORTFOLIO_FIELD_IDS.forEach(id=>document.getElementById(id).value='');
+  setDDValue('pf-type','BTL','BTL');
+}
+
 async function init(){
   const auth=await requireAuth();
   if(!auth)return;
@@ -344,7 +390,11 @@ async function init(){
   }
 
   showState('board');
-  loadPortfolio();
+  // Scroll restore waits for the portfolio list to finish loading (it's
+  // the part of this page whose height varies) so it lands on content
+  // that's actually there, not a still-loading placeholder.
+  loadPortfolio().finally(function(){ restoreScrollPosition('portfolio'); attachScrollSaver('portfolio'); });
+  restorePortfolioDraft();
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
@@ -417,6 +467,7 @@ async function addProperty(){
     if(!res.ok)throw new Error(d.error||'Could not add property.');
 
     ['pf-address','pf-price','pf-rent','pf-costs','pf-mortgage'].forEach(id=>document.getElementById(id).value='');
+    clearDraft('portfolio');
     msg.textContent='Property added.';msg.className='save-msg success';
     await loadPortfolio();
   }catch(e){
