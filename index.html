@@ -109,6 +109,23 @@
 .crime-band.medium{color:#E8C468}
 .crime-band.high{color:#E8746B}
 
+.crime-breakdown-wrap{margin-top:.9rem}
+.crime-breakdown-toggle{
+  background:transparent;border:none;padding:0;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--accent);
+}
+.crime-breakdown-toggle:hover{color:var(--accent-2)}
+.crime-breakdown-chevron{width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .15s ease;flex-shrink:0}
+.crime-breakdown-toggle.open .crime-breakdown-chevron{transform:rotate(-135deg)}
+.crime-breakdown{margin-top:.9rem;display:flex;flex-direction:column;gap:10px}
+.cb-row{display:flex;flex-direction:column;gap:4px}
+.cb-row-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px}
+.cb-row-label{color:var(--ink)}
+.cb-row-value{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cb-bar-track{height:5px;border-radius:999px;background:var(--hairline)}
+.cb-bar-fill{height:100%;border-radius:999px;background:var(--accent)}
+
 .analyse-btn{
   width:100%;padding:13px;background:var(--accent);color:var(--accent-ink);
   border:none;border-radius:var(--radius);font-size:14px;font-weight:700;
@@ -559,6 +576,12 @@
             <p class="on" id="cp-crime-detail"></p>
           </div>
           <p class="hint">Per 1,000 residents for the wider MSOA area (~7,500 people), latest available month. Town centres and retail zones often read higher, since recorded crime concentrates where people gather, not where they live. Treat as an area indicator, not a street-level figure.</p>
+          <div class="crime-breakdown-wrap" id="cp-crime-breakdown-wrap" style="display:none">
+            <button type="button" class="crime-breakdown-toggle" id="cp-crime-breakdown-toggle" onclick="toggleCrimeBreakdown()">
+              <span class="crime-breakdown-chevron"></span><span id="cp-crime-breakdown-toggle-label">Show crime breakdown</span>
+            </button>
+            <div class="crime-breakdown" id="cp-crime-breakdown" style="display:none"></div>
+          </div>
         </div>
 
         <div class="section-gap">
@@ -879,6 +902,7 @@ function renderCrimeResult(d, noData){
     pctEl.textContent=d?'No data':'—';pctEl.className='ov';
     summaryEl.textContent=(d&&d.available===false)?'No crime data for this area.':'';
     detailEl.textContent='';
+    renderCrimeBreakdown(null);
     return;
   }
 
@@ -902,6 +926,52 @@ function renderCrimeResult(d, noData){
   if(bandLabel)detailParts.push(bandLabel);
   if(monthLabel)detailParts.push(monthLabel);
   detailEl.textContent=detailParts.join(' · ');
+
+  renderCrimeBreakdown(d.breakdown);
+}
+
+// Crime Stage 4 — the expandable type breakdown under the crime box.
+// breakdown is either null (MSOA not in msoa_crime_breakdown, or it is but
+// had 0 recorded crimes that month) or an array of the 6 groups, each with
+// count and pct, already sorted by pct descending by the server. Always
+// hides the toggle entirely for the null case (never an empty section),
+// and always re-renders collapsed — matches "collapsed by default" on
+// every fresh result, live or restored from a draft.
+function renderCrimeBreakdown(breakdown){
+  const wrap=document.getElementById('cp-crime-breakdown-wrap');
+  const toggle=document.getElementById('cp-crime-breakdown-toggle');
+  const label=document.getElementById('cp-crime-breakdown-toggle-label');
+  const list=document.getElementById('cp-crime-breakdown');
+
+  toggle.classList.remove('open');
+  label.textContent='Show crime breakdown';
+  list.style.display='none';
+
+  if(!breakdown||!Array.isArray(breakdown)||breakdown.length===0){
+    wrap.style.display='none';
+    list.innerHTML='';
+    return;
+  }
+
+  wrap.style.display='block';
+  list.innerHTML=breakdown.map(g=>{
+    const pctRounded=Math.round(g.pct);
+    const barWidth=g.count>0?Math.max(pctRounded,1):0;
+    return `<div class="cb-row">
+      <div class="cb-row-head"><span class="cb-row-label">${g.label}</span><span class="cb-row-value">${pctRounded}% (${g.count})</span></div>
+      <div class="cb-bar-track"><div class="cb-bar-fill" style="width:${barWidth}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCrimeBreakdown(){
+  const toggle=document.getElementById('cp-crime-breakdown-toggle');
+  const label=document.getElementById('cp-crime-breakdown-toggle-label');
+  const list=document.getElementById('cp-crime-breakdown');
+  const isOpen=list.style.display!=='none';
+  list.style.display=isOpen?'none':'block';
+  toggle.classList.toggle('open',!isOpen);
+  label.textContent=isOpen?'Show crime breakdown':'Hide crime breakdown';
 }
 
 // Fired alongside runComps() (not awaited there) off the same postcode, so
@@ -953,10 +1023,7 @@ async function runComps(){
 
   msg.className='save-msg';msg.textContent='';
   resetCompsDisplay();
-  document.getElementById('cp-crime-percentile').textContent='—';
-  document.getElementById('cp-crime-percentile').className='ov';
-  document.getElementById('cp-crime-summary').textContent='';
-  document.getElementById('cp-crime-detail').textContent='';
+  renderCrimeResult(null);
   lastCompsResult=null;
   lastCrimeResult=null;
   renderGDVTiers();

@@ -1,11 +1,13 @@
-// Stage 2 of the crime-rate feature: computes the national MSOA crime-rate
-// benchmark from the Police UK bulk data archive, entirely locally, and
-// writes only the small per-MSOA summary to Supabase. No individual crime
-// record is stored anywhere — the raw archive is read, counted, and
-// discarded in memory.
+// Stage 2 (overall rate) and Stage 4 (crime-type breakdown) of the
+// crime-rate feature: computes the national MSOA crime-rate benchmark from
+// the Police UK bulk data archive, entirely locally, and writes only the
+// small per-MSOA summaries to Supabase. No individual crime record is
+// stored anywhere — the raw archive is read, counted, and discarded in
+// memory.
 //
 // PREREQUISITES:
-//   - db/013_msoa_population.sql and db/014_msoa_crime_rate.sql both run.
+//   - db/013_msoa_population.sql, db/014_msoa_crime_rate.sql, and
+//     db/016_msoa_crime_breakdown.sql all run.
 //   - msoa_population already loaded (scripts/ingest-msoa-population.js).
 //
 // INPUT 1: a Police UK bulk data archive folder (data.police.uk/data,
@@ -33,14 +35,18 @@
 //
 // PROCESSING (all in-memory, nothing intermediate written to disk or DB):
 //   1. Count crimes per LSOA code across every *-street.csv in the latest
-//      month. Blank "LSOA code" rows are skipped and counted (Police
-//      Service of Northern Ireland's file is 100% blank LSOA — no
-//      Scottish force is in the archive at all — both are simply excluded
-//      by this same rule, nothing special-cased).
-//   2. Roll LSOA counts up to MSOA via the ONSPD-derived lookup. An LSOA
-//      count with no MSOA mapping is skipped and counted (shouldn't happen
-//      for real England/Wales LSOA21 codes, but logged rather than
-//      silently dropped in case a code is malformed).
+//      month — both an overall total AND a 6-way grouped breakdown
+//      (violence/asb/shoplifting/burglary/vehicle/other, via
+//      classifyCrimeType() below) in the same pass, so the breakdown's
+//      total can never drift from the plain count. Blank "LSOA code" rows
+//      are skipped and counted (Police Service of Northern Ireland's file
+//      is 100% blank LSOA — no Scottish force is in the archive at all —
+//      both are simply excluded by this same rule, nothing special-cased).
+//   2. Roll LSOA counts (and their breakdowns) up to MSOA via the
+//      ONSPD-derived lookup. An LSOA count with no MSOA mapping is skipped
+//      and counted (shouldn't happen for real England/Wales LSOA21 codes,
+//      but logged rather than silently dropped in case a code is
+//      malformed).
 //   3. Start from EVERY row in msoa_population (not just MSOAs that had a
 //      recorded crime) and default missing crime counts to 0. This is
 //      deliberate: an inner join (only MSOAs with >=1 crime) would exclude
@@ -56,17 +62,18 @@
 //      (the least-crime 40%), 'medium' between, 'high' above the 80th
 //      percentile (the worst 20%).
 //
-// STORE: upserts msoa_crime_rate (keyed on msoa_code) and the single
-// crime_benchmark_meta row (keyed on id=1) — see db/014_msoa_crime_rate.sql.
+// STORE: upserts msoa_crime_rate and msoa_crime_breakdown (both keyed on
+// msoa_code) and the single crime_benchmark_meta row (keyed on id=1) — see
+// db/014_msoa_crime_rate.sql and db/016_msoa_crime_breakdown.sql.
 //
 // Usage:
 //   node scripts/compute-crime-benchmark.js <path-to-police-archive-root> <path-to-onspd-csv>
 //   e.g. node scripts/compute-crime-benchmark.js ~/Downloads/2026-06 ~/Downloads/ONSPD_MAY_2026/Data/ONSPD_MAY_2026_UK.csv
 //
 // Requires SUPABASE_URL and SUPABASE_SECRET_KEY (service role) in .env —
-// both tables' RLS policies only grant SELECT to normal roles.
+// all three tables' RLS policies only grant SELECT to normal roles.
 //
-// Safe to re-run: both tables are upserted by their primary key, so
+// Safe to re-run: all three tables are upserted by their primary key, so
 // re-running (e.g. against next month's archive) just recomputes and
 // overwrites the benchmark, never duplicates or accumulates.
 
@@ -83,6 +90,30 @@ const PAGE_SIZE = 1000; // PostgREST's per-request cap
 const BATCH_SIZE = 1000;
 const LOW_PERCENTILE = 0.4;
 const HIGH_PERCENTILE = 0.8;
+
+// Crime Stage 4 — maps the police "Crime type" column to one of 6 grouped
+// buckets for msoa_crime_breakdown. Confirmed against the real June 2026
+// archive (not assumed): these are the only 5 named-group strings that
+// appear, and the remaining 9 distinct values (Public order, Other theft,
+// Criminal damage and arson, Drugs, Other crime, Theft from the person,
+// Robbery, Possession of weapons, Bicycle theft) all fall through to
+// 'other' via the default below.
+const CRIME_TYPE_GROUPS = {
+  'Violence and sexual offences': 'violence',
+  'Anti-social behaviour': 'asb',
+  'Shoplifting': 'shoplifting',
+  'Burglary': 'burglary',
+  'Vehicle crime': 'vehicle',
+};
+const BREAKDOWN_GROUPS = ['violence', 'asb', 'shoplifting', 'burglary', 'vehicle', 'other'];
+
+function classifyCrimeType(crimeType) {
+  return CRIME_TYPE_GROUPS[crimeType] || 'other';
+}
+
+function emptyBreakdown() {
+  return { violence: 0, asb: 0, shoplifting: 0, burglary: 0, vehicle: 0, other: 0, total: 0 };
+}
 
 // Same linear-interpolation percentile (R type 7 / NumPy default) already
 // used in get-comps.js, duplicated here rather than imported — this is a
@@ -128,7 +159,11 @@ function findLatestMonthDir(archiveRoot) {
 
 // Counts crimes per LSOA code across every *-street.csv in monthDir. Never
 // stores an individual crime row — each parsed record contributes to a
-// running count and is then discarded.
+// running per-LSOA breakdown object (6 grouped counts + total, Crime Stage
+// 4) and is then discarded. total is accumulated in the same pass that
+// classifies each row's group, so it can never drift from the sum of the
+// 6 groups, or from what a plain-count version of this function would
+// have produced.
 function countCrimesByLsoa(monthDir) {
   const counts = new Map();
   let skippedBlankLsoa = 0;
@@ -152,7 +187,13 @@ function countCrimesByLsoa(monthDir) {
         skippedBlankLsoa++;
         continue;
       }
-      counts.set(lsoa, (counts.get(lsoa) || 0) + 1);
+      let entry = counts.get(lsoa);
+      if (!entry) {
+        entry = emptyBreakdown();
+        counts.set(lsoa, entry);
+      }
+      entry[classifyCrimeType(record['Crime type'])]++;
+      entry.total++;
     }
   }
 
@@ -190,14 +231,20 @@ function rollUpToMsoa(lsoaCounts, lsoaToMsoa) {
   let unmappedLsoaCount = 0;
   let unmappedCrimeCount = 0;
 
-  for (const [lsoa, count] of lsoaCounts) {
+  for (const [lsoa, entry] of lsoaCounts) {
     const msoa = lsoaToMsoa.get(lsoa);
     if (!msoa) {
       unmappedLsoaCount++;
-      unmappedCrimeCount += count;
+      unmappedCrimeCount += entry.total;
       continue;
     }
-    msoaCounts.set(msoa, (msoaCounts.get(msoa) || 0) + count);
+    let msoaEntry = msoaCounts.get(msoa);
+    if (!msoaEntry) {
+      msoaEntry = emptyBreakdown();
+      msoaCounts.set(msoa, msoaEntry);
+    }
+    for (const key of BREAKDOWN_GROUPS) msoaEntry[key] += entry[key];
+    msoaEntry.total += entry.total;
   }
 
   return { msoaCounts, unmappedLsoaCount, unmappedCrimeCount };
@@ -274,11 +321,26 @@ async function main() {
 
   // Every populated MSOA is included, defaulting to 0 crimes if none were
   // recorded this month — see file header for why this isn't an inner join.
+  // breakdownRows is built alongside joined from the exact same per-MSOA
+  // entry, so crime_count here and breakdown.total below can never drift
+  // apart — they're the same number read twice, not recomputed separately.
   const joined = [];
+  const breakdownRows = [];
   for (const { msoa_code, population: pop } of population) {
     if (!pop || pop <= 0) continue;
-    const crimeCount = msoaCounts.get(msoa_code) || 0;
+    const entry = msoaCounts.get(msoa_code) || emptyBreakdown();
+    const crimeCount = entry.total;
     joined.push({ msoa_code, crime_count: crimeCount, population: pop, rate_per_1000: (crimeCount / pop) * 1000 });
+    breakdownRows.push({
+      msoa_code,
+      violence: entry.violence,
+      asb: entry.asb,
+      shoplifting: entry.shoplifting,
+      burglary: entry.burglary,
+      vehicle: entry.vehicle,
+      other: entry.other,
+      total: entry.total,
+    });
   }
   console.log(`  ${joined.length.toLocaleString()} MSOA(s) joined (population > 0)`);
 
@@ -300,6 +362,10 @@ async function main() {
   const { loaded, batchErrors } = await upsertBatches(supabase, 'msoa_crime_rate', crimeRateRows, 'msoa_code');
   console.log(`  ${loaded.toLocaleString()} row(s) upserted, ${batchErrors} failed batch(es)`);
 
+  console.log('Upserting msoa_crime_breakdown...');
+  const { loaded: breakdownLoaded, batchErrors: breakdownBatchErrors } = await upsertBatches(supabase, 'msoa_crime_breakdown', breakdownRows, 'msoa_code');
+  console.log(`  ${breakdownLoaded.toLocaleString()} row(s) upserted, ${breakdownBatchErrors} failed batch(es)`);
+
   console.log('Upserting crime_benchmark_meta...');
   const { error: metaError } = await supabase.from('crime_benchmark_meta').upsert(
     { id: 1, data_month: latestMonth, low_threshold: lowThreshold, high_threshold: highThreshold, computed_at: new Date().toISOString() },
@@ -312,8 +378,9 @@ async function main() {
   console.log('Done.');
   console.log(`  Data month:          ${latestMonth}`);
   console.log(`  MSOAs in benchmark:  ${joined.length.toLocaleString()}`);
+  console.log(`  MSOAs in breakdown:  ${breakdownRows.length.toLocaleString()}`);
   console.log(`  Low/high thresholds: ${lowThreshold.toFixed(3)} / ${highThreshold.toFixed(3)} crimes per 1,000 residents`);
-  if (batchErrors > 0 || metaError) {
+  if (batchErrors > 0 || breakdownBatchErrors > 0 || metaError) {
     console.log('');
     console.log('Some writes failed — safe to just re-run this script (everything is upserted by primary key).');
     process.exitCode = 1;

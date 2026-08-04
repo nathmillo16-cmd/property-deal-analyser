@@ -805,6 +805,12 @@ app.post('/api/comps', async (req, res) => {
 // (postcodes-io.js); an MSOA that simply isn't in the benchmark, or that
 // the fallback couldn't resolve either, is a clean { available: false },
 // not an error.
+//
+// Crime Stage 4: also reads msoa_crime_breakdown (db/016) for the same
+// resolvedMsoaCode, alongside the meta read (independent queries, run in
+// parallel). breakdown is null if there's no row, or its total is 0 — a
+// percentage-of-zero breakdown is meaningless, not worth sending as six
+// 0% rows.
 app.get('/api/crime', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to see crime data.' });
@@ -838,13 +844,30 @@ app.get('/api/crime', async (req, res) => {
     if (error) return res.status(400).json({ error: error.message });
     if (!data) return res.json({ available: false });
 
-    const { data: meta } = await supabase
-      .from('crime_benchmark_meta')
-      .select('data_month')
-      .eq('id', 1)
-      .maybeSingle();
+    const [{ data: meta }, { data: breakdownRow }] = await Promise.all([
+      supabase.from('crime_benchmark_meta').select('data_month').eq('id', 1).maybeSingle(),
+      supabase
+        .from('msoa_crime_breakdown')
+        .select('violence, asb, shoplifting, burglary, vehicle, other, total')
+        .eq('msoa_code', resolvedMsoaCode)
+        .maybeSingle(),
+    ]);
 
-    res.json({ available: true, rate_per_1000: data.rate_per_1000, band: data.band, percentile: data.percentile, data_month: meta ? meta.data_month : null });
+    const CRIME_GROUP_LABELS = {
+      violence: 'Violence & sexual offences',
+      asb: 'Anti-social behaviour',
+      shoplifting: 'Shoplifting',
+      burglary: 'Burglary',
+      vehicle: 'Vehicle crime',
+      other: 'Other',
+    };
+    const breakdown = (breakdownRow && breakdownRow.total > 0)
+      ? Object.keys(CRIME_GROUP_LABELS)
+          .map((key) => ({ key, label: CRIME_GROUP_LABELS[key], count: breakdownRow[key], pct: (breakdownRow[key] / breakdownRow.total) * 100 }))
+          .sort((a, b) => b.pct - a.pct)
+      : null;
+
+    res.json({ available: true, rate_per_1000: data.rate_per_1000, band: data.band, percentile: data.percentile, data_month: meta ? meta.data_month : null, breakdown });
   } catch (e) {
     if (e instanceof PostcodeLookupError) {
       const clientCodes = ['invalid_postcode', 'postcode_not_found'];
