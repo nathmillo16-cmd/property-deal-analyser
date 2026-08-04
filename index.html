@@ -1051,8 +1051,17 @@ function renderPlanningResult(d){
   listEl.style.display='block';
   listEl.innerHTML=d.constraints.map(c=>{
     if(!c.active){
+      // Article 4 coverage on planning.data.gov.uk is nationally incomplete
+      // (confirmed: Broxtowe has zero Article 4 records despite a real
+      // designation existing) — a false "None found" there is the costly
+      // failure mode for HMO sourcers, so that row alone gets softer copy.
+      // The other five flags are comparatively well-covered and keep the
+      // plain "None found" text.
+      const negativeText=c.key==='article4'
+        ?'None recorded — Article 4 coverage in this dataset is nationally incomplete; verify with the local authority.'
+        :'None found';
       return `<div class="pc-row">
-        <div class="pc-row-head"><span class="pc-row-label">${c.label}</span><span class="pc-status inactive">None found</span></div>
+        <div class="pc-row-head"><span class="pc-row-label">${c.label}</span><span class="pc-status inactive">${negativeText}</span></div>
       </div>`;
     }
     const detail=(c.entries||[]).map(e=>{
