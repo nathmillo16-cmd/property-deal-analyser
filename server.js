@@ -877,6 +877,101 @@ app.get('/api/crime', async (req, res) => {
   }
 });
 
+// Planning constraints: live point-in-polygon lookup against
+// planning.data.gov.uk (free, Open Government Licence, no key) for the
+// subject postcode's coordinates. No storage — resolved fresh per request,
+// same live-lookup pattern as comps/crime, via the same lookupPostcode()
+// (postcodes-io.js). Only needs lat/lng, not an MSOA, so (unlike crime)
+// there's no reverseGeocodeMsoa fallback needed for a terminated postcode —
+// its last-known coordinates from lookupPostcode() are enough on their own.
+//
+// One call covers all six dataset types (article-4-direction-area,
+// conservation-area, listed-building, flood-risk-zone, green-belt,
+// tree-preservation-zone) — confirmed live against the real API before
+// building this, response shape is `{ entities: [...], count }`, each
+// entity carrying `dataset`/`name`/`reference` among other fields. Grouped
+// here into the 6 known buckets; active constraints sorted first so the
+// client doesn't have to.
+//
+// planning.data.gov.uk being slow/unreachable/rate-limited (429) all
+// degrade to the same clean { available: false } — this panel must never
+// break or block the comps results it sits under. An 8s timeout via
+// AbortController guards against it hanging the request indefinitely.
+const PLANNING_DATASETS = {
+  article4: 'article-4-direction-area',
+  conservationArea: 'conservation-area',
+  listedBuilding: 'listed-building',
+  floodRiskZone: 'flood-risk-zone',
+  greenBelt: 'green-belt',
+  treePreservationZone: 'tree-preservation-zone',
+};
+const PLANNING_LABELS = {
+  article4: 'Article 4 direction',
+  conservationArea: 'Conservation area',
+  listedBuilding: 'Listed building',
+  floodRiskZone: 'Flood risk zone',
+  greenBelt: 'Green belt',
+  treePreservationZone: 'Tree preservation zone',
+};
+
+app.get('/api/planning-constraints', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to see planning constraints.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock planning constraints.' });
+
+  const { postcode } = req.query;
+  if (typeof postcode !== 'string' || !postcode.trim()) {
+    return res.status(400).json({ error: 'Enter a postcode.' });
+  }
+
+  try {
+    const { lat, lng } = await lookupPostcode(normalisePostcodeInput(postcode));
+
+    const params = new URLSearchParams({ latitude: lat, longitude: lng, limit: '100' });
+    Object.values(PLANNING_DATASETS).forEach((slug) => params.append('dataset', slug));
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    let planningRes;
+    try {
+      planningRes = await fetch(`https://www.planning.data.gov.uk/entity.json?${params}`, { signal: controller.signal });
+    } catch (fetchErr) {
+      return res.json({ available: false });
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!planningRes.ok) {
+      return res.json({ available: false });
+    }
+
+    const body = await planningRes.json();
+    const entities = Array.isArray(body.entities) ? body.entities : [];
+
+    const constraints = Object.keys(PLANNING_DATASETS).map((key) => {
+      const matches = entities.filter((e) => e.dataset === PLANNING_DATASETS[key]);
+      return {
+        key,
+        label: PLANNING_LABELS[key],
+        active: matches.length > 0,
+        entries: matches.map((e) => ({ name: e.name || null, reference: e.reference || null })),
+      };
+    });
+    // Active constraints first — a sourcer should see what applies before
+    // scanning past the "none found" rows.
+    constraints.sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0));
+
+    res.json({ available: true, constraints });
+  } catch (e) {
+    if (e instanceof PostcodeLookupError) {
+      const clientCodes = ['invalid_postcode', 'postcode_not_found'];
+      return res.status(clientCodes.includes(e.code) ? 400 : 502).json({ error: e.message });
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/profile', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to load your defaults.' });

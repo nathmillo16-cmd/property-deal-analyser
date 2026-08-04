@@ -126,6 +126,15 @@
 .cb-bar-track{height:5px;border-radius:999px;background:var(--hairline)}
 .cb-bar-fill{height:100%;border-radius:999px;background:var(--accent)}
 
+.pc-row{display:flex;flex-direction:column;gap:2px;padding:.5rem 0;border-top:1px solid var(--hairline)}
+.pc-row:first-child{border-top:none}
+.pc-row-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px}
+.pc-row-label{color:var(--ink)}
+.pc-status{font-weight:700;white-space:nowrap}
+.pc-status.active{color:var(--accent-2)}
+.pc-status.inactive{color:var(--muted);font-weight:600}
+.pc-row-detail{font-size:11.5px;color:var(--muted)}
+
 .analyse-btn{
   width:100%;padding:13px;background:var(--accent);color:var(--accent-ink);
   border:none;border-radius:var(--radius);font-size:14px;font-weight:700;
@@ -585,6 +594,14 @@
         </div>
 
         <div class="section-gap">
+          <p class="sl">Planning constraints</p>
+          <div class="pc-list" id="pc-list"></div>
+          <p class="hint" id="pc-unavailable" style="display:none">Planning data unavailable.</p>
+          <p class="hint">Based on published planning data (England). Coverage is not complete for all authorities, so "none found" means none is recorded, not a guarantee.</p>
+          <p class="hint">Flood zones are area-level and do not confirm whether an individual property floods.</p>
+        </div>
+
+        <div class="section-gap">
           <p class="sl">GDV from floor area</p>
           <div class="f"><label>Post-refurb floor area (sqm)</label><input type="number" id="cp-floor-area" oninput="renderGDVTiers()"/></div>
 
@@ -783,7 +800,8 @@ function currentIndexDraftState(){
       applyTarget: getDDValue('cp-apply-target'),
       selectedTier: tierRadio?tierRadio.value:null,
       lastCompsResult: lastCompsResult,
-      lastCrime: lastCrimeResult
+      lastCrime: lastCrimeResult,
+      lastPlanning: lastPlanningResult
     }
   };
 }
@@ -833,6 +851,10 @@ function restoreIndexDraft(){
         lastCrimeResult=c.lastCrime;
         renderCrimeResult(lastCrimeResult);
       }
+      if(c.lastPlanning){
+        lastPlanningResult=c.lastPlanning;
+        renderPlanningResult(lastPlanningResult);
+      }
     }
   }catch(e){ /* comps restore failed — leave that panel at its blank default */ }
 
@@ -863,7 +885,7 @@ function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style
 function runFlip(){ cFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; saveIndexDraft(); }
 function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; saveIndexDraft(); }
 
-let lastCompsResult=null, lastCrimeResult=null;
+let lastCompsResult=null, lastCrimeResult=null, lastPlanningResult=null;
 const GDV_THIN_EVIDENCE_THRESHOLD=8;
 const GDV_TIERS=['conservative','refurbished','bestInArea'];
 const GDV_APPLY_TARGETS={btl:{field:'b-emv',label:'BTL',markStale:markStaleBTL},hmo:{field:'h-emv',label:'HMO',markStale:markStaleHMO},sa:{field:'sa-emv',label:'SA',markStale:markStaleSA},flip:{field:'fl-sv',label:'Flip',markStale:markStaleFlip}};
@@ -994,6 +1016,76 @@ async function fetchCrimeRate(postcode){
   }
 }
 
+// DOM-population half of a planning-constraints result, split out from
+// fetchPlanningConstraints() below so a restored draft can render the same
+// last result without re-firing the network call. Three distinct states,
+// not two:
+//   d === null           — pristine reset (no search made yet this time
+//                           round) — show neither the list nor a message.
+//   d.available === false — fetch was actually attempted and failed
+//                           (unreachable/timeout/non-2xx/429) — show the
+//                           visible "Planning data unavailable" message,
+//                           per the spec ("do NOT break comps" but DO say
+//                           something, unlike a silent blank reset).
+//   d.available === true  — real result, render the six rows. "All six
+//                           none found" is a valid, distinct result from
+//                           "unavailable" — never conflated.
+function renderPlanningResult(d){
+  const listEl=document.getElementById('pc-list');
+  const unavailableEl=document.getElementById('pc-unavailable');
+
+  if(d===null){
+    listEl.style.display='none';
+    listEl.innerHTML='';
+    unavailableEl.style.display='none';
+    return;
+  }
+  if(!d.available||!Array.isArray(d.constraints)){
+    listEl.style.display='none';
+    listEl.innerHTML='';
+    unavailableEl.style.display='block';
+    return;
+  }
+
+  unavailableEl.style.display='none';
+  listEl.style.display='block';
+  listEl.innerHTML=d.constraints.map(c=>{
+    if(!c.active){
+      return `<div class="pc-row">
+        <div class="pc-row-head"><span class="pc-row-label">${c.label}</span><span class="pc-status inactive">None found</span></div>
+      </div>`;
+    }
+    const detail=(c.entries||[]).map(e=>{
+      if(e.name&&e.reference&&e.reference!==e.name)return `${e.name} (${e.reference})`;
+      return e.name||e.reference||'';
+    }).filter(Boolean).join('; ');
+    return `<div class="pc-row">
+      <div class="pc-row-head"><span class="pc-row-label">${c.label}</span><span class="pc-status active">Yes</span></div>
+      ${detail?`<span class="pc-row-detail">${detail}</span>`:''}
+    </div>`;
+  }).join('');
+}
+
+// Fired alongside runComps() (not awaited there), same non-blocking
+// pattern as fetchCrimeRate() — a bad postcode is already surfaced by
+// comps' own error, this never blocks or duplicates it. Any failure
+// (network, timeout, non-2xx) renders as "Planning data unavailable" via
+// renderPlanningResult(null), never breaking comps.
+async function fetchPlanningConstraints(postcode){
+  try{
+    const res=await fetch('/api/planning-constraints?postcode='+encodeURIComponent(postcode),{
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const d=await res.json();
+    lastPlanningResult=(res.ok&&d&&d.available)?d:{available:false};
+    renderPlanningResult(lastPlanningResult);
+    saveIndexDraft();
+  }catch(e){
+    lastPlanningResult={available:false};
+    renderPlanningResult(lastPlanningResult);
+  }
+}
+
 // DOM-population half of a comps result, split out from runComps() below
 // so a restored draft can render the same last result without re-firing
 // the network call.
@@ -1024,14 +1116,17 @@ async function runComps(){
   msg.className='save-msg';msg.textContent='';
   resetCompsDisplay();
   renderCrimeResult(null);
+  renderPlanningResult(null);
   lastCompsResult=null;
   lastCrimeResult=null;
+  lastPlanningResult=null;
   renderGDVTiers();
 
   if(!currentSession){ msg.textContent='Log in to use Comparables.'; msg.className='save-msg error'; return; }
   if(!postcode){ msg.textContent='Enter a postcode.'; msg.className='save-msg error'; return; }
 
   fetchCrimeRate(postcode);
+  fetchPlanningConstraints(postcode);
 
   btn.disabled=true;btn.textContent='Searching…';
 
