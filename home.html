@@ -11,46 +11,103 @@
 <script src="/auth-guard.js"></script>
 <script src="/draft-state.js"></script>
 <style>
-/* page-specific layout only — colours/fonts/radius all come from styles.css */
+/* page-specific layout only — colours/fonts/radius all come from styles.css
+   (theme-light tokens on this page, since <body> carries that class). */
 #app{display:none}
 .hint{font-size:12.5px;color:var(--muted);font-style:italic;margin:0}
 
-.welcome{margin-bottom:1.75rem}
-.welcome h1{font-size:34px;margin-top:.1rem}
+/* Card treatment: white surface, soft lift, and a defined edge —
+   strengthened again to 1px/.09 alpha (up from .5px/.08 — still felt too
+   faint). Scoped to #app so other, still-dark-theme pages keep their
+   existing look untouched. */
+#app .card{
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,.09);
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
 
-.quick-actions{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2.5rem}
-.quick-actions a{text-decoration:none;display:inline-block}
+/* Subtle load-in: rides the existing display:none -> block flip that
+   render()'s JS already does for #empty-state/#dashboard-content (and
+   that init() does once for #app itself) — box generation restarts when
+   display changes, so this animation replays at exactly that moment with
+   no JS change needed. */
+@keyframes fade-up{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:none}
+}
+#app .card{animation:fade-up .4s ease both}
 
-.empty-card{text-align:center;padding:3.5rem 2rem}
-.empty-card h2{font-size:22px;margin:0 0 .6rem}
-.empty-card p{font-size:13.5px;color:var(--muted);margin:0 0 1.5rem;max-width:44ch;margin-left:auto;margin-right:auto}
-.empty-card .btn-primary{text-decoration:none;display:inline-block}
+.header-row{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:var(--space-4);margin-bottom:var(--space-6)}
+.header-row .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.08em}
+.header-row h1{font-size:26px;font-weight:600;letter-spacing:-.01em;margin-top:4px}
+.header-row .btn-primary{
+  text-decoration:none;display:inline-block;
+  border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3);
+}
 
-.stats-grid{margin-bottom:2.5rem}
+/* ---- hero row: indigo hero panel + a 2-card stat stack ---- */
+.hero-row{display:grid;grid-template-columns:1.5fr 1fr;gap:var(--space-4);margin-bottom:var(--space-6)}
+@media(max-width:760px){.hero-row{grid-template-columns:1fr}}
 
-.content-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.hero-panel{
+  background:linear-gradient(135deg, var(--accent), #37317f);
+  border:none;
+  box-shadow:0 4px 20px rgba(75,69,178,.28);
+  color:#ffffff;
+  padding:var(--space-6);
+  display:flex;flex-direction:column;justify-content:center;
+}
+.hero-label{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72);margin:0 0 var(--space-2)}
+.hero-number{font-family:var(--font-body);font-weight:700;font-size:40px;letter-spacing:-.02em;color:#ffffff;margin:0 0 var(--space-5);font-variant-numeric:tabular-nums}
+.hero-figures{display:flex;gap:var(--space-6);flex-wrap:wrap}
+.hero-fig{display:flex;flex-direction:column;gap:2px}
+.hero-fig-label{font-size:11px;color:rgba(255,255,255,.65);letter-spacing:.02em}
+.hero-fig-value{font-family:var(--font-body);font-weight:600;font-size:18px;color:#ffffff;font-variant-numeric:tabular-nums}
+
+.hero-stats-col{display:flex;flex-direction:column;gap:var(--space-4)}
+
+/* ---- mini pipeline board preview (right column of the hero row) ---- */
+.board-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)}
+.board-card-head h2{font-size:14px;font-weight:600;margin:0}
+.board-card-head .go{font-size:12px;font-weight:500;color:var(--accent);text-decoration:none}
+
+.board-cols{display:flex;justify-content:space-between;gap:var(--space-2)}
+.board-col{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1}
+.board-count{font-family:var(--font-body);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.board-bar-track{display:flex;align-items:flex-end;height:40px}
+.board-bar-fill{width:14px;border-radius:4px;min-height:3px;transition:height .3s ease}
+.board-label{font-size:9.5px;color:var(--muted);text-align:center;letter-spacing:.02em}
+
+.empty-card{text-align:center;padding:var(--space-6) var(--space-4)}
+.empty-card h2{font-size:22px;font-weight:600;margin:0 0 var(--space-3)}
+.empty-card p{font-size:13.5px;color:var(--muted);margin:0 0 var(--space-5);max-width:44ch;margin-left:auto;margin-right:auto}
+.empty-card .btn-primary{
+  text-decoration:none;display:inline-block;
+  border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3);
+}
+
+.content-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
 @media(max-width:760px){.content-grid{grid-template-columns:1fr}}
-.content-grid .card h2{font-size:18px;margin:0 0 1rem}
-.content-grid .card .go{display:inline-block;margin-top:1rem;text-decoration:none}
+.content-grid .card h2{font-size:14px;font-weight:600;margin:0 0 var(--space-4)}
+.content-grid .card .go{display:inline-block;margin-top:var(--space-4);text-decoration:none;font-size:12px;font-weight:500;color:var(--accent)}
 
-.recent-item{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:.7rem 0;border-top:1px solid var(--hairline)}
+.recent-item{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-4);padding:var(--space-3) 0;border-top:.5px solid var(--hairline)}
 .recent-item:first-child{border-top:none;padding-top:0}
 .recent-item .rname{font-size:13.5px;font-weight:600;color:var(--ink);display:block}
 .recent-item .rmeta{font-size:11.5px;color:var(--muted);margin-top:2px;display:block}
-.recent-item .rfigure{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--accent-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.recent-item .rfigure{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--accent);white-space:nowrap;font-variant-numeric:tabular-nums}
 
-.stage-row{display:flex;flex-wrap:wrap;gap:8px}
-
-/* Cards used as plain link tiles (Calculator/Saved Deals/Pipeline used to
-   live here as the whole page — now demoted to a smaller quick-links row) */
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem;margin-top:2.5rem}
-.cards .card{display:flex;flex-direction:column;gap:.5rem;text-decoration:none;color:inherit}
-.cards .card h3{font-size:16px;margin:0}
-.cards .card p{font-size:12.5px;color:var(--muted);margin:0}
-.cards .card .go{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--accent);margin-top:.3rem}
+/* ---- pipeline: distribution bar + compact stage list ---- */
+.pipeline-bar{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--surface-2);margin-bottom:var(--space-4)}
+.pipeline-bar-seg{height:100%;transition:width .3s ease}
+.pipeline-stage-row{display:flex;align-items:center;gap:var(--space-2);padding:6px 0;font-size:13px}
+.stage-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.stage-name{color:var(--ink);flex:1}
+.stage-count{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.pipeline-stage-empty{margin-top:4px}
 </style>
 </head>
-<body>
+<body class="theme-light">
 
 <div class="shell" id="app">
   <div class="topbar">
@@ -59,16 +116,33 @@
     <div class="auth-bar"><a id="auth-link" href="#">Log out</a></div>
   </div>
 
-  <div class="welcome">
-    <p class="eyebrow">Welcome back</p>
-    <h1 id="welcome-name">—</h1>
+  <div class="header-row">
+    <div>
+      <p class="eyebrow" id="greeting-eyebrow">—</p>
+      <h1 id="welcome-name">—</h1>
+    </div>
+    <a class="btn-primary" href="/index.html">Analyse a new deal</a>
   </div>
 
-  <div class="quick-actions">
-    <a class="btn-primary" href="/index.html">Analyse a new deal</a>
-    <a class="btn-secondary" href="/pipeline.html">View pipeline</a>
-    <a class="btn-secondary" href="/saved-deals.html">Saved deals</a>
-    <a class="btn-secondary" href="/portfolio.html">Portfolio</a>
+  <div class="hero-row">
+    <div class="card hero-panel">
+      <p class="hero-label">Deals analysed</p>
+      <p class="hero-number" id="hero-analysed">—</p>
+      <div class="hero-figures">
+        <div class="hero-fig"><span class="hero-fig-label">In pipeline</span><span class="hero-fig-value" id="hero-inpipeline">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Completed</span><span class="hero-fig-value" id="hero-completed">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Total invested</span><span class="hero-fig-value" id="hero-invested">—</span></div>
+      </div>
+    </div>
+    <div class="hero-stats-col">
+      <div class="card board-card">
+        <div class="board-card-head">
+          <h2>Board</h2>
+          <a class="go" href="/pipeline.html">Open →</a>
+        </div>
+        <div id="board-preview"><p class="hint">Loading…</p></div>
+      </div>
+    </div>
   </div>
 
   <div id="empty-state" style="display:none">
@@ -80,17 +154,6 @@
   </div>
 
   <div id="dashboard-content" style="display:none">
-    <div class="card" style="margin-bottom:1.75rem">
-      <h2>Portfolio</h2>
-      <div id="portfolio-summary"><p class="hint">Loading…</p></div>
-      <a class="go" href="/portfolio.html">Open the portfolio →</a>
-    </div>
-
-    <div class="metric-grid stats-grid">
-      <div class="metric"><p class="ml">Saved deals</p><p class="mv" id="stat-saved">—</p></div>
-      <div class="metric"><p class="ml">In pipeline</p><p class="mv" id="stat-pipeline">—</p></div>
-    </div>
-
     <div class="content-grid">
       <div class="card">
         <h2>Recent saved deals</h2>
@@ -99,33 +162,11 @@
       </div>
       <div class="card">
         <h2>Pipeline</h2>
+        <div class="pipeline-bar" id="pipeline-bar"></div>
         <div id="pipeline-summary"><p class="hint">Loading…</p></div>
         <a class="go" href="/pipeline.html">Open the pipeline →</a>
       </div>
     </div>
-  </div>
-
-  <div class="cards">
-    <a class="card" href="/index.html">
-      <h3>Calculator</h3>
-      <p>Run a BTL, HMO, SA, or Flip deal through the full breakdown, max bid, and full analysis.</p>
-      <span class="go">Open the calculator →</span>
-    </a>
-    <a class="card" href="/saved-deals.html">
-      <h3>Saved Deals</h3>
-      <p>Every deal you've saved from the calculator, in one place.</p>
-      <span class="go">View saved deals →</span>
-    </a>
-    <a class="card" href="/pipeline.html">
-      <h3>Pipeline</h3>
-      <p>Track saved deals through analysing, viewing, offered, agreed, and completed, and compare them side by side.</p>
-      <span class="go">Open the pipeline →</span>
-    </a>
-    <a class="card" href="/portfolio.html">
-      <h3>Portfolio</h3>
-      <p>Track properties you've actually bought: per-property yield and cashflow, plus blended totals.</p>
-      <span class="go">Open the portfolio →</span>
-    </a>
   </div>
 </div>
 
@@ -136,6 +177,7 @@ let portfolioCount=0, portfolioTotals=null, portfolioLocked=false;
 
 const STAGES=['analysing','viewing','offered','agreed','completed'];
 const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
+const STAGE_COLORS={analysing:'#c7c4ea',viewing:'#a49ee0',offered:'#7a72d4',agreed:'#4b45b2',completed:'#0f7a5a'};
 const KEY_FIGURE={
   btl:{label:'Gross yield',key:'gy',type:'p'},
   hmo:{label:'Gross yield',key:'gy',type:'p'},
@@ -177,6 +219,13 @@ function friendlyFirstName(email){
   if(parts.length===0)return email||'';
   const first=parts[0];
   return first.charAt(0).toUpperCase()+first.slice(1).toLowerCase();
+}
+
+function greetingForHour(){
+  const h=new Date().getHours();
+  if(h<12)return 'Good morning';
+  if(h<18)return 'Good afternoon';
+  return 'Good evening';
 }
 
 async function logout(){
@@ -229,6 +278,20 @@ async function loadDashboard(){
 }
 
 function render(){
+  // Hero figures + the two small stat cards are all set unconditionally,
+  // before the empty/dashboard-content branch below — pipeline data is a
+  // subset of saved deals (so it's naturally 0 when savedDeals is empty),
+  // but portfolio ("Total invested") is a wholly separate table and must
+  // still show even then, so nothing here can sit behind the early return.
+  const activeInPipeline=pipelineDeals.filter(d=>d.pipeline_stage!=='completed').length;
+  const completedCount=pipelineDeals.filter(d=>d.pipeline_stage==='completed').length;
+  const investedText=(portfolioLocked||portfolioCount===0||!portfolioTotals)?'—':fmtC(portfolioTotals.total_price_paid);
+
+  document.getElementById('hero-analysed').textContent=savedDeals.length;
+  document.getElementById('hero-inpipeline').textContent=pipelineLocked?'—':activeInPipeline;
+  document.getElementById('hero-completed').textContent=pipelineLocked?'—':completedCount;
+  document.getElementById('hero-invested').textContent=investedText;
+
   if(savedDeals.length===0){
     document.getElementById('empty-state').style.display='block';
     document.getElementById('dashboard-content').style.display='none';
@@ -236,9 +299,6 @@ function render(){
   }
   document.getElementById('empty-state').style.display='none';
   document.getElementById('dashboard-content').style.display='block';
-
-  document.getElementById('stat-saved').textContent=savedDeals.length;
-  document.getElementById('stat-pipeline').textContent=pipelineLocked?'—':pipelineDeals.length;
 
   const recent=savedDeals.slice(0,4);
   document.getElementById('recent-list').innerHTML=recent.map(d=>{
@@ -254,33 +314,54 @@ function render(){
     </div>`;
   }).join('');
 
+  const barEl=document.getElementById('pipeline-bar');
   const pipeEl=document.getElementById('pipeline-summary');
+  const boardEl=document.getElementById('board-preview');
   if(pipelineLocked){
+    barEl.innerHTML='';
     pipeEl.innerHTML='<p class="hint">Upgrade to unlock the Pipeline and track deals through analysing → viewing → offered → agreed → completed.</p>';
+    boardEl.innerHTML='<p class="hint">Upgrade to unlock the Pipeline.</p>';
   }else if(pipelineDeals.length===0){
+    barEl.innerHTML='';
     pipeEl.innerHTML='<p class="hint">Nothing in your pipeline yet. Add a saved deal to start tracking it.</p>';
+    boardEl.innerHTML='<p class="hint">Nothing in your pipeline yet.</p>';
   }else{
     const counts={};
     STAGES.forEach(s=>counts[s]=0);
     pipelineDeals.forEach(d=>{ if(counts[d.pipeline_stage]!==undefined) counts[d.pipeline_stage]++; });
-    pipeEl.innerHTML='<div class="stage-row">'+STAGES.map(s=>
-      `<span class="pill badge">${STAGE_LABELS[s]} · ${counts[s]}</span>`
-    ).join('')+'</div>';
-  }
+    const total=pipelineDeals.length;
 
-  const portEl=document.getElementById('portfolio-summary');
-  if(portfolioLocked){
-    portEl.innerHTML='<p class="hint">Upgrade to unlock the Portfolio and track properties you\'ve actually bought.</p>';
-  }else if(portfolioCount===0){
-    portEl.innerHTML='<p class="hint"><a href="/portfolio.html">Add your first property →</a></p>';
-  }else{
-    const y=portfolioTotals.blended_yield;
-    portEl.innerHTML=`<div class="metric-grid">
-      <div class="metric"><p class="ml">Properties</p><p class="mv">${portfolioCount}</p></div>
-      <div class="metric"><p class="ml">Total monthly cashflow</p><p class="mv">${fmtC(portfolioTotals.total_monthly_cashflow)}</p></div>
-      <div class="metric"><p class="ml">Blended yield</p><p class="mv">${y!=null?fmtP(y):'—'}</p></div>
-      <div class="metric"><p class="ml">Total invested</p><p class="mv">${fmtC(portfolioTotals.total_price_paid)}</p></div>
-    </div>`;
+    barEl.innerHTML=STAGES.map(s=>
+      `<div class="pipeline-bar-seg" style="width:${(counts[s]/total*100)}%;background:${STAGE_COLORS[s]}"></div>`
+    ).join('');
+
+    const withDeals=STAGES.filter(s=>counts[s]>0);
+    const withoutDeals=STAGES.filter(s=>counts[s]===0);
+    let listHtml=withDeals.map(s=>
+      `<div class="pipeline-stage-row"><span class="stage-dot" style="background:${STAGE_COLORS[s]}"></span><span class="stage-name">${STAGE_LABELS[s]}</span><span class="stage-count">${counts[s]}</span></div>`
+    ).join('');
+    if(withoutDeals.length>0){
+      listHtml+=`<p class="hint pipeline-stage-empty">No deals in ${withoutDeals.map(s=>STAGE_LABELS[s]).join(', ')}.</p>`;
+    }
+    pipeEl.innerHTML=listHtml;
+
+    // Mini board preview — reuses the same `counts` computed above for the
+    // distribution bar, not recomputed. Bar heights scale relative to the
+    // tallest stage (max ~40px, floor of 4px for any nonzero count so a
+    // small-but-real value never renders as an invisible sliver); a
+    // zero-count stage gets a flat 3px stub at reduced opacity instead of
+    // disappearing, so all 5 stages stay visually present.
+    const maxCount=Math.max(...STAGES.map(s=>counts[s]));
+    boardEl.innerHTML='<div class="board-cols">'+STAGES.map(s=>{
+      const c=counts[s];
+      const height=c===0?3:Math.max(4,Math.round((c/maxCount)*40));
+      const dim=c===0?' style="opacity:.35"':'';
+      return `<div class="board-col"${dim}>
+        <span class="board-count" style="color:${STAGE_COLORS[s]}">${c}</span>
+        <div class="board-bar-track"><div class="board-bar-fill" style="height:${height}px;background:${STAGE_COLORS[s]}"></div></div>
+        <span class="board-label">${STAGE_LABELS[s]}</span>
+      </div>`;
+    }).join('')+'</div>';
   }
 }
 
@@ -290,7 +371,8 @@ async function init(){
   sbClient=auth.client;
   currentSession=auth.session;
 
-  document.getElementById('welcome-name').textContent='Welcome, '+friendlyFirstName(currentSession.user.email);
+  document.getElementById('greeting-eyebrow').textContent=greetingForHour();
+  document.getElementById('welcome-name').textContent=friendlyFirstName(currentSession.user.email);
   document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
 
   document.getElementById('app').style.display='block';

@@ -12,7 +12,7 @@
    — never redefine colours, fonts, or radius directly.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Archivo:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Archivo:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap');
 
 :root{
   /* --- dark shell (dominant look) --- */
@@ -42,6 +42,63 @@
 
   --radius:6px;
   --radius-sm:4px;
+}
+
+/* ============================================================
+   Light + indigo theme — additive layer for redesigned pages
+   ("theme-light"). Redefines the same token names as :root
+   above with light-theme values, scoped to body.theme-light so
+   no existing page (none of which carry that class yet) is
+   affected. Adopted page-by-page.
+   ============================================================ */
+body.theme-light{
+  /* --- light shell (dominant look) --- */
+  --bg:#fafaf9;
+  --surface:#ffffff;
+  --surface-2:#f5f5f4;
+  --surface-3:#eeecea;
+  --ink:#1c1c1a;
+  --muted:#6b6b66;
+  --hairline:rgba(0,0,0,.08);
+  --hairline-strong:rgba(0,0,0,.16);
+  --accent:#4b45b2;
+  --accent-2:#5a54c8;
+  --accent-ink:#ffffff;
+
+  /* --- typography: Sora for light-theme pages only. :root's
+     --font-head/--font-body (Big Shoulders Display/Archivo) are
+     untouched, so dark pages (no theme-light class) are unaffected --- */
+  --font-head:'Sora',sans-serif;
+  --font-body:'Sora',-apple-system,BlinkMacSystemFont,sans-serif;
+
+  /* --- input / working zone: light, calm — the light-theme
+     equivalent of the dark taupe zone --- */
+  --input-bg:#f5f5f4;
+  --input-surface:#ffffff;
+  --input-ink:#1c1c1a;
+  --input-muted:#6b6b66;
+  --input-hairline:rgba(0,0,0,.12);
+  --input-accent:var(--accent);
+
+  /* --- semantic status tokens (new — foreground/background/ink
+     for danger, warn, success; not yet used anywhere) --- */
+  --danger:#a32d2d;
+  --danger-bg:#fcebeb;
+  --danger-ink:#a32d2d;
+  --warn:#854f0b;
+  --warn-bg:#faeeda;
+  --warn-ink:#854f0b;
+  --success:#0f6e56;
+  --success-bg:#e1f5ee;
+  --success-ink:#0f6e56;
+
+  /* --- spacing scale (new — app currently has none) --- */
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:24px;
+  --space-6:32px;
 }
 
 *{box-sizing:border-box}
