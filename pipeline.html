@@ -15,11 +15,33 @@
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
 
-.page-title{font-family:var(--font-head);font-weight:800;font-size:28px;margin:0 0 1.5rem}
+.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
 
 .locked-panel{text-align:center;padding:3.5rem 1rem}
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
+
+/* Hero panel — full-width indigo summary, matching home.html/portfolio.html's
+   hero exactly (same class names, duplicated here rather than shared, per
+   this app's existing per-page convention). Always visible (unlike
+   portfolio's, which hides on an empty state via a reused id) — with zero
+   pipelined deals the figures just read as real zeros, computed the same
+   way regardless of count. */
+.hero-panel{
+  background:linear-gradient(135deg, var(--accent), #37317f);
+  border:none;
+  border-radius:16px;
+  box-shadow:0 4px 20px rgba(75,69,178,.28);
+  color:#ffffff;
+  padding:var(--space-6);
+  margin-bottom:var(--space-5);
+}
+.hero-label{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72);margin:0 0 var(--space-2)}
+.hero-number{font-family:var(--font-body);font-weight:700;font-size:36px;letter-spacing:-.02em;color:#ffffff;margin:0 0 var(--space-5);font-variant-numeric:tabular-nums}
+.hero-figures{display:flex;gap:var(--space-6);flex-wrap:wrap}
+.hero-fig{display:flex;flex-direction:column;gap:2px}
+.hero-fig-label{font-size:11px;color:rgba(255,255,255,.65);letter-spacing:.02em}
+.hero-fig-value{font-family:var(--font-body);font-weight:600;font-size:18px;color:#ffffff;font-variant-numeric:tabular-nums}
 
 .kanban-wrap{
   overflow-x:auto;padding-bottom:.85rem;
@@ -32,17 +54,56 @@
 .kanban{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:1rem}
 @media(max-width:860px){.kanban{grid-template-columns:repeat(5,240px)}}
 .kanban-col{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1rem}
+body.theme-light .kanban-col{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:12px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
 .col-title{
+  display:flex;align-items:center;
   font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
   margin:0 0 .85rem;color:var(--muted);padding-bottom:.5rem;border-bottom:1px solid var(--hairline);
 }
-.col-count{font-size:11px;color:var(--accent-2);font-weight:700;margin-left:.35rem;font-family:var(--font-body)}
+/* Small coloured dot ahead of the stage name — colour set inline per stage
+   from STAGE_COLORS (script below), same palette as home.html's pipeline
+   distribution bar. */
+.stage-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0}
+.col-count{font-size:11px;color:var(--accent-2);font-weight:700;margin-left:auto;font-family:var(--font-body)}
 .col-cards{display:flex;flex-direction:column;gap:.6rem;min-height:60px}
+/* Empty-column placeholder — replaces the plain "No deals" hint text
+   (renderBoard(), script below) with a dashed box. */
+.col-empty{
+  border:1.5px dashed rgba(0,0,0,.14);border-radius:8px;
+  padding:1.1rem .75rem;text-align:center;
+  font-size:11.5px;color:var(--muted);font-style:italic;margin:0;
+}
+/* Completed-stage cards read as "done" — subtly greyed via a plain
+   descendant selector off the column's existing data-stage attribute, no
+   markup change needed on the cards themselves. */
+body.theme-light .kanban-col[data-stage="completed"] .pipeline-card{opacity:.72}
 
 .pipeline-card{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.75rem .85rem}
+body.theme-light .pipeline-card{
+  background:var(--surface);
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:10px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
 .card-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:2px}
 .card-type{font-size:13px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
-.card-date{font-size:11px;color:var(--muted);margin:0 0 .6rem;font-variant-numeric:tabular-nums}
+/* card-meta wraps the same TYPE · date text plus the price-paid figure the
+   card already showed inline (cardHtml(), script below) — price just moves
+   into its own pill instead of the meta line; no new data is read. Column
+   layout (not row) so the pill sits on its own line under the date, not
+   floating beside it. */
+.card-meta{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:0 0 .6rem}
+.card-date{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.card-price-pill{
+  font-family:var(--font-body);font-weight:700;font-size:12px;
+  color:var(--accent);background:rgba(75,69,178,.08);
+  border-radius:999px;padding:2px 9px;white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
 .stage-dd{position:relative;margin-bottom:.5rem}
 .stage-dd-trigger{
   width:100%;text-align:left;font-family:var(--font-body);font-size:12.5px;font-weight:600;
@@ -70,22 +131,52 @@
      against the busy dark board behind it */
   box-shadow:0 1px 2px rgba(0,0,0,.6), 0 16px 40px rgba(0,0,0,.55);
 }
+/* Same two-layer shadow, softened — the dark-board values above read as too
+   heavy against a light board. Colour only, same mechanism. */
+body.theme-light .stage-dd-list{
+  box-shadow:0 1px 2px rgba(0,0,0,.12), 0 16px 40px rgba(0,0,0,.18);
+}
 .stage-dd.open .stage-dd-list{display:block}
 .stage-opt{
   font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink);
   padding:7px 10px;border-radius:var(--radius-sm);cursor:pointer;
 }
 .stage-opt:hover,.stage-opt.highlight{background:rgba(224,164,88,.12)}
+body.theme-light .stage-opt:hover,
+body.theme-light .stage-opt.highlight{background:rgba(75,69,178,.10)}
 .stage-opt.selected{color:var(--accent-2)}
+/* .stage-dd-trigger's chevron is a hardcoded amber SVG data-URI, same known
+   limitation as the shared .dd-trigger — see portfolio/saved-deals. This is
+   pipeline's separate, bespoke dropdown, so it needs its own override. */
+body.theme-light .stage-dd-trigger::after{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b45b2' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 .card-actions{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.remove-btn{font-family:var(--font-body);font-size:11px;color:#E8746B;background:transparent;border:none;cursor:pointer;padding:2px 4px}
-.remove-btn:hover{text-decoration:underline}
+/* Quiet muted text link, not a red danger button — same click handler
+   (removeFromPipeline(), script below, untouched), appearance only. The
+   shorter "Remove" label (was "Remove from pipeline") plus nowrap is what
+   actually fixes the 3-line wrap; the colour change is separate. */
+.remove-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--muted);background:transparent;border:none;cursor:pointer;padding:2px 4px;white-space:nowrap}
+.remove-btn:hover{text-decoration:underline;color:var(--ink)}
 
 .mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .mini-btn:hover{background:rgba(224,164,88,.08)}
 .mini-btn:disabled{opacity:.4;cursor:not-allowed}
 .mini-btn.danger{color:#E8746B;border-color:#E8746B}
 .mini-btn.danger:hover{background:rgba(232,116,107,.08)}
+body.theme-light .mini-btn:hover{background:rgba(75,69,178,.08)}
+body.theme-light .mini-btn.danger{color:var(--danger);border-color:var(--danger)}
+body.theme-light .mini-btn.danger:hover{background:var(--danger-bg)}
+
+/* .dd dropdown (#offer-outcome and the per-offer outcome pickers in the
+   modal): colours only, same overrides portfolio/saved-deals used — the
+   modal itself isn't being restyled this round, but this is the shared .dd
+   component's own colour contract, not modal-specific markup. */
+body.theme-light .dd-opt:hover,
+body.theme-light .dd-opt.highlight{background:rgba(75,69,178,.10)}
+body.theme-light .dd-trigger::after{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b45b2' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
 .modal-overlay.open{display:flex}
@@ -115,12 +206,14 @@
 .save-msg.error{color:#E8746B}
 
 .kanban-col.drag-over{border-color:var(--accent);box-shadow:0 0 0 2px rgba(224,164,88,.25) inset}
+body.theme-light .kanban-col.drag-over{box-shadow:0 0 0 2px rgba(75,69,178,.25) inset}
 .pipeline-card.dragging{opacity:.4}
 .drag-handle{
   margin-left:auto;font-size:12px;color:var(--muted);letter-spacing:1px;line-height:1;
   cursor:grab;padding:4px 6px;border-radius:var(--radius-sm);touch-action:none;-webkit-user-select:none;user-select:none;
 }
 .drag-handle:hover{color:var(--accent);background:rgba(224,164,88,.1)}
+body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
 .drag-handle:active{cursor:grabbing}
 .drag-ghost{position:fixed;z-index:300;pointer-events:none;opacity:.92;transform:rotate(-2deg);box-shadow:0 20px 40px rgba(0,0,0,.5)}
 
@@ -157,14 +250,11 @@
 .compare-table td:first-child{font-weight:600;color:var(--muted);font-size:12px;white-space:nowrap}
 </style>
 </head>
-<body>
+<body class="theme-light">
 
 <div class="shell">
-  <div class="topbar">
-    <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html" class="active">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html">Letter Templates</a></div>
-    <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
-  </div>
+  <div id="nav-root" data-active="pipeline" data-subscribe="true"></div>
+  <script src="/nav.js"></script>
 
   <p class="page-title">Pipeline</p>
 
@@ -183,6 +273,16 @@
   </div>
 
   <div id="state-board" style="display:none">
+    <div class="hero-panel">
+      <p class="hero-label">Deals in pipeline</p>
+      <p class="hero-number" id="ph-total">—</p>
+      <div class="hero-figures">
+        <div class="hero-fig"><span class="hero-fig-label">Value in play</span><span class="hero-fig-value" id="ph-value">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Active</span><span class="hero-fig-value" id="ph-active">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Completed</span><span class="hero-fig-value" id="ph-completed">—</span></div>
+      </div>
+    </div>
+
     <div class="kanban-wrap">
       <div class="kanban" id="kanban"></div>
     </div>
@@ -241,6 +341,9 @@
 <script>
 const STAGES=['analysing','viewing','offered','agreed','completed'];
 const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
+// Column-header dot colour per stage — same palette as home.html's pipeline
+// distribution bar. Display-only, read by renderBoard() below.
+const STAGE_COLORS={analysing:'#c7c4ea',viewing:'#a49ee0',offered:'#7a72d4',agreed:'#4b45b2',completed:'#0f7a5a'};
 
 // COMPARE_FIELDS / fmtCompareC / fmtCompareP / fmtCompareField / the compare
 // table builder itself all live in compare-deals.js now (shared with
@@ -372,17 +475,33 @@ async function loadPipeline(){
   }
 }
 
+// Hero figures are derived entirely from pipelineDeals, already loaded by
+// loadPipeline() — no new fetch, no new endpoint. "Value in play" sums the
+// same deal_data.pp (purchase price) field cardHtml() already displays as
+// each card's price pill.
+function updateHero(){
+  const total=pipelineDeals.length;
+  const completed=pipelineDeals.filter(d=>d.pipeline_stage==='completed').length;
+  const active=total-completed;
+  const value=pipelineDeals.reduce((sum,d)=>sum+(d.deal_data&&d.deal_data.pp?Number(d.deal_data.pp):0),0);
+  document.getElementById('ph-total').textContent=total;
+  document.getElementById('ph-value').textContent=fmtC(value);
+  document.getElementById('ph-active').textContent=active;
+  document.getElementById('ph-completed').textContent=completed;
+}
+
 function renderBoard(){
   openStageDD=null; // the board is about to be fully rebuilt, so any open dropdown is gone with it
+  updateHero();
   const kanban=document.getElementById('kanban');
   kanban.innerHTML=STAGES.map(stage=>{
     const dealsInStage=pipelineDeals.filter(d=>d.pipeline_stage===stage);
     const cards=dealsInStage.length
       ? dealsInStage.map(cardHtml).join('')
-      : '<p class="hint">No deals</p>';
+      : '<p class="col-empty">No deals</p>';
     return `<div class="kanban-col" data-stage="${stage}"
       ondragover="onColumnDragOver(event)" ondragleave="onColumnDragLeave(event)" ondrop="onColumnDrop(event,'${stage}')">
-      <p class="col-title">${STAGE_LABELS[stage]}<span class="col-count">${dealsInStage.length}</span></p>
+      <p class="col-title"><span class="stage-dot" style="background:${STAGE_COLORS[stage]}"></span>${STAGE_LABELS[stage]}<span class="col-count">${dealsInStage.length}</span></p>
       <div class="col-cards">${cards}</div>
     </div>`;
   }).join('');
@@ -625,7 +744,10 @@ function cardHtml(d){
         ondragstart="onHandleDragStart(event,'${d.id}')" ondragend="onHandleDragEnd(event)"
         ontouchstart="onHandleTouchStart(event,'${d.id}')">⠿⠿</span>
     </div>
-    <p class="card-date">${label}${pp?' · '+pp:''} · ${date}</p>
+    <div class="card-meta">
+      <span class="card-date">${label} · ${date}</span>
+      ${pp?`<span class="card-price-pill">${pp}</span>`:''}
+    </div>
     <div class="stage-dd" data-deal-id="${d.id}">
       <button type="button" class="stage-dd-trigger" aria-haspopup="listbox" aria-expanded="false"
         onclick="toggleStageDD(event,'${d.id}')" onkeydown="stageDDKeydown(event,'${d.id}')">
@@ -635,7 +757,7 @@ function cardHtml(d){
     </div>
     <div class="card-actions">
       <button class="mini-btn" onclick="openDealDetails('${d.id}')">Notes &amp; offers</button>
-      <button class="remove-btn" onclick="removeFromPipeline('${d.id}')">Remove from pipeline</button>
+      <button class="remove-btn" onclick="removeFromPipeline('${d.id}')">Remove</button>
     </div>
   </div>`;
 }
@@ -782,7 +904,7 @@ function celebrateStageChange(dealId, fromStage, toStage){
   }
 }
 
-const CONFETTI_COLORS=['#E0A458','#F5C878','#ECEAE3'];
+const CONFETTI_COLORS=['#4b45b2','#a49ee0','#c7c4ea','#0f7a5a','#e0a458'];
 
 function celebrateCompleted(){
   const count=40;
@@ -1048,7 +1170,9 @@ function compareSelected(){
   const selected=pipelineDeals.filter(d=>selectedIds.has(d.id));
   if(selected.length<2)return;
   const deals=selected.map(d=>({ deal_type:d.deal_type, deal_data:d.deal_data, displayName:dealDisplayName(d) }));
-  document.getElementById('compare-panel').innerHTML=buildCompareTableHTML(deals);
+  const panel=document.getElementById('compare-panel');
+  panel.innerHTML=buildCompareTableHTML(deals);
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 init();
