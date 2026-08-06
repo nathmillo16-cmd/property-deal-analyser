@@ -17,10 +17,21 @@
 
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
 
-.page-title{font-family:var(--font-head);font-weight:800;font-size:28px;margin:0 0 1.5rem}
+.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
 
 .saved-panel-inner{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.75rem;max-width:760px}
+/* Light-theme card treatment — matches home/portfolio's card style. */
+body.theme-light .saved-panel-inner{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
 .saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap}
+body.theme-light .saved-item{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
 .saved-info{display:flex;flex-direction:column;gap:2px}
 .saved-name{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
 .saved-detail{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -32,12 +43,41 @@
 .mini-btn.danger:hover{background:rgba(232,116,107,.08)}
 .pipeline-badge{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--muted);background:var(--surface-2);border:1px solid var(--hairline);border-radius:999px;padding:5px 12px;white-space:nowrap;text-transform:capitalize}
 
-.bulk-bar{display:flex;align-items:center;gap:1.25rem;margin-bottom:1rem;flex-wrap:wrap}
+/* The shared .mini-btn hover/.danger colours above are hardcoded amber/red
+   literals, not tokens, so they don't auto-theme — same overrides
+   portfolio.html needed. .pipeline-badge gets its own soft-indigo tint
+   (there's no --accent-bg/--accent-ink token pair defined, unlike
+   danger/warn/success, so this uses the same rgba(accent) tint already
+   used elsewhere on this page for indigo hover/highlight backgrounds). */
+body.theme-light .mini-btn:hover{background:rgba(75,69,178,.08)}
+body.theme-light .mini-btn.danger{color:var(--danger);border-color:var(--danger)}
+body.theme-light .mini-btn.danger:hover{background:var(--danger-bg)}
+body.theme-light .pipeline-badge{
+  color:var(--accent);
+  background:rgba(75,69,178,.10);
+  border-color:rgba(75,69,178,.18);
+}
+
+/* Bulk-select and compare controls, merged into one visual strip above the
+   list. #bulk-bar and #compare-bar both still exist as real elements with
+   their original ids (loadSavedDeals() toggles each independently via
+   getElementById(...).style.display, always on the same condition, so
+   they always show/hide in sync) — only their CSS and DOM position
+   changed, into flex sub-groups inside a new unwrapped .list-toolbar
+   row, so JS's element lookups are completely unaffected. */
+.list-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem}
+.bulk-bar{display:flex;align-items:center;gap:1.25rem}
 .select-all-label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);font-weight:600;cursor:pointer;font-family:var(--font-body)}
 .saved-select{display:flex;align-items:center}
 
-/* ---- comparison (same rules as pipeline.html) ---- */
-.compare-bar{margin:3rem 0 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;padding-top:1.5rem;border-top:1px solid var(--hairline)}
+/* ---- comparison (compare-deals.js is shared with pipeline.html, but this
+   CSS is not — it's page-scoped inside saved-deals.html's own <style>
+   block, same as pipeline.html has its own separate near-identical copy,
+   so nothing here can ever reach pipeline.html's still-dark table). The
+   table rules below were already fully token-driven (--hairline/--ink/
+   --surface-2) and needed zero changes to read correctly in light theme —
+   see chat. */
+.compare-bar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
 .compare-bar p{margin:0;font-size:13px;color:var(--muted)}
 #compare-panel{margin-top:1rem;overflow-x:auto}
 .compare-table{width:100%;border-collapse:collapse;font-size:13px;min-width:480px;font-variant-numeric:tabular-nums}
@@ -50,6 +90,16 @@
 .save-msg.error{color:#E8746B}
 .save-msg a{color:inherit;font-weight:600;text-decoration:underline}
 
+/* .dd dropdown (#mtp-type in the Move to portfolio modal): colours only,
+   same overrides portfolio.html needed — the hover/highlight background
+   on .dd-opt and the chevron icon (a hardcoded SVG data-URI whose stroke
+   colour CSS custom properties can't reach) aren't token-driven. */
+body.theme-light .dd-opt:hover,
+body.theme-light .dd-opt.highlight{background:rgba(75,69,178,.10)}
+body.theme-light .dd-trigger::after{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b45b2' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
 .modal-overlay.open{display:flex}
 .modal-card{max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
@@ -60,30 +110,29 @@
 .modal-actions{display:flex;justify-content:flex-end;margin-top:1rem}
 </style>
 </head>
-<body>
+<body class="theme-light">
 
 <div class="shell" id="app">
-  <div class="topbar">
-    <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html" class="active">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html">Letter Templates</a></div>
-    <div class="auth-bar"><a id="auth-link" href="#">Log out</a></div>
-  </div>
+  <div id="nav-root" data-active="saved-deals" data-subscribe="false"></div>
+  <script src="/nav.js"></script>
 
   <p class="page-title">Saved Deals</p>
 
   <div class="saved-panel-inner">
-    <div class="bulk-bar" id="bulk-bar" style="display:none">
-      <label class="select-all-label"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"/> Select all</label>
-      <span class="hint" id="bulk-count">0 selected</span>
-      <button class="mini-btn danger" id="bulk-delete-btn" disabled onclick="deleteSelected()">Delete selected</button>
+    <div class="list-toolbar">
+      <div class="bulk-bar" id="bulk-bar" style="display:none">
+        <label class="select-all-label"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"/> Select all</label>
+      </div>
+      <div class="compare-bar" id="compare-bar" style="display:none">
+        <span class="hint" id="bulk-count">0 selected</span>
+        <p class="hint" id="compare-hint">Select 2 or more deals to compare them side by side.</p>
+        <button class="btn-primary" id="compare-btn" disabled onclick="compareSelected()">Compare selected</button>
+        <button class="mini-btn danger" id="bulk-delete-btn" disabled onclick="deleteSelected()">Delete selected</button>
+      </div>
     </div>
     <div id="saved-list"><p class="hint">Loading…</p></div>
   </div>
 
-  <div class="compare-bar" id="compare-bar" style="display:none">
-    <p id="compare-hint">Select 2 or more deals to compare them side by side.</p>
-    <button class="btn-primary" id="compare-btn" disabled onclick="compareSelected()">Compare selected</button>
-  </div>
   <div id="compare-panel"></div>
 </div>
 
@@ -338,7 +387,9 @@ function compareSelected(){
   const selected=savedDealsCache.filter(d=>selectedForDelete.has(d.id));
   if(selected.length<2)return;
   const deals=selected.map(d=>({ deal_type:d.deal_type, deal_data:d.deal_data, displayName:dealDisplayName(d) }));
-  document.getElementById('compare-panel').innerHTML=buildCompareTableHTML(deals);
+  const panel=document.getElementById('compare-panel');
+  panel.innerHTML=buildCompareTableHTML(deals);
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function deleteSelected(){
