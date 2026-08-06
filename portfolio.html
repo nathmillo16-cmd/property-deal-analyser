@@ -14,22 +14,70 @@
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
 
-.page-title{font-family:var(--font-head);font-weight:800;font-size:28px;margin:0 0 1.5rem}
+.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
 
 .locked-panel{text-align:center;padding:3.5rem 1rem}
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
 
-.split-panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.split-panel{display:grid;grid-template-columns:1fr 1.3fr;gap:16px;align-items:start}
 @media(max-width:860px){.split-panel{grid-template-columns:1fr}}
 
 .add-property-card h2{font-size:18px;margin:0 0 1.25rem}
+
+/* Light-theme card treatment for the add-property form — matches home's
+   card style. Scoped to this specific class (not the shared .card) so the
+   as-yet-unstyled modal (which also carries class="card") is untouched by
+   this rule directly — see chat re: token cascade still reaching it
+   regardless, since that's unavoidable once <body> carries theme-light. */
+body.theme-light .add-property-card{
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,.09);
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
+body.theme-light .add-property-card .btn-primary{
+  border-radius:10px;
+  box-shadow:0 1px 2px rgba(75,69,178,.3);
+}
 
 .save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
 .save-msg.success{color:var(--accent-2)}
 .save-msg.error{color:#E8746B}
 
-.summary-grid{margin-bottom:1.25rem}
+/* Hero panel — full-width indigo summary, matching home.html's hero
+   exactly (same class names, duplicated here rather than shared, per this
+   app's existing per-page convention — see e.g. the .dd component below).
+   id="pf-summary-grid" is kept on this element on purpose: loadPortfolio()
+   (script below) already shows/hides it via that exact id, unchanged, so
+   the hero inherits the existing "hidden until >=1 property" empty-state
+   behaviour for free, with zero JS changes. */
+.hero-panel{
+  background:linear-gradient(135deg, var(--accent), #37317f);
+  border:none;
+  border-radius:16px;
+  box-shadow:0 4px 20px rgba(75,69,178,.28);
+  color:#ffffff;
+  padding:var(--space-6);
+  margin-bottom:var(--space-5);
+}
+.hero-label{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72);margin:0 0 var(--space-2)}
+.hero-number{font-family:var(--font-body);font-weight:700;font-size:38px;letter-spacing:-.02em;color:#ffffff;margin:0 0 var(--space-5);font-variant-numeric:tabular-nums}
+.hero-figures{display:flex;gap:var(--space-6);flex-wrap:wrap}
+.hero-fig{display:flex;flex-direction:column;gap:2px}
+.hero-fig-label{font-size:11px;color:rgba(255,255,255,.65);letter-spacing:.02em}
+.hero-fig-value{font-family:var(--font-body);font-weight:600;font-size:18px;color:#ffffff;font-variant-numeric:tabular-nums}
+/* #pf-total-cashflow can't carry class="hero-fig-value" like its two
+   sibling figures — loadPortfolio() (script below, unchanged) always
+   resets its class to exactly "mv", "mv positive", or "mv negative" on
+   every load, since that sign-check logic wasn't touched. This rule
+   matches the hero-fig-value look (size/weight/tabular-nums) and forces
+   white regardless of which of those three classes is present, so the
+   figure looks identical to its siblings and never shows the old
+   success/danger colouring inside the hero, without touching that JS at
+   all. */
+body.theme-light #pf-total-cashflow{
+  font-family:var(--font-body);font-weight:600;font-size:18px;color:#ffffff;font-variant-numeric:tabular-nums;
+}
 
 .saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap;cursor:pointer;transition:border-color .15s ease}
 .saved-item:hover{border-color:var(--hairline-strong)}
@@ -37,11 +85,61 @@
 .saved-name{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
 .saved-detail{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .saved-chevron{color:var(--muted);font-size:18px;line-height:1}
+
+/* Right-hand figure group (yield, cashflow) in each property row — wrapped
+   with the chevron in .saved-right so .saved-item's existing
+   justify-content:space-between still only ever sees 2 direct children
+   (the left info block and this group), not 3, which would otherwise put
+   the figures in the horizontal middle of the row instead of the right. */
+.saved-right{display:flex;align-items:center;gap:1.25rem}
+.saved-figures{display:flex;gap:1.25rem}
+.saved-figure{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.sf-value{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
+.sf-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+body.theme-light .sf-value.sf-success{color:var(--success)}
+body.theme-light .sf-value.sf-danger{color:var(--danger)}
+
 .mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .mini-btn:hover{background:rgba(224,164,88,.08)}
 .mini-btn:disabled{opacity:.4;cursor:not-allowed}
 .mini-btn.danger{color:#E8746B;border-color:#E8746B}
 .mini-btn.danger:hover{background:rgba(232,116,107,.08)}
+
+/* Light-theme property rows — same card treatment as the tiles above,
+   plus a background-only hover and an indigo chevron instead of muted
+   grey, so the row reads as clickable. */
+body.theme-light .saved-item{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+  transition:background-color .15s ease;
+}
+body.theme-light .saved-item:hover{background:var(--surface-2)}
+body.theme-light .saved-chevron{color:var(--accent)}
+
+/* The shared .mini-btn hover and .mini-btn.danger colours above are
+   hardcoded amber/red literals, not tokens, so they don't auto-theme —
+   overridden here for light theme only. Danger now uses the new
+   --danger/--danger-bg semantic tokens instead of the old hardcoded hex. */
+body.theme-light .mini-btn:hover{background:rgba(75,69,178,.08)}
+body.theme-light .mini-btn.danger{color:var(--danger);border-color:var(--danger)}
+body.theme-light .mini-btn.danger:hover{background:var(--danger-bg)}
+
+/* .dd dropdown (property-type picker): colours only, no markup/class
+   changes — see chat. Two things in the shared styles.css component are
+   hardcoded to the old amber accent rather than token-driven, so they
+   don't auto-theme and need an explicit override here: the hover/
+   highlight background on .dd-opt, and the dropdown chevron icon itself,
+   which is a hardcoded SVG data-URI (the stroke colour is baked into the
+   string, which CSS custom properties cannot reach inside a
+   url(data:...) value — the same known limitation flagged in the
+   original design-system review). Same path/viewBox as the shared icon,
+   only the stroke colour changes (amber -> indigo). */
+body.theme-light .dd-opt:hover,
+body.theme-light .dd-opt.highlight{background:rgba(75,69,178,.10)}
+body.theme-light .dd-trigger::after{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b45b2' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
 .modal-overlay.open{display:flex}
@@ -56,7 +154,7 @@
 .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:1rem}
 </style>
 </head>
-<body>
+<body class="theme-light">
 
 <div class="shell">
   <div id="nav-root" data-active="portfolio" data-subscribe="true"></div>
@@ -79,6 +177,18 @@
   </div>
 
   <div id="state-board" style="display:none">
+    <div class="hero-panel" id="pf-summary-grid" style="display:none">
+      <p class="hero-label">Total invested</p>
+      <p class="hero-number" id="pf-total-invested">—</p>
+      <div class="hero-figures">
+        <div class="hero-fig"><span class="hero-fig-label">Properties</span><span class="hero-fig-value" id="pf-count">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Monthly cashflow</span><span class="mv" id="pf-total-cashflow">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Blended yield</span><span class="hero-fig-value" id="pf-blended-yield">—</span></div>
+      </div>
+    </div>
+
+    <p class="hint" id="pf-empty-state" style="display:none">Add your first property to see your portfolio at a glance.</p>
+
     <div class="split-panel">
       <div class="card add-property-card">
         <h2>Add property</h2>
@@ -107,13 +217,6 @@
       </div>
 
       <div>
-        <p class="hint" id="pf-empty-state" style="display:none">Add your first property to see your portfolio at a glance.</p>
-        <div class="metric-grid summary-grid" id="pf-summary-grid" style="display:none">
-          <div class="metric"><p class="ml">Properties</p><p class="mv" id="pf-count">—</p></div>
-          <div class="metric"><p class="ml">Total monthly cashflow</p><p class="mv" id="pf-total-cashflow">—</p></div>
-          <div class="metric"><p class="ml">Blended yield</p><p class="mv" id="pf-blended-yield">—</p></div>
-          <div class="metric"><p class="ml">Total invested</p><p class="mv" id="pf-total-invested">—</p></div>
-        </div>
         <div id="pf-list"><p class="hint">Loading…</p></div>
       </div>
     </div>
@@ -423,17 +526,35 @@ async function loadPortfolio(){
 
     summaryEl.style.display='';
     document.getElementById('pf-count').textContent=portfolioProperties.length;
-    document.getElementById('pf-total-cashflow').textContent=fmtGBP(d.totals.total_monthly_cashflow);
+    const cashflowEl=document.getElementById('pf-total-cashflow');
+    const cf=d.totals.total_monthly_cashflow;
+    cashflowEl.textContent=fmtGBP(cf);
+    cashflowEl.className='mv'+(cf>0?' positive':(cf<0?' negative':''));
     document.getElementById('pf-blended-yield').textContent=fmtPct(d.totals.blended_yield);
     document.getElementById('pf-total-invested').textContent=fmtGBP(d.totals.total_price_paid);
 
-    listEl.innerHTML=portfolioProperties.map(p=>`<div class="saved-item" onclick="openPropertyDetail('${p.id}')">
+    // Yield and cashflow move to a right-aligned figure group (styled
+    // above); price paid stays in the left meta line rather than being
+    // dropped, since it's still useful context and doesn't fit the
+    // two-figure group the redesign calls for. No values are recomputed
+    // here — same p.yield/p.monthly_cashflow/p.price_paid the server
+    // already returned, just laid out differently.
+    listEl.innerHTML=portfolioProperties.map(p=>{
+      const cfClass=p.monthly_cashflow>0?'sf-success':(p.monthly_cashflow<0?'sf-danger':'');
+      return `<div class="saved-item" onclick="openPropertyDetail('${p.id}')">
       <div class="saved-info">
         <span class="saved-name">${escapeHtml(p.address)} <span class="hint">(${escapeHtml(p.property_type)})</span></span>
-        <span class="saved-detail">Yield ${fmtPct(p.yield)} · Cashflow ${fmtGBP(p.monthly_cashflow)}/mo · Paid ${fmtGBP(p.price_paid)}</span>
+        <span class="saved-detail">Paid ${fmtGBP(p.price_paid)}</span>
       </div>
-      <span class="saved-chevron">›</span>
-    </div>`).join('');
+      <div class="saved-right">
+        <div class="saved-figures">
+          <div class="saved-figure"><span class="sf-value sf-success">${fmtPct(p.yield)}</span><span class="sf-label">Yield</span></div>
+          <div class="saved-figure"><span class="sf-value ${cfClass}">${fmtGBP(p.monthly_cashflow)}</span><span class="sf-label">Cashflow</span></div>
+        </div>
+        <span class="saved-chevron">›</span>
+      </div>
+    </div>`;
+    }).join('');
   }catch(e){
     listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
   }
