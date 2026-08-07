@@ -14,12 +14,47 @@
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
 
-.page-title{font-family:var(--font-head);font-weight:800;font-size:28px;margin:0 0 .4rem}
-.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 1.75rem}
+.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 .4rem}
+.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 var(--space-6)}
 
 .locked-panel{text-align:center;padding:3.5rem 1rem}
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
+
+/* Light-theme card treatment for every .card-classed element on this page
+   (the accordion sections, the quick-mode panel, the summary sidebar) —
+   .card is shared with other, still-dark pages, so this override is scoped
+   to body.theme-light and lives here rather than in shared styles.css. */
+body.theme-light .card{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
+
+/* Grand Total — the page's "money hero" moment, matching the indigo hero
+   treatment used elsewhere (home/portfolio/pipeline). .offer-box is a
+   shared component (also used by index.html's max-bid figure, unchanged,
+   dark theme), so this stays scoped to body.theme-light rather than
+   touching the shared rule — no markup/ID change, colours + size only. */
+body.theme-light .offer-box{
+  background:linear-gradient(135deg, var(--accent), #37317f);
+  border:none;
+  box-shadow:0 4px 20px rgba(75,69,178,.28);
+}
+body.theme-light .offer-box .ot{color:rgba(255,255,255,.72)}
+body.theme-light .offer-box .ov{color:#ffffff;font-size:32px}
+body.theme-light .offer-box .on{color:rgba(255,255,255,.65)}
+
+/* .mini-btn/.danger (the Delete button, #rf-delete-btn) had no CSS
+   definition anywhere on this page or in shared styles.css before this —
+   unlike portfolio/saved-deals/pipeline, which each defined their own
+   version. Defined fresh here, light-theme only (no dark-mode legacy
+   value to preserve, since none existed). */
+.mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.mini-btn:hover{background:rgba(75,69,178,.08)}
+.mini-btn:disabled{opacity:.4;cursor:not-allowed}
+.mini-btn.danger{color:var(--danger);border-color:var(--danger)}
+.mini-btn.danger:hover{background:var(--danger-bg)}
 
 /* ---- mode + saved estimates ---- */
 .mode-toggle{display:flex;gap:8px;margin-bottom:1.75rem}
@@ -30,6 +65,14 @@
 .saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap;cursor:pointer;transition:border-color .15s ease}
 .saved-item:hover{border-color:var(--hairline-strong)}
 .saved-item.active{border-color:var(--accent)}
+/* Light-theme card treatment — same as saved-deals.html/pipeline.html's
+   saved-item rows. */
+body.theme-light .saved-item{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
+body.theme-light .saved-item.active{border-color:var(--accent)}
 .saved-info{display:flex;flex-direction:column;gap:2px}
 .saved-name{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
 .saved-detail{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -61,7 +104,7 @@
 .refurb-section[open] .refurb-chevron{transform:rotate(-135deg)}
 .refurb-section-body{padding:0 1.5rem 1.4rem}
 
-.refurb-row{display:grid;grid-template-columns:1fr 96px 76px 96px;gap:10px;align-items:center;padding:.55rem 0;border-top:1px solid var(--input-hairline)}
+.refurb-row{display:grid;grid-template-columns:1fr 76px 96px 96px;gap:10px;align-items:center;padding:.55rem 0;border-top:1px solid var(--input-hairline)}
 .refurb-row:first-child{border-top:none}
 .refurb-row-head{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding-bottom:.6rem;padding-left:3.25rem;padding-right:3.25rem;border-top:none}
 .refurb-row-head span:nth-child(2),.refurb-row-head span:nth-child(3),.refurb-row-head span:nth-child(4){text-align:right}
@@ -114,14 +157,11 @@
 .rf-delete-row{display:flex;justify-content:flex-end;margin-top:.75rem}
 </style>
 </head>
-<body>
+<body class="theme-light">
 
 <div class="shell">
-  <div class="topbar">
-    <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html" class="active">Refurb Estimator</a><a href="/letters.html">Letter Templates</a></div>
-    <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
-  </div>
+  <div id="nav-root" data-active="refurb" data-subscribe="true"></div>
+  <script src="/nav.js"></script>
 
   <p class="page-title">Refurbishment Estimator</p>
   <p class="page-sub">Cost a refurb line by line, or as a quick trade-by-trade total. Add contingency and VAT, then save it against a deal.</p>
@@ -145,7 +185,7 @@
     <div class="saved-strip">
       <div class="saved-strip-head">
         <h2>Saved estimates</h2>
-        <button class="btn-secondary" onclick="newEstimate()">New estimate</button>
+        <button class="btn-primary" onclick="newEstimate()">New estimate</button>
       </div>
       <div id="rf-saved-list"><p class="hint">Loading…</p></div>
     </div>
@@ -164,7 +204,7 @@
       <div>
         <div id="rf-detailed-panel">
           <p class="hint rf-guide-note">Guide prices are examples from one contractor and area. Adjust for your own quotes and region.</p>
-          <div class="refurb-row refurb-row-head"><span>Item</span><span>Rate (£)</span><span>Qty</span><span>Total</span></div>
+          <div class="refurb-row refurb-row-head"><span>Item</span><span>Qty</span><span>Rate (£)</span><span>Total</span></div>
           <div id="rf-sections"></div>
         </div>
         <div id="rf-quick-panel" class="card" style="display:none">
@@ -193,7 +233,7 @@
           <button type="button" class="tab-btn" id="vat-btn-20" onclick="switchVat(20)">20%</button>
           <button type="button" class="tab-btn" id="vat-btn-5" onclick="switchVat(5)">5%</button>
         </div>
-        <p class="hint vat-tip">The 5% reduced rate can apply to renovations of properties empty 2+ years, or certain conversions of qualifying uninhabitable properties. Check eligibility before relying on it — it isn't guaranteed.</p>
+        <p class="hint vat-tip">The 5% reduced rate can apply to renovations of properties empty 2+ years, or certain conversions of qualifying uninhabitable properties. Check eligibility before relying on it.</p>
         <div class="rf-summary-line"><span>VAT</span><span class="rsl-v" id="rf-vat-amt">£0</span></div>
 
         <div class="offer-box" style="margin-top:1.25rem">
@@ -441,8 +481,8 @@ function buildDetailedPanel(){
               <span class="refurb-item-name">${escapeHtml(it.label)}</span>
               ${it.note?`<span class="refurb-item-note">${escapeHtml(it.note)}</span>`:''}
             </div>
-            <input type="number" placeholder="${fmtGuidePrice(it.rate)}" id="di-${s.id}-${it.id}-rate" oninput="recalcSummary()"/>
-            <input type="number" id="di-${s.id}-${it.id}-qty" oninput="recalcSummary()"/>
+            <input type="number" placeholder="Qty" id="di-${s.id}-${it.id}-qty" oninput="recalcSummary()"/>
+            <input type="number" placeholder="${fmtGuidePrice(it.rate)||'Rate £'}" id="di-${s.id}-${it.id}-rate" oninput="recalcSummary()"/>
             <span class="refurb-row-total" id="di-${s.id}-${it.id}-total">£0</span>
           </div>
         `).join('')}
