@@ -14,20 +14,35 @@
 /* page-specific layout only, colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
 
-.page-title{font-family:var(--font-head);font-weight:800;font-size:28px;margin:0 0 .4rem}
-.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 1.75rem}
+.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 .4rem}
+.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 var(--space-6)}
 
 .locked-panel{text-align:center;padding:3.5rem 1rem}
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
 
-.letter-type-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.75rem}
+/* Light-theme card treatment — matches the other migrated pages. Covers
+   both .lt-fields (left panel) and the preview card (right panel), which
+   both carry the shared class="card". */
+body.theme-light .card{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
 
-.lt-layout{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+.letter-type-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem}
+
+/* Two-panel layout: fields left, live preview right — roughly 1fr/1.2fr so
+   the letter itself gets a little more room than the form. */
+.lt-layout{display:grid;grid-template-columns:1fr 1.2fr;gap:20px;align-items:start}
 @media(max-width:900px){.lt-layout{grid-template-columns:1fr}}
 
 .lt-fields h2{font-size:16px;margin:0 0 1.1rem}
 .lt-remember-note{margin-top:-.5rem;margin-bottom:1.25rem}
+
+.lt-preview-header{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.5rem;flex-wrap:wrap}
+.lt-preview-label{font-family:var(--font-head);font-weight:600;font-size:15px;color:var(--ink)}
+.lt-preview-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
 .letter-body{
   display:block;width:100%;box-sizing:border-box;
@@ -44,6 +59,7 @@
   background:rgba(224,164,88,.08);border:1px solid var(--accent);border-radius:var(--radius-sm);
   padding:.85rem 1rem;font-size:12.5px;color:var(--ink);margin:1.25rem 0;
 }
+body.theme-light .letter-tip{background:rgba(75,69,178,.06)}
 .letter-tip strong{color:var(--accent-2)}
 
 .lt-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -57,14 +73,11 @@
 }
 </style>
 </head>
-<body>
+<body class="theme-light">
 
 <div class="shell">
-  <div class="topbar">
-    <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html" class="active">Letter Templates</a></div>
-    <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade · £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
-  </div>
+  <div id="nav-root" data-active="letters" data-subscribe="true"></div>
+  <script src="/nav.js"></script>
 
   <p class="page-title">Letter Templates</p>
   <p class="page-sub">Ready-made letters for reaching out to owners of empty, derelict, or inherited properties. Fill in your details once, pick a letter, and copy or print it.</p>
@@ -85,15 +98,14 @@
 
   <div id="state-board" style="display:none">
 
-    <div class="letter-type-tabs" id="letter-type-tabs">
-      <button type="button" class="tab-btn" id="type-btn-enquiry" onclick="switchLetterType('enquiry')">Empty property enquiry</button>
-      <button type="button" class="tab-btn" id="type-btn-followup" onclick="switchLetterType('followup')">Follow-up (no response)</button>
-      <button type="button" class="tab-btn" id="type-btn-probate" onclick="switchLetterType('probate')">Probate / inherited property</button>
-      <button type="button" class="tab-btn" id="type-btn-offer" onclick="switchLetterType('offer')">Direct offer in writing</button>
-    </div>
-
     <div class="lt-layout">
       <div class="card lt-fields">
+        <div class="letter-type-tabs" id="letter-type-tabs">
+          <button type="button" class="tab-btn" id="type-btn-enquiry" onclick="switchLetterType('enquiry')">Empty property enquiry</button>
+          <button type="button" class="tab-btn" id="type-btn-followup" onclick="switchLetterType('followup')">Follow-up (no response)</button>
+          <button type="button" class="tab-btn" id="type-btn-probate" onclick="switchLetterType('probate')">Probate / inherited property</button>
+          <button type="button" class="tab-btn" id="type-btn-offer" onclick="switchLetterType('offer')">Direct offer in writing</button>
+        </div>
         <h2>Your details</h2>
         <div class="field"><label>Owner name</label><input type="text" id="lt-owner-name" placeholder="Leave blank to use &quot;Homeowner&quot;" oninput="onFieldInput()"/></div>
         <div class="field"><label>Property address</label><input type="text" id="lt-property-address" oninput="onFieldInput()"/></div>
@@ -106,6 +118,15 @@
       </div>
 
       <div class="card">
+        <div class="lt-preview-header">
+          <span class="lt-preview-label">Preview</span>
+          <div class="lt-preview-actions">
+            <button class="btn-secondary" onclick="copyLetter()" id="copy-btn">Copy</button>
+            <button class="btn-primary" onclick="downloadLetter()" id="download-btn">Download</button>
+          </div>
+        </div>
+        <span class="lt-copy-msg" id="copy-msg"></span>
+
         <div id="letter-print-area">
           <textarea class="letter-body" id="letter-preview" oninput="onLetterManualEdit()"></textarea>
         </div>
@@ -117,9 +138,7 @@
 
         <div class="lt-actions">
           <button class="btn-secondary" onclick="resetToTemplate()">Reset to template</button>
-          <button class="btn-primary" onclick="copyLetter()" id="copy-btn">Copy letter</button>
           <button class="btn-secondary" onclick="window.print()">Print</button>
-          <span class="lt-copy-msg" id="copy-msg"></span>
         </div>
       </div>
     </div>
@@ -375,6 +394,26 @@ async function copyLetter(){
   }catch(e){
     msg.textContent='Could not copy automatically. Select the text and copy it manually.';
   }
+}
+
+// Filename: template + address if an address has been entered, else a
+// plain 'letter.txt' fallback. Reuses collectFieldValues() (unchanged) —
+// no new field, no new state, just reads what's already there.
+function downloadLetter(){
+  const text=document.getElementById('letter-preview').value;
+  const address=collectFieldValues().propertyAddress;
+  const slug=address.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  const filename = slug ? `${currentLetterType}-letter-${slug}.txt` : 'letter.txt';
+
+  const blob=new Blob([text], {type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 async function init(){
