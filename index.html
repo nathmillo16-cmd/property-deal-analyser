@@ -19,6 +19,13 @@
 
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
 
+.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 .4rem}
+.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 var(--space-6)}
+
+/* .tabs/.tab were already fully token-driven (background:var(--accent) on
+   .active, var(--surface)/var(--hairline)/var(--muted) otherwise) — no
+   override needed here, they auto-theme correctly under body.theme-light
+   as-is. Left untouched. */
 .tabs{display:flex;gap:8px;margin-bottom:1.75rem;flex-wrap:wrap}
 .tab{
   font-family:var(--font-body);font-weight:600;letter-spacing:.02em;
@@ -39,16 +46,43 @@
   background:var(--input-bg);border:1px solid var(--input-hairline);border-radius:var(--radius);
   padding:1.75rem;color:var(--input-ink);
 }
+/* Light-theme card treatment for the input panel — matches the other
+   migrated pages' card look. Keeps background:var(--input-bg) as-is (the
+   deliberate, existing input-zone/surface distinction used everywhere else
+   in the app — .f/.tr/.rg inputs already use --input-surface/--input-ink/
+   --input-hairline and auto-theme correctly with zero changes below), just
+   adds the border/shadow/radius that make it read as a card like the
+   others. STAGE 1 scope only — .results-col is untouched here. */
+body.theme-light .input-col{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
 
 .results-col{
   background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);
   color:var(--ink);padding:1.75rem;
+}
+/* STAGE 2: light-theme card treatment for the results panel — matches the
+   other migrated pages' card look. Individual .m metric tiles are left as
+   they are: --hairline already resolves to rgba(0,0,0,.08) under
+   theme-light, essentially the same value already, so they read correctly
+   with zero extra rule. */
+body.theme-light .results-col{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
 }
 
 .sl{
   font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
   margin:0 0 1rem;color:var(--input-muted);padding-bottom:.5rem;border-bottom:1px solid var(--input-hairline);
 }
+/* Input-side section headers only (STAGE 1 scope) — .results-col .sl below
+   has its own selector and keeps winning there regardless (class+class
+   beats class), so this doesn't touch results-area headers, deferred to a
+   later stage. */
+body.theme-light .sl{color:var(--accent)}
 .results-col .sl{color:var(--muted);border-bottom-color:var(--hairline)}
 .section-gap{margin-top:1.75rem;padding-top:1.75rem;border-top:1px solid var(--input-hairline)}
 .results-col .section-gap{border-top-color:var(--hairline)}
@@ -91,6 +125,13 @@
 .mv.good{color:var(--accent-2)}
 .mv.warn{color:#E8C468}
 .mv.bad{color:#E8746B}
+/* These classes are set BY calc-engine.js's cl() helper (untouched,
+   off-limits) based on numeric thresholds — good/warn/bad, not
+   renameable. Colour-only mapping onto the semantic tokens for light
+   theme: good→success, warn→warn, bad→danger. */
+body.theme-light .mv.good{color:var(--success)}
+body.theme-light .mv.warn{color:var(--warn)}
+body.theme-light .mv.bad{color:var(--danger)}
 
 .sn{font-size:11.5px;color:var(--muted);margin-top:.5rem;line-height:1.6}
 
@@ -102,12 +143,32 @@
 .ot{font-size:11.5px;color:var(--muted);margin:0 0 6px}
 .ov{font-family:var(--font-body);font-size:26px;font-weight:700;margin:0 0 3px;color:var(--accent-2);font-variant-numeric:tabular-nums}
 .on{font-size:11px;color:var(--muted);margin:0}
+/* "Recommended offer prices" — the key output, given prominence. Kept as a
+   bordered/tinted card rather than a full indigo-gradient hero block (the
+   treatment refurb/pipeline/portfolio use for a single headline figure):
+   each strategy shows TWO of these side by side (yield-target, ROI-target),
+   so two solid gradient blocks would compete rather than read as one
+   confident moment. Instead: a stronger indigo border/tint and a bigger,
+   bolder --accent (not --accent-2) figure. Flag if you'd rather have the
+   full gradient-hero treatment here instead. */
+body.theme-light .ob{
+  border-color:var(--accent);
+  background:rgba(75,69,178,.05);
+  border-radius:14px;
+}
+body.theme-light .ov{color:var(--accent);font-size:30px}
 
 /* same three-tier good/warn/bad palette as .mv.good/.warn/.bad and
    .verdict-yes/.verdict-no above — reused, not a new colour */
 .crime-band.low{color:var(--accent-2)}
 .crime-band.medium{color:#E8C468}
 .crime-band.high{color:#E8746B}
+/* STAGE 3: same success/warn/danger mapping already applied to
+   .mv.good/.warn/.bad in Stage 2 — d.band drives this class in JS
+   (untouched), just the colours change. */
+body.theme-light .crime-band.low{color:var(--success)}
+body.theme-light .crime-band.medium{color:var(--warn)}
+body.theme-light .crime-band.high{color:var(--danger)}
 
 .crime-breakdown-wrap{margin-top:.9rem}
 .crime-breakdown-toggle{
@@ -134,6 +195,23 @@
 .pc-status.active{color:var(--accent-2)}
 .pc-status.inactive{color:var(--muted);font-weight:600}
 .pc-row-detail{font-size:11.5px;color:var(--muted)}
+/* STAGE 3: all 6 flag types share one "active" class (renderPlanningResult(),
+   untouched) — no per-type distinction exists to key warn vs danger off, so
+   one consistent token for every active flag: --warn (a flagged constraint
+   to be aware of, not a hard blocker). ".inactive" ("None found") was
+   already muted — matches the ask already, no change needed there. */
+body.theme-light .pc-status.active{color:var(--warn)}
+/* Confidence badge (#cp-confidence) reuses the SAME shared .verdict-yes/
+   .verdict-no classes the AI verdict uses elsewhere on this page (set in
+   JS via d.confidence==='high'?'verdict-yes':(d.confidence==='low'?
+   'verdict-no':'') — untouched) — so this is ID-scoped specifically to
+   #cp-confidence, leaving the AI verdict's own use of .verdict-yes/
+   .verdict-no (still --accent-2/--danger from Stage 2) unaffected.
+   "Medium" confidence gets no class at all in that ternary (empty string),
+   so it stays plain muted text — there's no third state to colour without
+   touching that rendering logic, which is out of scope. */
+body.theme-light #cp-confidence.verdict-yes{color:var(--success)}
+body.theme-light #cp-confidence.verdict-no{color:var(--warn)}
 
 .analyse-btn{
   width:100%;padding:13px;background:var(--accent);color:var(--accent-ink);
@@ -155,6 +233,7 @@
   display:none;font-size:12px;color:var(--accent-2);background:rgba(224,164,88,.1);
   border:1px solid var(--accent);border-radius:var(--radius-sm);padding:.6rem .85rem;margin-bottom:1.1rem;
 }
+body.theme-light .stale-note{background:rgba(75,69,178,.08)}
 
 .save-btn{
   width:100%;padding:11px;background:transparent;color:var(--accent);
@@ -162,7 +241,16 @@
   font-family:var(--font-body);cursor:pointer;margin-top:.85rem;
 }
 .save-btn:hover{background:rgba(224,164,88,.08)}
+body.theme-light .save-btn:hover{background:rgba(75,69,178,.08)}
 .save-btn:disabled{opacity:.4;cursor:not-allowed}
+/* "Save deal" (results-col) vs "Save as my defaults" (input-col, done in
+   Stage 1 as a quiet outline button) share the same .save-btn class —
+   scoped by ancestor so "Save deal" becomes filled indigo primary here
+   without touching "Save as my defaults" or any markup/class/id. Same
+   scoping technique this file already uses for .results-col .sl and
+   .results-col .save-msg above. */
+body.theme-light .results-col .save-btn{background:var(--accent);color:var(--accent-ink);border:none}
+body.theme-light .results-col .save-btn:hover{background:var(--accent-2)}
 
 .save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em;color:var(--input-muted)}
 .results-col .save-msg{color:var(--muted)}
@@ -171,6 +259,7 @@
 .save-msg.error{color:#E8746B}
 
 .ai-wrap{margin-top:1.5rem;border:1px solid var(--hairline);border-radius:var(--radius);overflow:hidden;background:var(--surface-2)}
+body.theme-light .ai-wrap{border:1px solid rgba(0,0,0,.09);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02)}
 .ai-header{padding:1rem 1.25rem;border-bottom:1px solid var(--hairline);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px}
 .ai-title{font-family:var(--font-head);font-weight:700;font-size:16px;letter-spacing:.02em;color:var(--ink);margin:0}
 .ai-disclaimer{font-size:10.5px;color:var(--muted);margin:0}
@@ -181,7 +270,9 @@
 .ai-section-title{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2);margin:0 0 6px}
 .verdict-yes{color:var(--accent-2);font-weight:600}
 .verdict-no{color:#E8746B;font-weight:600}
+body.theme-light .verdict-no{color:var(--danger)}
 .flag{background:rgba(224,164,88,.12);color:var(--accent-2);font-size:12px;padding:4px 10px;border-radius:var(--radius-sm);display:inline-block;margin:2px 4px 2px 0}
+body.theme-light .flag{background:rgba(75,69,178,.10)}
 
 .tier-list{display:flex;flex-direction:column;gap:8px}
 .tier-row{
@@ -196,18 +287,29 @@
 .tier-gdv{font-family:var(--font-body);font-weight:700;font-size:16px;color:var(--accent-2);font-variant-numeric:tabular-nums}
 .tier-count{font-size:11.5px;color:var(--muted);white-space:nowrap}
 .tier-count.warn{color:#E8C468;font-weight:600}
+body.theme-light .tier-count.warn{color:var(--warn)}
 @media(max-width:520px){.tier-row{grid-template-columns:auto 1fr;grid-template-rows:auto auto auto}}
+
+/* STAGE 3: .dd colours-only, same overrides every other migrated page
+   used — the two instances here (#cp-type, #cp-apply-target) were the
+   only .dd usage anywhere on this whole page, deferred until now since
+   both live inside the Comps panel. Markup/attributes untouched. */
+body.theme-light .dd-opt:hover,
+body.theme-light .dd-opt.highlight{background:rgba(75,69,178,.10)}
+body.theme-light .dd-trigger::after{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b45b2' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 </style>
 </head>
-<body>
+<body class="theme-light">
 <h2 class="sr-only">Property deal analyser with full deal analysis: a BTL, HMO, SA, and Flip calculator with expert-style deal breakdowns</h2>
 
 <div class="shell" id="app">
-  <div class="topbar">
-    <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html">Home</a><a href="/index.html" class="active">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html">Letter Templates</a></div>
-    <div class="auth-bar"><a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade — £29/mo</a><a id="auth-link" href="/login.html">Log in</a></div>
-  </div>
+  <div id="nav-root" data-active="index" data-subscribe="true"></div>
+  <script src="/nav.js"></script>
+
+  <p class="page-title">Calculator</p>
+  <p class="page-sub">Analyse a deal across BTL, HMO, SA, or Flip, or pull live comps for a postcode.</p>
   <p class="hint" id="upgrade-notice" style="display:none"></p>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('btl')">BTL</button>
