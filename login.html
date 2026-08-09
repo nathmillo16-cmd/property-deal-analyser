@@ -13,9 +13,62 @@
    .card below is the same shared component used everywhere else; we only
    add the width constraint + elevation a standalone centred card needs. */
 body{display:flex;align-items:center;justify-content:center;padding:1.5rem}
-.card{max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+/* Indigo-tinted wash behind everything, deliberately visible now (not a
+   near-white hint) — a diagonal "dawn" wash plus a subtle repeating dot
+   texture. Purely decorative, layered under .bg-decor's blobs and the card
+   via normal paint order (a body background always paints behind its own
+   children), so none of this needs a z-index of its own. Multiple
+   background-image layers, each with its own background-size/-repeat
+   entry at the matching comma position — the dot layer (24px tiles) is
+   listed last so it repeats while the two washes stay single, large,
+   non-repeating gradients. */
+body.theme-light{
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(ellipse 1100px 900px at 8% 0%, rgba(75,69,178,.22), transparent 55%),
+    radial-gradient(ellipse 1000px 850px at 100% 100%, rgba(164,158,224,.20), transparent 55%),
+    linear-gradient(160deg, rgba(75,69,178,.08) 0%, transparent 45%),
+    radial-gradient(circle, rgba(75,69,178,.07) 1px, transparent 1px);
+  background-size:auto, auto, auto, 24px 24px;
+  background-repeat:no-repeat, no-repeat, no-repeat, repeat;
+}
 
-h1{font-family:var(--font-head);font-weight:800;font-size:22px;text-align:center;margin:0 0 1.5rem;letter-spacing:.02em}
+/* Decorative background blobs — pure CSS, no assets. Fixed + inset:0 takes
+   this fully out of document flow (can never affect page scroll height/
+   width regardless of blob size or offset), its own overflow:hidden clips
+   anything that pokes past the viewport edge, and z-index:-1 puts it
+   behind the normal page content by default — including .card, which is
+   left completely untouched (no z-index/position added to it at all).
+   pointer-events:none on the wrapper is enough; children inherit it.
+   Card contrast is structurally guaranteed regardless of blob strength:
+   .card paints an opaque --surface background on top, in front of this
+   whole layer, so it always reads crisp no matter how strong the glow
+   around it gets. */
+.bg-decor{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:-1}
+.bg-blob{position:absolute;border-radius:50%;filter:blur(100px)}
+.bg-blob-1{width:640px;height:640px;top:-180px;left:-160px;background:var(--accent);opacity:.6}
+.bg-blob-2{width:580px;height:580px;bottom:-200px;right:-140px;background:#a49ee0;opacity:.55}
+.bg-blob-3{width:440px;height:440px;top:32%;right:4%;background:#c7c4ea;opacity:.4}
+@media(max-width:600px){
+  .bg-blob-1{width:420px;height:420px;top:-120px;left:-130px}
+  .bg-blob-2{width:380px;height:380px;bottom:-140px;right:-110px}
+  .bg-blob-3{display:none}
+}
+
+.card{max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+/* .card's background/border/radius come from the shared .card rule
+   (styles.css), which is already fully token-driven (background:var(--surface);
+   border:1px solid var(--hairline)) — this just adds the same rgba(0,0,0,.09)
+   border + 14px radius + soft shadow treatment every other migrated page's
+   cards use. The strong drop-shadow above is unchanged — it's theme-neutral
+   (a dark shadow reads fine dropped under a light card too, same as the
+   modal cards on other pages). */
+body.theme-light .card{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+}
+
+h1{font-family:var(--font-head);font-weight:800;font-size:22px;text-align:center;margin:0 0 1.5rem;letter-spacing:.02em;color:var(--ink)}
 
 .tabs{display:flex;gap:8px;margin-bottom:1.5rem}
 .tab{
@@ -43,6 +96,7 @@ h1{font-family:var(--font-head);font-weight:800;font-size:22px;text-align:center
 }
 .submit-btn:hover{opacity:.88}
 .submit-btn:disabled{opacity:.5;cursor:not-allowed}
+body.theme-light .submit-btn{box-shadow:0 1px 2px rgba(75,69,178,.3)}
 
 .msg{
   margin-top:1rem;font-size:13px;line-height:1.5;padding:.7rem .85rem;
@@ -51,11 +105,18 @@ h1{font-family:var(--font-head);font-weight:800;font-size:22px;text-align:center
 .msg.show{display:block}
 .msg.success{background:rgba(224,164,88,.12);color:var(--accent-2)}
 .msg.error{background:rgba(232,116,107,.12);color:#E8746B}
+body.theme-light .msg.success{background:var(--success-bg);color:var(--success)}
+body.theme-light .msg.error{background:var(--danger-bg);color:var(--danger)}
 .link{font-size:12px;color:var(--accent);text-decoration:none;cursor:pointer;display:inline-block;margin-top:.75rem;font-family:var(--font-body)}
 .link:hover{text-decoration:underline}
 </style>
 </head>
-<body>
+<body class="theme-light">
+  <div class="bg-decor" aria-hidden="true">
+    <div class="bg-blob bg-blob-1"></div>
+    <div class="bg-blob bg-blob-2"></div>
+    <div class="bg-blob bg-blob-3"></div>
+  </div>
   <div class="card">
     <h1>Deals N Yields</h1>
     <div class="tabs">
