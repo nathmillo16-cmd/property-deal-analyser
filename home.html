@@ -292,28 +292,16 @@ function render(){
   document.getElementById('hero-completed').textContent=pipelineLocked?'—':completedCount;
   document.getElementById('hero-invested').textContent=investedText;
 
-  if(savedDeals.length===0){
-    document.getElementById('empty-state').style.display='block';
-    document.getElementById('dashboard-content').style.display='none';
-    return;
-  }
-  document.getElementById('empty-state').style.display='none';
-  document.getElementById('dashboard-content').style.display='block';
-
-  const recent=savedDeals.slice(0,4);
-  document.getElementById('recent-list').innerHTML=recent.map(d=>{
-    const label=d.deal_type.toUpperCase();
-    const fig=keyFigure(d);
-    const meta=[label, fig?fig.label:null, d.pipeline_stage?'In pipeline':null].filter(Boolean).join(' · ');
-    return `<div class="recent-item">
-      <span>
-        <span class="rname">${escapeHtml(dealDisplayName(d))}</span>
-        <span class="rmeta">${escapeHtml(meta)}</span>
-      </span>
-      <span class="rfigure">${fig?escapeHtml(fig.value):'—'}</span>
-    </div>`;
-  }).join('');
-
+  // #board-preview/#pipeline-bar/#pipeline-summary populated here too, still
+  // unconditionally — same reasoning as the hero figures above. #board-preview
+  // in particular sits in the always-visible hero-row (not inside
+  // #dashboard-content), so a zero-saved-deals user was previously left
+  // looking at its static HTML "Loading…" forever, since the code that used
+  // to replace it lived after the early return below and never ran. Moving
+  // it up here fixes that; #pipeline-bar/#pipeline-summary get the same
+  // correct content for free, even though (being inside #dashboard-content)
+  // they stay hidden by that container's own display:none in this exact
+  // zero-saved-deals case — see chat.
   const barEl=document.getElementById('pipeline-bar');
   const pipeEl=document.getElementById('pipeline-summary');
   const boardEl=document.getElementById('board-preview');
@@ -363,6 +351,28 @@ function render(){
       </div>`;
     }).join('')+'</div>';
   }
+
+  if(savedDeals.length===0){
+    document.getElementById('empty-state').style.display='block';
+    document.getElementById('dashboard-content').style.display='none';
+    return;
+  }
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('dashboard-content').style.display='block';
+
+  const recent=savedDeals.slice(0,4);
+  document.getElementById('recent-list').innerHTML=recent.map(d=>{
+    const label=d.deal_type.toUpperCase();
+    const fig=keyFigure(d);
+    const meta=[label, fig?fig.label:null, d.pipeline_stage?'In pipeline':null].filter(Boolean).join(' · ');
+    return `<div class="recent-item">
+      <span>
+        <span class="rname">${escapeHtml(dealDisplayName(d))}</span>
+        <span class="rmeta">${escapeHtml(meta)}</span>
+      </span>
+      <span class="rfigure">${fig?escapeHtml(fig.value):'—'}</span>
+    </div>`;
+  }).join('');
 }
 
 async function init(){
