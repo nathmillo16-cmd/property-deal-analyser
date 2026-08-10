@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="/auth-guard.js"></script>
 <script src="/draft-state.js"></script>
 <style>
@@ -123,6 +124,7 @@ body.theme-light .letter-tip{background:rgba(75,69,178,.06)}
           <div class="lt-preview-actions">
             <button class="btn-secondary" onclick="copyLetter()" id="copy-btn">Copy</button>
             <button class="btn-primary" onclick="downloadLetter()" id="download-btn">Download</button>
+            <button class="btn-primary" onclick="downloadLetterPdf()" id="download-pdf-btn">Download PDF</button>
           </div>
         </div>
         <span class="lt-copy-msg" id="copy-msg"></span>
@@ -414,6 +416,45 @@ function downloadLetter(){
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Renders whatever's currently in #letter-preview (including manual edits)
+// as a plain single-column PDF — sensible margins, one font size, and line
+// breaks preserved exactly as typed (splitting on '\n' rather than
+// re-flowing the whole string keeps intentional blank lines between
+// paragraphs, since jsPDF's own wrap only handles long single lines).
+function downloadLetterPdf(){
+  const text=document.getElementById('letter-preview').value;
+  const address=collectFieldValues().propertyAddress;
+  const slug=address.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  const filename = slug ? `${currentLetterType}-letter-${slug}.pdf` : 'letter.pdf';
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+  const margin = 72; // 1 inch
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const usableWidth = pageWidth - margin * 2;
+  const fontSize = 12, lineHeight = fontSize * 1.5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(fontSize);
+
+  let y = margin;
+  text.split('\n').forEach(rawLine=>{
+    const wrapped = doc.splitTextToSize(rawLine, usableWidth);
+    wrapped.forEach(line=>{
+      if(y > pageHeight - margin){
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(line, margin, y);
+      y += lineHeight;
+    });
+  });
+
+  doc.save(filename);
 }
 
 async function init(){
