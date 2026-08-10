@@ -299,6 +299,19 @@ body.theme-light .dd-opt.highlight{background:rgba(75,69,178,.10)}
 body.theme-light .dd-trigger::after{
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b45b2' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
+
+/* Save-deal modal — same overlay/card/header/close/actions shell as the
+   Move to portfolio modal on saved-deals.html (copied verbatim), index.html's
+   first modal. Its two inputs use index.html's own .f pattern, not .field
+   (which index.html doesn't define), for one-page consistency. */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-card{max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem}
+.modal-header h2{font-size:18px;margin:0;word-break:break-word}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
+.modal-close:hover{color:var(--ink)}
+.modal-actions{display:flex;justify-content:flex-end;margin-top:1rem}
 </style>
 </head>
 <body class="theme-light">
@@ -755,6 +768,20 @@ body.theme-light .dd-trigger::after{
 
 </div>
 
+<div class="modal-overlay" id="save-modal-overlay" onclick="handleSaveModalOverlayClick(event)">
+  <div class="card modal-card">
+    <div class="modal-header">
+      <h2>Save deal</h2>
+      <button class="modal-close" onclick="closeSaveModal()" aria-label="Close">×</button>
+    </div>
+    <div class="f"><label>Address / name</label><input type="text" id="save-modal-name" placeholder=""/></div>
+    <p class="save-msg" id="save-modal-msg"></p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="save-modal-confirm-btn" onclick="confirmSaveDeal()">Save deal</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // Custom themed dropdown, replacing native <select> everywhere in this app —
 // same visual treatment and interaction mechanics as pipeline.html's original
@@ -856,6 +883,10 @@ function ddKeydown(e, id){
 
 document.addEventListener('click', closeAllDD);
 window.addEventListener('scroll', closeAllDD, true);
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape')closeSaveModal();
+});
 
 let currentTab='btl';
 
@@ -1682,33 +1713,56 @@ function defaultDealName(type){
   return `${DEAL_NAME_LABEL[type]} — ${fmt(pp)} — ${date}`;
 }
 
-async function saveDeal(type){
-  if(!currentSession)return;
+// Which strategy tab's Save deal was clicked — carried across the async gap
+// between opening the modal and the user's later, separate click on the
+// modal's own Save button. Same pattern as movingDealId in saved-deals.html's
+// Move to portfolio modal.
+let savingDealType=null;
 
-  // Name is mandatory now — blank pre-fill (not defaultDealName()'s
-  // descriptive string, which was silently getting frozen in as a real
-  // stored name whenever someone accepted the suggestion unedited). The
-  // descriptive string is still shown, but only as a hint in the prompt
-  // message text, never as the pre-filled value. Cancel at any point
-  // (initial prompt or a re-prompt) aborts the whole save — nothing is
-  // written. An empty/whitespace name re-prompts in a loop until a real
-  // one is entered; there is no fallback path left that can write the
-  // suggested string into deal_data.name.
-  const suggested=defaultDealName(type);
-  let nameVal=prompt(`Name this deal (e.g. "${suggested}"):`, '');
-  if(nameVal===null)return;
-  while(nameVal.trim()===''){
-    nameVal=prompt('Please enter a name for this deal:', '');
-    if(nameVal===null)return;
+// Opens the shared save modal for this tab. The name input is left BLANK —
+// defaultDealName(type)'s descriptive string is shown only as a placeholder
+// hint, never as the pre-filled value, so it can never be accepted unedited
+// and frozen into deal_data.name (the exact bug fixed previously via the
+// prompt() re-prompt loop this modal replaces).
+function saveDeal(type){
+  if(!currentSession)return;
+  savingDealType=type;
+
+  const nameInput=document.getElementById('save-modal-name');
+  nameInput.value='';
+  nameInput.placeholder=defaultDealName(type);
+
+  const modalMsg=document.getElementById('save-modal-msg');
+  modalMsg.textContent='';modalMsg.className='save-msg';
+
+  document.getElementById('save-modal-overlay').classList.add('open');
+  nameInput.focus();
+}
+
+async function confirmSaveDeal(){
+  if(!savingDealType||!currentSession)return;
+  const type=savingDealType;
+
+  const nameInput=document.getElementById('save-modal-name');
+  const modalMsg=document.getElementById('save-modal-msg');
+  const confirmBtn=document.getElementById('save-modal-confirm-btn');
+
+  // Required — inline validation replacing the old re-prompt loop.
+  // Blank/whitespace never submits and never closes.
+  const nameVal=nameInput.value.trim();
+  if(nameVal===''){
+    modalMsg.textContent='Enter a name for this deal.';
+    modalMsg.className='save-msg error';
+    nameInput.focus();
+    return;
   }
 
-  const btn=document.getElementById('btn-save-'+type);
   const msg=document.getElementById(type+'-save-msg');
   const d=type==='btl'?btlData:(type==='hmo'?hmoData:(type==='sa'?saData:flipData));
-  const dealData={...d,name:nameVal.trim()};
+  const dealData={...d,name:nameVal};
 
-  btn.disabled=true;btn.textContent='Saving...';
-  msg.className='save-msg';msg.textContent='';
+  confirmBtn.disabled=true;confirmBtn.textContent='Saving...';
+  modalMsg.className='save-msg';modalMsg.textContent='';
 
   try{
     let res=await fetch('/api/deals',{
@@ -1721,8 +1775,8 @@ async function saveDeal(type){
     if(res.status===409&&body.duplicate){
       const proceed=confirm('You already have a saved deal with these figures. Save anyway?');
       if(!proceed){
-        msg.textContent='Not saved.';msg.className='save-msg';
-        btn.disabled=false;btn.textContent='Save deal';
+        modalMsg.textContent='Not saved.';modalMsg.className='save-msg';
+        confirmBtn.disabled=false;confirmBtn.textContent='Save deal';
         return;
       }
       res=await fetch('/api/deals',{
@@ -1734,12 +1788,22 @@ async function saveDeal(type){
     }
 
     if(!res.ok)throw new Error(body.error||'Save failed');
+    closeSaveModal();
     msg.innerHTML='Saved ✓. View in <a href="/saved-deals.html">Saved Deals</a>';msg.className='save-msg success';
   }catch(e){
-    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
+    modalMsg.textContent='Could not save: '+e.message;modalMsg.className='save-msg error';
   }
 
-  btn.disabled=false;btn.textContent='Save deal';
+  confirmBtn.disabled=false;confirmBtn.textContent='Save deal';
+}
+
+function closeSaveModal(){
+  document.getElementById('save-modal-overlay').classList.remove('open');
+  savingDealType=null;
+}
+
+function handleSaveModalOverlayClick(e){
+  if(e.target.id==='save-modal-overlay')closeSaveModal();
 }
 
 function numOrNull(id){
