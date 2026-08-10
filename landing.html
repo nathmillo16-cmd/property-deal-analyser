@@ -10,34 +10,56 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/calc-engine.js"></script>
 <style>
-/* Landing-page-only layout. Colours/fonts/radius all come from styles.css. */
+/* Landing-page-only layout. Colours/fonts/radius all come from styles.css.
+   Reuses the shared .shell/.topbar/.wordmark/.nav-links/.auth-bar/
+   .btn-primary classes the other 8 migrated pages (and pricing.html) use,
+   for real visual parity with them — NOT nav.js directly, same reasoning
+   as pricing.html: nav.js's link set is hardcoded to the logged-in app
+   nav and has no notion of this page's logged-out marketing links. */
 html{scroll-behavior:smooth}
-.lp-shell{max-width:1160px;margin:0 auto;padding:0 1.5rem}
 .lp-section{padding:clamp(3rem,7vw,5.5rem) 0;border-top:1px solid var(--hairline)}
 .lp-kicker{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 .75rem}
 .lp-section h2{font-size:clamp(1.6rem,3.4vw,2.3rem);margin:0 0 .75rem;max-width:26ch}
 .lp-lead{font-size:15px;color:var(--muted);max-width:56ch;margin:0 0 2.5rem}
 
-/* ---- top nav ---- */
-.lp-topbar{
-  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;
-  padding:1.5rem 0;
-}
-.lp-nav{display:flex;gap:2rem;flex-wrap:wrap}
-.lp-nav a{font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--muted);text-decoration:none}
-.lp-nav a:hover{color:var(--ink)}
-.lp-auth{display:flex;align-items:center;gap:1.25rem}
-.lp-auth a.login{font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none}
-.lp-auth a.login:hover{color:var(--ink)}
-
 /* ---- hero ---- */
-.hero{padding:clamp(3.5rem,9vw,6.5rem) 0 clamp(2.5rem,6vw,4rem);text-align:center}
-.hero h1{font-size:clamp(2.6rem,6.2vw,4.6rem);line-height:1.03;max-width:17ch;margin:0 auto 1.5rem}
+.hero{padding:clamp(3rem,8vw,5.5rem) 0 0;text-align:center}
+.hero h1{font-size:clamp(2.4rem,5.6vw,4.2rem);line-height:1.05;max-width:19ch;margin:0 auto 1.5rem}
 .hero .lp-lead{margin:0 auto 2.25rem;text-align:center;font-size:16px;max-width:52ch}
 .hero-cta{display:flex;justify-content:center;align-items:center;gap:1.5rem;flex-wrap:wrap}
 .hero-cta .btn-primary{padding:13px 26px;font-size:14.5px}
 .hero-cta .link-secondary{font-size:13px;font-weight:600;color:var(--muted);text-decoration:none}
 .hero-cta .link-secondary:hover{color:var(--accent)}
+
+/* Worked-example hero panel — same indigo-gradient treatment as home/
+   portfolio/pipeline/refurb/pricing's hero panels. This is the product's
+   headline output (a maximum bid) shown against a clearly-labelled
+   illustrative example, not a live calculation — the real, working
+   calculator is further down the page in the "free calculator taster"
+   section, completely unrelated to this static showcase. */
+.hero-panel{
+  background:linear-gradient(135deg, var(--accent), #37317f);
+  border:none;border-radius:16px;
+  box-shadow:0 4px 20px rgba(75,69,178,.28);
+  color:#ffffff;
+  padding:var(--space-6);
+  margin-top:2.75rem;
+  text-align:center;
+}
+.hero-example-badge{
+  display:inline-block;font-family:var(--font-body);font-size:11px;font-weight:600;letter-spacing:.04em;
+  color:rgba(255,255,255,.8);background:rgba(255,255,255,.14);
+  border-radius:999px;padding:5px 14px;margin-bottom:1.5rem;
+}
+.hero-bid-label{font-size:12.5px;color:rgba(255,255,255,.75);letter-spacing:.02em;margin:0 0 .4rem}
+.hero-bid-figure{font-family:var(--font-body);font-weight:700;font-size:clamp(2.4rem,6vw,3.4rem);letter-spacing:-.02em;color:#ffffff;margin:0 0 .5rem;font-variant-numeric:tabular-nums}
+.hero-bid-note{font-size:13px;color:rgba(255,255,255,.68);margin:0 0 2rem}
+.hero-verdicts{display:flex;gap:2.5rem;justify-content:center;flex-wrap:wrap;padding-top:1.75rem;border-top:1px solid rgba(255,255,255,.18)}
+.hero-verdict{display:flex;flex-direction:column;align-items:center;gap:3px}
+.hv-label{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.hv-figure{font-family:var(--font-body);font-weight:700;font-size:21px;color:#ffffff;font-variant-numeric:tabular-nums}
+.hv-sub{font-size:10.5px;font-weight:600;color:rgba(255,255,255,.6)}
+.hero-assumptions{font-size:11px;color:rgba(255,255,255,.55);margin:1.25rem 0 0;line-height:1.5;max-width:44ch;margin-left:auto;margin-right:auto}
 
 /* ---- calculator taster ---- */
 .calc-head{text-align:center;margin-bottom:2rem}
@@ -73,6 +95,18 @@ html{scroll-behavior:smooth}
 .results-split{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
 @media(max-width:520px){.results-split{grid-template-columns:1fr}}
 .stamp-note{font-size:11.5px;color:var(--muted);margin:0 0 1.5rem;line-height:1.6}
+/* .input-zone/.data-block are shared components (styles.css), already
+   fully token-driven — this just adds the same rgba(0,0,0,.09) border +
+   14px radius + soft shadow every other migrated page's cards use, to
+   match how index.html's own calculator now looks. Scoped to this page's
+   own <style> block, so it can't affect any other page reusing these
+   shared classes. */
+body.theme-light .input-zone,
+body.theme-light .data-block{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
 
 /* nudge strip */
 .nudge-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:1.75rem}
@@ -106,22 +140,72 @@ html{scroll-behavior:smooth}
   display:none;font-size:12px;color:var(--accent-2);background:rgba(224,164,88,.1);
   border:1px solid var(--accent);border-radius:var(--radius-sm);padding:.6rem .85rem;margin-bottom:1.25rem;
 }
+body.theme-light .stale-note{background:rgba(75,69,178,.08)}
 
 /* ---- benefits ---- */
-.benefit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1.25rem}
-.benefit-card{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.5rem}
+/* Explicit 3-column grid (was auto-fit, which wrapped raggedly at
+   4-then-3 for 7 cards). The 7th card (Portfolio) is alone in row 3, so
+   it's centred into the middle column rather than left-stuck — with all
+   7 cards now visually identical, a centred lone closer reads fine,
+   nothing about it looks accidental. */
+.benefit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem}
+@media(max-width:700px){
+  .benefit-grid{grid-template-columns:1fr}
+  .benefit-grid .benefit-card:last-child{grid-column:auto}
+}
+.benefit-grid .benefit-card:last-child{grid-column:2}
+.benefit-card{
+  background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.5rem;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
 .benefit-card h3{font-size:17px;margin:0 0 .5rem}
 .benefit-card p{font-size:13px;color:var(--muted);margin:0}
 .benefit-card .soon{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hairline);border-radius:999px;padding:2px 9px;display:inline-block;margin-top:.75rem}
-
-/* ---- screenshot placeholders ---- */
-.screenshot-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.25rem}
-@media(max-width:700px){.screenshot-grid{grid-template-columns:1fr}}
-.screenshot-placeholder{
-  aspect-ratio:16/10;border:1.5px dashed var(--hairline-strong);border-radius:var(--radius);
-  display:flex;align-items:center;justify-content:center;background:var(--surface);
+body.theme-light .benefit-card{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
 }
-.screenshot-placeholder span{font-size:12px;font-weight:600;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
+/* Uniform hover across all 7 — a slight lift + deeper shadow, so the grid
+   feels alive without any single card standing out at rest. */
+.benefit-card:hover{transform:translateY(-2px)}
+body.theme-light .benefit-card:hover{
+  box-shadow:0 8px 20px rgba(0,0,0,.09), 0 3px 6px rgba(0,0,0,.05);
+}
+/* Icon sits in a small tinted circle, identical for all 7 cards. */
+.benefit-icon-wrap{
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(75,69,178,.08);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:1rem;
+}
+.benefit-icon{display:block;color:var(--accent)}
+
+/* ---- feature showcases (replaces the old dashed screenshot placeholders
+   with small, real, labelled mock-ups built from the app's own component
+   language — not actual screenshots, but not empty boxes either) ---- */
+.showcase-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.25rem}
+@media(max-width:700px){.showcase-grid{grid-template-columns:1fr}}
+.showcase-card{background:var(--surface);border-radius:14px;padding:1.5rem}
+.showcase-title{font-family:var(--font-head);font-weight:700;font-size:14px;margin:0 0 1rem;color:var(--ink)}
+.showcase-mock{background:var(--surface-2);border-radius:var(--radius-sm);padding:1rem 1.1rem}
+.sm-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.45rem 0;font-size:12.5px;border-top:1px solid var(--hairline)}
+.sm-row:first-child{border-top:none}
+.sm-label{color:var(--muted)}
+.sm-value{font-family:var(--font-body);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sm-value.good{color:var(--success)}
+.sm-value.warn{color:var(--warn)}
+.sm-total{border-top:1.5px solid var(--hairline-strong);margin-top:.3rem;padding-top:.65rem}
+.sm-total .sm-label{color:var(--ink);font-weight:700}
+.sm-letter{font-size:12px;color:var(--muted);font-style:italic;line-height:1.65;margin:0 0 1.1rem}
+.sm-letter-actions{display:flex;gap:8px}
+.sm-chip{font-size:11px;font-weight:600;padding:5px 13px;border-radius:999px;border:1.5px solid var(--accent);color:var(--accent);background:transparent}
+.sm-chip.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+body.theme-light .showcase-card{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
 
 /* ---- scroll reveal ---- */
 .reveal{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
@@ -130,35 +214,27 @@ html{scroll-behavior:smooth}
   .reveal{opacity:1;transform:none;transition:none}
 }
 
-/* ---- how it works ---- */
-.steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;counter-reset:step}
-@media(max-width:760px){.steps-grid{grid-template-columns:1fr}}
-.step{position:relative;padding-left:2.75rem}
-.step::before{
-  counter-increment:step;content:counter(step);
-  position:absolute;left:0;top:0;width:2rem;height:2rem;border-radius:var(--radius-sm);
-  background:var(--surface-2);border:1px solid var(--hairline);color:var(--accent);
-  font-family:var(--font-head);font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;
-}
-.step h3{font-size:16px;margin:0 0 .4rem}
-.step p{font-size:13px;color:var(--muted);margin:0}
-
 /* ---- pricing teaser ---- */
+/* ---- how it works: journey section ---- */
+.journey-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.75rem 1.5rem;margin-top:2rem}
+@media(max-width:760px){.journey-grid{grid-template-columns:1fr}}
+.journey-step{display:flex;gap:.9rem;align-items:flex-start}
+.journey-num{
+  flex-shrink:0;width:2.25rem;height:2.25rem;border-radius:50%;
+  background:linear-gradient(135deg, var(--accent), #37317f);color:#ffffff;
+  font-family:var(--font-body);font-weight:700;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+}
+.journey-step h3{font-family:var(--font-head);font-size:15px;margin:0 0 .35rem}
+.journey-step p{font-size:12.5px;color:var(--muted);margin:0;line-height:1.55}
+
 .pricing-teaser{text-align:center}
 .price-from{font-family:var(--font-head);font-weight:800;font-size:2.4rem;color:var(--ink);margin:0 0 .75rem;font-variant-numeric:tabular-nums}
 .price-from span{font-family:var(--font-body);font-size:15px;font-weight:600;color:var(--muted)}
 .pricing-teaser .btn-primary{margin-top:1.5rem;padding:13px 26px;font-size:14.5px}
 
-/* ---- testimonials (placeholder) ---- */
-.testimonial-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
-.testimonial-card{background:var(--surface);border:1.5px dashed var(--hairline-strong);border-radius:var(--radius);padding:1.5rem}
-.testimonial-card p.quote{font-size:14px;font-style:italic;color:var(--muted);margin:0 0 1rem}
-.testimonial-card .who{font-size:12px;font-weight:700;color:var(--ink)}
-.testimonial-card .role{font-size:11.5px;color:var(--muted)}
-.ph-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:2px 9px;margin-bottom:1.5rem}
-
 /* ---- footer ---- */
-footer{padding:2.5rem 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem}
+footer{padding:2.5rem 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;border-top:1px solid var(--hairline)}
 footer .fw{font-family:var(--font-head);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.02em}
 footer .flinks{display:flex;gap:1.5rem}
 footer .flinks a{font-size:12px;color:var(--muted);text-decoration:none}
@@ -166,55 +242,111 @@ footer .flinks a:hover{color:var(--ink)}
 footer .fcopy{font-size:11.5px;color:var(--muted)}
 </style>
 </head>
-<body>
+<body class="theme-light">
 
-<div class="lp-shell">
-  <div class="lp-topbar">
-    <span class="wordmark">Deals N Yields</span>
-    <div class="lp-nav">
+<div class="shell">
+  <div class="topbar">
+    <a class="wordmark" href="/">Deals N Yields</a>
+    <div class="nav-links">
       <a href="#what-it-does">What it does</a>
       <a href="#calculator">Try it free</a>
       <a href="/pricing.html">Pricing</a>
     </div>
-    <div class="lp-auth">
-      <a class="login" href="/login.html">Log in</a>
+    <div class="auth-bar">
+      <a href="/login.html">Log in</a>
       <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
     </div>
   </div>
-</div>
 
-<!-- HERO -->
-<div class="lp-shell">
-  <section class="hero">
-    <h1>Analyse, value and track. All in one place.</h1>
-    <p class="lp-lead">Full analysis across BTL, HMO, serviced accommodation and flip, real sold-price comparables and end-value estimates, and a pipeline and portfolio to track every deal through to completion.</p>
+  <!-- HERO -->
+  <section class="hero reveal">
+    <h1>Know your maximum bid before you offer.</h1>
+    <p class="lp-lead">Full deal analysis across BTL, HMO, serviced accommodation and flip, real sold-price comparables, crime and planning risk, and a written verdict — so you always know the ceiling before you negotiate.</p>
     <div class="hero-cta">
       <a class="btn-primary" href="#calculator">Start analysing</a>
       <a class="link-secondary" href="/login.html?mode=signup">or sign up free</a>
+    </div>
+
+    <div class="hero-panel">
+      <p class="hero-example-badge">Example deal · Sheffield 3-bed — illustrative, not a real listing</p>
+      <p class="hero-bid-label">Maximum bid to hit a 7% gross yield (BTL)</p>
+      <p class="hero-bid-figure">£162,900</p>
+      <p class="hero-bid-note">Asking £175,000 · Rent £950/mo · £950 × 12 ÷ 7% = £162,857</p>
+      <div class="hero-verdicts">
+        <div class="hero-verdict"><span class="hv-label">BTL</span><span class="hv-figure">7.0%</span><span class="hv-sub">gross yield</span></div>
+        <div class="hero-verdict"><span class="hv-label">HMO</span><span class="hv-figure">10.6%</span><span class="hv-sub">gross yield</span></div>
+        <div class="hero-verdict"><span class="hv-label">SA</span><span class="hv-figure">12.8%</span><span class="hv-sub">gross yield</span></div>
+      </div>
+      <p class="hero-assumptions">All three at the same £162,900 price. BTL at £950/mo rent; HMO assumes 3 room lets at £475/mo each; SA assumes a short-let at £95/night, 60% occupancy.</p>
     </div>
   </section>
 </div>
 
 <!-- WHAT IT DOES -->
-<div class="lp-shell">
+<div class="shell">
   <section class="lp-section reveal" id="what-it-does">
     <p class="lp-kicker">Capabilities</p>
     <h2>What it does</h2>
-    <p class="lp-lead">Four things, working from the same numbers, so nothing gets re-entered or re-checked by hand.</p>
+    <p class="lp-lead">Every part of the app works from the same numbers, so nothing gets re-entered or re-checked by hand.</p>
     <div class="benefit-grid">
       <div class="benefit-card reveal">
+        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="20" x2="4" y2="12"/>
+          <line x1="12" y1="20" x2="12" y2="6"/>
+          <line x1="20" y1="20" x2="20" y2="15"/>
+          <line x1="2" y1="20" x2="22" y2="20"/>
+        </svg></div>
         <h3>Deal analysis</h3>
         <p>BTL, HMO, serviced accommodation and flip, side by side.</p>
       </div>
       <div class="benefit-card reveal">
+        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 11 L11 3 L20 3 L20 12 L12 20 Z"/>
+          <circle cx="15" cy="8" r="1.3" fill="currentColor" stroke="none"/>
+        </svg></div>
         <h3>Comparables &amp; end value</h3>
         <p>Real sold-price comparables and a GDV estimate for every deal.</p>
       </div>
       <div class="benefit-card reveal">
+        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 L20 5 V11 C20 16 16.5 20 12 22 C7.5 20 4 16 4 11 V5 Z"/>
+          <line x1="12" y1="8" x2="12" y2="13"/>
+          <circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none"/>
+        </svg></div>
+        <h3>Crime &amp; planning constraints</h3>
+        <p>Per-1,000 crime rate and area percentile, plus Article 4, conservation area, listed building, flood risk, green belt and tree preservation flags.</p>
+      </div>
+      <div class="benefit-card reveal">
+        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2z"/>
+        </svg></div>
+        <h3>Refurb estimator</h3>
+        <p>Cost a refurb line by line, or as a quick trade-by-trade total, with contingency and VAT.</p>
+      </div>
+      <div class="benefit-card reveal">
+        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="14" rx="1.5"/>
+          <path d="M3 6 L12 13 L21 6"/>
+        </svg></div>
+        <h3>Letter templates</h3>
+        <p>Ready-made outreach letters for empty, derelict and inherited properties, with a live preview.</p>
+      </div>
+      <div class="benefit-card reveal">
+        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="5" height="16" rx="1"/>
+          <rect x="9.5" y="4" width="5" height="10" rx="1"/>
+          <rect x="16" y="4" width="5" height="13" rx="1"/>
+        </svg></div>
         <h3>Pipeline tracking</h3>
         <p>Every deal from first look to completion, stage by stage.</p>
       </div>
       <div class="benefit-card reveal">
+        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="8" height="8" rx="1"/>
+          <rect x="13" y="3" width="8" height="8" rx="1"/>
+          <rect x="3" y="13" width="8" height="8" rx="1"/>
+          <rect x="13" y="13" width="8" height="8" rx="1"/>
+        </svg></div>
         <h3>Portfolio management</h3>
         <p>One view across everything you own or are chasing.</p>
       </div>
@@ -223,7 +355,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
 </div>
 
 <!-- FREE CALCULATOR TASTER -->
-<div class="lp-shell">
+<div class="shell">
   <section class="lp-section reveal" id="calculator">
     <div class="calc-head">
       <p class="lp-kicker">Run a real deal now<span class="free-badge">Free, no login</span></p>
@@ -596,22 +728,84 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   </section>
 </div>
 
-<!-- SCREENSHOTS -->
-<div class="lp-shell">
+<!-- FEATURE SHOWCASES -->
+<div class="shell">
   <section class="lp-section reveal" id="screenshots">
     <p class="lp-kicker">Inside the app</p>
     <h2>See it in place</h2>
-    <div class="screenshot-grid">
-      <div class="screenshot-placeholder reveal"><span>Screenshot: Deal analysis</span></div>
-      <div class="screenshot-placeholder reveal"><span>Screenshot: Comparables &amp; GDV</span></div>
-      <div class="screenshot-placeholder reveal"><span>Screenshot: Pipeline</span></div>
-      <div class="screenshot-placeholder reveal"><span>Screenshot: Portfolio</span></div>
+    <div class="showcase-grid">
+      <div class="showcase-card reveal">
+        <p class="showcase-title">Deal analysis</p>
+        <div class="showcase-mock">
+          <div class="sm-row"><span class="sm-label">Gross yield</span><span class="sm-value good">7.0%</span></div>
+          <div class="sm-row"><span class="sm-label">ROI</span><span class="sm-value good">14.2%</span></div>
+          <div class="sm-row sm-total"><span class="sm-label">Max bid (yield)</span><span class="sm-value">£162,900</span></div>
+        </div>
+      </div>
+      <div class="showcase-card reveal">
+        <p class="showcase-title">Comparables &amp; planning</p>
+        <div class="showcase-mock">
+          <div class="sm-row"><span class="sm-label">Median sold price</span><span class="sm-value">£158,000</span></div>
+          <div class="sm-row"><span class="sm-label">Crime rate</span><span class="sm-value">42nd percentile</span></div>
+          <div class="sm-row"><span class="sm-label">Article 4</span><span class="sm-value warn">Active</span></div>
+        </div>
+      </div>
+      <div class="showcase-card reveal">
+        <p class="showcase-title">Refurb estimator</p>
+        <div class="showcase-mock">
+          <div class="sm-row"><span class="sm-label">Kitchen fit</span><span class="sm-value">£750</span></div>
+          <div class="sm-row"><span class="sm-label">Full rewire</span><span class="sm-value">£3,200</span></div>
+          <div class="sm-row sm-total"><span class="sm-label">Grand total</span><span class="sm-value">£11,480</span></div>
+        </div>
+      </div>
+      <div class="showcase-card reveal">
+        <p class="showcase-title">Letter templates</p>
+        <div class="showcase-mock">
+          <p class="sm-letter">"I noticed the property at [address] has been empty for a while, and wanted to reach out directly in case you'd ever consider selling…"</p>
+          <div class="sm-letter-actions"><span class="sm-chip">Copy</span><span class="sm-chip primary">Download</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="shell">
+  <section class="lp-section reveal" id="how-it-works">
+    <p class="lp-kicker">How it works</p>
+    <h2>From a listing to a tracked deal.</h2>
+    <p class="lp-lead">The whole arc, not just the maths — analysis feeds straight into a pipeline you actually manage.</p>
+    <div class="journey-grid">
+      <div class="journey-step reveal">
+        <span class="journey-num">1</span>
+        <div><h3>Find a deal</h3><p>Enter the numbers on any property.</p></div>
+      </div>
+      <div class="journey-step reveal">
+        <span class="journey-num">2</span>
+        <div><h3>Analyse it</h3><p>Max bid plus BTL, HMO, SA and Flip verdicts, instantly.</p></div>
+      </div>
+      <div class="journey-step reveal">
+        <span class="journey-num">3</span>
+        <div><h3>See the data</h3><p>Sold-price comparables, crime rate, and planning constraints.</p></div>
+      </div>
+      <div class="journey-step reveal">
+        <span class="journey-num">4</span>
+        <div><h3>Add to pipeline</h3><p>Track it through analysing → viewing → offered → agreed → completed.</p></div>
+      </div>
+      <div class="journey-step reveal">
+        <span class="journey-num">5</span>
+        <div><h3>Make notes &amp; progress</h3><p>Offer history and notes, logged stage by stage.</p></div>
+      </div>
+      <div class="journey-step reveal">
+        <span class="journey-num">6</span>
+        <div><h3>Track your portfolio</h3><p>Owned properties, total invested, and blended yield.</p></div>
+      </div>
     </div>
   </section>
 </div>
 
 <!-- PRICING TEASER -->
-<div class="lp-shell">
+<div class="shell">
   <section class="lp-section pricing-teaser reveal" id="pricing">
     <p class="price-from">From £29<span>/month</span></p>
     <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">The calculator is free to try. Everything else, from £29 a month.</p>
@@ -619,7 +813,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   </section>
 </div>
 
-<div class="lp-shell">
+<div class="shell">
   <footer>
     <span class="fw">Deals N Yields</span>
     <div class="flinks">
