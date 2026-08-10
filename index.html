@@ -1685,14 +1685,27 @@ function defaultDealName(type){
 async function saveDeal(type){
   if(!currentSession)return;
 
+  // Name is mandatory now — blank pre-fill (not defaultDealName()'s
+  // descriptive string, which was silently getting frozen in as a real
+  // stored name whenever someone accepted the suggestion unedited). The
+  // descriptive string is still shown, but only as a hint in the prompt
+  // message text, never as the pre-filled value. Cancel at any point
+  // (initial prompt or a re-prompt) aborts the whole save — nothing is
+  // written. An empty/whitespace name re-prompts in a loop until a real
+  // one is entered; there is no fallback path left that can write the
+  // suggested string into deal_data.name.
   const suggested=defaultDealName(type);
-  const nameVal=prompt('Name this deal:', suggested);
+  let nameVal=prompt(`Name this deal (e.g. "${suggested}"):`, '');
   if(nameVal===null)return;
+  while(nameVal.trim()===''){
+    nameVal=prompt('Please enter a name for this deal:', '');
+    if(nameVal===null)return;
+  }
 
   const btn=document.getElementById('btn-save-'+type);
   const msg=document.getElementById(type+'-save-msg');
   const d=type==='btl'?btlData:(type==='hmo'?hmoData:(type==='sa'?saData:flipData));
-  const dealData={...d,name:nameVal.trim()||suggested};
+  const dealData={...d,name:nameVal.trim()};
 
   btn.disabled=true;btn.textContent='Saving...';
   msg.className='save-msg';msg.textContent='';
