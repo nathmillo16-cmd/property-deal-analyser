@@ -21,6 +21,26 @@
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
 
+/* Empty-state card — same visual model as home.html's #empty-state
+   "Get started" card (heading + one line + CTA), duplicated here per this
+   app's existing per-page convention rather than shared. Page-level only
+   — shown when pipelineDeals.length===0 (the whole board is empty), sits
+   between the hero and the kanban board so it's the thing that guides;
+   the 5 per-column "No deals" placeholders stay exactly as they are,
+   deliberately quiet. */
+.empty-card{text-align:center;padding:var(--space-6) var(--space-4);margin-bottom:var(--space-5)}
+.empty-card h2{font-size:22px;font-weight:600;margin:0 0 var(--space-3)}
+.empty-card p{font-size:13.5px;color:var(--muted);margin:0 0 var(--space-5);max-width:44ch;margin-left:auto;margin-right:auto}
+.empty-card .btn-primary{
+  text-decoration:none;display:inline-block;
+  border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3);
+}
+body.theme-light .empty-card{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
+
 /* Hero panel — full-width indigo summary, matching home.html/portfolio.html's
    hero exactly (same class names, duplicated here rather than shared, per
    this app's existing per-page convention). Always visible (unlike
@@ -290,6 +310,12 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
       </div>
     </div>
 
+    <div class="card empty-card" id="pipeline-empty-state" style="display:none">
+      <h2>No deals in your pipeline yet</h2>
+      <p>Deals you move into your pipeline appear here, stage by stage.</p>
+      <a class="btn-primary" href="/index.html">Analyse a deal</a>
+    </div>
+
     <div class="kanban-wrap">
       <div class="kanban" id="kanban"></div>
     </div>
@@ -500,6 +526,11 @@ function updateHero(){
 function renderBoard(){
   openStageDD=null; // the board is about to be fully rebuilt, so any open dropdown is gone with it
   updateHero();
+  // Page-level empty state — only when the WHOLE board is empty (every
+  // stage), not per-column. The 5 kanban columns still render underneath
+  // regardless, each with its own quiet "No deals" — this is the one
+  // element that's meant to guide.
+  document.getElementById('pipeline-empty-state').style.display = pipelineDeals.length===0 ? 'block' : 'none';
   const kanban=document.getElementById('kanban');
   kanban.innerHTML=STAGES.map(stage=>{
     const dealsInStage=pipelineDeals.filter(d=>d.pipeline_stage===stage);

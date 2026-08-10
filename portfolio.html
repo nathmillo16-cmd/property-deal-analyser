@@ -16,6 +16,25 @@
 
 .page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
 
+/* Empty-state card — same visual model as home.html's #empty-state
+   "Get started" card (heading + one line + CTA), duplicated here per this
+   app's existing per-page convention rather than shared. The CTA here is
+   a button, not a link — see chat: the Add-property form already sits in
+   the other column on this page, so it focuses that form instead of
+   navigating away. */
+.empty-card{text-align:center;padding:var(--space-6) var(--space-4);margin-bottom:var(--space-5)}
+.empty-card h2{font-size:22px;font-weight:600;margin:0 0 var(--space-3)}
+.empty-card p{font-size:13.5px;color:var(--muted);margin:0 0 var(--space-5);max-width:44ch;margin-left:auto;margin-right:auto}
+.empty-card .btn-primary{
+  text-decoration:none;display:inline-block;
+  border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3);
+}
+body.theme-light .empty-card{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
+
 .locked-panel{text-align:center;padding:3.5rem 1rem}
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
@@ -187,7 +206,11 @@ body.theme-light .dd-trigger::after{
       </div>
     </div>
 
-    <p class="hint" id="pf-empty-state" style="display:none">Add your first property to see your portfolio at a glance.</p>
+    <div class="card empty-card" id="pf-empty-state" style="display:none">
+      <h2>No properties yet</h2>
+      <p>Track properties you own to see invested total, equity and blended yield.</p>
+      <button type="button" class="btn-primary" onclick="focusAddPropertyForm()">Add your first property</button>
+    </div>
 
     <div class="split-panel">
       <div class="card add-property-card">
@@ -467,6 +490,15 @@ function clearPortfolioDraft(){
   clearDraft('portfolio');
   PORTFOLIO_FIELD_IDS.forEach(id=>document.getElementById(id).value='');
   setDDValue('pf-type','BTL','BTL');
+}
+
+// Empty-state CTA — the Add-property form already sits in the other
+// column on this page, so this focuses it rather than navigating away.
+function focusAddPropertyForm(){
+  const el=document.getElementById('pf-address');
+  if(!el)return;
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  el.focus();
 }
 
 async function init(){
