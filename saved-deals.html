@@ -19,6 +19,22 @@
 
 .page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
 
+/* Empty-state card — same visual model as home.html's #empty-state
+   "Get started" card (heading + one line + CTA button), duplicated here
+   per this app's existing per-page convention rather than shared. */
+.empty-card{text-align:center;padding:var(--space-6) var(--space-4)}
+.empty-card h2{font-size:22px;font-weight:600;margin:0 0 var(--space-3)}
+.empty-card p{font-size:13.5px;color:var(--muted);margin:0 0 var(--space-5);max-width:44ch;margin-left:auto;margin-right:auto}
+.empty-card .btn-primary{
+  text-decoration:none;display:inline-block;
+  border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3);
+}
+body.theme-light .empty-card{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
+
 .saved-panel-inner{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.75rem;max-width:760px}
 /* Light-theme card treatment — matches home/portfolio's card style. */
 body.theme-light .saved-panel-inner{
@@ -322,7 +338,11 @@ async function loadSavedDeals(){
     document.getElementById('compare-bar').style.display=savedDealsCache.length>0?'flex':'none';
 
     if(savedDealsCache.length===0){
-      listEl.innerHTML='<p class="hint">No saved deals yet.</p>';
+      listEl.innerHTML=`<div class="card empty-card">
+        <h2>No saved deals yet</h2>
+        <p>Deals you save from the calculator show up here.</p>
+        <a class="btn-primary" href="/index.html">Analyse a deal</a>
+      </div>`;
       document.getElementById('compare-panel').innerHTML='';
       updateBulkBar();
       return;
@@ -331,7 +351,17 @@ async function loadSavedDeals(){
       const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
       const label=d.deal_type.toUpperCase();
       const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):'';
-      const name=dealDisplayName(d);
+      // Row title only: short "Untitled deal" for unnamed deals instead of
+      // dealDisplayName()'s long fallbackName() string — that long string
+      // duplicated the .saved-detail meta line right below it and was wide
+      // enough to trip .saved-item's flex-wrap, pushing the action buttons
+      // to a second row (unnamed cards looked structurally different from
+      // named ones, even though the markup is identical either way).
+      // dealDisplayName()/fallbackName() themselves are untouched — every
+      // other use in this file (compare headers, delete confirmations,
+      // rename prompt pre-fill) still gets the full descriptive string,
+      // since those need it to tell deals apart.
+      const name=(d.deal_data&&d.deal_data.name)?d.deal_data.name:'Untitled deal';
       const action=d.pipeline_stage
         ?`<span class="pipeline-badge">In pipeline · ${d.pipeline_stage}</span>`
         :`<button class="mini-btn" onclick="addToPipeline('${d.id}')">Add to pipeline</button>`;
