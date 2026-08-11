@@ -123,7 +123,7 @@ body.theme-light .dd-trigger::after{
 .modal-header h2{font-size:18px;margin:0;word-break:break-word}
 .modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
 .modal-close:hover{color:var(--ink)}
-.modal-actions{display:flex;justify-content:flex-end;margin-top:1rem}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:1rem}
 
 /* Deal Workspace modal — .modal-section copied from pipeline.html's details
    modal (Stage 2 there will add its own notes/offers sections the same way).
@@ -286,6 +286,12 @@ body.theme-light .dd-trigger::after{
         <p>Pipeline stages are a paid feature.</p>
         <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade — £29/mo</button>
       </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="mini-btn danger" onclick="deleteFromWorkspace()">Delete</button>
+      <button class="mini-btn" onclick="moveToPortfolioFromWorkspace()">Move to portfolio</button>
+      <button class="mini-btn" onclick="renameFromWorkspace()">Rename</button>
     </div>
   </div>
 </div>
@@ -468,26 +474,23 @@ async function loadSavedDeals(){
       // rename prompt pre-fill) still gets the full descriptive string,
       // since those need it to tell deals apart.
       const name=(d.deal_data&&d.deal_data.name)?d.deal_data.name:'Untitled deal';
-      const action=d.pipeline_stage
-        ?`<span class="pipeline-badge">In pipeline · ${d.pipeline_stage}</span>`
-        :`<button class="mini-btn" onclick="addToPipeline('${d.id}')">Add to pipeline</button>`;
+      // Rename/Move to portfolio/Delete/Add to pipeline all moved into the
+      // Deal Workspace footer (see the workspace-modal markup and
+      // renameFromWorkspace/moveToPortfolioFromWorkspace/deleteFromWorkspace
+      // below) — the row itself is now purely informational plus a click
+      // target: checkbox, name/meta, and the pipeline badge (when
+      // pipelined). No row-level actions or add-to-pipeline button remain.
+      const badge=d.pipeline_stage?`<div class="saved-controls"><span class="pipeline-badge">In pipeline · ${d.pipeline_stage}</span></div>`:'';
       const checked=selectedForDelete.has(d.id)?'checked':'';
-      // Row click opens the Deal Workspace; the checkbox and every action
-      // button stop propagation so they keep working exactly as before
-      // (bulk-select, rename, move to portfolio, add to pipeline, delete)
-      // without also triggering the row's own click-to-open.
+      // Row click opens the Deal Workspace; the checkbox stops propagation
+      // so bulk-select keeps working without also triggering the open.
       return `<div class="saved-item" onclick="openDealWorkspace('${d.id}')" style="cursor:pointer">
         <label class="saved-select" onclick="event.stopPropagation()"><input type="checkbox" data-deal-id="${d.id}" ${checked} onchange="toggleSelect('${d.id}', this.checked)"/></label>
         <div class="saved-info">
           <span class="saved-name">${escapeHtml(name)}</span>
           <span class="saved-detail">${label}${pp?' · '+pp:''} · ${date}</span>
         </div>
-        <div class="saved-controls">
-          ${action.replace('onclick="', 'onclick="event.stopPropagation();')}
-          <button class="mini-btn" onclick="event.stopPropagation();renameDeal('${d.id}')">Rename</button>
-          <button class="mini-btn" onclick="event.stopPropagation();openMoveToPortfolio('${d.id}')">Move to portfolio</button>
-          <button class="mini-btn danger" onclick="event.stopPropagation();deleteDeal('${d.id}')">Delete</button>
-        </div>
+        ${badge}
       </div>`;
     }).join('');
     updateBulkBar();
@@ -568,22 +571,6 @@ async function deleteSelected(){
   btn.disabled=false;btn.textContent='Delete selected';
 }
 
-async function addToPipeline(dealId){
-  if(!currentSession)return;
-  try{
-    const res=await fetch('/api/pipeline',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({deal_id:dealId})
-    });
-    const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not add to pipeline.');
-    loadSavedDeals();
-  }catch(e){
-    alert('Could not add to pipeline: '+e.message);
-  }
-}
-
 async function renameDeal(dealId){
   if(!currentSession)return;
   const deal=savedDealsCache.find(d=>d.id===dealId);
@@ -604,13 +591,17 @@ async function renameDeal(dealId){
   }
 }
 
+// Returns true on a completed delete, false on cancel/failure — used by
+// deleteFromWorkspace() below to know whether to close the workspace
+// afterward. No other caller exists (the row's own Delete button moved into
+// the workspace footer), so this is purely additive, not a behaviour change.
 async function deleteDeal(dealId){
-  if(!currentSession)return;
+  if(!currentSession)return false;
   const deal=savedDealsCache.find(d=>d.id===dealId);
   const msg=(deal&&deal.pipeline_stage)
     ?`"${dealDisplayName(deal)}" (${capitalize(deal.pipeline_stage)}) is in your pipeline, so deleting removes it from there too. Delete anyway?`
     :'Delete this saved deal?';
-  if(!confirm(msg))return;
+  if(!confirm(msg))return false;
   try{
     const res=await fetch(`/api/deals/${dealId}/delete`,{
       method:'POST',
@@ -618,9 +609,11 @@ async function deleteDeal(dealId){
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not delete deal.');
-    loadSavedDeals();
+    await loadSavedDeals();
+    return true;
   }catch(e){
     alert('Could not delete deal: '+e.message);
+    return false;
   }
 }
 
@@ -1046,6 +1039,44 @@ function handleWorkspaceOverlayClick(e){
 document.addEventListener('keydown', function(e){
   if(e.key==='Escape')closeDealWorkspace();
 });
+
+// Workspace footer actions — relocated triggers for the row's former
+// Rename/Move to portfolio/Delete buttons. The underlying actions
+// (renameDeal/openMoveToPortfolio/deleteDeal) are unchanged; these three
+// just call them from the workspace and handle what's new about doing so
+// from inside a modal.
+async function renameFromWorkspace(){
+  if(!workspaceDealId)return;
+  await renameDeal(workspaceDealId);
+  // renameDeal's own loadSavedDeals() call isn't awaited internally, so this
+  // second, awaited call guarantees savedDealsCache is fresh before the
+  // title below reads it — safe to call twice, it's just a re-fetch.
+  await loadSavedDeals();
+  const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
+  if(deal)document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
+}
+
+// The two modal overlays share z-index — opened simultaneously, the
+// workspace (later in the DOM) would paint over Move to portfolio, making
+// it invisible/unreachable. Close the workspace first so they never stack;
+// the deal id is captured into a local before closing, since
+// closeDealWorkspace() clears workspaceDealId.
+function moveToPortfolioFromWorkspace(){
+  if(!workspaceDealId)return;
+  const dealId=workspaceDealId;
+  closeDealWorkspace();
+  openMoveToPortfolio(dealId);
+}
+
+// deleteDeal() returns true only once the delete has actually completed —
+// the workspace closes then, since the deal it was showing no longer
+// exists. A cancelled confirm or a failed request returns false and leaves
+// the workspace open exactly as it was.
+async function deleteFromWorkspace(){
+  if(!workspaceDealId)return;
+  const success=await deleteDeal(workspaceDealId);
+  if(success)closeDealWorkspace();
+}
 
 async function confirmMoveToPortfolio(){
   if(!movingDealId||!currentSession)return;
