@@ -124,6 +124,41 @@ body.theme-light .dd-trigger::after{
 .modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
 .modal-close:hover{color:var(--ink)}
 .modal-actions{display:flex;justify-content:flex-end;margin-top:1rem}
+
+/* Deal Workspace modal — .modal-section copied from pipeline.html's details
+   modal (Stage 2 there will add its own notes/offers sections the same way).
+   .analysis-row/.analysis-label/.analysis-value are new, scoped to this
+   modal's plain label/value list — not the compare-table layout, since this
+   shows one deal, not a comparison. */
+.modal-section{margin-bottom:1.75rem}
+.modal-section:last-child{margin-bottom:0}
+.analysis-row{display:flex;justify-content:space-between;gap:1rem;padding:.5rem 0;border-top:1px solid var(--hairline)}
+.analysis-row:first-child{border-top:none}
+.analysis-label{font-size:13px;color:var(--muted)}
+.analysis-value{font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* Stage 2 — Notes/Offers/Stage sections, CSS copied verbatim from
+   pipeline.html's details modal (.modal-form-row, .note-item/.note-date/
+   .note-text, .offer-item/.offer-info/.offer-amount/.offer-date/
+   .offer-controls). .workspace-lock is new — the compact in-section
+   upgrade prompt shown to free users instead of each real form. */
+.modal-form-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
+.modal-form-row .field{flex:1;min-width:110px;margin-bottom:0}
+
+.note-item{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.65rem .85rem;margin-bottom:8px}
+.note-date{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.note-text{font-size:13px;color:var(--ink);margin-top:3px;white-space:pre-wrap;word-break:break-word}
+.note-item .note-delete{float:right}
+
+.offer-item{display:flex;justify-content:space-between;align-items:center;padding:.65rem .85rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap}
+.offer-info{display:flex;flex-direction:column;gap:2px}
+.offer-amount{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body);font-variant-numeric:tabular-nums}
+.offer-date{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.offer-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+.workspace-lock{text-align:center;padding:1rem;background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm)}
+.workspace-lock p{color:var(--muted);font-size:12.5px;margin:0 0 .75rem}
+.workspace-lock .btn-primary{font-size:12.5px;padding:.5rem 1rem}
 </style>
 </head>
 <body class="theme-light">
@@ -180,6 +215,77 @@ body.theme-light .dd-trigger::after{
     <p class="save-msg" id="mtp-msg"></p>
     <div class="modal-actions">
       <button class="btn-primary" id="mtp-confirm-btn" onclick="confirmMoveToPortfolio()">Add to portfolio</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="workspace-modal-overlay" onclick="handleWorkspaceOverlayClick(event)">
+  <div class="card modal-card">
+    <div class="modal-header">
+      <h2 id="workspace-modal-title">—</h2>
+      <button class="modal-close" onclick="closeDealWorkspace()" aria-label="Close">×</button>
+    </div>
+
+    <div class="modal-section">
+      <p class="subhead">Analysis</p>
+      <div id="workspace-analysis-list"></div>
+    </div>
+
+    <div class="modal-section">
+      <p class="subhead">Notes</p>
+      <div id="workspace-notes-gated">
+        <div class="modal-form-row">
+          <div class="field"><label>Note</label><input type="text" id="note-input"/></div>
+          <button class="btn-primary" onclick="addNote()">Add note</button>
+        </div>
+        <p class="save-msg" id="note-msg"></p>
+        <div id="notes-list"><p class="hint">Loading…</p></div>
+      </div>
+      <div class="workspace-lock" id="workspace-notes-lock" style="display:none">
+        <p>Notes are a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade — £29/mo</button>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <p class="subhead">Offer history</p>
+      <div id="workspace-offers-gated">
+        <div class="modal-form-row">
+          <div class="field"><label>Amount (£)</label><input type="number" id="offer-amount"/></div>
+          <div class="field"><label>Date</label><input type="date" id="offer-date"/></div>
+          <div class="field"><label>Outcome</label>
+            <div class="dd" id="offer-outcome" data-value="Pending">
+              <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'offer-outcome')" onkeydown="ddKeydown(event,'offer-outcome')">
+                <span>Pending</span>
+              </button>
+              <ul class="dd-list" role="listbox">
+                <li class="dd-opt selected" role="option" aria-selected="true" data-value="Pending" onclick="selectDDOption(event,'offer-outcome','Pending','Pending')">Pending</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="Rejected" onclick="selectDDOption(event,'offer-outcome','Rejected','Rejected')">Rejected</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="Accepted" onclick="selectDDOption(event,'offer-outcome','Accepted','Accepted')">Accepted</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="Withdrawn" onclick="selectDDOption(event,'offer-outcome','Withdrawn','Withdrawn')">Withdrawn</li>
+              </ul>
+            </div>
+          </div>
+          <button class="btn-primary" onclick="addOffer()">Add offer</button>
+        </div>
+        <p class="save-msg" id="offer-msg"></p>
+        <div id="offers-list"><p class="hint">Loading…</p></div>
+      </div>
+      <div class="workspace-lock" id="workspace-offers-lock" style="display:none">
+        <p>Offer history is a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade — £29/mo</button>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <p class="subhead">Stage</p>
+      <div id="workspace-stage-gated">
+        <div id="workspace-stage-control"></div>
+      </div>
+      <div class="workspace-lock" id="workspace-stage-lock" style="display:none">
+        <p>Pipeline stages are a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade — £29/mo</button>
+      </div>
     </div>
   </div>
 </div>
@@ -286,7 +392,7 @@ function ddKeydown(e, id){
 document.addEventListener('click', closeAllDD);
 window.addEventListener('scroll', closeAllDD, true);
 
-let sbClient=null, currentSession=null;
+let sbClient=null, currentSession=null, currentPlan=null;
 let savedDealsCache=[];
 let selectedForDelete=new Set();
 
@@ -366,17 +472,21 @@ async function loadSavedDeals(){
         ?`<span class="pipeline-badge">In pipeline · ${d.pipeline_stage}</span>`
         :`<button class="mini-btn" onclick="addToPipeline('${d.id}')">Add to pipeline</button>`;
       const checked=selectedForDelete.has(d.id)?'checked':'';
-      return `<div class="saved-item">
-        <label class="saved-select"><input type="checkbox" data-deal-id="${d.id}" ${checked} onchange="toggleSelect('${d.id}', this.checked)"/></label>
+      // Row click opens the Deal Workspace; the checkbox and every action
+      // button stop propagation so they keep working exactly as before
+      // (bulk-select, rename, move to portfolio, add to pipeline, delete)
+      // without also triggering the row's own click-to-open.
+      return `<div class="saved-item" onclick="openDealWorkspace('${d.id}')" style="cursor:pointer">
+        <label class="saved-select" onclick="event.stopPropagation()"><input type="checkbox" data-deal-id="${d.id}" ${checked} onchange="toggleSelect('${d.id}', this.checked)"/></label>
         <div class="saved-info">
           <span class="saved-name">${escapeHtml(name)}</span>
           <span class="saved-detail">${label}${pp?' · '+pp:''} · ${date}</span>
         </div>
         <div class="saved-controls">
-          ${action}
-          <button class="mini-btn" onclick="renameDeal('${d.id}')">Rename</button>
-          <button class="mini-btn" onclick="openMoveToPortfolio('${d.id}')">Move to portfolio</button>
-          <button class="mini-btn danger" onclick="deleteDeal('${d.id}')">Delete</button>
+          ${action.replace('onclick="', 'onclick="event.stopPropagation();')}
+          <button class="mini-btn" onclick="event.stopPropagation();renameDeal('${d.id}')">Rename</button>
+          <button class="mini-btn" onclick="event.stopPropagation();openMoveToPortfolio('${d.id}')">Move to portfolio</button>
+          <button class="mini-btn danger" onclick="event.stopPropagation();deleteDeal('${d.id}')">Delete</button>
         </div>
       </div>`;
     }).join('');
@@ -584,6 +694,359 @@ document.addEventListener('keydown', function(e){
   if(e.key==='Escape')closeMoveToPortfolio();
 });
 
+// Deal Workspace — modal shell + the always-free analysis summary (Stage 1),
+// plus notes/offers/stage (Stage 2, all three paid-gated — see
+// updateWorkspaceGating below). workspaceDealId carries the open deal's id
+// the same way movingDealId does for Move to portfolio, above.
+let workspaceDealId=null;
+
+const WORKSPACE_STAGES=['analysing','viewing','offered','agreed','completed'];
+const WORKSPACE_STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
+
+// Timezone-safe date-only formatter, copied from pipeline.html: constructs
+// the Date from the Y/M/D parts directly rather than new Date('YYYY-MM-DD')
+// (which parses as UTC midnight and can render as the previous day in a
+// negative-UTC-offset timezone) — offer_date has no time component and must
+// never shift.
+function fmtDateOnly(iso){
+  const [y,m,d]=iso.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+
+function fmtTimestamp(iso){
+  return new Date(iso).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function openDealWorkspace(dealId){
+  const deal=savedDealsCache.find(d=>d.id===dealId);
+  if(!deal)return;
+  workspaceDealId=dealId;
+
+  document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
+  renderWorkspaceAnalysis(deal);
+  updateWorkspaceGating(deal);
+
+  document.getElementById('workspace-modal-overlay').classList.add('open');
+}
+
+// Reads compare-deals.js's own COMPARE_FIELDS/fmtCompareField — the same
+// per-strategy field list and formatter the compare table already uses — so
+// this never re-derives or re-guesses which figures matter per strategy.
+function renderWorkspaceAnalysis(deal){
+  const listEl=document.getElementById('workspace-analysis-list');
+  const fields=COMPARE_FIELDS[deal.deal_type]||[];
+  listEl.innerHTML=fields.map(f=>{
+    const val=fmtCompareField(f, deal.deal_data ? deal.deal_data[f.key] : null);
+    return `<div class="analysis-row"><span class="analysis-label">${escapeHtml(f.label)}</span><span class="analysis-value">${escapeHtml(val)}</span></div>`;
+  }).join('');
+}
+
+// Notes/offers/stage are paid features (their endpoints already 403 a free
+// user server-side) — gated here client-side too, so a free user's requests
+// never fire at all rather than firing and getting rejected. Analysis above
+// is never gated. Free: show the three .workspace-lock prompts, skip
+// loadNotes/loadOffers/the stage control entirely. Paid: show the real forms
+// and populate them.
+function updateWorkspaceGating(deal){
+  const paid=currentPlan==='paid';
+
+  document.getElementById('workspace-notes-gated').style.display=paid?'block':'none';
+  document.getElementById('workspace-notes-lock').style.display=paid?'none':'block';
+  document.getElementById('workspace-offers-gated').style.display=paid?'block':'none';
+  document.getElementById('workspace-offers-lock').style.display=paid?'none':'block';
+  document.getElementById('workspace-stage-gated').style.display=paid?'block':'none';
+  document.getElementById('workspace-stage-lock').style.display=paid?'none':'block';
+
+  if(!paid)return;
+
+  document.getElementById('note-input').value='';
+  document.getElementById('note-msg').textContent='';document.getElementById('note-msg').className='save-msg';
+  document.getElementById('offer-amount').value='';
+  document.getElementById('offer-date').value='';
+  setDDValue('offer-outcome', 'Pending', 'Pending');
+  document.getElementById('offer-msg').textContent='';document.getElementById('offer-msg').className='save-msg';
+
+  loadNotes(workspaceDealId);
+  loadOffers(workspaceDealId);
+  renderWorkspaceStageControl(deal);
+}
+
+async function loadNotes(dealId){
+  const listEl=document.getElementById('notes-list');
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch(`/api/deals/${dealId}/notes`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const notes=await res.json();
+    if(!res.ok)throw new Error(notes.error||'Could not load notes.');
+
+    if(notes.length===0){
+      listEl.innerHTML='<p class="hint">No notes yet.</p>';
+      return;
+    }
+    listEl.innerHTML=notes.map(n=>`<div class="note-item">
+      <button class="mini-btn danger note-delete" onclick="deleteNote('${n.id}')">Delete</button>
+      <p class="note-date">${fmtTimestamp(n.created_at)}</p>
+      <p class="note-text">${escapeHtml(n.note_text)}</p>
+    </div>`).join('');
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+async function addNote(){
+  if(!workspaceDealId)return;
+  const input=document.getElementById('note-input');
+  const msg=document.getElementById('note-msg');
+  const text=input.value.trim();
+  if(!text){ msg.textContent='Enter a note.'; msg.className='save-msg error'; return; }
+
+  msg.className='save-msg';msg.textContent='';
+  try{
+    const res=await fetch(`/api/deals/${workspaceDealId}/notes`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({note_text:text})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not add note.');
+    input.value='';
+    await loadNotes(workspaceDealId);
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+async function deleteNote(noteId){
+  if(!workspaceDealId)return;
+  if(!confirm('Delete this note?'))return;
+  try{
+    const res=await fetch(`/api/notes/${noteId}`,{
+      method:'DELETE',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not delete note.');
+    await loadNotes(workspaceDealId);
+  }catch(e){
+    alert('Could not delete note: '+e.message);
+  }
+}
+
+async function loadOffers(dealId){
+  const listEl=document.getElementById('offers-list');
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch(`/api/deals/${dealId}/offers`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const offers=await res.json();
+    if(!res.ok)throw new Error(offers.error||'Could not load offers.');
+
+    if(offers.length===0){
+      listEl.innerHTML='<p class="hint">No offers yet.</p>';
+      return;
+    }
+    listEl.innerHTML=offers.map(o=>{
+      const ddId='dd-offer-outcome-'+o.id;
+      const opts=['Pending','Rejected','Accepted','Withdrawn'].map(v=>
+        `<li class="dd-opt${v===o.outcome?' selected':''}" role="option" aria-selected="${v===o.outcome}" data-value="${v}" onclick="selectDDOption(event,'${ddId}','${v}','${v}')">${v}</li>`
+      ).join('');
+      return `<div class="offer-item">
+      <div class="offer-info">
+        <span class="offer-amount">${fmt(o.amount)}</span>
+        <span class="offer-date">${fmtDateOnly(o.offer_date)}</span>
+      </div>
+      <div class="offer-controls">
+        <div class="dd" id="${ddId}" data-value="${o.outcome}" data-onchange="handleOfferOutcomeChange">
+          <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'${ddId}')" onkeydown="ddKeydown(event,'${ddId}')">
+            <span>${o.outcome}</span>
+          </button>
+          <ul class="dd-list" role="listbox">${opts}</ul>
+        </div>
+        <button class="mini-btn danger" onclick="deleteOffer('${o.id}')">Delete</button>
+      </div>
+    </div>`;
+    }).join('');
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+async function addOffer(){
+  if(!workspaceDealId)return;
+  const msg=document.getElementById('offer-msg');
+  const payload={
+    amount:document.getElementById('offer-amount').value,
+    offer_date:document.getElementById('offer-date').value,
+    outcome:getDDValue('offer-outcome')
+  };
+
+  msg.className='save-msg';msg.textContent='';
+  try{
+    const res=await fetch(`/api/deals/${workspaceDealId}/offers`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not add offer.');
+    document.getElementById('offer-amount').value='';
+    document.getElementById('offer-date').value='';
+    setDDValue('offer-outcome', 'Pending', 'Pending');
+    await loadOffers(workspaceDealId);
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+// Bridges the generic dropdown's data-onchange callback back to the
+// per-offer outcome id embedded in the dd's own element id (dd-offer-
+// outcome-<offerId>) — updateOfferOutcome() itself is unchanged.
+function handleOfferOutcomeChange(id, value){
+  const offerId=id.replace('dd-offer-outcome-','');
+  updateOfferOutcome(offerId, value);
+}
+
+async function updateOfferOutcome(offerId, outcome){
+  if(!workspaceDealId)return;
+  try{
+    const res=await fetch(`/api/offers/${offerId}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({outcome})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not update offer.');
+    await loadOffers(workspaceDealId);
+  }catch(e){
+    alert('Could not update offer: '+e.message);
+  }
+}
+
+async function deleteOffer(offerId){
+  if(!workspaceDealId)return;
+  if(!confirm('Delete this offer?'))return;
+  try{
+    const res=await fetch(`/api/offers/${offerId}`,{
+      method:'DELETE',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not delete offer.');
+    await loadOffers(workspaceDealId);
+  }catch(e){
+    alert('Could not delete offer: '+e.message);
+  }
+}
+
+// If the deal already has a stage, a 5-option dropdown lets it move to any
+// other stage (POST /api/pipeline/:id/stage). If it has none yet, a single
+// "Add to pipeline" action (POST /api/pipeline, same endpoint the row's own
+// button already uses) starts it at 'analysing'. Both refresh the saved
+// list afterward so the row's badge and this control both stay in sync.
+function renderWorkspaceStageControl(deal){
+  const el=document.getElementById('workspace-stage-control');
+  if(deal.pipeline_stage){
+    const stage=deal.pipeline_stage;
+    const opts=WORKSPACE_STAGES.map(s=>
+      `<li class="dd-opt${s===stage?' selected':''}" role="option" aria-selected="${s===stage}" data-value="${s}" onclick="selectDDOption(event,'workspace-stage-dd','${s}','${WORKSPACE_STAGE_LABELS[s]}')">${WORKSPACE_STAGE_LABELS[s]}</li>`
+    ).join('');
+    el.innerHTML=`<div class="field"><label>Pipeline stage</label>
+        <div class="dd" id="workspace-stage-dd" data-value="${stage}" data-onchange="handleWorkspaceStageChange">
+          <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'workspace-stage-dd')" onkeydown="ddKeydown(event,'workspace-stage-dd')">
+            <span>${WORKSPACE_STAGE_LABELS[stage]}</span>
+          </button>
+          <ul class="dd-list" role="listbox">${opts}</ul>
+        </div>
+      </div>
+      <p class="save-msg" id="workspace-stage-msg"></p>`;
+  }else{
+    el.innerHTML=`<button class="btn-primary" onclick="addToPipelineFromWorkspace()">Add to pipeline</button>
+      <p class="save-msg" id="workspace-stage-msg"></p>`;
+  }
+}
+
+function handleWorkspaceStageChange(id, value){
+  changeWorkspaceStage(value);
+}
+
+async function changeWorkspaceStage(stage){
+  if(!workspaceDealId)return;
+  const msg=document.getElementById('workspace-stage-msg');
+  try{
+    const res=await fetch(`/api/pipeline/${workspaceDealId}/stage`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({stage})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not update stage.');
+    await loadSavedDeals();
+    const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
+    if(deal){
+      document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
+      renderWorkspaceStageControl(deal);
+    }
+  }catch(e){
+    if(msg){msg.textContent=e.message;msg.className='save-msg error';}
+  }
+}
+
+async function addToPipelineFromWorkspace(){
+  if(!workspaceDealId)return;
+  const msg=document.getElementById('workspace-stage-msg');
+  try{
+    const res=await fetch('/api/pipeline',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({deal_id:workspaceDealId})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not add to pipeline.');
+    await loadSavedDeals();
+    const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
+    if(deal){
+      document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
+      renderWorkspaceStageControl(deal);
+    }
+  }catch(e){
+    if(msg){msg.textContent=e.message;msg.className='save-msg error';}
+  }
+}
+
+// Generic upgrade action for the workspace's three lock prompts — same
+// checkout-session call as the rest of the app's upgrade buttons, just
+// taking the clicked button directly instead of a single hardcoded id,
+// since there are three of these in one modal.
+async function upgradeNowFromWorkspace(btn){
+  if(!currentSession)return;
+  const original=btn.textContent;
+  btn.disabled=true;btn.textContent='Redirecting…';
+  try{
+    const res=await fetch('/api/create-checkout-session',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
+    window.location.href=body.url;
+  }catch(e){
+    alert('Could not start checkout: '+e.message);
+    btn.disabled=false;btn.textContent=original;
+  }
+}
+
+function closeDealWorkspace(){
+  document.getElementById('workspace-modal-overlay').classList.remove('open');
+  workspaceDealId=null;
+}
+
+function handleWorkspaceOverlayClick(e){
+  if(e.target.id==='workspace-modal-overlay')closeDealWorkspace();
+}
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape')closeDealWorkspace();
+});
+
 async function confirmMoveToPortfolio(){
   if(!movingDealId||!currentSession)return;
   const msg=document.getElementById('mtp-msg');
@@ -629,6 +1092,18 @@ async function init(){
   if(!auth)return;
   sbClient=auth.client;
   currentSession=auth.session;
+
+  // Needed for the Deal Workspace's paid-gated sections (notes/offers/
+  // stage) — saved-deals.html itself stays free/ungated, this is only used
+  // to decide what those three sections render. Same fetch pipeline.html
+  // and the other paid pages already make.
+  try{
+    const profRes=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const prof=await profRes.json();
+    currentPlan=prof.plan==='paid'?'paid':'free';
+  }catch(e){
+    currentPlan='free';
+  }
 
   document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
   document.getElementById('app').style.display='block';
