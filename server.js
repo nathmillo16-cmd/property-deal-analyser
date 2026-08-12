@@ -253,6 +253,122 @@ app.get('/api/deals', async (req, res) => {
   res.json(data);
 });
 
+const NEEDS_ATTENTION_CHASE_DAYS = 3;
+const NEEDS_ATTENTION_REVIEW_DAYS = 7;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// viewing_date is a plain date column (no time) — parsed as a UTC midnight
+// timestamp so "has it passed" / "days ago" math is exact and independent
+// of the server's own local timezone, the same way created_at/updated_at
+// (timestamptz, always UTC) already are.
+function parseDateOnlyUTCms(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
+// GET /api/needs-attention — three criteria, thresholds live only here:
+//   (i)   "chase"  — a Pending offer whose created_at is >3 days old.
+//   (ii)  "update" — a Viewing-stage deal whose viewing_date has passed
+//                    with no note logged on or after that date.
+//   (iii) "review" — an Analysing-stage deal whose updated_at is >7 days old.
+// Three queries total (deals, pending offers, notes), not one per deal —
+// grouped/joined in JS below rather than looping fetches per deal.
+// Deduped to ONE reason per deal, in priority order chase > update >
+// review, rather than returning multiple rows for the same deal.
+app.get('/api/needs-attention', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to see what needs attention.' });
+
+  const [dealsRes, offersRes, notesRes] = await Promise.all([
+    supabase.from('deals').select('id, deal_data, pipeline_stage, updated_at, viewing_date'),
+    supabase.from('deal_offers').select('id, deal_id, created_at').eq('outcome', 'Pending'),
+    supabase.from('deal_notes').select('deal_id, created_at'),
+  ]);
+
+  if (dealsRes.error) return res.status(400).json({ error: dealsRes.error.message });
+  if (offersRes.error) return res.status(400).json({ error: offersRes.error.message });
+  if (notesRes.error) return res.status(400).json({ error: notesRes.error.message });
+
+  const deals = dealsRes.data || [];
+  const pendingOffers = offersRes.data || [];
+  const notes = notesRes.data || [];
+
+  const dealsById = new Map(deals.map((d) => [d.id, d]));
+  const dealName = (d) => (d.deal_data && d.deal_data.name) || null;
+
+  // Latest note timestamp per deal_id.
+  const latestNoteMsByDeal = new Map();
+  for (const n of notes) {
+    const ms = new Date(n.created_at).getTime();
+    const existing = latestNoteMsByDeal.get(n.deal_id);
+    if (existing === undefined || ms > existing) latestNoteMsByDeal.set(n.deal_id, ms);
+  }
+
+  const nowMs = Date.now();
+  const todayUTCms = parseDateOnlyUTCms(new Date().toISOString().slice(0, 10));
+
+  const results = [];
+  const flaggedDealIds = new Set();
+
+  // (i) chase — oldest qualifying Pending offer per deal.
+  const oldestPendingByDeal = new Map();
+  for (const o of pendingOffers) {
+    const ageMs = nowMs - new Date(o.created_at).getTime();
+    if (ageMs <= NEEDS_ATTENTION_CHASE_DAYS * MS_PER_DAY) continue;
+    const existing = oldestPendingByDeal.get(o.deal_id);
+    if (!existing || ageMs > existing.ageMs) oldestPendingByDeal.set(o.deal_id, { offerId: o.id, ageMs });
+  }
+  for (const [dealId, info] of oldestPendingByDeal) {
+    const deal = dealsById.get(dealId);
+    if (!deal) continue; // offer's deal was deleted or isn't this user's (RLS already scopes both, just a defensive guard)
+    const days = Math.floor(info.ageMs / MS_PER_DAY);
+    results.push({
+      deal_id: dealId,
+      deal_name: dealName(deal),
+      reason: 'chase',
+      detail: `Offer pending ${days} day${days === 1 ? '' : 's'}`,
+    });
+    flaggedDealIds.add(dealId);
+  }
+
+  // (ii) update — Viewing stage, viewing_date passed, no note since.
+  for (const deal of deals) {
+    if (flaggedDealIds.has(deal.id)) continue;
+    if (deal.pipeline_stage !== 'viewing' || !deal.viewing_date) continue;
+    const viewingMs = parseDateOnlyUTCms(deal.viewing_date);
+    if (viewingMs >= todayUTCms) continue; // hasn't passed yet
+    const latestNoteMs = latestNoteMsByDeal.get(deal.id);
+    const noteSinceViewing = latestNoteMs !== undefined && latestNoteMs >= viewingMs;
+    if (noteSinceViewing) continue;
+    const days = Math.floor((todayUTCms - viewingMs) / MS_PER_DAY);
+    results.push({
+      deal_id: deal.id,
+      deal_name: dealName(deal),
+      reason: 'update',
+      detail: `Viewing was ${days} day${days === 1 ? '' : 's'} ago`,
+    });
+    flaggedDealIds.add(deal.id);
+  }
+
+  // (iii) review — Analysing stage, untouched >7 days.
+  for (const deal of deals) {
+    if (flaggedDealIds.has(deal.id)) continue;
+    if (deal.pipeline_stage !== 'analysing') continue;
+    const ageMs = nowMs - new Date(deal.updated_at).getTime();
+    if (ageMs <= NEEDS_ATTENTION_REVIEW_DAYS * MS_PER_DAY) continue;
+    const days = Math.floor(ageMs / MS_PER_DAY);
+    results.push({
+      deal_id: deal.id,
+      deal_name: dealName(deal),
+      reason: 'review',
+      detail: `Untouched ${days} day${days === 1 ? '' : 's'}`,
+    });
+    flaggedDealIds.add(deal.id);
+  }
+
+  res.json(results);
+});
+
 app.post('/api/deals/:id/name', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to rename deals.' });
