@@ -66,7 +66,13 @@ const INDUSTRY_SECTIONS = [
 // (e.g. 1820328044), populated on first use. The underlying list is local
 // authority district/unitary boundaries as of April 2019 — it does not
 // change during the life of a running process, so an in-memory cache with
-// no expiry is deliberate, not an oversight.
+// no expiry is deliberate, not an oversight. IMPORTANT: only a SUCCESSFUL
+// load is kept cached — a rejected promise is still truthy, so without the
+// .catch below, one failed fetch (an outage/timeout/blip) would look
+// permanently "already tried" and silently disable employment data for
+// every request thereafter, for the rest of the process's life, with no
+// way to recover short of a server restart. The .catch clears the cache on
+// failure so the next call retries fresh instead.
 let ladGeographyCachePromise = null;
 
 async function loadLadGeographyMap() {
@@ -83,7 +89,12 @@ async function loadLadGeographyMap() {
 }
 
 async function resolveLadGeographyId(gssCode) {
-  if (!ladGeographyCachePromise) ladGeographyCachePromise = loadLadGeographyMap();
+  if (!ladGeographyCachePromise) {
+    ladGeographyCachePromise = loadLadGeographyMap().catch((e) => {
+      ladGeographyCachePromise = null;
+      throw e;
+    });
+  }
   const map = await ladGeographyCachePromise;
   return map.get(gssCode) || null;
 }
