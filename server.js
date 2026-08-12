@@ -246,7 +246,7 @@ app.get('/api/deals', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .select('id, deal_type, deal_data, created_at, pipeline_stage')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
     .order('created_at', { ascending: false });
 
   if (error) return res.status(400).json({ error: error.message });
@@ -275,7 +275,7 @@ app.post('/api/deals/:id/name', async (req, res) => {
     .from('deals')
     .update({ deal_data: updatedData })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -313,7 +313,7 @@ app.post('/api/pipeline', async (req, res) => {
     .from('deals')
     .update({ pipeline_stage: 'analysing' })
     .eq('id', deal_id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -331,7 +331,7 @@ app.get('/api/pipeline', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .select('id, deal_type, deal_data, created_at, pipeline_stage')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
     .not('pipeline_stage', 'is', null)
     .order('created_at', { ascending: false });
 
@@ -357,7 +357,7 @@ app.post('/api/pipeline/:id/stage', async (req, res) => {
     .from('deals')
     .update({ pipeline_stage: stage })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
