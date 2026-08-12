@@ -97,6 +97,18 @@
 .recent-item .rmeta{font-size:11.5px;color:var(--muted);margin-top:2px;display:block}
 .recent-item .rfigure{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--accent);white-space:nowrap;font-variant-numeric:tabular-nums}
 
+/* ---- needs attention: flagged-deal rows, same shape as .recent-item ---- */
+.na-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:.65rem 0;border-top:1px solid var(--hairline);text-decoration:none}
+.na-row:first-child{border-top:none;padding-top:0}
+.na-row:hover .na-name{text-decoration:underline}
+.na-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.na-name{font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.na-detail{font-size:11.5px;color:var(--muted)}
+.na-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.na-tag.chase,.na-tag.update{background:var(--warn-bg);color:var(--warn-ink)}
+.na-tag.review{background:var(--surface-2);color:var(--muted)}
+.na-caught-up{margin:0}
+
 /* ---- pipeline: distribution bar + compact stage list ---- */
 .pipeline-bar{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--surface-2);margin-bottom:var(--space-4)}
 .pipeline-bar-seg{height:100%;transition:width .3s ease}
@@ -145,6 +157,11 @@
     </div>
   </div>
 
+  <div class="card" id="needs-attention-card" style="display:none">
+    <h2>Needs attention</h2>
+    <div id="needs-attention-list"></div>
+  </div>
+
   <div id="empty-state" style="display:none">
     <div class="card empty-card">
       <h2>Get started</h2>
@@ -174,6 +191,7 @@
 let sbClient=null, currentSession=null;
 let savedDeals=[], pipelineDeals=[], pipelineLocked=false;
 let portfolioCount=0, portfolioTotals=null, portfolioLocked=false;
+let needsAttention=[];
 
 const STAGES=['analysing','viewing','offered','agreed','completed'];
 const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
@@ -274,6 +292,18 @@ async function loadDashboard(){
     portfolioCount=0; portfolioTotals=null; portfolioLocked=false;
   }
 
+  // GET /api/needs-attention isn't itself plan-gated (a free user simply
+  // can never have any pipelined deals, so it always resolves to [] for
+  // them regardless) — whether the card SHOWS at all is decided in render()
+  // by reusing pipelineLocked, not by a 403 from this call.
+  try{
+    const res=await fetch('/api/needs-attention',{headers});
+    const body=await res.json();
+    needsAttention=(res.ok&&Array.isArray(body))?body:[];
+  }catch(e){
+    needsAttention=[];
+  }
+
   render();
 }
 
@@ -350,6 +380,33 @@ function render(){
         <span class="board-label">${STAGE_LABELS[s]}</span>
       </div>`;
     }).join('')+'</div>';
+  }
+
+  // Needs Attention — populated unconditionally too, same reasoning as
+  // above. Silently absent for a free/pipeline-locked user (no locked-panel
+  // nudge here, unlike Pipeline/Board — this card is entirely about
+  // pipelined deals, which a free user can never have any of, so there's
+  // nothing to gently upsell around). needsAttention is always [] for a
+  // free user anyway (they can't have any pipelined deals), so this is a
+  // display decision, not a data one.
+  const naCard=document.getElementById('needs-attention-card');
+  const naList=document.getElementById('needs-attention-list');
+  if(pipelineLocked){
+    naCard.style.display='none';
+  }else{
+    naCard.style.display='block';
+    if(needsAttention.length===0){
+      naList.innerHTML='<p class="hint na-caught-up">You\'re all caught up — nothing needs attention.</p>';
+    }else{
+      const REASON_LABEL={chase:'Chase',update:'Update',review:'Review'};
+      naList.innerHTML=needsAttention.map(n=>`<a class="na-row" href="/saved-deals.html">
+        <span class="na-info">
+          <span class="na-name">${escapeHtml(n.deal_name||'Untitled deal')}</span>
+          <span class="na-detail">${escapeHtml(n.detail)}</span>
+        </span>
+        <span class="na-tag ${escapeHtml(n.reason)}">${escapeHtml(REASON_LABEL[n.reason]||n.reason)}</span>
+      </a>`).join('');
+    }
   }
 
   if(savedDeals.length===0){

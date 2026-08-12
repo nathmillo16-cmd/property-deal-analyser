@@ -279,6 +279,11 @@ app.get('/api/needs-attention', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to see what needs attention.' });
 
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+  }
+
   const [dealsRes, offersRes, notesRes] = await Promise.all([
     supabase.from('deals').select('id, deal_data, pipeline_stage, updated_at, viewing_date'),
     supabase.from('deal_offers').select('id, deal_id, created_at').eq('outcome', 'Pending'),
