@@ -1869,6 +1869,23 @@ async function confirmSaveDeal(){
   const d=type==='btl'?btlData:(type==='hmo'?hmoData:(type==='sa'?saData:flipData));
   const dealData={...d,name:nameVal};
 
+  // Captured once, here, at the moment of save — never re-captured on the
+  // duplicate-confirm retry below (same snapshot goes in both POST bodies,
+  // since that retry is still the same save action, not a later re-save).
+  // null if no comps were run this session (lastCompsResult is the gate —
+  // crime/planning/employment ride along with it since they're fetched
+  // together, but comps itself decides whether there's anything to save).
+  const tierRadio=document.querySelector('input[name="cp-tier"]:checked');
+  const compsSnapshot=lastCompsResult?{
+    comps:lastCompsResult,
+    crime:lastCrimeResult,
+    planning:lastPlanningResult,
+    employment:lastEmploymentResult,
+    floorArea:document.getElementById('cp-floor-area').value,
+    selectedTier:tierRadio?tierRadio.value:null,
+    asOf:new Date().toISOString()
+  }:null;
+
   confirmBtn.disabled=true;confirmBtn.textContent='Saving...';
   modalMsg.className='save-msg';modalMsg.textContent='';
 
@@ -1876,7 +1893,7 @@ async function confirmSaveDeal(){
     let res=await fetch('/api/deals',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({deal_type:type, deal_data:dealData})
+      body:JSON.stringify({deal_type:type, deal_data:dealData, comps_snapshot:compsSnapshot})
     });
     let body=await res.json();
 
@@ -1890,7 +1907,7 @@ async function confirmSaveDeal(){
       res=await fetch('/api/deals',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-        body:JSON.stringify({deal_type:type, deal_data:dealData, force:true})
+        body:JSON.stringify({deal_type:type, deal_data:dealData, comps_snapshot:compsSnapshot, force:true})
       });
       body=await res.json();
     }

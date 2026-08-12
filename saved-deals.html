@@ -232,6 +232,11 @@ body.theme-light .dd-trigger::after{
     </div>
 
     <div class="modal-section">
+      <p class="subhead" id="workspace-comps-heading">Comps</p>
+      <div id="workspace-comps-body"></div>
+    </div>
+
+    <div class="modal-section">
       <p class="subhead">Notes</p>
       <div id="workspace-notes-gated">
         <div class="modal-form-row">
@@ -403,6 +408,17 @@ let savedDealsCache=[];
 let selectedForDelete=new Set();
 
 function fmt(n){return'£'+Math.round(n).toLocaleString();}
+
+function ordinalSuffix(n){
+  const rem100=n%100;
+  if(rem100>=11&&rem100<=13)return n+'th';
+  switch(n%10){
+    case 1:return n+'st';
+    case 2:return n+'nd';
+    case 3:return n+'rd';
+    default:return n+'th';
+  }
+}
 
 function escapeHtml(s){
   const div=document.createElement('div');
@@ -717,6 +733,7 @@ function openDealWorkspace(dealId){
 
   document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
   renderWorkspaceAnalysis(deal);
+  renderWorkspaceComps(deal);
   updateWorkspaceGating(deal);
 
   document.getElementById('workspace-modal-overlay').classList.add('open');
@@ -732,6 +749,69 @@ function renderWorkspaceAnalysis(deal){
     const val=fmtCompareField(f, deal.deal_data ? deal.deal_data[f.key] : null);
     return `<div class="analysis-row"><span class="analysis-label">${escapeHtml(f.label)}</span><span class="analysis-value">${escapeHtml(val)}</span></div>`;
   }).join('');
+}
+
+// Option A: comps_snapshot is captured ONCE, at save time (see saveDeal() /
+// confirmSaveDeal() in index.html) — it is never refreshed, so this is
+// always a condensed REVIEW of a past search, not the live calculator
+// panel. The as-of date is deliberately in the section heading itself
+// (not buried in a footnote) plus a caveat line, so it can never read as
+// current. null (no comps run before saving, or a legacy deal saved before
+// this feature existed) is a quiet, normal state — not an error.
+function renderWorkspaceComps(deal){
+  const headingEl=document.getElementById('workspace-comps-heading');
+  const bodyEl=document.getElementById('workspace-comps-body');
+  const snap=deal.comps_snapshot;
+
+  if(!snap){
+    headingEl.textContent='Comps';
+    bodyEl.innerHTML='<p class="hint">No comps were saved with this deal.</p>';
+    return;
+  }
+
+  const asOfDate=snap.asOf?new Date(snap.asOf).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):null;
+  headingEl.textContent=asOfDate?`Comps · as of ${asOfDate}`:'Comps';
+
+  const rows=[];
+
+  const comps=snap.comps;
+  const floorArea=Number(snap.floorArea);
+  const tierRate=(comps&&comps.pricePerSqMTiers&&snap.selectedTier)?comps.pricePerSqMTiers[snap.selectedTier]:null;
+  if(tierRate&&floorArea>0){
+    rows.push(['End value (GDV)', fmt(tierRate*floorArea)]);
+    rows.push(['£/sqm (selected tier)', fmt(tierRate)]);
+  }else if(comps&&comps.medianPrice!=null){
+    rows.push(['End value (median comp)', fmt(comps.medianPrice)]);
+    if(comps.medianPricePerSqM!=null)rows.push(['£/sqm (median)', fmt(comps.medianPricePerSqM)]);
+  }
+  rows.push(['Sold comparables used', comps?String(comps.count):'0']);
+
+  const crime=snap.crime;
+  if(crime&&crime.available&&crime.percentile!=null){
+    rows.push(['Crime', ordinalSuffix(Math.round(crime.percentile))+' percentile'+(crime.band?' ('+crime.band+')':'')]);
+  }else{
+    rows.push(['Crime', 'Unavailable']);
+  }
+
+  const planning=snap.planning;
+  if(planning&&planning.available&&Array.isArray(planning.constraints)){
+    const activeCount=planning.constraints.filter(c=>c.active).length;
+    rows.push(['Planning constraints', activeCount>0?(activeCount+' flagged'):'None found']);
+  }else{
+    rows.push(['Planning constraints', 'Unavailable']);
+  }
+
+  const employment=snap.employment;
+  if(employment&&employment.available&&employment.rate){
+    const topIndustry=(employment.industries&&employment.industries[0])?employment.industries[0].label:null;
+    rows.push(['Employment rate', employment.rate.value.toFixed(1)+'%'+(topIndustry?' · top sector '+topIndustry:'')]);
+  }else{
+    rows.push(['Employment', 'Unavailable']);
+  }
+
+  bodyEl.innerHTML=rows.map(([label,val])=>
+    `<div class="analysis-row"><span class="analysis-label">${escapeHtml(label)}</span><span class="analysis-value">${escapeHtml(val)}</span></div>`
+  ).join('')+'<p class="hint" style="margin-top:.6rem">Snapshot from when this deal was saved — may not reflect current market.</p>';
 }
 
 // Notes/offers/stage are paid features (their endpoints already 403 a free

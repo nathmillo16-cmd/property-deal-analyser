@@ -202,13 +202,20 @@ app.post('/api/deals', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to save deals.' });
 
-  const { deal_type, deal_data, force } = req.body;
+  const { deal_type, deal_data, comps_snapshot, force } = req.body;
   if (!['btl', 'hmo', 'sa', 'flip'].includes(deal_type)) {
     return res.status(400).json({ error: 'deal_type must be "btl", "hmo", "sa", or "flip".' });
   }
   if (!deal_data || typeof deal_data !== 'object') {
     return res.status(400).json({ error: 'Missing deal_data.' });
   }
+  // Optional — a snapshot of the Comps tab captured once at save time
+  // (Option A: never updated after). null/absent means no comps were run
+  // before saving, which is a normal, valid state, not an error.
+  if (comps_snapshot !== undefined && comps_snapshot !== null && typeof comps_snapshot !== 'object') {
+    return res.status(400).json({ error: 'comps_snapshot must be an object or null.' });
+  }
+  const compsSnapshotToStore = comps_snapshot == null ? null : comps_snapshot;
 
   const plan = await getUserPlan(supabase);
   if (plan !== 'paid') {
@@ -233,7 +240,7 @@ app.post('/api/deals', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .insert({ deal_type, deal_data })
+    .insert({ deal_type, deal_data, comps_snapshot: compsSnapshotToStore })
     .select()
     .single();
 
@@ -247,7 +254,7 @@ app.get('/api/deals', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
     .order('created_at', { ascending: false });
 
   if (error) return res.status(400).json({ error: error.message });
@@ -397,7 +404,7 @@ app.post('/api/deals/:id/name', async (req, res) => {
     .from('deals')
     .update({ deal_data: updatedData })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -427,7 +434,7 @@ app.post('/api/deals/:id/viewing-date', async (req, res) => {
     .from('deals')
     .update({ viewing_date })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -465,7 +472,7 @@ app.post('/api/pipeline', async (req, res) => {
     .from('deals')
     .update({ pipeline_stage: 'analysing' })
     .eq('id', deal_id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -483,7 +490,7 @@ app.get('/api/pipeline', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
     .not('pipeline_stage', 'is', null)
     .order('created_at', { ascending: false });
 
@@ -509,7 +516,7 @@ app.post('/api/pipeline/:id/stage', async (req, res) => {
     .from('deals')
     .update({ pipeline_stage: stage })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
