@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
 <script src="/draft-state.js"></script>
@@ -297,6 +298,7 @@ body.theme-light .dd-trigger::after{
       <button class="mini-btn danger" onclick="deleteFromWorkspace()">Delete</button>
       <button class="mini-btn" onclick="moveToPortfolioFromWorkspace()">Move to portfolio</button>
       <button class="mini-btn" onclick="renameFromWorkspace()">Rename</button>
+      <button class="mini-btn" onclick="downloadPropertyPack()">Download pack</button>
     </div>
   </div>
 </div>
@@ -758,20 +760,10 @@ function renderWorkspaceAnalysis(deal){
 // (not buried in a footnote) plus a caveat line, so it can never read as
 // current. null (no comps run before saving, or a legacy deal saved before
 // this feature existed) is a quiet, normal state — not an error.
-function renderWorkspaceComps(deal){
-  const headingEl=document.getElementById('workspace-comps-heading');
-  const bodyEl=document.getElementById('workspace-comps-body');
-  const snap=deal.comps_snapshot;
-
-  if(!snap){
-    headingEl.textContent='Comps';
-    bodyEl.innerHTML='<p class="hint">No comps were saved with this deal.</p>';
-    return;
-  }
-
-  const asOfDate=snap.asOf?new Date(snap.asOf).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):null;
-  headingEl.textContent=asOfDate?`Comps · as of ${asOfDate}`:'Comps';
-
+// Pure — no DOM reads/writes — so both renderWorkspaceComps() (HTML) and
+// downloadPropertyPack() (PDF) build the condensed comps summary from
+// exactly the same logic, never two slightly-different implementations.
+function computeCompsSummaryRows(snap){
   const rows=[];
 
   const comps=snap.comps;
@@ -809,9 +801,334 @@ function renderWorkspaceComps(deal){
     rows.push(['Employment', 'Unavailable']);
   }
 
+  return rows;
+}
+
+function renderWorkspaceComps(deal){
+  const headingEl=document.getElementById('workspace-comps-heading');
+  const bodyEl=document.getElementById('workspace-comps-body');
+  const snap=deal.comps_snapshot;
+
+  if(!snap){
+    headingEl.textContent='Comps';
+    bodyEl.innerHTML='<p class="hint">No comps were saved with this deal.</p>';
+    return;
+  }
+
+  const asOfDate=snap.asOf?new Date(snap.asOf).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):null;
+  headingEl.textContent=asOfDate?`Comps · as of ${asOfDate}`:'Comps';
+
+  const rows=computeCompsSummaryRows(snap);
+
   bodyEl.innerHTML=rows.map(([label,val])=>
     `<div class="analysis-row"><span class="analysis-label">${escapeHtml(label)}</span><span class="analysis-value">${escapeHtml(val)}</span></div>`
   ).join('')+'<p class="hint" style="margin-top:.6rem">Snapshot from when this deal was saved — may not reflect current market.</p>';
+}
+
+// ---------------------------------------------------------------------
+// Property pack PDF — built entirely client-side from the STORED deal
+// (deal_data + comps_snapshot + address), same as the workspace itself
+// shows. No live re-computation, no API calls — works even if the comps
+// APIs are down, and always matches exactly what the workspace displays,
+// since both read the same COMPARE_FIELDS/computeCompsSummaryRows logic.
+// ---------------------------------------------------------------------
+
+const PACK_INDIGO=[75,69,178];
+const PACK_INDIGO_TINT=[237,236,250];
+const PACK_INK=[28,28,26];
+const PACK_MUTED=[107,107,102];
+const PACK_HAIRLINE=[224,224,220];
+const PACK_SUCCESS=[15,110,86], PACK_SUCCESS_BG=[225,245,238];
+const PACK_WARN=[133,79,11], PACK_WARN_BG=[250,238,218];
+const PACK_WHITE=[255,255,255];
+
+function packDateOnly(iso){
+  if(!iso)return null;
+  return new Date(iso).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+
+function packArrayBufferToBase64(buffer){
+  let binary='';
+  const bytes=new Uint8Array(buffer);
+  const chunkSize=0x8000;
+  for(let i=0;i<bytes.length;i+=chunkSize){
+    binary+=String.fromCharCode(...bytes.subarray(i,i+chunkSize));
+  }
+  return btoa(binary);
+}
+
+// The two Sora weights the pack actually uses (Regular for labels/body,
+// Bold for values — matching .metric .mv / .offer-box .ov in styles.css,
+// both font-weight:700), fetched once and cached as base64 so a second
+// pack download in the same session doesn't refetch. Self-clearing on
+// failure (same poisoned-cache fix as ladGeographyCachePromise in
+// nomis-employment.js) so a dropped request doesn't wedge every future
+// attempt behind a permanently-rejected promise.
+let packFontsPromise=null;
+async function loadPackFontsBase64(){
+  if(!packFontsPromise){
+    packFontsPromise=Promise.all([
+      fetch('/fonts/Sora-Regular.ttf').then(r=>r.arrayBuffer()),
+      fetch('/fonts/Sora-Bold.ttf').then(r=>r.arrayBuffer()),
+    ]).then(([regularBuf,boldBuf])=>({
+      regular:packArrayBufferToBase64(regularBuf),
+      bold:packArrayBufferToBase64(boldBuf),
+    })).catch(e=>{ packFontsPromise=null; throw e; });
+  }
+  return packFontsPromise;
+}
+
+// VFS/font registration lives on jsPDF's per-instance internal state, so
+// this has to run against every new doc — the base64 fetch above is what's
+// cached, not the registration itself.
+async function registerPackFonts(doc){
+  const {regular,bold}=await loadPackFontsBase64();
+  doc.addFileToVFS('Sora-Regular.ttf', regular);
+  doc.addFont('Sora-Regular.ttf', 'Sora', 'normal');
+  doc.addFileToVFS('Sora-Bold.ttf', bold);
+  doc.addFont('Sora-Bold.ttf', 'Sora', 'bold');
+}
+
+// The one figure that dominates the page — Max bid (ROI), the same "oR"
+// field every strategy's COMPARE_FIELDS list already ends on. Everything
+// else from that same list renders smaller, as supporting callouts.
+function packHeadlineField(type){
+  return (COMPARE_FIELDS[type]||[]).find(f=>f.key==='oR')||null;
+}
+function packSecondaryFields(type){
+  return (COMPARE_FIELDS[type]||[]).filter(f=>f.key!=='oR');
+}
+
+// Only colours a callout green/amber when there's a REAL, already-computed
+// boolean behind it (deal_data.meetsYield / .meetsROI, from calc-engine.js
+// itself) — never an invented threshold. Every other figure stays neutral.
+function packFieldSemanticColor(deal, fieldKey){
+  const d=deal.deal_data||{};
+  if(fieldKey==='gy'&&d.meetsYield!=null)return d.meetsYield?'good':'warn';
+  if((fieldKey==='mROI'||fieldKey==='roi')&&d.meetsROI!=null)return d.meetsROI?'good':'warn';
+  return null;
+}
+
+function ensureSpace(doc, y, needed, margin, pageH){
+  if(y+needed>pageH-margin){
+    doc.addPage();
+    return margin;
+  }
+  return y;
+}
+
+function packSectionHeader(doc, title, x, y){
+  doc.setFillColor(...PACK_INDIGO);
+  doc.rect(x, y-10, 4, 14, 'F');
+  doc.setTextColor(...PACK_INDIGO);
+  doc.setFont('Sora','bold');
+  doc.setFontSize(11);
+  doc.text(title.toUpperCase(), x+12, y);
+  return y+20;
+}
+
+// A bordered card with a label above a value — the callout's fill/text
+// colour depends on `tone` ('headline'|'good'|'warn'|null), never on
+// anything invented (see packFieldSemanticColor above).
+// Real measurement, not assumption — splitTextToSize() needs the SAME font
+// family/size that will actually be used to draw the label, since jsPDF
+// wraps based on real character widths for the currently-set font. Returns
+// the wrapped lines (usually 1, sometimes 2 for a long label like HMO's
+// "Total investment (mortgage)" — confirmed by measuring every label across
+// all four strategies with real jsPDF before writing this, not guessed).
+function packMeasureLabelLines(doc, label, fontSize, usableW){
+  doc.setFont('Sora','normal');
+  doc.setFontSize(fontSize);
+  return doc.splitTextToSize(label.toUpperCase(), usableW);
+}
+
+// Box height sized to fit however many label lines THIS specific callout
+// actually needs (labelLines.length), not a fixed guess — so a deal whose
+// worst label is 1 line doesn't waste space, and one whose worst label is 2
+// lines never clips. Both label and value positions are derived from the
+// real line count, so nothing can overlap regardless of how many lines the
+// label wrapped to.
+// Single source of truth for callout spacing — used by BOTH
+// packCalloutHeight() (sizing the box) and packCallout() (drawing into
+// it), so the two can never drift out of sync with each other again.
+// valueGap/bottomClearance are BASELINE-to-baseline distances, but the
+// visual whitespace that actually matters is baseline-to-INK — a bold 15pt
+// value's cap-height is ~11pt (Helvetica cap-height ≈0.717×size), so a
+// 12pt baseline gap left only ~1pt of real air between the label and the
+// value (the original cramped bug). Sized here so the real ink-to-ink gap
+// is a genuine ~10-12pt, not just the baseline arithmetic looking
+// reasonable on paper.
+function packCalloutLayout(tone){
+  const isHeadline=tone==='headline';
+  return {
+    topPad:isHeadline?24:16,
+    labelLineHeight:isHeadline?13:10,
+    valueGap:isHeadline?30:24,
+    bottomClearance:isHeadline?18:14,
+    labelFontSize:isHeadline?10:8.5,
+    valueFontSize:isHeadline?26:15,
+  };
+}
+
+function packCalloutHeight(labelLines, tone){
+  const L=packCalloutLayout(tone);
+  return L.topPad+(labelLines.length-1)*L.labelLineHeight+L.valueGap+L.bottomClearance;
+}
+
+function packCallout(doc, x, y, w, h, labelLines, value, tone){
+  const fill = tone==='headline' ? PACK_INDIGO_TINT : tone==='good' ? PACK_SUCCESS_BG : tone==='warn' ? PACK_WARN_BG : PACK_WHITE;
+  const textColor = tone==='headline' ? PACK_INDIGO : tone==='good' ? PACK_SUCCESS : tone==='warn' ? PACK_WARN : PACK_INK;
+  const border = tone==='headline' ? PACK_INDIGO : PACK_HAIRLINE;
+  const isHeadline=tone==='headline';
+  const L=packCalloutLayout(tone);
+
+  doc.setFillColor(...fill);
+  doc.setDrawColor(...border);
+  doc.setLineWidth(isHeadline?1.5:0.75);
+  doc.roundedRect(x,y,w,h,6,6,'FD');
+
+  doc.setTextColor(...PACK_MUTED);
+  doc.setFont('Sora','normal');
+  doc.setFontSize(L.labelFontSize);
+  labelLines.forEach((line,i)=>{
+    doc.text(line, x+12, y+L.topPad+i*L.labelLineHeight);
+  });
+
+  const lastLabelBaseline=y+L.topPad+(labelLines.length-1)*L.labelLineHeight;
+  const valueY=lastLabelBaseline+L.valueGap;
+
+  doc.setTextColor(...textColor);
+  doc.setFont('Sora','bold');
+  doc.setFontSize(L.valueFontSize);
+  doc.text(value, x+12, valueY);
+}
+
+async function downloadPropertyPack(){
+  if(!workspaceDealId)return;
+  const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
+  if(!deal)return;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4' });
+  await registerPackFonts(doc);
+  const pageW=doc.internal.pageSize.getWidth();
+  const pageH=doc.internal.pageSize.getHeight();
+  const margin=40;
+  const contentW=pageW-margin*2;
+
+  const addressLine=(deal.address&&deal.address.trim())?deal.address.trim():dealDisplayName(deal);
+  const strategyLabel=DEAL_TO_PORTFOLIO_TYPE[deal.deal_type]||deal.deal_type.toUpperCase();
+  const generatedDate=packDateOnly(new Date().toISOString());
+  const createdDate=packDateOnly(deal.created_at);
+
+  // --- Header band ---
+  const headerH=110;
+  doc.setFillColor(...PACK_INDIGO);
+  doc.rect(0,0,pageW,headerH,'F');
+  doc.setTextColor(...PACK_WHITE);
+  doc.setFont('Sora','bold');
+  doc.setFontSize(20);
+  doc.text(addressLine, margin, 46, {maxWidth:contentW-150});
+  doc.setFont('Sora','normal');
+  doc.setFontSize(11);
+  doc.text(strategyLabel+' · Deal analysis', margin, 70);
+  doc.setFontSize(9);
+  doc.text('Generated '+generatedDate, pageW-margin, 30, {align:'right'});
+
+  let y=headerH+38;
+
+  // --- Key numbers ---
+  y=packSectionHeader(doc,'Key numbers',margin,y);
+  y+=6;
+
+  const d=deal.deal_data||{};
+  const headlineField=packHeadlineField(deal.deal_type);
+  if(headlineField){
+    const headlineLines=packMeasureLabelLines(doc, headlineField.label, 10, contentW-24);
+    const headlineH=Math.max(74, packCalloutHeight(headlineLines,'headline'));
+    const val=fmtCompareField(headlineField, d[headlineField.key]);
+    packCallout(doc, margin, y, contentW, headlineH, headlineLines, val, 'headline');
+    y+=headlineH+18;
+  }
+
+  const secondary=packSecondaryFields(deal.deal_type);
+  const cols=3;
+  const gap=12;
+  const boxW=(contentW-gap*(cols-1))/cols;
+  const usableLabelW=boxW-24;
+  // Measured for THIS deal's own fields, not a hardcoded guess — a BTL/SA/
+  // Flip pack (whose longest label always fits on one line) gets a
+  // compact grid; an HMO pack (whose "Total investment (mortgage)" wraps
+  // to two) gets a taller one. Both are exactly as tall as they need to be,
+  // never clipped.
+  const secondaryLabelLines=secondary.map(f=>packMeasureLabelLines(doc,f.label,8.5,usableLabelW));
+  const maxSecondaryLines=Math.max(1,...secondaryLabelLines.map(l=>l.length));
+  const boxH=packCalloutHeight(new Array(maxSecondaryLines),null);
+  secondary.forEach((f,i)=>{
+    const col=i%cols;
+    const row=Math.floor(i/cols);
+    const bx=margin+col*(boxW+gap);
+    const by=y+row*(boxH+gap);
+    const val=fmtCompareField(f, d[f.key]);
+    const tone=packFieldSemanticColor(deal, f.key);
+    packCallout(doc, bx, by, boxW, boxH, secondaryLabelLines[i], val, tone);
+  });
+  const secondaryRows=Math.ceil(secondary.length/cols);
+  y=y+secondaryRows*(boxH+gap)+10;
+
+  // --- Comps (only if a snapshot was saved with this deal) ---
+  const snap=deal.comps_snapshot;
+  if(snap){
+    y=ensureSpace(doc,y,140,margin,pageH);
+    y=packSectionHeader(doc,'Comps',margin,y);
+
+    const asOfLabel=packDateOnly(snap.asOf)||createdDate;
+    doc.setFont('Sora','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...PACK_INDIGO);
+    doc.text('Comps as of '+(createdDate||asOfLabel||'—'), margin, y+2);
+    y+=18;
+    doc.setFont('Sora','normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...PACK_MUTED);
+    doc.text('Figures as analysed on this date — may not reflect current market.', margin, y);
+    y+=16;
+
+    const rows=computeCompsSummaryRows(snap);
+    rows.forEach(([label,val])=>{
+      y=ensureSpace(doc,y,20,margin,pageH);
+      doc.setDrawColor(...PACK_HAIRLINE);
+      doc.setLineWidth(0.5);
+      doc.line(margin,y+4,pageW-margin,y+4);
+      doc.setFont('Sora','normal');
+      doc.setFontSize(10);
+      doc.setTextColor(...PACK_MUTED);
+      doc.text(label, margin, y+16);
+      doc.setFont('Sora','bold');
+      doc.setTextColor(...PACK_INK);
+      doc.text(String(val), pageW-margin, y+16, {align:'right'});
+      y+=22;
+    });
+  }
+
+  // --- Footer, every page ---
+  const pageCount=doc.internal.getNumberOfPages();
+  for(let p=1;p<=pageCount;p++){
+    doc.setPage(p);
+    doc.setDrawColor(...PACK_HAIRLINE);
+    doc.setLineWidth(0.75);
+    doc.line(margin,pageH-34,pageW-margin,pageH-34);
+    doc.setFont('Sora','normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...PACK_MUTED);
+    doc.text('Generated '+generatedDate+(createdDate?' · figures as analysed on '+createdDate:''), margin, pageH-20);
+    doc.text('Page '+p+' of '+pageCount, pageW-margin, pageH-20, {align:'right'});
+  }
+
+  const slugSource=(deal.address&&deal.address.trim())?deal.address:dealDisplayName(deal);
+  const slug=slugSource.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  const filename=(slug||'property-pack')+'.pdf';
+  doc.save(filename);
 }
 
 // Notes/offers/stage are paid features (their endpoints already 403 a free
