@@ -935,6 +935,11 @@ async function deleteOffer(offerId){
 // "Add to pipeline" action (POST /api/pipeline, same endpoint the row's own
 // button already uses) starts it at 'analysing'. Both refresh the saved
 // list afterward so the row's badge and this control both stay in sync.
+// A third layer: when the deal is specifically in the 'viewing' stage, a
+// viewing-date field appears below the dropdown — irrelevant at any other
+// stage, so it's not shown there. Pre-filled directly from deal.viewing_date
+// (Postgres returns a plain 'YYYY-MM-DD' string, which <input type="date">
+// takes as its value with no parsing needed).
 function renderWorkspaceStageControl(deal){
   const el=document.getElementById('workspace-stage-control');
   if(deal.pipeline_stage){
@@ -942,6 +947,10 @@ function renderWorkspaceStageControl(deal){
     const opts=WORKSPACE_STAGES.map(s=>
       `<li class="dd-opt${s===stage?' selected':''}" role="option" aria-selected="${s===stage}" data-value="${s}" onclick="selectDDOption(event,'workspace-stage-dd','${s}','${WORKSPACE_STAGE_LABELS[s]}')">${WORKSPACE_STAGE_LABELS[s]}</li>`
     ).join('');
+    const viewingDateField = stage==='viewing'
+      ? `<div class="field"><label>Viewing date</label><input type="date" id="workspace-viewing-date" value="${deal.viewing_date||''}"/></div>
+      <button class="mini-btn" onclick="saveViewingDateFromWorkspace()">Save date</button>`
+      : '';
     el.innerHTML=`<div class="field"><label>Pipeline stage</label>
         <div class="dd" id="workspace-stage-dd" data-value="${stage}" data-onchange="handleWorkspaceStageChange">
           <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'workspace-stage-dd')" onkeydown="ddKeydown(event,'workspace-stage-dd')">
@@ -950,10 +959,35 @@ function renderWorkspaceStageControl(deal){
           <ul class="dd-list" role="listbox">${opts}</ul>
         </div>
       </div>
+      ${viewingDateField}
       <p class="save-msg" id="workspace-stage-msg"></p>`;
   }else{
     el.innerHTML=`<button class="btn-primary" onclick="addToPipelineFromWorkspace()">Add to pipeline</button>
       <p class="save-msg" id="workspace-stage-msg"></p>`;
+  }
+}
+
+// Blank input -> null (clears it), per the agreed decision. Bumps
+// updated_at automatically via the deals BEFORE UPDATE trigger, same as
+// changeWorkspaceStage below — no special handling needed here for that.
+async function saveViewingDateFromWorkspace(){
+  if(!workspaceDealId)return;
+  const input=document.getElementById('workspace-viewing-date');
+  const msg=document.getElementById('workspace-stage-msg');
+  const value=input.value;
+  try{
+    const res=await fetch(`/api/deals/${workspaceDealId}/viewing-date`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({viewing_date:value||null})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not save viewing date.');
+    await loadSavedDeals();
+    const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
+    if(deal)renderWorkspaceStageControl(deal);
+  }catch(e){
+    if(msg){msg.textContent=e.message;msg.className='save-msg error';}
   }
 }
 

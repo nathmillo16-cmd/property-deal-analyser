@@ -282,6 +282,36 @@ app.post('/api/deals/:id/name', async (req, res) => {
   res.json(data);
 });
 
+app.post('/api/deals/:id/viewing-date', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to update deals.' });
+
+  // Blank/null clears it (per the agreed decision); a non-empty value must
+  // be a plain YYYY-MM-DD date string — viewing_date is a date column, no
+  // time component.
+  let { viewing_date } = req.body;
+  if (viewing_date === undefined || viewing_date === '') viewing_date = null;
+  if (viewing_date !== null) {
+    if (typeof viewing_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(viewing_date)) {
+      return res.status(400).json({ error: 'viewing_date must be a YYYY-MM-DD string, or blank to clear.' });
+    }
+  }
+
+  // Same ownership pattern as the rename/stage-change endpoints above: RLS
+  // scopes the update to the requester's own rows, and a null result (no
+  // row matched, whether nonexistent or someone else's) reports as 404
+  // rather than silently succeeding.
+  const { data, error } = await supabase
+    .from('deals')
+    .update({ viewing_date })
+    .eq('id', req.params.id)
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date')
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
+  res.json(data);
+});
+
 app.post('/api/deals/:id/delete', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to delete deals.' });
