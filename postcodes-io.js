@@ -97,7 +97,7 @@ async function lookupPostcode(postcode) {
     if (term && typeof term.latitude === 'number' && typeof term.longitude === 'number') {
       // The terminated object (see file header) has no admin_district of
       // its own — null here, not a lookup, so callers can fall back cleanly.
-      return { lat: term.latitude, lng: term.longitude, msoaCode: null, terminated: true, adminDistrict: null };
+      return { lat: term.latitude, lng: term.longitude, msoaCode: null, terminated: true, adminDistrict: null, adminDistrictCode: null };
     }
     throw new PostcodeLookupError(`Postcode not found: ${clean}`, 'postcode_not_found');
   }
@@ -120,8 +120,14 @@ async function lookupPostcode(postcode) {
 
   const msoaCode = body.result.codes && body.result.codes.msoa21 ? body.result.codes.msoa21 : null;
   const adminDistrict = body.result.admin_district || null;
+  // The GSS/ONS code for the same local authority (e.g. "E07000172"),
+  // distinct from adminDistrict above (its human-readable name, e.g.
+  // "Broxtowe") — needed to query Nomis, which keys on the code, not the
+  // name. Already present in postcodes.io's own response (result.codes
+  // .admin_district), just not previously extracted.
+  const adminDistrictCode = (body.result.codes && body.result.codes.admin_district) || null;
 
-  return { lat, lng, msoaCode, terminated: false, adminDistrict };
+  return { lat, lng, msoaCode, terminated: false, adminDistrict, adminDistrictCode };
 }
 
 // Reverse geocode — only called when the subject postcode is terminated

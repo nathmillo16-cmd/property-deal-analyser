@@ -187,6 +187,20 @@ body.theme-light .crime-band.high{color:var(--danger)}
 .cb-bar-track{height:5px;border-radius:999px;background:var(--hairline)}
 .cb-bar-fill{height:100%;border-radius:999px;background:var(--accent)}
 
+/* Employment industry breakdown — same ranked-bar pattern as the crime
+   breakdown above (.cb-row etc.), own classes since it's not inside a
+   collapsible toggle. Bar width is the industry's own absolute share of
+   local employment (not rescaled relative to the top industry), matching
+   the crime breakdown's own convention — reads honestly rather than
+   stretching a modest top share to look artificially dominant. */
+.emp-industry-row{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.emp-industry-row:first-child{margin-top:.9rem}
+.emp-industry-row-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px}
+.emp-industry-label{color:var(--ink)}
+.emp-industry-value{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.emp-industry-bar-track{height:5px;border-radius:999px;background:var(--hairline)}
+.emp-industry-bar-fill{height:100%;border-radius:999px;background:var(--accent)}
+
 .pc-row{display:flex;flex-direction:column;gap:2px;padding:.5rem 0;border-top:1px solid var(--hairline)}
 .pc-row:first-child{border-top:none}
 .pc-row-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px}
@@ -717,6 +731,15 @@ body.theme-light .dd-trigger::after{
         </div>
 
         <div class="section-gap">
+          <p class="sl" id="emp-section-label">Employment</p>
+          <div class="ob"><p class="ot">Employment rate (aged 16-64)</p><p class="ov" id="emp-rate">—</p><p class="on" id="emp-rate-period"></p></div>
+          <p class="sn" id="emp-industries-heading" style="display:none">Top industries by employment</p>
+          <div id="emp-industries"></div>
+          <p class="hint" id="emp-unavailable" style="display:none">Employment data unavailable.</p>
+          <p class="hint">Source: ONS (Nomis) · figures for the whole local authority, not the immediate area.</p>
+        </div>
+
+        <div class="section-gap">
           <p class="sl">GDV from floor area</p>
           <div class="f"><label>Post-refurb floor area (sqm)</label><input type="number" id="cp-floor-area" oninput="renderGDVTiers()"/></div>
 
@@ -934,7 +957,8 @@ function currentIndexDraftState(){
       selectedTier: tierRadio?tierRadio.value:null,
       lastCompsResult: lastCompsResult,
       lastCrime: lastCrimeResult,
-      lastPlanning: lastPlanningResult
+      lastPlanning: lastPlanningResult,
+      lastEmployment: lastEmploymentResult
     }
   };
 }
@@ -988,6 +1012,10 @@ function restoreIndexDraft(){
         lastPlanningResult=c.lastPlanning;
         renderPlanningResult(lastPlanningResult);
       }
+      if(c.lastEmployment){
+        lastEmploymentResult=c.lastEmployment;
+        renderEmploymentResult(lastEmploymentResult);
+      }
     }
   }catch(e){ /* comps restore failed — leave that panel at its blank default */ }
 
@@ -1018,7 +1046,7 @@ function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style
 function runFlip(){ cFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; saveIndexDraft(); }
 function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; saveIndexDraft(); }
 
-let lastCompsResult=null, lastCrimeResult=null, lastPlanningResult=null;
+let lastCompsResult=null, lastCrimeResult=null, lastPlanningResult=null, lastEmploymentResult=null;
 const GDV_THIN_EVIDENCE_THRESHOLD=8;
 const GDV_TIERS=['conservative','refurbished','bestInArea'];
 const GDV_APPLY_TARGETS={btl:{field:'b-emv',label:'BTL',markStale:markStaleBTL},hmo:{field:'h-emv',label:'HMO',markStale:markStaleHMO},sa:{field:'sa-emv',label:'SA',markStale:markStaleSA},flip:{field:'fl-sv',label:'Flip',markStale:markStaleFlip}};
@@ -1230,6 +1258,83 @@ async function fetchPlanningConstraints(postcode){
   }
 }
 
+// DOM-population half of an employment result, same 3-state pattern as
+// renderPlanningResult() above (d===null pristine reset; d.available===false
+// visible "unavailable" message; d.available===true real data).
+function renderEmploymentResult(d){
+  const sectionLabel=document.getElementById('emp-section-label');
+  const rateEl=document.getElementById('emp-rate');
+  const periodEl=document.getElementById('emp-rate-period');
+  const industriesHeading=document.getElementById('emp-industries-heading');
+  const industriesEl=document.getElementById('emp-industries');
+  const unavailableEl=document.getElementById('emp-unavailable');
+
+  if(d===null){
+    sectionLabel.textContent='Employment';
+    rateEl.textContent='—';
+    periodEl.textContent='';
+    industriesHeading.style.display='none';
+    industriesEl.innerHTML='';
+    unavailableEl.style.display='none';
+    return;
+  }
+  if(!d.available){
+    sectionLabel.textContent='Employment';
+    rateEl.textContent='—';
+    periodEl.textContent='';
+    industriesHeading.style.display='none';
+    industriesEl.innerHTML='';
+    unavailableEl.style.display='block';
+    return;
+  }
+
+  unavailableEl.style.display='none';
+  sectionLabel.textContent=d.councilName?`Employment · ${d.councilName} · council-wide figures`:'Employment';
+
+  if(d.rate){
+    rateEl.textContent=d.rate.value.toFixed(1)+'%';
+    periodEl.textContent=d.rate.periodLabel;
+  }else{
+    rateEl.textContent='—';
+    periodEl.textContent='';
+  }
+
+  industriesHeading.style.display=(Array.isArray(d.industries)&&d.industries.length>0)?'block':'none';
+  if(Array.isArray(d.industries)&&d.industries.length>0){
+    industriesEl.innerHTML=d.industries.map(ind=>{
+      const pctRounded=Math.round(ind.pct*10)/10;
+      const barWidth=Math.max(pctRounded,1);
+      return `<div class="emp-industry-row">
+        <div class="emp-industry-row-head"><span class="emp-industry-label">${ind.label}</span><span class="emp-industry-value">${pctRounded}%</span></div>
+        <div class="emp-industry-bar-track"><div class="emp-industry-bar-fill" style="width:${barWidth}%"></div></div>
+      </div>`;
+    }).join('');
+  }else{
+    industriesEl.innerHTML='';
+  }
+}
+
+// Fired alongside runComps() (not awaited there), same non-blocking pattern
+// as fetchCrimeRate()/fetchPlanningConstraints() — a bad postcode is already
+// surfaced by comps' own error, this never blocks or duplicates it. Any
+// failure (network, timeout, non-2xx, or the server's own graceful
+// { available:false } for an unresolvable/unreachable case) renders as
+// "Employment data unavailable", never breaking comps.
+async function fetchEmployment(postcode){
+  try{
+    const res=await fetch('/api/employment?postcode='+encodeURIComponent(postcode),{
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const d=await res.json();
+    lastEmploymentResult=(res.ok&&d&&d.available)?d:{available:false};
+    renderEmploymentResult(lastEmploymentResult);
+    saveIndexDraft();
+  }catch(e){
+    lastEmploymentResult={available:false};
+    renderEmploymentResult(lastEmploymentResult);
+  }
+}
+
 // DOM-population half of a comps result, split out from runComps() below
 // so a restored draft can render the same last result without re-firing
 // the network call.
@@ -1261,9 +1366,11 @@ async function runComps(){
   resetCompsDisplay();
   renderCrimeResult(null);
   renderPlanningResult(null);
+  renderEmploymentResult(null);
   lastCompsResult=null;
   lastCrimeResult=null;
   lastPlanningResult=null;
+  lastEmploymentResult=null;
   renderGDVTiers();
 
   if(!currentSession){ msg.textContent='Log in to use Comparables.'; msg.className='save-msg error'; return; }
@@ -1271,6 +1378,7 @@ async function runComps(){
 
   fetchCrimeRate(postcode);
   fetchPlanningConstraints(postcode);
+  fetchEmployment(postcode);
 
   btn.disabled=true;btn.textContent='Searching…';
 

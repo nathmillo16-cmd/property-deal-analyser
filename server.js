@@ -7,6 +7,7 @@ const { createClient } = require('@supabase/supabase-js');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { getComps, ComparablesLookupError } = require('./get-comps');
 const { PostcodeLookupError, lookupPostcode, reverseGeocodeMsoa } = require('./postcodes-io');
+const { getEmploymentData } = require('./nomis-employment');
 
 // Service-role client used ONLY by the Stripe webhook handler below, to flip
 // a user's plan when Stripe (not the user) is the caller. Never exposed to
@@ -1114,6 +1115,46 @@ app.get('/api/planning-constraints', async (req, res) => {
     constraints.sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0));
 
     res.json({ available: true, constraints, councilName: adminDistrict });
+  } catch (e) {
+    if (e instanceof PostcodeLookupError) {
+      const clientCodes = ['invalid_postcode', 'postcode_not_found'];
+      return res.status(clientCodes.includes(e.code) ? 400 : 502).json({ error: e.message });
+    }
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/employment', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to see employment data.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock employment data.' });
+
+  const { postcode } = req.query;
+  if (typeof postcode !== 'string' || !postcode.trim()) {
+    return res.status(400).json({ error: 'Enter a postcode.' });
+  }
+
+  try {
+    const { adminDistrict, adminDistrictCode } = await lookupPostcode(normalisePostcodeInput(postcode));
+    if (!adminDistrictCode) {
+      // A terminated postcode has no admin district of its own (see
+      // postcodes-io.js) — nothing to query Nomis with. A clean
+      // "unavailable" degrade, not an error.
+      return res.json({ available: false });
+    }
+
+    let data;
+    try {
+      data = await getEmploymentData(adminDistrictCode);
+    } catch (nomisErr) {
+      // Nomis unreachable/erroring — degrade cleanly, never break Comps.
+      return res.json({ available: false });
+    }
+
+    if (!data.available) return res.json({ available: false });
+    res.json({ ...data, councilName: adminDistrict });
   } catch (e) {
     if (e instanceof PostcodeLookupError) {
       const clientCodes = ['invalid_postcode', 'postcode_not_found'];
