@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Deals N Yields — Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<style>
+/* page-specific layout only — colours/fonts/radius all come from styles.css */
+.hint{font-size:12.5px;color:var(--muted);font-style:italic}
+
+.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
+
+.settings-sections{display:flex;flex-direction:column;gap:var(--space-5);max-width:560px}
+.settings-card h2{font-size:17px;font-weight:600;margin:0 0 var(--space-4)}
+.settings-divider{height:1px;background:var(--hairline);margin:var(--space-5) 0}
+
+.settings-static-value{font-size:14px;color:var(--ink);padding:10px 0}
+.settings-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+
+.plan-badge{
+  display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  padding:4px 10px;border-radius:999px;
+}
+.plan-badge.free{background:var(--surface-2);color:var(--muted)}
+.plan-badge.paid{background:var(--success-bg);color:var(--success-ink)}
+
+.save-msg{font-size:12px;margin:.6rem 0 0;min-height:1em;color:var(--muted)}
+.save-msg.success{color:var(--success)}
+.save-msg.error{color:var(--danger)}
+
+.btn-secondary:disabled{opacity:.5;cursor:not-allowed;border-color:var(--hairline-strong);color:var(--muted)}
+.btn-secondary:disabled:hover{background:transparent}
+</style>
+</head>
+<body class="theme-light">
+
+<div class="shell">
+  <div id="nav-root" data-active="settings" data-subscribe="false"></div>
+  <script src="/nav.js"></script>
+
+  <p class="page-title">Settings</p>
+
+  <div id="state-loading"><p class="hint">Loading…</p></div>
+
+  <div id="state-loggedout" style="display:none">
+    <p class="hint">Log in to view your settings: <a href="/login.html">log in</a></p>
+  </div>
+
+  <div id="state-content" style="display:none">
+    <div class="settings-sections">
+
+      <!-- ACCOUNT -->
+      <div class="card settings-card">
+        <h2>Account</h2>
+
+        <div class="field">
+          <label>Name</label>
+          <input type="text" id="set-name" placeholder="Add your name"/>
+        </div>
+        <button class="btn-primary" id="btn-save-name" onclick="saveName()">Save name</button>
+        <p class="save-msg" id="name-msg"></p>
+
+        <div class="settings-divider"></div>
+
+        <div class="field">
+          <label>Email</label>
+          <p class="settings-static-value" id="set-email">—</p>
+        </div>
+        <div class="field" id="change-email-field" style="display:none">
+          <label>New email</label>
+          <input type="email" id="set-new-email" placeholder="new@email.com"/>
+        </div>
+        <button class="btn-secondary" id="btn-change-email" onclick="startChangeEmail()">Change email</button>
+        <p class="save-msg" id="email-msg"></p>
+
+        <div class="settings-divider"></div>
+
+        <div class="field">
+          <label>Password</label>
+          <p class="settings-static-value">••••••••</p>
+        </div>
+        <div id="change-password-fields" style="display:none">
+          <p class="hint" style="margin-bottom:.75rem">Confirm your current password to make this change.</p>
+          <div class="field">
+            <label>Current password</label>
+            <input type="password" id="set-current-password" autocomplete="current-password"/>
+          </div>
+          <div class="field">
+            <label>New password</label>
+            <input type="password" id="set-new-password" autocomplete="new-password"/>
+          </div>
+          <div class="field">
+            <label>Confirm new password</label>
+            <input type="password" id="set-new-password-confirm" autocomplete="new-password"/>
+          </div>
+        </div>
+        <button class="btn-secondary" id="btn-change-password" onclick="startChangePassword()">Change password</button>
+        <p class="save-msg" id="password-msg"></p>
+      </div>
+
+      <!-- SUBSCRIPTION -->
+      <div class="card settings-card">
+        <h2>Subscription</h2>
+
+        <div class="field">
+          <label>Current plan</label>
+          <p class="settings-static-value"><span class="plan-badge" id="set-plan-badge">—</span></p>
+        </div>
+        <div id="set-plan-free-cta" style="display:none">
+          <button class="btn-primary" onclick="upgradeNow()">Subscribe / Upgrade — £29/mo</button>
+          <p class="save-msg" id="upgrade-msg"></p>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <div class="field">
+          <label>Manage billing</label>
+          <p class="hint">Subscription management is coming soon — you'll be able to update payment details and cancel from here once live billing is switched on.</p>
+        </div>
+        <button class="btn-secondary" disabled>Manage subscription</button>
+      </div>
+
+      <!-- PREFERENCES (stub) -->
+      <div class="card settings-card">
+        <h2>Preferences</h2>
+        <p class="hint">Dashboard widget customisation and notification preferences will live here — coming soon.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null;
+
+async function init(){
+  const auth=await requireAuth();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
+  const menuEmail=document.getElementById('user-menu-email');
+  const itemEmail=document.getElementById('user-menu-item-email');
+  const email=currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  if(menuEmail)menuEmail.textContent=email||'Account';
+  if(itemEmail)itemEmail.textContent=email||'—';
+  document.getElementById('set-email').textContent=email||'—';
+
+  showState('content');
+  loadProfile();
+
+  sbClient.auth.onAuthStateChange((_event, session)=>{
+    currentSession=session;
+    if(!currentSession){window.location.href='/';return;}
+  });
+}
+
+function showState(state){
+  ['loading','loggedout','content'].forEach(s=>{
+    document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
+  });
+}
+
+async function logout(){
+  await sbClient.auth.signOut();
+  window.location.href='/';
+}
+
+async function loadProfile(){
+  try{
+    const res=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not load your profile.');
+
+    document.getElementById('set-name').value=d.name||'';
+
+    const badge=document.getElementById('set-plan-badge');
+    const isPaid=d.plan==='paid';
+    badge.textContent=isPaid?'Paid — £29/mo':'Free';
+    badge.className='plan-badge '+(isPaid?'paid':'free');
+    document.getElementById('set-plan-free-cta').style.display=isPaid?'none':'block';
+  }catch(e){
+    document.getElementById('set-plan-badge').textContent='Unavailable';
+  }
+}
+
+// ---------------------------------------------------------------------
+// Account: name — a targeted PATCH-style save (POST /api/profile/name),
+// deliberately NOT the existing POST /api/profile (that one upserts the
+// full calculator-defaults payload and would null out target_yield etc.
+// if reused here for a name-only save).
+async function saveName(){
+  const btn=document.getElementById('btn-save-name');
+  const msg=document.getElementById('name-msg');
+  const name=document.getElementById('set-name').value.trim();
+  if(!name){
+    msg.textContent='Enter a name.';msg.className='save-msg error';
+    return;
+  }
+  btn.disabled=true;btn.textContent='Saving…';
+  msg.textContent='';msg.className='save-msg';
+  try{
+    const res=await fetch('/api/profile/name',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({name})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not save your name.');
+    msg.textContent='Saved.';msg.className='save-msg success';
+  }catch(e){
+    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;btn.textContent='Save name';
+}
+
+// ---------------------------------------------------------------------
+// Account: email — Supabase's own email-change flow, not hand-rolled.
+// updateUser({email}) sends a confirmation to the new address; the email
+// on file doesn't actually change until that link is clicked, so this
+// only ever shows a "check your inbox" state, never a new email inline.
+function startChangeEmail(){
+  const field=document.getElementById('change-email-field');
+  const btn=document.getElementById('btn-change-email');
+  if(field.style.display==='none'){
+    field.style.display='flex';
+    btn.textContent='Send confirmation';
+    btn.onclick=submitChangeEmail;
+  }
+}
+
+async function submitChangeEmail(){
+  const btn=document.getElementById('btn-change-email');
+  const msg=document.getElementById('email-msg');
+  const newEmail=document.getElementById('set-new-email').value.trim();
+  if(!newEmail){
+    msg.textContent='Enter a new email address.';msg.className='save-msg error';
+    return;
+  }
+  btn.disabled=true;btn.textContent='Sending…';
+  msg.textContent='';msg.className='save-msg';
+  try{
+    const { error }=await sbClient.auth.updateUser({ email:newEmail });
+    if(error)throw error;
+    msg.textContent='Check your inbox at '+newEmail+' to confirm this change — your email on file stays the same until then.';
+    msg.className='save-msg success';
+    document.getElementById('change-email-field').style.display='none';
+    document.getElementById('set-new-email').value='';
+    btn.textContent='Change email';
+    btn.onclick=startChangeEmail;
+  }catch(e){
+    msg.textContent='Could not start email change: '+e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;
+  if(btn.textContent==='Sending…')btn.textContent='Send confirmation';
+}
+
+// ---------------------------------------------------------------------
+// Account: password — a direct in-page change (current + new + confirm),
+// gated on re-authenticating with the CURRENT password first via
+// signInWithPassword(). updateUser({password}) on its own never checks the
+// old password at all, so calling it directly would let anyone holding a
+// live session change the password out from under the real owner — the
+// signInWithPassword() call below is what actually enforces "you have to
+// prove you know the current password" before anything changes. Both
+// calls are Supabase's own auth methods, no custom hashing/verification.
+function startChangePassword(){
+  const fields=document.getElementById('change-password-fields');
+  const btn=document.getElementById('btn-change-password');
+  if(fields.style.display==='none'){
+    fields.style.display='block';
+    btn.textContent='Save new password';
+    btn.onclick=submitChangePassword;
+  }
+}
+
+async function submitChangePassword(){
+  const btn=document.getElementById('btn-change-password');
+  const msg=document.getElementById('password-msg');
+  const currentPassword=document.getElementById('set-current-password').value;
+  const newPassword=document.getElementById('set-new-password').value;
+  const confirmPassword=document.getElementById('set-new-password-confirm').value;
+  const email=currentSession.user&&currentSession.user.email;
+  if(!email)return;
+
+  if(!currentPassword){
+    msg.textContent='Enter your current password.';msg.className='save-msg error';
+    return;
+  }
+  if(!newPassword||newPassword.length<6){
+    msg.textContent='New password must be at least 6 characters.';msg.className='save-msg error';
+    return;
+  }
+  if(newPassword!==confirmPassword){
+    msg.textContent='New passwords do not match.';msg.className='save-msg error';
+    return;
+  }
+
+  btn.disabled=true;btn.textContent='Verifying…';
+  msg.textContent='';msg.className='save-msg';
+
+  const { error: reauthError }=await sbClient.auth.signInWithPassword({ email, password:currentPassword });
+  if(reauthError){
+    msg.textContent='Current password is incorrect.';msg.className='save-msg error';
+    btn.disabled=false;btn.textContent='Save new password';
+    return;
+  }
+
+  btn.textContent='Saving…';
+  const { error: updateError }=await sbClient.auth.updateUser({ password:newPassword });
+  if(updateError){
+    msg.textContent='Could not change password: '+updateError.message;msg.className='save-msg error';
+    btn.disabled=false;btn.textContent='Save new password';
+    return;
+  }
+
+  msg.textContent='Password changed.';msg.className='save-msg success';
+  document.getElementById('set-current-password').value='';
+  document.getElementById('set-new-password').value='';
+  document.getElementById('set-new-password-confirm').value='';
+  document.getElementById('change-password-fields').style.display='none';
+  btn.disabled=false;btn.textContent='Change password';
+  btn.onclick=startChangePassword;
+}
+
+// ---------------------------------------------------------------------
+// Subscription — same checkout call every other paid-gated page already
+// uses; on success this just becomes a normal upgrade, no special-casing.
+async function upgradeNow(){
+  if(!currentSession)return;
+  const msg=document.getElementById('upgrade-msg');
+  msg.textContent='Redirecting…';msg.className='save-msg';
+  try{
+    const res=await fetch('/api/create-checkout-session',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
+    window.location.href=body.url;
+  }catch(e){
+    msg.textContent='Could not start checkout: '+e.message;msg.className='save-msg error';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

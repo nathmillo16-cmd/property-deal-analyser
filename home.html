@@ -122,11 +122,8 @@
 <body class="theme-light">
 
 <div class="shell" id="app">
-  <div class="topbar">
-    <a class="wordmark" href="/home.html">Deals N Yields</a>
-    <div class="nav-links"><a href="/home.html" class="active">Home</a><a href="/index.html">Calculator</a><a href="/saved-deals.html">Saved Deals</a><a href="/pipeline.html">Pipeline</a><a href="/portfolio.html">Portfolio</a><a href="/refurb.html">Refurb Estimator</a><a href="/letters.html">Letter Templates</a></div>
-    <div class="auth-bar"><a id="auth-link" href="#">Log out</a></div>
-  </div>
+  <div id="nav-root" data-active="home" data-subscribe="false"></div>
+  <script src="/nav.js"></script>
 
   <div class="header-row">
     <div>
@@ -441,6 +438,11 @@ async function init(){
   document.getElementById('greeting-eyebrow').textContent=greetingForHour();
   document.getElementById('welcome-name').textContent=friendlyFirstName(currentSession.user.email);
   document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
+  const menuEmail=document.getElementById('user-menu-email');
+  const itemEmail=document.getElementById('user-menu-item-email');
+  const userEmail=currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  if(menuEmail)menuEmail.textContent=userEmail||'Account';
+  if(itemEmail)itemEmail.textContent=userEmail||'—';
 
   document.getElementById('app').style.display='block';
 

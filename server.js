@@ -1181,9 +1181,52 @@ app.get('/api/profile', async (req, res) => {
     .single();
 
   if (error || !data) {
-    return res.json({ target_yield: null, target_roi: null, default_mortgage_rate: null, standard_fees: null, plan: 'free' });
+    return res.json({ target_yield: null, target_roi: null, default_mortgage_rate: null, standard_fees: null, plan: 'free', name: null });
   }
-  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free' });
+
+  // name is selected separately and tolerated failing on its own — it's a
+  // newer column (db/019_profiles_name.sql) that may not exist yet on a
+  // database that hasn't run that migration. Folding it into the select
+  // above once failed the WHOLE query (a single unknown column errors the
+  // entire select, not just that field), which silently reported plan as
+  // 'free' for every user regardless of their real plan. This decouples
+  // it permanently, not just for today.
+  let name = null;
+  try {
+    const { data: nameRow, error: nameError } = await supabase.from('profiles').select('name').single();
+    if (!nameError && nameRow) name = nameRow.name;
+  } catch (e) {}
+
+  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name });
+});
+
+// Separate from POST /api/profile above on purpose: that endpoint always
+// upserts the full calculator-defaults payload (target_yield/target_roi/
+// default_mortgage_rate/standard_fees), so reusing it for a name-only save
+// from Settings would silently null out a user's saved defaults. This does
+// a targeted update of just `name`, nothing else on the row.
+app.post('/api/profile/name', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to update your name.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: 'Log in to update your name.' });
+  }
+
+  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+  if (!name) return res.status(400).json({ error: 'Enter a name.' });
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ name })
+    .eq('user_id', userData.user.id)
+    .select('name')
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
 });
 
 app.post('/api/profile', async (req, res) => {

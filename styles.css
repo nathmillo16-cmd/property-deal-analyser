@@ -143,6 +143,39 @@ p{margin:0}
 }
 .auth-bar a:hover{color:var(--accent)}
 
+/* ---------- user menu (nav.js) ----------
+   Replaces the old bare "Log out" link — a small dropdown holding the
+   user's email, a Settings link, and Log out (#auth-link, unchanged id).
+   Plain token vars, no theme-scoping needed: whichever theme the hosting
+   page carries (dark :root or light theme-light) already supplies the
+   right values for --accent/--surface/etc, same as .topbar/.auth-bar above. */
+.user-menu{position:relative}
+.user-menu-trigger{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--font-body);font-size:12.5px;font-weight:600;letter-spacing:.03em;
+  color:var(--muted);background:transparent;border:none;cursor:pointer;padding:4px 0;
+}
+.user-menu-trigger:hover{color:var(--accent)}
+.user-menu-caret{font-size:10px;transition:transform .15s ease}
+.user-menu.open .user-menu-caret{transform:rotate(180deg)}
+
+.user-menu-list{
+  display:none;position:absolute;top:calc(100% + 10px);right:0;z-index:450;
+  min-width:200px;padding:6px;
+  background:var(--surface);border:1px solid var(--hairline-strong);border-radius:var(--radius);
+  box-shadow:0 1px 2px rgba(0,0,0,.08),0 12px 28px rgba(0,0,0,.12);
+}
+.user-menu.open .user-menu-list{display:block}
+.user-menu-item-email{
+  font-size:12px;color:var(--muted);padding:8px 10px;margin-bottom:2px;
+  border-bottom:1px solid var(--hairline);word-break:break-all;
+}
+.user-menu-item{
+  display:block;font-family:var(--font-body);font-size:13.5px;font-weight:600;
+  color:var(--ink);text-decoration:none;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;
+}
+.user-menu-item:hover{background:var(--surface-2);color:var(--accent)}
+
 /* ---------- buttons ---------- */
 .btn-primary{
   font-family:var(--font-body);font-weight:700;font-size:13.5px;letter-spacing:.01em;

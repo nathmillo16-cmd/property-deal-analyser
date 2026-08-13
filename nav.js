@@ -1,21 +1,43 @@
 // nav.js — shared logged-in top nav, injected into <div id="nav-root">.
 //
-// Markup-only. Renders the topbar (wordmark, the 7 nav links, an optional
-// Subscribe/Upgrade link, and the auth-link) and marks the active page from
-// the placeholder's own data attributes. Attaches NO click handlers and no
-// auth logic — every page's existing JS (init()/updateTopbar()/
-// updateAuthUI()) keeps wiring #auth-link/#subscribe-link exactly as it
-// does today, targeting the same element IDs this script produces.
+// Markup-only for anything account-specific. Renders the topbar (wordmark,
+// the 7 nav links, an optional Subscribe/Upgrade link, and a user menu) and
+// marks the active page from the placeholder's own data attributes.
+// Attaches NO auth logic — every page's existing JS (init()/updateTopbar()/
+// updateAuthUI()) keeps wiring #auth-link/#subscribe-link/#user-menu-email/
+// #user-menu-item-email exactly as it does today, targeting the same
+// element IDs this script produces. The one piece of behaviour nav.js DOES
+// own itself is the user menu's own open/close toggle (toggleUserMenu()
+// below, plus its outside-click/Escape listeners) — that's pure menu-
+// visibility chrome intrinsic to the component, not page/account logic, so
+// it lives here rather than being duplicated in every page that uses it.
 //
 // Usage: <div id="nav-root" data-active="portfolio" data-subscribe="true"></div>
 //   data-active    — one of: home, index, saved-deals, pipeline, portfolio,
-//                    refurb, letters (matches the page's own file basename).
+//                    refurb, letters, settings (matches the page's own file
+//                    basename; "settings" matches no NAV_LINKS entry, which
+//                    is intentional — Settings lives in the user menu, not
+//                    the main link row, so nothing there is ever "active").
 //   data-subscribe — "true" on paid-gated pages (adds #subscribe-link,
 //                    auth-link defaults to the logged-out "Log in" state
 //                    since these pages resolve auth after load); "false"
 //                    on free pages (no subscribe link, auth-link defaults
 //                    straight to "Log out", since those pages only render
 //                    once a session is already confirmed).
+//
+// USER MENU — replaces the old bare "Log out" link. #auth-link is still the
+// real logout trigger (same id, same default text/href per data-subscribe
+// branch as before), just now nested inside a dropdown alongside a
+// Settings link and an email display — so no page's existing #auth-link
+// wiring needed to change. Two NEW ids each page's own JS should populate
+// once auth resolves, alongside its existing #auth-link handling:
+//   #user-menu-email      — short label on the closed trigger (the user's
+//                            email; every page already has this for free
+//                            via session.user.email, no extra fetch).
+//   #user-menu-item-email — the same email, shown as a header line inside
+//                            the open menu.
+// Both default to a neutral placeholder until a page sets them, so nothing
+// looks broken before auth resolves.
 //
 // ORDERING — this must finish writing into #nav-root before the page's own
 // bottom-of-body <script> block queries #auth-link/#subscribe-link, or
@@ -53,9 +75,27 @@ var NAV_LINKS = [
     return '<a href="' + l.href + '"' + activeAttr + '>' + l.label + '</a>';
   }).join('');
 
+  var authLinkHtml = showSubscribe
+    ? '<a href="/login.html" id="auth-link" class="user-menu-item" role="menuitem">Log in</a>'
+    : '<a href="#" id="auth-link" class="user-menu-item" role="menuitem">Log out</a>';
+
+  var userMenuHtml =
+    '<div class="user-menu" id="user-menu">' +
+      '<button type="button" class="user-menu-trigger" id="user-menu-trigger" ' +
+        'onclick="toggleUserMenu(event)" aria-haspopup="true" aria-expanded="false">' +
+        '<span class="user-menu-email" id="user-menu-email">Account</span>' +
+        '<span class="user-menu-caret" aria-hidden="true">&#9662;</span>' +
+      '</button>' +
+      '<div class="user-menu-list" id="user-menu-list" role="menu">' +
+        '<div class="user-menu-item-email" id="user-menu-item-email">&mdash;</div>' +
+        '<a href="/settings.html" class="user-menu-item" role="menuitem">Settings</a>' +
+        authLinkHtml +
+      '</div>' +
+    '</div>';
+
   var authBarHtml = showSubscribe
-    ? '<a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade · £29/mo</a><a id="auth-link" href="/login.html">Log in</a>'
-    : '<a id="auth-link" href="#">Log out</a>';
+    ? '<a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade · £29/mo</a>' + userMenuHtml
+    : userMenuHtml;
 
   root.innerHTML =
     '<div class="topbar">' +
@@ -64,3 +104,31 @@ var NAV_LINKS = [
       '<div class="auth-bar">' + authBarHtml + '</div>' +
     '</div>';
 })();
+
+function toggleUserMenu(e){
+  e.preventDefault();
+  e.stopPropagation();
+  var menu = document.getElementById('user-menu');
+  if (!menu) return;
+  var trigger = document.getElementById('user-menu-trigger');
+  var open = menu.classList.toggle('open');
+  if (trigger) trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function closeUserMenu(){
+  var menu = document.getElementById('user-menu');
+  if (!menu) return;
+  menu.classList.remove('open');
+  var trigger = document.getElementById('user-menu-trigger');
+  if (trigger) trigger.setAttribute('aria-expanded', 'false');
+}
+
+document.addEventListener('click', function(e){
+  var menu = document.getElementById('user-menu');
+  if (!menu || !menu.classList.contains('open')) return;
+  if (!menu.contains(e.target)) closeUserMenu();
+});
+
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') closeUserMenu();
+});
