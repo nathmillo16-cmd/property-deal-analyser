@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Deals N Yields — Saved Deals</title>
+<title>Deals N Yields · Saved Deals</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
@@ -249,7 +249,7 @@ body.theme-light .dd-trigger::after{
       </div>
       <div class="workspace-lock" id="workspace-notes-lock" style="display:none">
         <p>Notes are a paid feature.</p>
-        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade — £29/mo</button>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
       </div>
     </div>
 
@@ -279,7 +279,7 @@ body.theme-light .dd-trigger::after{
       </div>
       <div class="workspace-lock" id="workspace-offers-lock" style="display:none">
         <p>Offer history is a paid feature.</p>
-        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade — £29/mo</button>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
       </div>
     </div>
 
@@ -290,7 +290,7 @@ body.theme-light .dd-trigger::after{
       </div>
       <div class="workspace-lock" id="workspace-stage-lock" style="display:none">
         <p>Pipeline stages are a paid feature.</p>
-        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade — £29/mo</button>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
       </div>
     </div>
 
@@ -432,7 +432,7 @@ function fallbackName(d){
   const label=d.deal_type.toUpperCase();
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):null;
-  return pp?`${label} — ${pp} — ${date}`:`${label} — ${date}`;
+  return pp?`${label} · ${pp} · ${date}`:`${label} · ${date}`;
 }
 
 function dealDisplayName(d){
@@ -822,7 +822,7 @@ function renderWorkspaceComps(deal){
 
   bodyEl.innerHTML=rows.map(([label,val])=>
     `<div class="analysis-row"><span class="analysis-label">${escapeHtml(label)}</span><span class="analysis-value">${escapeHtml(val)}</span></div>`
-  ).join('')+'<p class="hint" style="margin-top:.6rem">Snapshot from when this deal was saved — may not reflect current market.</p>';
+  ).join('')+'<p class="hint" style="margin-top:.6rem">Snapshot from when this deal was saved. May not reflect current market.</p>';
 }
 
 // ---------------------------------------------------------------------
@@ -1091,7 +1091,7 @@ async function downloadPropertyPack(){
     doc.setFont('Sora','normal');
     doc.setFontSize(8.5);
     doc.setTextColor(...PACK_MUTED);
-    doc.text('Figures as analysed on this date — may not reflect current market.', margin, y);
+    doc.text('Figures as analysed on this date. May not reflect current market.', margin, y);
     y+=16;
 
     const rows=computeCompsSummaryRows(snap);
@@ -1568,6 +1568,11 @@ async function init(){
   }
 
   document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
+  const menuEmail=document.getElementById('user-menu-email');
+  const itemEmail=document.getElementById('user-menu-item-email');
+  const email=currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  if(menuEmail)menuEmail.textContent=email||'Account';
+  if(itemEmail)itemEmail.textContent=email||'—';
   document.getElementById('app').style.display='block';
 
   // Scroll restore waits for the saved-deals list to finish loading and

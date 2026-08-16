@@ -247,6 +247,11 @@ function updateTopbar(){
     authLink.href='/login.html';
     authLink.onclick=null;
   }
+  const email=loggedIn&&currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  const menuEmail=document.getElementById('user-menu-email');
+  const itemEmail=document.getElementById('user-menu-item-email');
+  if(menuEmail)menuEmail.textContent=email||'Account';
+  if(itemEmail)itemEmail.textContent=email||'—';
   const subLink=document.getElementById('subscribe-link');
   if(loggedIn&&currentPlan==='free'){
     subLink.style.display='';

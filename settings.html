@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Deals N Yields — Settings</title>
+<title>Deals N Yields · Settings</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
@@ -35,6 +35,22 @@
 
 .btn-secondary:disabled{opacity:.5;cursor:not-allowed;border-color:var(--hairline-strong);color:var(--muted)}
 .btn-secondary:disabled:hover{background:transparent}
+
+/* Danger zone — clearly demarcated (red border, red heading), not
+   prominent (same card size/padding as every other section, no loud
+   background fill). First real use of the --danger/-bg/-ink tokens
+   added to the design system a while back but never used until now. */
+.danger-zone{border-color:var(--danger)}
+.danger-zone h2{color:var(--danger)}
+.danger-zone #delete-account-fields{margin-top:1rem}
+.btn-danger{
+  font-family:var(--font-body);font-weight:700;font-size:13.5px;
+  background:var(--danger-bg);color:var(--danger-ink);border:1.5px solid var(--danger);border-radius:var(--radius);
+  padding:10px 18px;cursor:pointer;
+}
+.btn-danger:hover{background:var(--danger);color:#fff}
+.btn-danger:disabled{opacity:.5;cursor:not-allowed}
+.btn-danger:disabled:hover{background:var(--danger-bg);color:var(--danger-ink)}
 </style>
 </head>
 <body class="theme-light">
@@ -112,7 +128,7 @@
           <p class="settings-static-value"><span class="plan-badge" id="set-plan-badge">—</span></p>
         </div>
         <div id="set-plan-free-cta" style="display:none">
-          <button class="btn-primary" onclick="upgradeNow()">Subscribe / Upgrade — £29/mo</button>
+          <button class="btn-primary" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
           <p class="save-msg" id="upgrade-msg"></p>
         </div>
 
@@ -120,7 +136,7 @@
 
         <div class="field">
           <label>Manage billing</label>
-          <p class="hint">Subscription management is coming soon — you'll be able to update payment details and cancel from here once live billing is switched on.</p>
+          <p class="hint">Subscription management is coming soon. You'll be able to update payment details and cancel from here once live billing is switched on.</p>
         </div>
         <button class="btn-secondary" disabled>Manage subscription</button>
       </div>
@@ -128,7 +144,24 @@
       <!-- PREFERENCES (stub) -->
       <div class="card settings-card">
         <h2>Preferences</h2>
-        <p class="hint">Dashboard widget customisation and notification preferences will live here — coming soon.</p>
+        <p class="hint">Dashboard widget customisation and notification preferences will live here soon.</p>
+      </div>
+
+      <!-- DANGER ZONE -->
+      <div class="card settings-card danger-zone">
+        <h2>Danger zone</h2>
+        <p class="hint">Deleting your account is permanent. It removes your login and everything tied to it: saved deals, pipeline data, portfolio, refurb estimates, notes and offers. This cannot be undone.</p>
+
+        <button class="btn-danger" id="btn-start-delete" onclick="startDeleteAccount()">Delete my account</button>
+
+        <div id="delete-account-fields" style="display:none">
+          <div class="field">
+            <label>Type <span id="delete-confirm-email-hint">your email</span> to confirm</label>
+            <input type="email" id="delete-confirm-email" oninput="checkDeleteEmailMatch()" autocomplete="off"/>
+          </div>
+          <button class="btn-danger" id="btn-confirm-delete" onclick="confirmDeleteAccount()" disabled>Permanently delete my account</button>
+        </div>
+        <p class="save-msg" id="delete-msg"></p>
       </div>
 
     </div>
@@ -182,7 +215,7 @@ async function loadProfile(){
 
     const badge=document.getElementById('set-plan-badge');
     const isPaid=d.plan==='paid';
-    badge.textContent=isPaid?'Paid — £29/mo':'Free';
+    badge.textContent=isPaid?'Paid (£29/mo)':'Free';
     badge.className='plan-badge '+(isPaid?'paid':'free');
     document.getElementById('set-plan-free-cta').style.display=isPaid?'none':'block';
   }catch(e){
@@ -248,7 +281,7 @@ async function submitChangeEmail(){
   try{
     const { error }=await sbClient.auth.updateUser({ email:newEmail });
     if(error)throw error;
-    msg.textContent='Check your inbox at '+newEmail+' to confirm this change — your email on file stays the same until then.';
+    msg.textContent='Check your inbox at '+newEmail+' to confirm this change. Your email on file stays the same until then.';
     msg.className='save-msg success';
     document.getElementById('change-email-field').style.display='none';
     document.getElementById('set-new-email').value='';
@@ -346,6 +379,51 @@ async function upgradeNow(){
     window.location.href=body.url;
   }catch(e){
     msg.textContent='Could not start checkout: '+e.message;msg.className='save-msg error';
+  }
+}
+
+// ---------------------------------------------------------------------
+// Danger zone: delete account. Two gates before anything destructive
+// fires — typing the exact account email (button stays disabled until it
+// matches), then a native confirm() as the final step — on top of
+// whatever the server itself independently verifies (it only ever
+// deletes the authed session's own user, never a client-supplied id).
+function startDeleteAccount(){
+  const fields=document.getElementById('delete-account-fields');
+  const btn=document.getElementById('btn-start-delete');
+  const email=currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  document.getElementById('delete-confirm-email-hint').textContent=email;
+  fields.style.display='block';
+  btn.style.display='none';
+}
+
+function checkDeleteEmailMatch(){
+  const typed=document.getElementById('delete-confirm-email').value.trim().toLowerCase();
+  const real=(currentSession.user&&currentSession.user.email?currentSession.user.email:'').trim().toLowerCase();
+  document.getElementById('btn-confirm-delete').disabled=!(typed&&typed===real);
+}
+
+async function confirmDeleteAccount(){
+  if(!confirm('This is permanent and cannot be undone. Delete your account and all your data now?'))return;
+
+  const btn=document.getElementById('btn-confirm-delete');
+  const msg=document.getElementById('delete-msg');
+  btn.disabled=true;btn.textContent='Deleting…';
+  msg.textContent='';msg.className='save-msg';
+
+  try{
+    const res=await fetch('/api/account/delete',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not delete your account.');
+
+    await sbClient.auth.signOut();
+    window.location.href='/';
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+    btn.disabled=false;btn.textContent='Permanently delete my account';
   }
 }
 

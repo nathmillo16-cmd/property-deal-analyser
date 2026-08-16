@@ -37,6 +37,20 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       if (userId) {
         const { error } = await supabaseAdmin.from('profiles').update({ plan: 'paid' }).eq('user_id', userId);
         if (error) console.error('Webhook: failed to set plan=paid for', userId, error.message);
+
+        // Separate, failure-tolerant update — stripe_customer_id/
+        // stripe_subscription_id (db/020_profiles_stripe_ids.sql) are
+        // newer columns that may not exist yet on a database that hasn't
+        // run that migration. Kept as its own call, not folded into the
+        // plan update above, specifically so a missing column here can
+        // never block the plan flip itself (the same "one bad column
+        // fails the whole query" lesson already fixed once in
+        // GET /api/profile for the `name` column).
+        const { error: stripeIdError } = await supabaseAdmin
+          .from('profiles')
+          .update({ stripe_customer_id: session.customer || null, stripe_subscription_id: session.subscription || null })
+          .eq('user_id', userId);
+        if (stripeIdError) console.error('Webhook: failed to store stripe ids for', userId, stripeIdError.message);
       } else {
         console.error('Webhook: checkout.session.completed with no user_id on session', session.id);
       }
@@ -224,7 +238,7 @@ app.post('/api/deals', async (req, res) => {
       .select('id', { count: 'exact', head: true });
     if (countError) return res.status(400).json({ error: countError.message });
     if (count >= 2) {
-      return res.status(403).json({ error: 'Free plan limit reached — upgrade to save more deals.' });
+      return res.status(403).json({ error: 'Free plan limit reached. Upgrade to save more deals.' });
     }
   }
 
@@ -1229,6 +1243,107 @@ app.post('/api/profile/name', async (req, res) => {
   res.json(data);
 });
 
+// Reads stripe_subscription_id in isolation, tolerant of the column not
+// existing yet (db/020_profiles_stripe_ids.sql may not be applied). Two
+// distinct outcomes on failure: a genuinely missing column means "nothing
+// has ever recorded a subscription id for anyone" (verified true of this
+// app today) — safe to treat as no subscription. Any OTHER read failure
+// is ambiguous and must NOT be treated as "no subscription", since that
+// could delete an account that's actually still being billed — the one
+// failure mode this whole feature exists to prevent.
+async function getStripeSubscriptionId(supabase) {
+  try {
+    const { data, error } = await supabase.from('profiles').select('stripe_subscription_id').single();
+    if (error) {
+      if (error.message && error.message.toLowerCase().includes('does not exist')) {
+        return { subscriptionId: null, ambiguous: false };
+      }
+      return { subscriptionId: null, ambiguous: true };
+    }
+    return { subscriptionId: data ? data.stripe_subscription_id : null, ambiguous: false };
+  } catch (e) {
+    return { subscriptionId: null, ambiguous: true };
+  }
+}
+
+// Destructive, irreversible — deletes the requesting user's own account
+// only (userId always comes from the authed session below, never the
+// request body). Order matters and is deliberate:
+//   1. Stripe FIRST. If there's a real subscription and cancelling it
+//      fails (or we can't even tell whether one exists), ABORT before
+//      touching any data — never delete an account that might still be
+//      billed.
+//   2. DB rows next, via the request-scoped (RLS-enforced) client, not
+//      the service-role one — Postgres itself enforces "own rows only"
+//      here, not just this query's own .eq(user_id). deal_notes/
+//      deal_offers cascade automatically once their deals row is deleted
+//      (deal_id references deals(id) on delete cascade — db/007, db/008);
+//      comps_snapshot is a jsonb column on deals, not a separate table,
+//      so it goes with the row. If a step here fails, Stripe is ALREADY
+//      cancelled (no billing risk), so this logs clearly for manual
+//      cleanup rather than proceeding to step 3 — leaving the auth user
+//      in place means the account can still be logged into and the
+//      deletion retried, rather than stranding orphaned data with no way
+//      back in.
+//   3. auth.users LAST, via the service-role admin client (the only one
+//      with .auth.admin access) — deliberately last, for the same reason:
+//      if this one step fails after 1 and 2 already succeeded, there's no
+//      data left to orphan, just a login shell to clean up manually.
+app.post('/api/account/delete', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to delete your account.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: 'Log in to delete your account.' });
+  }
+  const userId = userData.user.id;
+
+  const { subscriptionId, ambiguous } = await getStripeSubscriptionId(supabase);
+  if (ambiguous) {
+    return res.status(502).json({ error: "Couldn't verify your subscription status. Your account was not deleted. Try again or contact support." });
+  }
+  if (subscriptionId) {
+    try {
+      await stripe.subscriptions.cancel(subscriptionId);
+    } catch (stripeErr) {
+      console.error('Account deletion aborted — Stripe cancel failed for user', userId, ':', stripeErr.message);
+      return res.status(502).json({ error: "Couldn't cancel your subscription. Your account was not deleted. Try again or contact support." });
+    }
+  }
+
+  const dbDeleteSteps = [
+    ['portfolio_properties', () => supabase.from('portfolio_properties').delete().eq('user_id', userId)],
+    ['refurb_estimates', () => supabase.from('refurb_estimates').delete().eq('user_id', userId)],
+    ['deals', () => supabase.from('deals').delete().eq('user_id', userId)],
+    ['profiles', () => supabase.from('profiles').delete().eq('user_id', userId)],
+  ];
+  for (const [table, run] of dbDeleteSteps) {
+    const { error } = await run();
+    if (error) {
+      console.error(
+        'Account deletion PARTIAL FAILURE for user', userId,
+        '— failed deleting from', table, ':', error.message,
+        '— Stripe subscription (if any) was already cancelled, no billing risk. Needs manual cleanup.'
+      );
+      return res.status(500).json({ error: 'Something went wrong deleting your data. Your subscription (if any) has already been cancelled. Please contact support to finish removing your account.' });
+    }
+  }
+
+  const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+  if (authDeleteError) {
+    console.error(
+      'Account deletion PARTIAL FAILURE for user', userId,
+      '— all data deleted and Stripe (if any) cancelled, but auth user deletion failed:', authDeleteError.message,
+      '— needs manual cleanup.'
+    );
+    return res.status(500).json({ error: 'Your data has been deleted, but something went wrong finishing the process. Please contact support.' });
+  }
+
+  res.json({ success: true });
+});
+
 app.post('/api/profile', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to save your defaults.' });
@@ -1305,7 +1420,7 @@ app.post('/analyse', async (req, res) => {
     .gte('created_at', startOfCurrentMonthISO());
   if (countError) return res.status(400).json({ error: countError.message });
   if (count >= 50) {
-    return res.status(403).json({ error: 'Monthly analysis limit reached (50) — resets next month.' });
+    return res.status(403).json({ error: 'Monthly analysis limit reached (50). Resets next month.' });
   }
 
   try {

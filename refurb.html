@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Deals N Yields — Refurbishment Estimator</title>
+<title>Deals N Yields · Refurbishment Estimator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
@@ -176,7 +176,7 @@ body.theme-light .saved-item.active{border-color:var(--accent)}
     <div class="locked-panel">
       <h2>The Refurbishment Estimator is a paid feature</h2>
       <p>Cost a refurb by section and line item, or as a quick trade-by-trade total, then apply contingency and VAT and save the result.</p>
-      <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade — £29/mo</button>
+      <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
     </div>
   </div>
 
@@ -192,7 +192,7 @@ body.theme-light .saved-item.active{border-color:var(--accent)}
 
     <div class="field rf-name-field">
       <label>Estimate name</label>
-      <input type="text" id="rf-name" placeholder="e.g. 14 Foundry Street — full refurb" oninput="saveRefurbDraft()"/>
+      <input type="text" id="rf-name" placeholder="e.g. 14 Foundry Street, full refurb" oninput="saveRefurbDraft()"/>
     </div>
 
     <div class="mode-toggle" id="rf-mode-toggle">
@@ -442,6 +442,11 @@ function updateTopbar(){
     authLink.href='/login.html';
     authLink.onclick=null;
   }
+  const email=loggedIn&&currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  const menuEmail=document.getElementById('user-menu-email');
+  const itemEmail=document.getElementById('user-menu-item-email');
+  if(menuEmail)menuEmail.textContent=email||'Account';
+  if(itemEmail)itemEmail.textContent=email||'—';
   const subLink=document.getElementById('subscribe-link');
   if(loggedIn&&currentPlan==='free'){
     subLink.style.display='';
@@ -767,7 +772,7 @@ async function loadEstimates(){
 function renderSavedList(){
   const listEl=document.getElementById('rf-saved-list');
   if(savedEstimates.length===0){
-    listEl.innerHTML='<p class="hint">No saved estimates yet — build one below and save it.</p>';
+    listEl.innerHTML='<p class="hint">No saved estimates yet. Build one below and save it.</p>';
     return;
   }
   listEl.innerHTML=savedEstimates.map(e=>{

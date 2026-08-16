@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Deals N Yields — Property Deal Calculator</title>
+<title>Deals N Yields · Property Deal Calculator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
@@ -1220,8 +1220,8 @@ function renderPlanningResult(d){
       // plain "None found" text.
       const negativeText=c.key==='article4'
         ?(d.councilName
-            ?`None recorded — Article 4 coverage in this dataset is nationally incomplete; verify with the local council (${d.councilName}).`
-            :'None recorded — Article 4 coverage in this dataset is nationally incomplete; verify with the local authority.')
+            ?`None recorded. Article 4 coverage in this dataset is nationally incomplete; verify with the local council (${d.councilName}).`
+            :'None recorded. Article 4 coverage in this dataset is nationally incomplete; verify with the local authority.')
         :'None found';
       return `<div class="pc-row">
         <div class="pc-row-head"><span class="pc-row-label">${c.label}</span><span class="pc-status inactive">${negativeText}</span></div>
@@ -1340,7 +1340,7 @@ async function fetchEmployment(postcode){
 // the network call.
 function renderCompsResult(d){
   document.getElementById('cp-median').textContent = d.medianPrice!=null ? '£'+Math.round(d.medianPrice).toLocaleString() : 'No comparables found';
-  document.getElementById('cp-range').textContent = (d.low!=null && d.high!=null) ? '£'+Math.round(d.low).toLocaleString()+' – £'+Math.round(d.high).toLocaleString() : 'Not enough comparable data';
+  document.getElementById('cp-range').textContent = (d.low!=null && d.high!=null) ? '£'+Math.round(d.low).toLocaleString()+' to £'+Math.round(d.high).toLocaleString() : 'Not enough comparable data';
   document.getElementById('cp-psqm').textContent = d.medianPricePerSqM!=null ? '£'+Math.round(d.medianPricePerSqM).toLocaleString() : '—';
   document.getElementById('cp-n').textContent = d.count;
   document.getElementById('cp-dates').textContent = d.dateRange ? d.dateRange.start+' to '+d.dateRange.end : '—';
@@ -1767,6 +1767,12 @@ function updateAuthUI(){
     authLink.onclick=null;
   }
 
+  const email=loggedIn&&currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  const menuEmail=document.getElementById('user-menu-email');
+  const itemEmail=document.getElementById('user-menu-item-email');
+  if(menuEmail)menuEmail.textContent=email||'Account';
+  if(itemEmail)itemEmail.textContent=email||'—';
+
   const subLink=document.getElementById('subscribe-link');
   if(loggedIn&&currentPlan==='free'){
     subLink.style.display='';
@@ -1818,7 +1824,7 @@ const DEAL_NAME_PP_ID={btl:'b-pp',hmo:'h-pp',sa:'sa-pp',flip:'fl-pp'};
 function defaultDealName(type){
   const pp=+document.getElementById(DEAL_NAME_PP_ID[type]).value||0;
   const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-  return `${DEAL_NAME_LABEL[type]} — ${fmt(pp)} — ${date}`;
+  return `${DEAL_NAME_LABEL[type]} · ${fmt(pp)} · ${date}`;
 }
 
 // Which strategy tab's Save deal was clicked — carried across the async gap

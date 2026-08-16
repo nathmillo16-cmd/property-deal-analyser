@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Deals N Yields — Home</title>
+<title>Deals N Yields · Home</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
@@ -213,7 +213,7 @@ function fallbackName(d){
   const label=d.deal_type.toUpperCase();
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):null;
-  return pp?`${label} — ${pp} — ${date}`:`${label} — ${date}`;
+  return pp?`${label} · ${pp} · ${date}`:`${label} · ${date}`;
 }
 
 function dealDisplayName(d){
@@ -393,7 +393,7 @@ function render(){
   }else{
     naCard.style.display='block';
     if(needsAttention.length===0){
-      naList.innerHTML='<p class="hint na-caught-up">You\'re all caught up — nothing needs attention.</p>';
+      naList.innerHTML='<p class="hint na-caught-up">You\'re all caught up. Nothing needs attention.</p>';
     }else{
       const REASON_LABEL={chase:'Chase',update:'Update',review:'Review'};
       naList.innerHTML=needsAttention.map(n=>`<a class="na-row" href="/saved-deals.html">
