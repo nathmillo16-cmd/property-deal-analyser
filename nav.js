@@ -99,7 +99,7 @@ var NAV_LINKS = [
 
   root.innerHTML =
     '<div class="topbar">' +
-      '<a class="wordmark" href="/home.html">Deals N Yields</a>' +
+      '<a class="wordmark" href="/home.html"><img src="/assets/propulsion-logo.png" alt="PROPulsion" class="wordmark-logo"></a>' +
       '<div class="nav-links">' + linksHtml + '</div>' +
       '<div class="auth-bar">' + authBarHtml + '</div>' +
     '</div>';
