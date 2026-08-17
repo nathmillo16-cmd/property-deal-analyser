@@ -72,7 +72,8 @@ body.theme-light .card{
   border-radius:14px;
 }
 
-h1{font-family:var(--font-head);font-weight:800;font-size:22px;text-align:center;margin:0 0 1.5rem;letter-spacing:.02em;color:var(--ink)}
+.card-logo{text-align:center;margin:0 0 1.5rem}
+.card-logo img{height:44px;width:auto}
 
 .tabs{display:flex;gap:8px;margin-bottom:1.5rem}
 .tab{
@@ -122,7 +123,7 @@ body.theme-light .msg.error{background:var(--danger-bg);color:var(--danger)}
     <div class="bg-blob bg-blob-3"></div>
   </div>
   <div class="card">
-    <h1>Deals N Yields</h1>
+    <div class="card-logo"><img src="/assets/propulsion-logo.png" alt="PROPulsion"></div>
     <div class="tabs">
       <button type="button" class="tab active" id="tab-login" onclick="switchMode('login')">Log In</button>
       <button type="button" class="tab" id="tab-signup" onclick="switchMode('signup')">Sign Up</button>
