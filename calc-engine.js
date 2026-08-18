@@ -11,6 +11,12 @@ function stamp(p){
   return{total:Math.round(tax),detail};
 }
 function mort(loan,rate){return(loan*rate/100)/12;}
+function mortRepay(loan,rate,termYears){
+  const r=(rate/100)/12, n=termYears*12;
+  if(n<=0) return 0;
+  if(r===0) return loan/n;
+  return loan*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+}
 function fmt(n){return'£'+Math.round(n).toLocaleString();}
 function fP(n){return n.toFixed(2)+'%';}
 function cl(v,g,w){return v>=g?'good':v>=w?'warn':'bad';}
@@ -33,6 +39,8 @@ function cBTL(){
   const maint=(+document.getElementById('b-maint').value||10)/100;
   const ty=+document.getElementById('b-ty').value||7;
   const tr=+document.getElementById('b-tr').value||15;
+  const btermEl=document.getElementById('b-term');
+  const term=btermEl?(+btermEl.value||25):25;
 
   const dep=emv*dp, loan=emv-dep, mm=mort(loan,mr), sd=stamp(pp);
   const maintC=rent*maint, mgmtC=rent*mgmt;
@@ -44,8 +52,15 @@ function cBTL(){
   const mMLI=cTI-loan, mROI=mMLI!==0?(mNy/mMLI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
   const mPB=mNy!==0?mMLI/mNy:0, cPB=cNy>0?cTI/cNy:0;
 
+  const rmm=mortRepay(loan,mr,term);
+  const rNm=rent-ins-maintC-mgmtC-rmm, rNy=rNm*12;
+  const rny=emv>0?(rNy/emv)*100:0;
+  const rROI=mMLI!==0?(rNy/mMLI)*100:0;
+  const rPB=rNy!==0?mMLI/rNy:0;
+
   const oY=ag/(ty/100);
   const tMLI=mNy/(tr/100), oR=tMLI+loan-sol-mf-srch-ref;
+  const rtMLI=rNy/(tr/100), roR=rtMLI+loan-sol-mf-srch-ref;
 
   document.getElementById('b-ly').textContent=ty;
   document.getElementById('b-lr').textContent=tr;
@@ -58,13 +73,24 @@ function cBTL(){
   s('bc-gy',fP(gy),cl(gy,7,5));s('bc-ny2',fP(cny),cl(cny,4,2));
   s('bc-roi',fP(cROI),cl(cROI,15,8));s('bc-ti',fmt(cTI));
   s('bc-mli',fmt(cTI));s('bc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
+  s('br-nm',fmt(rNm),cl(rNm,200,0));s('br-ny',fmt(rNy),cl(rNy,2400,0));
+  s('br-gy',fP(gy),cl(gy,7,5));s('br-ny2',fP(rny),cl(rny,4,2));
+  s('br-roi',fP(rROI),cl(rROI,15,8));s('br-ti',fmt(mTI));
+  s('br-mli',fmt(mMLI),mMLI<=0?'good':'');s('br-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
+  s('br-loan',fmt(loan));s('br-rate',fP(mr));s('br-deposit',fmt(dep));s('br-mpay',fmt(rmm));s('br-term',term);
   document.getElementById('b-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
   document.getElementById('b-oy').textContent=fmt(oY);
   document.getElementById('b-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
   document.getElementById('b-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
   if(oR>0)document.getElementById('b-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
+  const brorEl=document.getElementById('b-ror');
+  if(brorEl) brorEl.textContent=roR>0?fmt(roR):'Cannot achieve at these inputs';
+  if(roR>0){
+    const brornEl=document.getElementById('b-rorn');
+    if(brornEl) brornEl.textContent=(roR-pp)<0?fmt(Math.abs(roR-pp))+' below asking':fmt(roR-pp)+' above asking';
+  }
 
-  btlData={pp,emv,rent,mr,dp:dp*100,ref,sol,mf,srch,ins,mgmt:mgmt*100,maint:maint*100,ty,tr,
+  btlData={pp,emv,rent,mr,dp:dp*100,ref,sol,mf,srch,ins,mgmt:mgmt*100,maint:maint*100,ty,tr,term,
     loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
     gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
@@ -72,7 +98,10 @@ function cBTL(){
     mMLI:Math.round(mMLI),mTI:Math.round(mTI),cTI:Math.round(cTI),
     mPB:+Math.abs(mPB).toFixed(2),cPB:+cPB.toFixed(2),
     stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),
-    meetsYield:gy>=ty,meetsROI:mROI>=tr};
+    meetsYield:gy>=ty,meetsROI:mROI>=tr,
+    repaymentMonthlyPayment:Math.round(rmm),rNm:Math.round(rNm),rNy:Math.round(rNy),
+    rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),rPB:+Math.abs(rPB).toFixed(2),
+    rOR:Math.round(roR),meetsROIRepayment:rROI>=tr};
 }
 
 function cHMO(){
@@ -92,6 +121,8 @@ function cHMO(){
   const mgmt=(+document.getElementById('h-mgmt').value||0)/100;
   const ty=+document.getElementById('h-ty').value||10;
   const troi=+document.getElementById('h-troi').value||15;
+  const htermEl=document.getElementById('h-term');
+  const term=htermEl?(+htermEl.value||25):25;
 
   const rooms=[[+document.getElementById('h-r1p').value||0,+document.getElementById('h-r1n').value||0,'h-r1t'],
                [+document.getElementById('h-r2p').value||0,+document.getElementById('h-r2n').value||0,'h-r2t'],
@@ -113,6 +144,12 @@ function cHMO(){
   const mROI=mTI!==0?(mNy/mTI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
   const mPB=mNy!==0?mTI/mNy:0, cPB=cNy>0?cTI/cNy:0;
 
+  const rmm=mortRepay(loan,mr,term);
+  const rNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC-rmm, rNy=rNm*12;
+  const rny=emv>0?(rNy/emv)*100:0;
+  const rROI=mTI!==0?(rNy/mTI)*100:0;
+  const rPB=rNy!==0?mTI/rNy:0;
+
   const oY=totalRent>0?ag/(ty/100):0;
   document.getElementById('h-ly').textContent=ty;
   document.getElementById('h-lroi').textContent=troi;
@@ -125,6 +162,11 @@ function cHMO(){
   s('hc-gy',fP(gy),cl(gy,10,7));s('hc-ny2',fP(cny),cl(cny,6,4));
   s('hc-roi',fP(cROI),cl(cROI,15,8));s('hc-ti',fmt(cTI));
   s('hc-mli',fmt(cTI));s('hc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
+  s('hr-nm',fmt(rNm),cl(rNm,300,0));s('hr-ny',fmt(rNy),cl(rNy,3600,0));
+  s('hr-gy',fP(gy),cl(gy,10,7));s('hr-ny2',fP(rny),cl(rny,6,4));
+  s('hr-roi',fP(rROI),cl(rROI,15,8));s('hr-ti',fmt(mTI));
+  s('hr-mli',fmt(mTI));s('hr-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
+  s('hr-loan',fmt(loan));s('hr-rate',fP(mr));s('hr-deposit',fmt(dep));s('hr-mpay',fmt(rmm));s('hr-term',term);
   document.getElementById('h-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
   document.getElementById('h-oy').textContent=oY>0?fmt(oY):'Enter rooms first';
   if(oY>0){document.getElementById('h-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';}
@@ -132,13 +174,26 @@ function cHMO(){
   let oR=0;
   if(totalRent>0){
     let lo=10000,hi=2000000;
-    for(let i=0;i<80;i++){const mid=(lo+hi)/2;const sdM=stamp(mid).total;const tiM=dep+sol+mf+lic+ref+sdM;const roiM=tiM!==0?(mNy/tiM)*100:0;if(roiM>troi)hi=mid;else lo=mid;}
+    for(let i=0;i<80;i++){const mid=(lo+hi)/2;const sdM=stamp(mid).total;const tiM=dep+sol+mf+lic+ref+sdM;const roiM=tiM!==0?(mNy/tiM)*100:0;if(roiM>troi)lo=mid;else hi=mid;}
     oR=(lo+hi)/2;
   }
   document.getElementById('h-or').textContent=oR>0&&oR<1900000?fmt(oR):'Cannot achieve at these inputs';
   if(oR>0&&oR<1900000){document.getElementById('h-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';}
 
-  hmoData={pp,emv,totalRent,mr,dp:dp*100,ref,sol,mf,lic,srch,ins,wifi,ctMonthly:Math.round(ct),maint:maint*100,mgmt:mgmt*100,ty,troi,
+  let roR=0;
+  if(totalRent>0){
+    let rlo=10000,rhi=2000000;
+    for(let i=0;i<80;i++){const mid=(rlo+rhi)/2;const sdM=stamp(mid).total;const tiM=dep+sol+mf+lic+ref+sdM;const roiM=tiM!==0?(rNy/tiM)*100:0;if(roiM>troi)rlo=mid;else rhi=mid;}
+    roR=(rlo+rhi)/2;
+  }
+  const hrorEl=document.getElementById('h-ror');
+  if(hrorEl) hrorEl.textContent=roR>0&&roR<1900000?fmt(roR):'Cannot achieve at these inputs';
+  if(roR>0&&roR<1900000){
+    const hrornEl=document.getElementById('h-rorn');
+    if(hrornEl) hrornEl.textContent=(roR-pp)<0?fmt(Math.abs(roR-pp))+' below asking':fmt(roR-pp)+' above asking';
+  }
+
+  hmoData={pp,emv,totalRent,mr,dp:dp*100,ref,sol,mf,lic,srch,ins,wifi,ctMonthly:Math.round(ct),maint:maint*100,mgmt:mgmt*100,ty,troi,term,
     loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
     gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
@@ -146,6 +201,9 @@ function cHMO(){
     mTI:Math.round(mTI),cTI:Math.round(cTI),
     mPB:+Math.abs(mPB).toFixed(2),cPB:+cPB.toFixed(2),
     stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),bills:Math.round(bills),
+    repaymentMonthlyPayment:Math.round(rmm),rNm:Math.round(rNm),rNy:Math.round(rNy),
+    rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),rPB:+Math.abs(rPB).toFixed(2),
+    rOR:Math.round(roR),meetsROIRepayment:rROI>=troi,
     meetsYield:gy>=ty,meetsROI:mROI>=troi};
 }
 
@@ -170,6 +228,8 @@ function cSA(){
   const ct=+document.getElementById('sa-ct').value||0;
   const ty=+document.getElementById('sa-ty').value||12;
   const troi=+document.getElementById('sa-troi').value||20;
+  const satermEl=document.getElementById('sa-term');
+  const term=satermEl?(+satermEl.value||25):25;
 
   const ag=rate*(occ/100)*365;
   const mgmtCost=ag*mgmt, utilCost=ag*util, maintCost=ag*maint;
@@ -193,8 +253,15 @@ function cSA(){
   const mROI=mTI!==0?(mCFy/mTI)*100:0;
   const cROI=cTI>0?(cCFy/cTI)*100:0;
 
+  const rmm=mortRepay(loan,mr,term);
+  const rmortIntA=rmm*12;
+  const rCFy=netInc-rmortIntA, rCFm=rCFy/12;
+  const rny=emv>0?(rCFy/emv)*100:0;
+  const rROI=mTI!==0?(rCFy/mTI)*100:0;
+
   const oY=ty>0?ag/(ty/100):0;
-  const tMLI=troi>0?mCFy/(troi/100):0, oR=tMLI+loan-sol-mf-srch-ref-furn-wg;
+  const tMLI=troi>0?mCFy/(troi/100):0, oR=tMLI+loan-sol-mf-srch-ref-furn-wg-dep;
+  const rtMLI=troi>0?rCFy/(troi/100):0, roR=rtMLI+loan-sol-mf-srch-ref-furn-wg-dep;
 
   document.getElementById('sa-ly').textContent=ty;
   document.getElementById('sa-lr').textContent=troi;
@@ -216,14 +283,29 @@ function cSA(){
   s('sac-cfm',fmt(cCFm),cl(cCFm,300,0));
   s('sac-cfy',fmt(cCFy),cl(cCFy,3600,0));
 
+  s('sar-gy',fP(gy),cl(gy,10,7));
+  s('sar-ny',fP(rny),cl(rny,6,4));
+  s('sar-roi',fP(rROI),cl(rROI,15,8));
+  s('sar-im',fmt(incM));
+  s('sar-iy',fmt(incY));
+  s('sar-cfm',fmt(rCFm),cl(rCFm,300,0));
+  s('sar-cfy',fmt(rCFy),cl(rCFy,3600,0));
+  s('sar-loan',fmt(loan));s('sar-rate',fP(mr));s('sar-deposit',fmt(dep));s('sar-mpay',fmt(rmm));s('sar-term',term);
+
   document.getElementById('sa-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
 
   document.getElementById('sa-oy').textContent=oY>0?fmt(oY):'Cannot achieve at these inputs';
   if(oY>0)document.getElementById('sa-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
   document.getElementById('sa-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
   if(oR>0)document.getElementById('sa-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
+  const sarorEl=document.getElementById('sa-ror');
+  if(sarorEl) sarorEl.textContent=roR>0?fmt(roR):'Cannot achieve at these inputs';
+  if(roR>0){
+    const sarornEl=document.getElementById('sa-rorn');
+    if(sarornEl) sarornEl.textContent=(roR-pp)<0?fmt(Math.abs(roR-pp))+' below asking':fmt(roR-pp)+' above asking';
+  }
 
-  saData={rate,occ,pp,emv,mr,dp:dp*100,sol,mf,srch,ref,furn,wg,mgmt:mgmt*100,util:util*100,maint:maint*100,clean,ins,ct,ty,troi,
+  saData={rate,occ,pp,emv,mr,dp:dp*100,sol,mf,srch,ref,furn,wg,mgmt:mgmt*100,util:util*100,maint:maint*100,clean,ins,ct,ty,troi,term,
     loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     annualRevenue:Math.round(ag),netAnnualIncome:Math.round(netInc),
     mCFy:Math.round(mCFy),mCFm:Math.round(mCFm),cCFy:Math.round(cCFy),cCFm:Math.round(cCFm),
@@ -232,7 +314,10 @@ function cSA(){
     mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
     mTI:Math.round(mTI),cTI:Math.round(cTI),
     stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),
-    meetsYield:gy>=ty,meetsROI:mROI>=troi};
+    meetsYield:gy>=ty,meetsROI:mROI>=troi,
+    repaymentMonthlyPayment:Math.round(rmm),rCFy:Math.round(rCFy),rCFm:Math.round(rCFm),
+    rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),
+    rOR:Math.round(roR),meetsROIRepayment:rROI>=troi};
 }
 
 function cFlip(){
