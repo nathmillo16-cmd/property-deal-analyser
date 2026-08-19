@@ -43,6 +43,18 @@
 .panel{display:none}
 .panel.active{display:block}
 
+.fin-tabs{display:flex;gap:6px;margin-bottom:1.1rem;flex-wrap:wrap}
+.fin-tab{
+  font-family:var(--font-body);font-weight:600;letter-spacing:.02em;
+  padding:7px 16px;border:1.5px solid var(--hairline);border-radius:var(--radius);
+  font-size:12.5px;cursor:pointer;background:var(--surface);color:var(--muted);
+  transition:all .15s ease;
+}
+.fin-tab:hover{color:var(--ink)}
+.fin-tab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.fin-panel{display:none}
+.fin-panel.active{display:block}
+
 .split-panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 @media(max-width:860px){.split-panel{grid-template-columns:1fr}}
 
@@ -115,8 +127,6 @@ body.theme-light .sl{color:var(--accent)}
 .rt{font-size:12px;font-weight:700;color:var(--input-ink);text-align:right;font-variant-numeric:tabular-nums}
 .trow{text-align:right;font-size:12.5px;font-weight:600;color:var(--input-ink);margin-bottom:1rem;font-variant-numeric:tabular-nums}
 
-.results-split{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
-@media(max-width:520px){.results-split{grid-template-columns:1fr}}
 .ch{
   font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
   color:var(--muted);margin:0 0 .85rem;padding-bottom:.5rem;
@@ -361,6 +371,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>End market value (£)</label><input type="number" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Monthly rent (£)</label><input type="number" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Mortgage term (years)</label><input type="number" id="b-term" value="25" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Refurb (£)</label><input type="number" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Solicitor fees (£)</label><input type="number" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
@@ -381,39 +392,59 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="btl-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <div class="results-split">
-          <div>
-            <p class="ch">Mortgage purchase</p>
-            <div class="metric-grid">
-              <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bm-nm">—</p></div>
-              <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bm-ny">—</p></div>
-              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bm-gy">—</p></div>
-              <div class="m"><p class="ml">Net yield</p><p class="mv" id="bm-ny2">—</p></div>
-              <div class="m"><p class="ml">ROI</p><p class="mv" id="bm-roi">—</p></div>
-              <div class="m"><p class="ml">Total investment</p><p class="mv" id="bm-ti">—</p></div>
-              <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bm-mli">—</p></div>
-              <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bm-pb">—</p></div>
-            </div>
-            <p class="ch section-gap">Mortgage</p>
-            <div class="metric-grid">
-              <div class="m"><p class="ml">Loan amount</p><p class="mv" id="bm-loan">—</p></div>
-              <div class="m"><p class="ml">Interest rate</p><p class="mv" id="bm-rate">—</p></div>
-              <div class="m"><p class="ml">Deposit</p><p class="mv" id="bm-deposit">—</p></div>
-              <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="bm-mpay">—</p></div>
-            </div>
+        <div class="fin-tabs" role="tablist">
+          <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('btl','m')">Interest-only</button>
+          <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('btl','r')">Repayment</button>
+          <button type="button" class="fin-tab" data-mode="c" onclick="switchFinTab('btl','c')">Cash</button>
+        </div>
+        <div class="fin-panel active" data-mode="m">
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bm-nm">—</p></div>
+            <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bm-ny">—</p></div>
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bm-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="bm-ny2">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="bm-roi">—</p></div>
+            <div class="m"><p class="ml">Total investment</p><p class="mv" id="bm-ti">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bm-mli">—</p></div>
+            <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bm-pb">—</p></div>
           </div>
-          <div>
-            <p class="ch">Cash purchase</p>
-            <div class="metric-grid">
-              <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bc-nm">—</p></div>
-              <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bc-ny">—</p></div>
-              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bc-gy">—</p></div>
-              <div class="m"><p class="ml">Net yield</p><p class="mv" id="bc-ny2">—</p></div>
-              <div class="m"><p class="ml">ROI</p><p class="mv" id="bc-roi">—</p></div>
-              <div class="m"><p class="ml">Total investment</p><p class="mv" id="bc-ti">—</p></div>
-              <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bc-mli">—</p></div>
-              <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bc-pb">—</p></div>
-            </div>
+          <p class="ch section-gap">Mortgage</p>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Loan amount</p><p class="mv" id="bm-loan">—</p></div>
+            <div class="m"><p class="ml">Interest rate</p><p class="mv" id="bm-rate">—</p></div>
+            <div class="m"><p class="ml">Deposit</p><p class="mv" id="bm-deposit">—</p></div>
+            <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="bm-mpay">—</p></div>
+          </div>
+        </div>
+        <div class="fin-panel" data-mode="r">
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="br-nm">—</p></div>
+            <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="br-ny">—</p></div>
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="br-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="br-ny2">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="br-roi">—</p></div>
+            <div class="m"><p class="ml">Total investment</p><p class="mv" id="br-ti">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="br-mli">—</p></div>
+            <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="br-pb">—</p></div>
+          </div>
+          <p class="ch section-gap">Mortgage</p>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Loan amount</p><p class="mv" id="br-loan">—</p></div>
+            <div class="m"><p class="ml">Interest rate</p><p class="mv" id="br-rate">—</p></div>
+            <div class="m"><p class="ml">Deposit</p><p class="mv" id="br-deposit">—</p></div>
+            <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="br-mpay">—</p></div>
+          </div>
+        </div>
+        <div class="fin-panel" data-mode="c">
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bc-nm">—</p></div>
+            <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bc-ny">—</p></div>
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bc-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="bc-ny2">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="bc-roi">—</p></div>
+            <div class="m"><p class="ml">Total investment</p><p class="mv" id="bc-ti">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bc-mli">—</p></div>
+            <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bc-pb">—</p></div>
           </div>
         </div>
         <div id="b-sn" class="sn"></div>
@@ -445,6 +476,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Purchase price (£)</label><input type="number" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
           <div class="f"><label>End market value (£)</label><input type="number" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Mortgage term (years)</label><input type="number" id="h-term" value="25" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Refurb (£)</label><input type="number" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Solicitor fees (£)</label><input type="number" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
@@ -475,39 +507,59 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="hmo-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <div class="results-split">
-          <div>
-            <p class="ch">Mortgage purchase</p>
-            <div class="metric-grid">
-              <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hm-nm">—</p></div>
-              <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hm-ny">—</p></div>
-              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hm-gy">—</p></div>
-              <div class="m"><p class="ml">Net yield</p><p class="mv" id="hm-ny2">—</p></div>
-              <div class="m"><p class="ml">ROI</p><p class="mv" id="hm-roi">—</p></div>
-              <div class="m"><p class="ml">Total investment</p><p class="mv" id="hm-ti">—</p></div>
-              <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hm-mli">—</p></div>
-              <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hm-pb">—</p></div>
-            </div>
-            <p class="ch section-gap">Mortgage</p>
-            <div class="metric-grid">
-              <div class="m"><p class="ml">Loan amount</p><p class="mv" id="hm-loan">—</p></div>
-              <div class="m"><p class="ml">Interest rate</p><p class="mv" id="hm-rate">—</p></div>
-              <div class="m"><p class="ml">Deposit</p><p class="mv" id="hm-deposit">—</p></div>
-              <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="hm-mpay">—</p></div>
-            </div>
+        <div class="fin-tabs" role="tablist">
+          <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('hmo','m')">Interest-only</button>
+          <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('hmo','r')">Repayment</button>
+          <button type="button" class="fin-tab" data-mode="c" onclick="switchFinTab('hmo','c')">Cash</button>
+        </div>
+        <div class="fin-panel active" data-mode="m">
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hm-nm">—</p></div>
+            <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hm-ny">—</p></div>
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hm-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="hm-ny2">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="hm-roi">—</p></div>
+            <div class="m"><p class="ml">Total investment</p><p class="mv" id="hm-ti">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hm-mli">—</p></div>
+            <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hm-pb">—</p></div>
           </div>
-          <div>
-            <p class="ch">Cash purchase</p>
-            <div class="metric-grid">
-              <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hc-nm">—</p></div>
-              <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hc-ny">—</p></div>
-              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hc-gy">—</p></div>
-              <div class="m"><p class="ml">Net yield</p><p class="mv" id="hc-ny2">—</p></div>
-              <div class="m"><p class="ml">ROI</p><p class="mv" id="hc-roi">—</p></div>
-              <div class="m"><p class="ml">Total investment</p><p class="mv" id="hc-ti">—</p></div>
-              <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hc-mli">—</p></div>
-              <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hc-pb">—</p></div>
-            </div>
+          <p class="ch section-gap">Mortgage</p>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Loan amount</p><p class="mv" id="hm-loan">—</p></div>
+            <div class="m"><p class="ml">Interest rate</p><p class="mv" id="hm-rate">—</p></div>
+            <div class="m"><p class="ml">Deposit</p><p class="mv" id="hm-deposit">—</p></div>
+            <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="hm-mpay">—</p></div>
+          </div>
+        </div>
+        <div class="fin-panel" data-mode="r">
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hr-nm">—</p></div>
+            <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hr-ny">—</p></div>
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hr-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="hr-ny2">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="hr-roi">—</p></div>
+            <div class="m"><p class="ml">Total investment</p><p class="mv" id="hr-ti">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hr-mli">—</p></div>
+            <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hr-pb">—</p></div>
+          </div>
+          <p class="ch section-gap">Mortgage</p>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Loan amount</p><p class="mv" id="hr-loan">—</p></div>
+            <div class="m"><p class="ml">Interest rate</p><p class="mv" id="hr-rate">—</p></div>
+            <div class="m"><p class="ml">Deposit</p><p class="mv" id="hr-deposit">—</p></div>
+            <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="hr-mpay">—</p></div>
+          </div>
+        </div>
+        <div class="fin-panel" data-mode="c">
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hc-nm">—</p></div>
+            <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hc-ny">—</p></div>
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hc-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="hc-ny2">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="hc-roi">—</p></div>
+            <div class="m"><p class="ml">Total investment</p><p class="mv" id="hc-ti">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hc-mli">—</p></div>
+            <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hc-pb">—</p></div>
           </div>
         </div>
         <div id="h-sn" class="sn"></div>
@@ -541,6 +593,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Purchase price (£)</label><input type="number" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
           <div class="f"><label>End market value (£)</label><input type="number" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
           <div class="f"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Mortgage term (years)</label><input type="number" id="sa-term" value="25" oninput="markStaleSA()"/></div>
           <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
         </div>
         <p class="sl section-gap">Upfront costs</p>
@@ -572,37 +625,56 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="sa-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <div class="results-split">
-          <div>
-            <p class="ch">Mortgage purchase</p>
-            <div class="metric-grid">
-              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sam-gy">—</p></div>
-              <div class="m"><p class="ml">Net yield</p><p class="mv" id="sam-ny">—</p></div>
-              <div class="m"><p class="ml">ROI</p><p class="mv" id="sam-roi">—</p></div>
-              <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sam-im">—</p></div>
-              <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sam-iy">—</p></div>
-              <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sam-cfm">—</p></div>
-              <div class="m"><p class="ml">Yearly cashflow</p><p class="mv" id="sam-cfy">—</p></div>
-            </div>
-            <p class="ch section-gap">Mortgage</p>
-            <div class="metric-grid">
-              <div class="m"><p class="ml">Loan amount</p><p class="mv" id="sam-loan">—</p></div>
-              <div class="m"><p class="ml">Interest rate</p><p class="mv" id="sam-rate">—</p></div>
-              <div class="m"><p class="ml">Deposit</p><p class="mv" id="sam-deposit">—</p></div>
-              <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="sam-mpay">—</p></div>
-            </div>
+        <div class="fin-tabs" role="tablist">
+          <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('sa','m')">Interest-only</button>
+          <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('sa','r')">Repayment</button>
+          <button type="button" class="fin-tab" data-mode="c" onclick="switchFinTab('sa','c')">Cash</button>
+        </div>
+        <div class="fin-panel active" data-mode="m">
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sam-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="sam-ny">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="sam-roi">—</p></div>
+            <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sam-im">—</p></div>
+            <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sam-iy">—</p></div>
+            <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sam-cfm">—</p></div>
+            <div class="m"><p class="ml">Yearly cashflow</p><p class="mv" id="sam-cfy">—</p></div>
           </div>
-          <div>
-            <p class="ch">Cash purchase</p>
-            <div class="metric-grid">
-              <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sac-gy">—</p></div>
-              <div class="m"><p class="ml">Net yield</p><p class="mv" id="sac-ny">—</p></div>
-              <div class="m"><p class="ml">ROI</p><p class="mv" id="sac-roi">—</p></div>
-              <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sac-im">—</p></div>
-              <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sac-iy">—</p></div>
-              <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sac-cfm">—</p></div>
-              <div class="m"><p class="ml">Yearly cashflow</p><p class="mv" id="sac-cfy">—</p></div>
-            </div>
+          <p class="ch section-gap">Mortgage</p>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Loan amount</p><p class="mv" id="sam-loan">—</p></div>
+            <div class="m"><p class="ml">Interest rate</p><p class="mv" id="sam-rate">—</p></div>
+            <div class="m"><p class="ml">Deposit</p><p class="mv" id="sam-deposit">—</p></div>
+            <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="sam-mpay">—</p></div>
+          </div>
+        </div>
+        <div class="fin-panel" data-mode="r">
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sar-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="sar-ny">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="sar-roi">—</p></div>
+            <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sar-im">—</p></div>
+            <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sar-iy">—</p></div>
+            <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sar-cfm">—</p></div>
+            <div class="m"><p class="ml">Yearly cashflow</p><p class="mv" id="sar-cfy">—</p></div>
+          </div>
+          <p class="ch section-gap">Mortgage</p>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Loan amount</p><p class="mv" id="sar-loan">—</p></div>
+            <div class="m"><p class="ml">Interest rate</p><p class="mv" id="sar-rate">—</p></div>
+            <div class="m"><p class="ml">Deposit</p><p class="mv" id="sar-deposit">—</p></div>
+            <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="sar-mpay">—</p></div>
+          </div>
+        </div>
+        <div class="fin-panel" data-mode="c">
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sac-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="sac-ny">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="sac-roi">—</p></div>
+            <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sac-im">—</p></div>
+            <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sac-iy">—</p></div>
+            <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sac-cfm">—</p></div>
+            <div class="m"><p class="ml">Yearly cashflow</p><p class="mv" id="sac-cfy">—</p></div>
           </div>
         </div>
         <div id="sa-sn" class="sn"></div>
@@ -924,15 +996,27 @@ function switchTab(t){
   saveIndexDraft();
 }
 
+// Financing-mode sub-tabs (Interest-only / Repayment / Cash) inside a
+// strategy's results column — scoped to that one strategy's panel so
+// switching BTL's mode never touches HMO's/SA's tabs. Distinct classes
+// (.fin-tab/.fin-panel) from the top-level .tab/.panel above, so this
+// never collides with switchTab()'s own querySelectorAll.
+function switchFinTab(strategy,mode){
+  const root=document.getElementById('panel-'+strategy);
+  if(!root)return;
+  root.querySelectorAll('.fin-tab').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  root.querySelectorAll('.fin-panel').forEach(p=>p.classList.toggle('active',p.dataset.mode===mode));
+}
+
 // ---------------------------------------------------------------------
 // Draft persistence (draft-state.js) — saves/restores this page's
 // in-progress work to localStorage so an accidental refresh doesn't lose
 // it. Never a substitute for Save deal / saved defaults.
 // ---------------------------------------------------------------------
 const DRAFT_FIELD_IDS={
-  btl:['b-pp','b-emv','b-rent','b-mr','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr'],
-  hmo:['h-pp','h-emv','h-mr','h-dp','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-maint','h-mgmt','h-r1p','h-r1n','h-r2p','h-r2n','h-r3p','h-r3n','h-r4p','h-r4n','h-ty','h-troi'],
-  sa:['sa-rate','sa-occ','sa-pp','sa-emv','sa-mr','sa-dp','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-mgmt','sa-util','sa-maint','sa-clean','sa-ins','sa-ct','sa-ty','sa-troi'],
+  btl:['b-pp','b-emv','b-rent','b-mr','b-term','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr'],
+  hmo:['h-pp','h-emv','h-mr','h-term','h-dp','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-maint','h-mgmt','h-r1p','h-r1n','h-r2p','h-r2n','h-r3p','h-r3n','h-r4p','h-r4n','h-ty','h-troi'],
+  sa:['sa-rate','sa-occ','sa-pp','sa-emv','sa-mr','sa-term','sa-dp','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-mgmt','sa-util','sa-maint','sa-clean','sa-ins','sa-ct','sa-ty','sa-troi'],
   flip:['fl-pp','fl-bf','fl-ref','fl-sv','fl-agent','fl-cont','fl-troi'],
 };
 const CP_TYPE_LABELS={D:'Detached',S:'Semi',T:'Terraced',F:'Flat',O:'Other'};
