@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PROPulsion Admin · Tier 3 Private Sourcing</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/admin/admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/admin-guard.js"></script>
+<script src="/admin/crm-shared.js"></script>
+</head>
+<body class="theme-light">
+
+<div id="state-loading"><p class="hint" style="padding:1.5rem">Loading…</p></div>
+
+<div class="shell" id="app">
+  <div id="admin-nav-root" data-active="tier3"></div>
+  <script src="/admin/admin-nav.js"></script>
+
+  <p class="page-title">Tier 3 — Private Sourcing</p>
+
+  <div class="crm-panel">
+    <div class="filter-bar">
+      <div class="field search"><label>Search</label><input type="text" id="filter-q" placeholder="Name, email, business…" oninput="debouncedReload()"/></div>
+      <div class="field"><label>Stage</label>
+        <select id="filter-stage" onchange="loadContacts()">
+          <option value="">All</option>
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="qualified">Qualified</option>
+          <option value="active">Active</option>
+          <option value="converted">Converted</option>
+          <option value="lost">Lost</option>
+          <option value="churned">Churned</option>
+        </select>
+      </div>
+      <div class="field"><label>Owner</label>
+        <select id="filter-owner" onchange="loadContacts()"><option value="">All</option></select>
+      </div>
+      <div class="field checkbox-field"><input type="checkbox" id="filter-archived" onchange="loadContacts()"/><label for="filter-archived">Include archived</label></div>
+      <button class="btn-primary" onclick="openNewContactModal()">+ New client</button>
+    </div>
+
+    <div id="contacts-list"><p class="hint">Loading…</p></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="new-contact-overlay" onclick="if(event.target===this)closeNewContactModal()">
+  <div class="card modal-card">
+    <div class="modal-header">
+      <h2>New private sourcing client</h2>
+      <button class="modal-close" onclick="closeNewContactModal()" aria-label="Close">×</button>
+    </div>
+    <div class="modal-form-grid">
+      <div class="field"><label>Name</label><input type="text" id="nc-name"/></div>
+      <div class="field"><label>Category</label>
+        <select id="nc-category">
+          <option value="lead">Lead</option>
+          <option value="client">Client</option>
+        </select>
+      </div>
+      <div class="field"><label>Email</label><input type="email" id="nc-email"/></div>
+      <div class="field"><label>Phone</label><input type="text" id="nc-phone"/></div>
+      <div class="field"><label>Stage</label>
+        <select id="nc-stage">
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="qualified">Qualified</option>
+          <option value="active">Active</option>
+          <option value="converted">Converted</option>
+          <option value="lost">Lost</option>
+          <option value="churned">Churned</option>
+        </select>
+      </div>
+      <div class="field"><label>Source</label><input type="text" id="nc-source" placeholder="facebook_group, referral…"/></div>
+      <div class="field"><label>Owner</label><select id="nc-owner"><option value="">Unassigned</option></select></div>
+    </div>
+    <p class="save-msg" id="nc-msg"></p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="nc-save-btn" onclick="submitNewContact()">Add client</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null, ownersCache=[];
+let searchDebounce=null;
+let reviewsByContact={};
+
+function tokenHeader(){ return {'Authorization':'Bearer '+currentSession.access_token}; }
+async function apiGet(path){
+  const res=await fetch(path,{headers:tokenHeader()});
+  const body=await res.json();
+  if(!res.ok) throw new Error(body.error||'Request failed.');
+  return body;
+}
+async function apiSend(path,method,payload){
+  const res=await fetch(path,{method,headers:{...tokenHeader(),'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const body=await res.json();
+  if(!res.ok) throw new Error(body.error||'Request failed.');
+  return body;
+}
+
+function debouncedReload(){
+  clearTimeout(searchDebounce);
+  searchDebounce=setTimeout(loadContacts, 300);
+}
+
+async function loadOwners(){
+  try{
+    ownersCache=await apiGet('/api/admin/crm/owners');
+    const opts=ownersCache.map(o=>'<option value="'+o.user_id+'">'+crmEscapeHtml(o.name||o.user_id)+'</option>').join('');
+    document.getElementById('filter-owner').innerHTML='<option value="">All</option>'+opts;
+    document.getElementById('nc-owner').innerHTML='<option value="">Unassigned</option>'+opts;
+  }catch(e){ /* dropdowns just stay at their default options */ }
+}
+function ownerNameById(id){
+  if(!id)return null;
+  const o=ownersCache.find(o=>o.user_id===id);
+  return o?crmEscapeHtml(o.name||o.user_id):null;
+}
+
+async function loadReviews(contactIds){
+  reviewsByContact={};
+  try{
+    const reviews=await apiGet('/api/admin/crm/deal-reviews');
+    const idSet=new Set(contactIds);
+    reviews.filter(r=>idSet.has(r.contact_id)).forEach(r=>{
+      if(!reviewsByContact[r.contact_id]) reviewsByContact[r.contact_id]=[];
+      reviewsByContact[r.contact_id].push(r);
+    });
+  }catch(e){ /* inline review lists just stay empty on failure */ }
+}
+
+function renderReviewList(contactId){
+  const reviews=reviewsByContact[contactId]||[];
+  if(!reviews.length) return '<p class="hint">No deal reviews yet.</p>';
+  return reviews.map(r=>
+    '<div class="review-item"><div><div class="task-title">'+crmEscapeHtml(r.property_address)+'</div>'+
+    '<div class="task-meta">'+crmFmtDate(r.review_date)+' · '+crmEscapeHtml(r.outcome)+(r.notes?(' · '+crmEscapeHtml(r.notes)):'')+'</div></div></div>'
+  ).join('');
+}
+
+async function addReviewQuick(contactId){
+  const addrInput=document.getElementById('qr-address-'+contactId);
+  const outcomeInput=document.getElementById('qr-outcome-'+contactId);
+  const address=addrInput.value.trim();
+  if(!address) return;
+  try{
+    await apiSend('/api/admin/crm/contacts/'+contactId+'/deal-reviews','POST',{property_address:address, outcome: outcomeInput.value});
+    addrInput.value='';
+    const contacts=await apiGet('/api/admin/crm/contacts?tier=tier3_private_sourcing&include_archived=true');
+    await loadReviews(contacts.map(c=>c.id));
+    document.getElementById('reviews-'+contactId).innerHTML=renderReviewList(contactId);
+    // The follow-up task itself is created server-side by a DB trigger
+    // (db/029, guaranteed regardless of API path) — this page doesn't show
+    // tasks inline, so this toast is the only place that surfaces it here;
+    // the task itself is visible on the contact's Full profile page.
+    alert('Review added. A follow-up task ("Follow up on '+address+' review", due in 2 days) was created automatically — see this contact\'s Full profile for it.');
+  }catch(e){
+    alert('Could not add review: '+e.message);
+  }
+}
+
+async function loadContacts(){
+  const list=document.getElementById('contacts-list');
+  const params=new URLSearchParams({tier:'tier3_private_sourcing'});
+  const stage=document.getElementById('filter-stage').value;
+  const owner=document.getElementById('filter-owner').value;
+  const q=document.getElementById('filter-q').value.trim();
+  const includeArchived=document.getElementById('filter-archived').checked;
+  if(stage)params.set('stage',stage);
+  if(owner)params.set('owner_id',owner);
+  if(q)params.set('q',q);
+  if(includeArchived)params.set('include_archived','true');
+
+  try{
+    const rows=await apiGet('/api/admin/crm/contacts?'+params.toString());
+    if(!rows.length){ list.innerHTML='<p class="hint">No private sourcing clients match these filters.</p>'; return; }
+
+    await loadReviews(rows.map(c=>c.id));
+
+    list.innerHTML=rows.map(c=>
+      '<div class="contact-card">'+
+        '<div class="contact-card-header">'+
+          '<div>'+
+            '<a class="contact-card-name" href="/admin/contact.html?id='+c.id+'">'+crmEscapeHtml(c.name)+(c.is_archived?' (archived)':'')+'</a>'+
+            (c.is_stale?'<div class="risk-dot">Stale · no activity in 5+ days</div>':'')+
+            '<div class="contact-card-meta">'+
+              '<span class="stage-pill">'+crmEscapeHtml(CRM_STAGE_LABELS[c.stage]||c.stage)+'</span> · '+
+              (c.email?crmEscapeHtml(c.email):'No email')+
+              (ownerNameById(c.owner_id)?(' · Owner: '+ownerNameById(c.owner_id)):'')+
+            '</div>'+
+          '</div>'+
+          '<a class="mini-btn" href="/admin/contact.html?id='+c.id+'">Full profile →</a>'+
+        '</div>'+
+        '<div class="contact-card-inline">'+
+          '<p class="contact-card-inline-title">Deal reviews</p>'+
+          '<div id="reviews-'+c.id+'">'+renderReviewList(c.id)+'</div>'+
+          '<div class="add-form-row" style="margin-top:.5rem">'+
+            '<div class="field"><input type="text" id="qr-address-'+c.id+'" placeholder="Property address…"/></div>'+
+            '<div class="field"><select id="qr-outcome-'+c.id+'">'+
+              '<option value="pursue">Pursue</option><option value="negotiate">Negotiate</option><option value="reject">Reject</option>'+
+            '</select></div>'+
+            '<button class="mini-btn" onclick="addReviewQuick(\''+c.id+'\')">+ Review</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>'
+    ).join('');
+  }catch(e){
+    list.innerHTML='<p class="save-msg error">'+crmEscapeHtml(e.message)+'</p>';
+  }
+}
+
+function openNewContactModal(){
+  ['nc-name','nc-email','nc-phone','nc-source'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('nc-category').value='lead';
+  document.getElementById('nc-stage').value='new';
+  document.getElementById('nc-owner').value='';
+  document.getElementById('nc-msg').textContent='';
+  document.getElementById('new-contact-overlay').classList.add('open');
+}
+function closeNewContactModal(){
+  document.getElementById('new-contact-overlay').classList.remove('open');
+}
+
+async function submitNewContact(){
+  const msg=document.getElementById('nc-msg');
+  const btn=document.getElementById('nc-save-btn');
+  const payload={
+    name: document.getElementById('nc-name').value,
+    contact_category: document.getElementById('nc-category').value,
+    tier: 'tier3_private_sourcing',
+    email: document.getElementById('nc-email').value,
+    phone: document.getElementById('nc-phone').value,
+    stage: document.getElementById('nc-stage').value,
+    source: document.getElementById('nc-source').value,
+    owner_id: document.getElementById('nc-owner').value || null
+  };
+  msg.textContent='';msg.className='save-msg';
+  btn.disabled=true;
+  try{
+    const contact=await apiSend('/api/admin/crm/contacts','POST',payload);
+    closeNewContactModal();
+    window.location.href='/admin/contact.html?id='+contact.id;
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+async function init(){
+  const auth=await requireSuperuser();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  document.getElementById('state-loading').style.display='none';
+  document.getElementById('app').style.display='block';
+
+  await loadOwners();
+  loadContacts();
+}
+init();
+</script>
+</body>
+</html>

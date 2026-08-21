@@ -1,0 +1,150 @@
+/* admin/admin.css — shared layout/component styles for the /admin/ area.
+   Colours/fonts/radius/spacing all still come from styles.css's tokens
+   (this file is loaded alongside it, never instead of it) — this just
+   centralizes the layout rules that would otherwise be duplicated across
+   all five admin pages (index/tier2/tier3/partners/contact), the way the
+   old /admin/crm/*.html pages each repeated their own near-identical
+   inline <style> block. Kept as one shared file specifically because it's
+   five pages sharing the *same* set of rules, not a hypothetical future
+   need — a straightforward de-duplication, not a premature abstraction. */
+
+#app{display:none}
+.hint{font-size:12.5px;color:var(--muted);font-style:italic}
+.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
+.back-link{font-size:12.5px;color:var(--muted);text-decoration:none;display:inline-block;margin-bottom:.5rem}
+.back-link:hover{color:var(--accent)}
+.archived-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--danger);background:var(--danger-bg);border-radius:999px;padding:3px 10px}
+
+/* Admin-only top nav (admin-nav.js). Uses the same --warn accent as the
+   "Admin" badge in the regular app's nav (crm-nav.js), so the two visually
+   read as one system before/after the click. */
+.admin-topbar{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;padding:1rem 0 1.25rem;border-bottom:2px solid var(--warn);margin-bottom:var(--space-6)}
+.admin-topbar-title{font-family:var(--font-head);font-weight:700;font-size:15px;color:var(--warn-ink);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.admin-topbar-badge{font-size:15px}
+.admin-nav-links{display:flex;gap:1.1rem;flex-wrap:wrap;flex:1}
+.admin-nav-link{font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;white-space:nowrap}
+.admin-nav-link:hover{color:var(--ink)}
+.admin-nav-link.active{color:var(--warn-ink);border-bottom:2px solid var(--warn-ink);padding-bottom:2px}
+.admin-back-link{font-size:12.5px;color:var(--muted);text-decoration:none;white-space:nowrap}
+.admin-back-link:hover{color:var(--accent)}
+
+.crm-panel{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.75rem;margin-bottom:var(--space-6)}
+body.theme-light .crm-panel{border:1px solid rgba(0,0,0,.09);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.02)}
+
+.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem}
+.panel-header .subhead{margin:0;border-bottom:none;padding-bottom:0}
+
+.info-row{display:flex;justify-content:space-between;gap:1rem;padding:.5rem 0;border-top:1px solid var(--hairline)}
+.info-row:first-child{border-top:none}
+.info-label{font-size:13px;color:var(--muted)}
+.info-value{font-size:13px;font-weight:700;color:var(--ink);text-align:right}
+
+.edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}
+.edit-grid .field{margin-bottom:.85rem}
+
+.quick-add-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+.quick-add-grid .field{margin-bottom:.5rem}
+.quick-add-grid textarea,.field textarea{font-family:var(--font-body);font-size:13.5px;color:var(--input-ink);background-color:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:8px 10px;width:100%;min-height:60px;resize:vertical}
+
+.task-item,.review-item,.referral-item{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;padding:.65rem .85rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2)}
+.task-item.completed{opacity:.55}
+.task-title{font-size:13.5px;font-weight:600;color:var(--ink)}
+.task-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
+.task-meta.overdue{color:var(--danger);font-weight:600}
+
+.timeline-item{padding:.6rem 0;border-top:1px solid var(--hairline);font-size:13px}
+.timeline-item:first-child{border-top:none}
+.timeline-when{font-size:11px;color:var(--muted);margin-top:2px}
+
+.add-form-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
+.add-form-row .field{margin-bottom:0;min-width:130px}
+.save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
+.save-msg.error{color:var(--danger)}
+
+.footer-actions{display:flex;justify-content:flex-end;gap:8px}
+.mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+body.theme-light .mini-btn:hover{background:rgba(75,69,178,.08)}
+.mini-btn.danger{color:var(--danger);border-color:var(--danger)}
+body.theme-light .mini-btn.danger:hover{background:var(--danger-bg)}
+.mini-btn:disabled{opacity:.5;cursor:default}
+
+.filter-bar{display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
+.filter-bar .field{margin-bottom:0;min-width:150px}
+.filter-bar .field.search{flex:1;min-width:200px}
+.filter-bar .field.checkbox-field{flex-direction:row;align-items:center;gap:6px}
+.filter-bar .field.checkbox-field label{text-transform:none;font-size:12.5px}
+
+.crm-table-wrap{overflow-x:auto}
+.crm-table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+.crm-table th,.crm-table td{border-top:1px solid var(--hairline);padding:.6rem .7rem;text-align:left;color:var(--ink)}
+.crm-table thead th{border-top:none;border-bottom:1px solid var(--hairline);background:var(--surface-2);font-family:var(--font-body);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);white-space:nowrap}
+.crm-table thead th.sortable{cursor:pointer}
+.crm-table thead th.sortable:hover{color:var(--accent)}
+.crm-table tbody tr:hover{background:var(--surface-2)}
+.crm-table tbody tr.completed{opacity:.5}
+.crm-table a{color:var(--ink);text-decoration:none;font-weight:600}
+.crm-table a:hover{color:var(--accent)}
+.crm-table td.muted-cell{color:var(--muted)}
+.crm-table td.overdue{color:var(--danger);font-weight:700}
+.crm-table td.count{font-variant-numeric:tabular-nums;font-weight:700}
+
+.stage-pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--hairline);color:var(--muted);white-space:nowrap}
+.plan-pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.plan-pill.paid,.plan-pill.success{background:var(--success-bg);color:var(--success-ink)}
+.plan-pill.free,.plan-pill.muted{background:var(--surface-2);color:var(--muted);border:1px solid var(--hairline)}
+.plan-pill.warn{background:var(--warn-bg);color:var(--warn-ink)}
+.plan-pill.danger{background:var(--danger-bg);color:var(--danger-ink)}
+
+/* Tier 1's Stripe test-mode banner (admin/index.html) — deliberately loud
+   (warn tokens, full-width), since the whole point is nobody should be
+   able to miss it and mistake test-mode figures for live revenue. */
+.test-mode-banner{background:var(--warn-bg);color:var(--warn-ink);border:1.5px solid var(--warn);border-radius:var(--radius-sm);padding:.75rem 1rem;font-size:13px;font-weight:600;margin-bottom:var(--space-5)}
+
+/* Tier 2 / Tier 3 contact cards — a card per contact rather than a plain
+   table row, since each one needs an inline task list (Tier 2) or deal
+   review list (Tier 3) nested underneath it, not just flat cells. */
+.contact-card{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:1.1rem 1.25rem;margin-bottom:.9rem}
+body.theme-light .contact-card{border:1px solid rgba(0,0,0,.08)}
+.contact-card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap}
+.contact-card-name{font-size:15px;font-weight:700;color:var(--ink);text-decoration:none}
+.contact-card-name:hover{color:var(--accent)}
+.contact-card-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.contact-card-inline{margin-top:.85rem;padding-top:.75rem;border-top:1px solid var(--hairline)}
+.contact-card-inline-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin:0 0 .5rem}
+
+/* Tier 1 — Software: real signed-up users, read from profiles/auth.users,
+   not crm_contacts. */
+.roster-cell-name{font-weight:700;color:var(--ink)}
+.roster-cell-sub{font-size:11.5px;color:var(--muted)}
+
+/* Shared flag styling — Tier 1's at-risk (7+ days no login) and Tier 2/3's
+   stale-lead (5+ days no activity) flags use the exact same treatment, per
+   spec, so both reference this one class rather than each defining their
+   own. A small red dot plus a label, not a whole banner — visible without
+   dominating the row/card it's on. */
+.risk-dot{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--danger-ink)}
+.risk-dot::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--danger)}
+
+/* Partners — grouped by business category. */
+.partner-group-heading{font-family:var(--font-head);font-weight:600;font-size:14px;color:var(--ink);margin:1.5rem 0 .5rem}
+.partner-group-heading:first-child{margin-top:0}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-card{max-width:520px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-card.narrow{max-width:420px}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem}
+.modal-header h2{font-size:18px;margin:0}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+.modal-close:hover{color:var(--ink)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:1rem}
+.modal-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}
+
+/* Voice note capture (Web Speech API, admin/contact.html). */
+.voice-btn{font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink);background:var(--surface-2);border:1.5px solid var(--hairline);border-radius:999px;padding:6px 14px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.voice-btn:hover{border-color:var(--accent)}
+.voice-btn.recording{background:var(--danger-bg);border-color:var(--danger);color:var(--danger-ink)}
+.voice-btn.recording .voice-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger);animation:voice-pulse 1s infinite}
+@keyframes voice-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.voice-transcript{margin-top:.6rem;font-size:13px;color:var(--ink);background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.6rem .75rem;min-height:2.4em;white-space:pre-wrap}
+.voice-unsupported{font-size:11.5px;color:var(--muted);font-style:italic}

@@ -55,6 +55,12 @@
 .btn-danger:hover{background:var(--danger);color:#fff}
 .btn-danger:disabled{opacity:.5;cursor:not-allowed}
 .btn-danger:disabled:hover{background:var(--danger-bg);color:var(--danger-ink)}
+
+/* Investment Defaults — a 2-column grid, this section only; every other
+   card on this page is single-field-per-row, but 11 fields in one column
+   would make this section unreasonably tall. */
+.investment-defaults-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}
+.investment-defaults-grid .field{margin-bottom:1rem}
 </style>
 </head>
 <body class="theme-light">
@@ -62,6 +68,7 @@
 <div class="shell">
   <div id="nav-root" data-active="settings" data-subscribe="false"></div>
   <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
 
   <p class="page-title">Settings</p>
 
@@ -145,10 +152,34 @@
         <button class="btn-secondary" disabled>Manage subscription</button>
       </div>
 
-      <!-- PREFERENCES (stub) -->
+      <!-- INVESTMENT DEFAULTS -->
       <div class="card settings-card">
-        <h2>Preferences</h2>
-        <p class="hint">Dashboard widget customisation and notification preferences will live here soon.</p>
+        <h2>Investment Defaults</h2>
+        <p class="hint" style="margin-bottom:1rem">Your own typical assumptions, applied everywhere they're relevant on the calculator instead of the built-in generic starting values. Blank stays blank — nothing here is required, and the calculator falls back to its normal defaults for anything you don't set.</p>
+
+        <div class="investment-defaults-grid">
+          <div class="field"><label>Target yield (%)</label><input type="number" id="inv-target-yield" step="0.1"/></div>
+          <div class="field"><label>Target ROI (%)</label><input type="number" id="inv-target-roi" step="0.1"/></div>
+          <div class="field"><label>Mortgage rate (%)</label><input type="number" id="inv-mortgage-rate" step="0.01"/></div>
+          <div class="field"><label>Mortgage term (years)</label><input type="number" id="inv-mortgage-term" step="1"/></div>
+          <div class="field"><label>Deposit % (of EMV)</label><input type="number" id="inv-deposit-pct" step="0.1"/></div>
+          <div class="field"><label>Default results tab</label>
+            <select id="inv-mortgage-type">
+              <option value="">— No preference —</option>
+              <option value="cash">Cash</option>
+              <option value="interest_only">Interest-only</option>
+              <option value="repayment">Repayment</option>
+            </select>
+          </div>
+          <div class="field"><label>Solicitor costs (£)</label><input type="number" id="inv-solicitor-costs" step="1"/></div>
+          <div class="field"><label>Insurance /mo (£)</label><input type="number" id="inv-insurance" step="1"/></div>
+          <div class="field"><label>Management % of rent/revenue</label><input type="number" id="inv-management-pct" step="0.5"/></div>
+          <div class="field"><label>Maintenance % of rent/revenue</label><input type="number" id="inv-maintenance-pct" step="0.5"/></div>
+          <div class="field"><label>Refurb contingency % (Flip)</label><input type="number" id="inv-refurb-contingency-pct" step="1"/></div>
+        </div>
+
+        <button class="btn-primary" id="btn-save-investment-defaults" onclick="saveInvestmentDefaults()">Save investment defaults</button>
+        <p class="save-msg" id="investment-defaults-msg"></p>
       </div>
 
       <!-- DANGER ZONE -->
@@ -222,9 +253,73 @@ async function loadProfile(){
     badge.textContent=isPaid?'Paid (£29/mo)':'Free';
     badge.className='plan-badge '+(isPaid?'paid':'free');
     document.getElementById('set-plan-free-cta').style.display=isPaid?'none':'block';
+
+    populateInvestmentDefaults(d);
   }catch(e){
     document.getElementById('set-plan-badge').textContent='Unavailable';
   }
+}
+
+// ---------------------------------------------------------------------
+// Investment Defaults — same GET /api/profile response index.html's own
+// loadDefaults() already reads (target_yield/target_roi/
+// default_mortgage_rate/standard_fees.solicitor, reused here rather than
+// duplicated) plus the new columns from db/030. Every field is left blank
+// if the value is null, same "don't overwrite with a fake value" pattern
+// as index.html's loadDefaults() — this page has no built-in fallback
+// value to show instead, so blank is the correct empty state, not 0.
+function populateInvestmentDefaults(d){
+  const setIfNotNull=(id,val)=>{ if(val!=null) document.getElementById(id).value=val; };
+  setIfNotNull('inv-target-yield',d.target_yield);
+  setIfNotNull('inv-target-roi',d.target_roi);
+  setIfNotNull('inv-mortgage-rate',d.default_mortgage_rate);
+  setIfNotNull('inv-mortgage-term',d.default_mortgage_term_years);
+  setIfNotNull('inv-deposit-pct',d.default_deposit_pct);
+  if(d.default_mortgage_type) document.getElementById('inv-mortgage-type').value=d.default_mortgage_type;
+  setIfNotNull('inv-solicitor-costs',d.standard_fees&&d.standard_fees.solicitor);
+  setIfNotNull('inv-insurance',d.default_insurance);
+  setIfNotNull('inv-management-pct',d.default_management_pct);
+  setIfNotNull('inv-maintenance-pct',d.default_maintenance_pct);
+  setIfNotNull('inv-refurb-contingency-pct',d.default_refurb_contingency_pct);
+}
+
+function invNumOrNull(id){
+  const v=document.getElementById(id).value;
+  return v===''?null:Number(v);
+}
+
+async function saveInvestmentDefaults(){
+  const btn=document.getElementById('btn-save-investment-defaults');
+  const msg=document.getElementById('investment-defaults-msg');
+  const payload={
+    target_yield:invNumOrNull('inv-target-yield'),
+    target_roi:invNumOrNull('inv-target-roi'),
+    default_mortgage_rate:invNumOrNull('inv-mortgage-rate'),
+    default_mortgage_term_years:invNumOrNull('inv-mortgage-term'),
+    default_deposit_pct:invNumOrNull('inv-deposit-pct'),
+    default_mortgage_type:document.getElementById('inv-mortgage-type').value||null,
+    solicitor_costs:invNumOrNull('inv-solicitor-costs'),
+    default_insurance:invNumOrNull('inv-insurance'),
+    default_management_pct:invNumOrNull('inv-management-pct'),
+    default_maintenance_pct:invNumOrNull('inv-maintenance-pct'),
+    default_refurb_contingency_pct:invNumOrNull('inv-refurb-contingency-pct')
+  };
+
+  btn.disabled=true;btn.textContent='Saving…';
+  msg.textContent='';msg.className='save-msg';
+  try{
+    const res=await fetch('/api/profile/investment-defaults',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not save your investment defaults.');
+    msg.textContent='Saved. These now pre-fill the calculator.';msg.className='save-msg success';
+  }catch(e){
+    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;btn.textContent='Save investment defaults';
 }
 
 // ---------------------------------------------------------------------

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PROPulsion Admin · Partners</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/admin/admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/admin-guard.js"></script>
+<script src="/admin/crm-shared.js"></script>
+</head>
+<body class="theme-light">
+
+<div id="state-loading"><p class="hint" style="padding:1.5rem">Loading…</p></div>
+
+<div class="shell" id="app">
+  <div id="admin-nav-root" data-active="partners"></div>
+  <script src="/admin/admin-nav.js"></script>
+
+  <p class="page-title">Referral Partners</p>
+
+  <div class="crm-panel">
+    <div class="filter-bar">
+      <div class="field"><label>Business category</label>
+        <select id="filter-business-category" onchange="renderPartners()">
+          <option value="">All</option>
+          <option value="mortgage_broker">Mortgage Broker</option>
+          <option value="accountant">Accountant</option>
+          <option value="solicitor">Solicitor</option>
+          <option value="surveyor">Surveyor</option>
+          <option value="builder">Builder</option>
+          <option value="letting_agent">Letting Agent</option>
+        </select>
+      </div>
+      <div class="field"><label>Partner tier</label>
+        <select id="filter-partner-tier" onchange="renderPartners()">
+          <option value="">All</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </div>
+      <div class="field"><label>Group by</label>
+        <select id="group-mode" onchange="renderPartners()">
+          <option value="business_category">Business category</option>
+          <option value="partner_tier">Partner tier</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+    </div>
+    <div id="partners-groups"><p class="hint">Loading…</p></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="referral-overlay" onclick="if(event.target===this)closeReferralModal()">
+  <div class="card modal-card narrow">
+    <div class="modal-header">
+      <h2 id="referral-modal-title">Add referral</h2>
+      <button class="modal-close" onclick="closeReferralModal()" aria-label="Close">×</button>
+    </div>
+    <div class="field"><label>Direction</label>
+      <select id="rf-direction">
+        <option value="sent">Sent (we referred them someone)</option>
+        <option value="received">Received (they referred us someone)</option>
+      </select>
+    </div>
+    <div class="field"><label>Referred name</label><input type="text" id="rf-name"/></div>
+    <div class="field"><label>Outcome</label><input type="text" id="rf-outcome" placeholder="Optional"/></div>
+    <div class="field"><label>Value estimate (£)</label><input type="number" id="rf-value" placeholder="Optional"/></div>
+    <p class="save-msg" id="rf-msg"></p>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="submitReferral()">Add referral</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null;
+let referralContactId=null;
+let allPartners=[];
+
+function tokenHeader(){ return {'Authorization':'Bearer '+currentSession.access_token}; }
+async function apiGet(path){
+  const res=await fetch(path,{headers:tokenHeader()});
+  const body=await res.json();
+  if(!res.ok) throw new Error(body.error||'Request failed.');
+  return body;
+}
+async function apiSend(path,method,payload){
+  const res=await fetch(path,{method,headers:{...tokenHeader(),'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const body=await res.json();
+  if(!res.ok) throw new Error(body.error||'Request failed.');
+  return body;
+}
+
+function partnerRowHtml(p){
+  return '<tr>'+
+    '<td><a href="/admin/contact.html?id='+p.id+'">'+crmEscapeHtml(p.name)+'</a></td>'+
+    '<td>'+(p.business_category?crmEscapeHtml(CRM_BUSINESS_CATEGORY_LABELS[p.business_category]||p.business_category):'—')+'</td>'+
+    '<td>'+(p.partner_tier||'—')+'</td>'+
+    '<td class="count">'+p.referral_counts.sent+'</td>'+
+    '<td class="count">'+p.referral_counts.received+'</td>'+
+    '<td><button class="mini-btn" data-contact-id="'+p.id+'" data-contact-name="'+crmEscapeAttr(p.name)+'" onclick="openReferralModal(this.dataset.contactId,this.dataset.contactName)">+ Add referral</button></td>'+
+  '</tr>';
+}
+
+function tableHtml(rows){
+  return '<div class="crm-table-wrap">'+
+    '<table class="crm-table"><thead><tr><th>Name</th><th>Business category</th><th>Partner tier</th><th>Sent</th><th>Received</th><th></th></tr></thead>'+
+    '<tbody>'+rows.map(partnerRowHtml).join('')+'</tbody></table></div>';
+}
+
+function renderPartners(){
+  const el=document.getElementById('partners-groups');
+  const businessFilter=document.getElementById('filter-business-category').value;
+  const tierFilter=document.getElementById('filter-partner-tier').value;
+  const groupMode=document.getElementById('group-mode').value;
+
+  let filtered=allPartners;
+  if(businessFilter) filtered=filtered.filter(p=>p.business_category===businessFilter);
+  if(tierFilter) filtered=filtered.filter(p=>String(p.partner_tier||'')===tierFilter);
+
+  if(!filtered.length){ el.innerHTML='<p class="hint">No referral partners match these filters.</p>'; return; }
+
+  if(groupMode==='none'){
+    el.innerHTML=tableHtml(filtered);
+    return;
+  }
+
+  const groups={};
+  filtered.forEach(p=>{
+    const key=groupMode==='business_category'
+      ? (p.business_category||'')
+      : (p.partner_tier||'');
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(p);
+  });
+
+  const orderedKeys=Object.keys(groups).sort((a,b)=>{
+    if(a==='')return 1; if(b==='')return -1;
+    return a.localeCompare(b);
+  });
+
+  el.innerHTML=orderedKeys.map(key=>{
+    const label=groupMode==='business_category'
+      ? (key ? (CRM_BUSINESS_CATEGORY_LABELS[key]||key) : 'No business category set')
+      : (key ? ('Partner tier '+key) : 'No partner tier set');
+    return '<p class="partner-group-heading">'+crmEscapeHtml(label)+' ('+groups[key].length+')</p>'+tableHtml(groups[key]);
+  }).join('');
+}
+
+async function loadPartners(){
+  const el=document.getElementById('partners-groups');
+  try{
+    allPartners=await apiGet('/api/admin/crm/partners');
+    renderPartners();
+  }catch(e){
+    el.innerHTML='<p class="save-msg error">'+crmEscapeHtml(e.message)+'</p>';
+  }
+}
+
+function openReferralModal(contactId, contactName){
+  referralContactId=contactId;
+  document.getElementById('referral-modal-title').textContent='Add referral · '+contactName;
+  document.getElementById('rf-direction').value='sent';
+  document.getElementById('rf-name').value='';
+  document.getElementById('rf-outcome').value='';
+  document.getElementById('rf-value').value='';
+  document.getElementById('rf-msg').textContent='';
+  document.getElementById('referral-overlay').classList.add('open');
+}
+function closeReferralModal(){
+  document.getElementById('referral-overlay').classList.remove('open');
+  referralContactId=null;
+}
+
+async function submitReferral(){
+  const msg=document.getElementById('rf-msg');
+  const referredName=document.getElementById('rf-name').value.trim();
+  if(!referredName){ msg.textContent='Enter who was referred.'; msg.className='save-msg error'; return; }
+  msg.textContent='';msg.className='save-msg';
+  try{
+    await apiSend('/api/admin/crm/contacts/'+referralContactId+'/referrals','POST',{
+      direction: document.getElementById('rf-direction').value,
+      referred_name: referredName,
+      outcome: document.getElementById('rf-outcome').value,
+      value_estimate: document.getElementById('rf-value').value || null
+    });
+    closeReferralModal();
+    loadPartners();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+async function init(){
+  const auth=await requireSuperuser();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  document.getElementById('state-loading').style.display='none';
+  document.getElementById('app').style.display='block';
+
+  loadPartners();
+}
+init();
+</script>
+</body>
+</html>

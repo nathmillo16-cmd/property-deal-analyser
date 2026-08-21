@@ -348,6 +348,7 @@ body.theme-light .dd-trigger::after{
 <div class="shell" id="app">
   <div id="nav-root" data-active="index" data-subscribe="true"></div>
   <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
 
   <p class="page-title">Calculator</p>
   <p class="page-sub">Analyse a deal across BTL, HMO, SA, or Flip, or pull live comps for a postcode.</p>
@@ -2110,6 +2111,59 @@ async function loadDefaults(){
         document.getElementById('sa-srch').value=d.standard_fees.searches;
       }
     }
+
+    // Investment Defaults (settings.html, db/030) — same pre-fill pattern
+    // as everything above: only overwrites the built-in HTML value when a
+    // real saved default exists, applied uniformly across BTL/HMO/SA same
+    // as target_yield/target_roi/etc already are.
+    if(d.default_deposit_pct!=null){
+      document.getElementById('b-dp').value=d.default_deposit_pct;
+      document.getElementById('h-dp').value=d.default_deposit_pct;
+      document.getElementById('sa-dp').value=d.default_deposit_pct;
+    }
+    if(d.default_mortgage_term_years!=null){
+      document.getElementById('b-term').value=d.default_mortgage_term_years;
+      document.getElementById('h-term').value=d.default_mortgage_term_years;
+      document.getElementById('sa-term').value=d.default_mortgage_term_years;
+    }
+    if(d.default_insurance!=null){
+      document.getElementById('b-ins').value=d.default_insurance;
+      document.getElementById('h-ins').value=d.default_insurance;
+      document.getElementById('sa-ins').value=d.default_insurance;
+    }
+    if(d.default_management_pct!=null){
+      document.getElementById('b-mgmt').value=d.default_management_pct;
+      document.getElementById('h-mgmt').value=d.default_management_pct;
+      document.getElementById('sa-mgmt').value=d.default_management_pct;
+    }
+    if(d.default_maintenance_pct!=null){
+      document.getElementById('b-maint').value=d.default_maintenance_pct;
+      document.getElementById('h-maint').value=d.default_maintenance_pct;
+      document.getElementById('sa-maint').value=d.default_maintenance_pct;
+    }
+    // Flip has no shared "save as my defaults" button (see CLAUDE.md — its
+    // input set doesn't map onto this shared schema), but that's about
+    // saving, not pre-filling; refurb contingency % still pre-fills here
+    // same as everything else, it just has nowhere on Flip to be re-saved
+    // from.
+    if(d.default_refurb_contingency_pct!=null){
+      document.getElementById('fl-cont').value=d.default_refurb_contingency_pct;
+      cFlip();
+    }
+    // default_mortgage_type is a display preference only (which results
+    // tab opens first) — never changes what's calculated, all three modes
+    // still compute exactly as before regardless of this value. Maps onto
+    // switchFinTab's own internal mode codes ('m'/'r'/'c'), not the
+    // readable values stored in the database.
+    if(d.default_mortgage_type){
+      const finTabMode={cash:'c',interest_only:'m',repayment:'r'}[d.default_mortgage_type];
+      if(finTabMode){
+        switchFinTab('btl',finTabMode);
+        switchFinTab('hmo',finTabMode);
+        switchFinTab('sa',finTabMode);
+      }
+    }
+
     cBTL();cHMO();cSA();
   }catch(e){
     // fail silently — calculator keeps its built-in default values

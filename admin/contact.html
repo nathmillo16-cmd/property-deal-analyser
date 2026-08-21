@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PROPulsion Admin · Contact</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/admin/admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/admin-guard.js"></script>
+<script src="/admin/crm-shared.js"></script>
+</head>
+<body class="theme-light">
+
+<div id="state-loading"><p class="hint" style="padding:1.5rem">Loading…</p></div>
+
+<div class="shell" id="app">
+  <div id="admin-nav-root" data-active=""></div>
+  <script src="/admin/admin-nav.js"></script>
+
+  <a class="back-link" id="section-back-link" href="/admin/index.html">← Back</a>
+  <p class="page-title"><span id="ct-name">—</span><span class="archived-tag" id="ct-archived-tag" style="display:none">Archived</span></p>
+
+  <!-- Pending state: a Tier 1 signed-up user with no CRM record yet. Shown
+       instead of everything below until a note/task actually creates one
+       (see createLinkedContactAndAddNote). -->
+  <div class="crm-panel" id="pending-panel" style="display:none">
+    <p class="subhead">No CRM record yet</p>
+    <p class="hint" style="margin:-.3rem 0 1rem">This is a real signed-up user with nothing logged about them yet. Add a note below to start one — nothing is created until you do.</p>
+    <div class="field"><label>Note</label><textarea id="pending-note"></textarea></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="mini-btn" onclick="addPendingNote()">Add note</button>
+      <button class="voice-btn" id="pending-voice-btn" onclick="toggleVoiceRecord('pending-note','pending-voice-btn')">🎤 Record note</button>
+    </div>
+    <p class="save-msg" id="pending-msg"></p>
+  </div>
+
+  <div id="loaded-sections" style="display:none">
+    <div class="crm-panel">
+      <div class="panel-header">
+        <p class="subhead">Contact details</p>
+        <div>
+          <button class="mini-btn" id="edit-toggle-btn" onclick="toggleEdit()">Edit</button>
+        </div>
+      </div>
+      <div id="core-view"></div>
+      <div id="core-edit" style="display:none">
+        <div class="edit-grid">
+          <div class="field"><label>Name</label><input type="text" id="ed-name"/></div>
+          <div class="field"><label>Category</label>
+            <select id="ed-category">
+              <option value="lead">Lead</option>
+              <option value="client">Client</option>
+              <option value="referral_partner">Referral Partner</option>
+            </select>
+          </div>
+          <div class="field"><label>Email</label><input type="email" id="ed-email"/></div>
+          <div class="field"><label>Phone</label><input type="text" id="ed-phone"/></div>
+          <div class="field"><label>Tier</label>
+            <select id="ed-tier">
+              <option value="">—</option>
+              <option value="tier1_software">Tier 1 · Software</option>
+              <option value="tier2_acquisition_partner">Tier 2 · Acquisition Partner</option>
+              <option value="tier3_private_sourcing">Tier 3 · Private Sourcing</option>
+            </select>
+          </div>
+          <div class="field"><label>Stage</label>
+            <select id="ed-stage">
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="qualified">Qualified</option>
+              <option value="active">Active</option>
+              <option value="converted">Converted</option>
+              <option value="lost">Lost</option>
+              <option value="churned">Churned</option>
+            </select>
+          </div>
+          <div class="field"><label>Source</label><input type="text" id="ed-source"/></div>
+          <div class="field"><label>Owner</label><select id="ed-owner"><option value="">Unassigned</option></select></div>
+          <div class="field"><label>Linked user id</label><input type="text" id="ed-linked-user" placeholder="Set when this lead converts to a signup"/></div>
+          <div class="field"><label>Business name</label><input type="text" id="ed-business-name"/></div>
+          <div class="field"><label>Business category</label>
+            <select id="ed-business-category">
+              <option value="">—</option>
+              <option value="mortgage_broker">Mortgage Broker</option>
+              <option value="accountant">Accountant</option>
+              <option value="solicitor">Solicitor</option>
+              <option value="surveyor">Surveyor</option>
+              <option value="builder">Builder</option>
+              <option value="letting_agent">Letting Agent</option>
+            </select>
+          </div>
+          <div class="field"><label>Partner tier</label>
+            <select id="ed-partner-tier">
+              <option value="">—</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+        </div>
+        <p class="save-msg" id="core-msg"></p>
+        <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:8px">
+          <button class="mini-btn" onclick="cancelEdit()">Cancel</button>
+          <button class="btn-primary" onclick="saveCore()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="crm-panel">
+      <p class="subhead">Quick add</p>
+      <div class="quick-add-grid">
+        <div>
+          <div class="field"><label>Note</label><textarea id="qa-note"></textarea></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="mini-btn" onclick="quickAdd('note','qa-note')">Add note</button>
+            <button class="voice-btn" id="qa-note-voice-btn" onclick="toggleVoiceRecord('qa-note','qa-note-voice-btn')">🎤 Record note</button>
+          </div>
+        </div>
+        <div>
+          <div class="field"><label>Log a call</label><textarea id="qa-call"></textarea></div>
+          <button class="mini-btn" onclick="quickAdd('call_logged','qa-call')">Log call</button>
+        </div>
+        <div>
+          <div class="field"><label>Log an email</label><textarea id="qa-email"></textarea></div>
+          <button class="mini-btn" onclick="quickAdd('email_sent','qa-email')">Log email</button>
+        </div>
+      </div>
+      <p class="voice-unsupported" id="voice-unsupported-hint" style="display:none">Voice capture needs Chrome's Web Speech API — not available in this browser. Type the note instead.</p>
+      <p class="save-msg" id="qa-msg"></p>
+    </div>
+
+    <div class="crm-panel">
+      <p class="subhead">Open tasks</p>
+      <div class="add-form-row">
+        <div class="field"><label>Title</label><input type="text" id="task-title"/></div>
+        <div class="field"><label>Due date</label><input type="date" id="task-due"/></div>
+        <div class="field"><label>Assigned to</label><select id="task-assignee"><option value="">Unassigned</option></select></div>
+        <button class="btn-primary" onclick="addTask()">Add task</button>
+      </div>
+      <p class="save-msg" id="task-msg"></p>
+      <div id="tasks-list"><p class="hint">Loading…</p></div>
+    </div>
+
+    <div class="crm-panel" id="deal-reviews-panel" style="display:none">
+      <p class="subhead">Deal reviews</p>
+      <div class="add-form-row">
+        <div class="field"><label>Property address</label><input type="text" id="dr-address"/></div>
+        <div class="field"><label>Review date</label><input type="date" id="dr-date"/></div>
+        <div class="field"><label>Outcome</label>
+          <select id="dr-outcome">
+            <option value="pursue">Pursue</option>
+            <option value="negotiate">Negotiate</option>
+            <option value="reject">Reject</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="addDealReview()">Add review</button>
+      </div>
+      <div class="field"><label>Notes</label><input type="text" id="dr-notes"/></div>
+      <p class="save-msg" id="dr-msg"></p>
+      <div id="reviews-list"></div>
+    </div>
+
+    <div class="crm-panel" id="referrals-panel" style="display:none">
+      <p class="subhead">Referrals</p>
+      <p class="hint">Sent <strong id="ref-sent-count">0</strong> · Received <strong id="ref-received-count">0</strong> — add or manage referrals from <a href="/admin/partners.html">the Partners page</a>.</p>
+      <div id="referrals-list"></div>
+    </div>
+
+    <div class="crm-panel">
+      <p class="subhead">Activity timeline</p>
+      <div id="timeline-list"><p class="hint">Loading…</p></div>
+    </div>
+
+    <div class="footer-actions">
+      <button class="mini-btn danger" id="archive-btn" onclick="toggleArchive()">Archive</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null;
+const urlParams=new URLSearchParams(window.location.search);
+let contactId=urlParams.get('id');
+const linkedUserId=urlParams.get('linked_user_id');
+const prefillName=urlParams.get('name')||'';
+const prefillEmail=urlParams.get('email')||'';
+let contact=null, ownersCache=[];
+
+function tokenHeader(){ return {'Authorization':'Bearer '+currentSession.access_token}; }
+async function apiGet(path){
+  const res=await fetch(path,{headers:tokenHeader()});
+  const body=await res.json();
+  if(!res.ok) throw new Error(body.error||'Request failed.');
+  return body;
+}
+async function apiSend(path,method,payload){
+  const res=await fetch(path,{method,headers:{...tokenHeader(),'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const body=await res.json();
+  if(!res.ok) throw new Error(body.error||'Request failed.');
+  return body;
+}
+
+// ---------------------------------------------------------------------
+// Voice note capture (Web Speech API). Populates a textarea live as you
+// speak; the existing Add note / addPendingNote button is still the real
+// save step, same as if you'd typed it — this only replaces the typing.
+// Chrome-only (webkitSpeechRecognition), which is expected and fine per
+// the brief: this is an internal admin tool, not customer-facing.
+// ---------------------------------------------------------------------
+let activeRecognition=null, activeRecognitionBtnId=null;
+
+function getSpeechRecognitionCtor(){
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function toggleVoiceRecord(textareaId, btnId){
+  const SR=getSpeechRecognitionCtor();
+  if(!SR){
+    document.getElementById('voice-unsupported-hint').style.display='block';
+    return;
+  }
+  const btn=document.getElementById(btnId);
+  const textarea=document.getElementById(textareaId);
+
+  if(activeRecognition){
+    activeRecognition.stop();
+    return;
+  }
+
+  const baseText=textarea.value.trim() ? textarea.value.trim()+' ' : '';
+  const recognition=new SR();
+  recognition.lang='en-GB';
+  recognition.continuous=true;
+  recognition.interimResults=true;
+
+  recognition.onresult=function(e){
+    let finalText='', interimText='';
+    for(let i=0;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalText+=t+' '; else interimText+=t;
+    }
+    textarea.value=(baseText+finalText+interimText).trim();
+  };
+  const stop=function(){
+    activeRecognition=null;
+    activeRecognitionBtnId=null;
+    btn.classList.remove('recording');
+    btn.innerHTML='🎤 Record note';
+  };
+  recognition.onerror=stop;
+  recognition.onend=stop;
+
+  recognition.start();
+  activeRecognition=recognition;
+  activeRecognitionBtnId=btnId;
+  btn.classList.add('recording');
+  btn.innerHTML='<span class="voice-dot"></span> Stop recording';
+}
+
+// ---------------------------------------------------------------------
+// Tier 1 pending-link flow: a linked_user_id with no existing crm_contacts
+// row yet. The row is created lazily, only when a note is actually saved
+// — never just from viewing this page — so Tier 1's own roster (profiles-
+// driven, GET /api/admin/users) never gets a phantom CRM record just
+// because a superuser looked at someone.
+// ---------------------------------------------------------------------
+async function addPendingNote(){
+  const textarea=document.getElementById('pending-note');
+  const msg=document.getElementById('pending-msg');
+  const text=textarea.value.trim();
+  if(!text){ msg.textContent='Enter a note first.'; msg.className='save-msg error'; return; }
+  msg.textContent='';msg.className='save-msg';
+  try{
+    const newContact=await apiSend('/api/admin/crm/contacts','POST',{
+      name: prefillName || prefillEmail || 'Signed-up user',
+      contact_category: 'client',
+      tier: 'tier1_software',
+      email: prefillEmail || null,
+      linked_user_id: linkedUserId
+    });
+    contactId=newContact.id;
+    await apiSend('/api/admin/crm/contacts/'+contactId+'/activity','POST',{event_type:'note',text});
+    history.replaceState(null,'','/admin/contact.html?id='+contactId);
+    document.getElementById('pending-panel').style.display='none';
+    await loadFullContactAndRender();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+function ownerOptionsHtml(selectedId, includeUnassignedLabel){
+  let html='<option value="">'+includeUnassignedLabel+'</option>';
+  ownersCache.forEach(o=>{
+    html+='<option value="'+o.user_id+'"'+(o.user_id===selectedId?' selected':'')+'>'+crmEscapeHtml(o.name||o.user_id)+'</option>';
+  });
+  return html;
+}
+
+function renderCoreView(){
+  const c=contact;
+  const rows=[
+    ['Email', c.email||'—'],
+    ['Phone', c.phone||'—'],
+    ['Category', CRM_CATEGORY_LABELS[c.contact_category]||c.contact_category],
+    ['Tier', c.tier?(CRM_TIER_LABELS[c.tier]||c.tier):'—'],
+    ['Stage', CRM_STAGE_LABELS[c.stage]||c.stage],
+    ['Source', c.source||'—'],
+    ['Owner', ownerNameById(c.owner_id)||'Unassigned'],
+    ['Linked user id', c.linked_user_id||'—'],
+    ['Business name', c.business_name||'—'],
+    ['Business category', c.business_category?(CRM_BUSINESS_CATEGORY_LABELS[c.business_category]||c.business_category):'—'],
+    ['Partner tier', c.partner_tier||'—'],
+    ['Created', crmFmtDate(c.created_at)],
+    ['Last updated', crmFmtDate(c.updated_at)]
+  ];
+  document.getElementById('core-view').innerHTML=rows.map(([label,value])=>
+    '<div class="info-row"><span class="info-label">'+label+'</span><span class="info-value">'+crmEscapeHtml(String(value))+'</span></div>'
+  ).join('');
+}
+
+function ownerNameById(id){
+  if(!id)return null;
+  const o=ownersCache.find(o=>o.user_id===id);
+  return o?crmEscapeHtml(o.name||o.user_id):id;
+}
+
+function toggleEdit(){
+  const editing=document.getElementById('core-edit').style.display!=='none';
+  if(editing){ cancelEdit(); return; }
+  const c=contact;
+  document.getElementById('ed-name').value=c.name||'';
+  document.getElementById('ed-category').value=c.contact_category;
+  document.getElementById('ed-email').value=c.email||'';
+  document.getElementById('ed-phone').value=c.phone||'';
+  document.getElementById('ed-tier').value=c.tier||'';
+  document.getElementById('ed-stage').value=c.stage;
+  document.getElementById('ed-source').value=c.source||'';
+  document.getElementById('ed-owner').innerHTML=ownerOptionsHtml(c.owner_id,'Unassigned');
+  document.getElementById('ed-linked-user').value=c.linked_user_id||'';
+  document.getElementById('ed-business-name').value=c.business_name||'';
+  document.getElementById('ed-business-category').value=c.business_category||'';
+  document.getElementById('ed-partner-tier').value=c.partner_tier||'';
+  document.getElementById('core-msg').textContent='';
+  document.getElementById('core-view').style.display='none';
+  document.getElementById('core-edit').style.display='block';
+  document.getElementById('edit-toggle-btn').textContent='Close';
+}
+function cancelEdit(){
+  document.getElementById('core-view').style.display='block';
+  document.getElementById('core-edit').style.display='none';
+  document.getElementById('edit-toggle-btn').textContent='Edit';
+}
+
+async function saveCore(){
+  const msg=document.getElementById('core-msg');
+  const payload={
+    name: document.getElementById('ed-name').value,
+    contact_category: document.getElementById('ed-category').value,
+    email: document.getElementById('ed-email').value,
+    phone: document.getElementById('ed-phone').value,
+    tier: document.getElementById('ed-tier').value || null,
+    stage: document.getElementById('ed-stage').value,
+    source: document.getElementById('ed-source').value,
+    owner_id: document.getElementById('ed-owner').value || null,
+    linked_user_id: document.getElementById('ed-linked-user').value || null,
+    business_name: document.getElementById('ed-business-name').value,
+    business_category: document.getElementById('ed-business-category').value || null,
+    partner_tier: document.getElementById('ed-partner-tier').value || null
+  };
+  msg.textContent='';msg.className='save-msg';
+  try{
+    contact=await apiSend('/api/admin/crm/contacts/'+contactId,'PUT',payload);
+    renderAll();
+    cancelEdit();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+async function toggleArchive(){
+  const archiving=!contact.is_archived;
+  if(!confirm(archiving?'Archive this contact? It stays in the database and can be restored later — nothing is deleted.':'Restore this contact from the archive?'))return;
+  try{
+    contact=await apiSend('/api/admin/crm/contacts/'+contactId,'PUT',{is_archived:archiving});
+    renderAll();
+  }catch(e){
+    alert('Could not update: '+e.message);
+  }
+}
+
+async function quickAdd(eventType, fieldId){
+  const field=document.getElementById(fieldId);
+  const text=field.value.trim();
+  const msg=document.getElementById('qa-msg');
+  if(!text){ msg.textContent='Enter some text first.'; msg.className='save-msg error'; return; }
+  msg.textContent='';msg.className='save-msg';
+  try{
+    await apiSend('/api/admin/crm/contacts/'+contactId+'/activity','POST',{event_type:eventType,text});
+    field.value='';
+    await loadTimeline();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+function renderTasks(tasks){
+  const el=document.getElementById('tasks-list');
+  const open=tasks.filter(t=>!t.completed);
+  if(!open.length){ el.innerHTML='<p class="hint">No open tasks.</p>'; return; }
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=open.map(t=>{
+    const overdue=t.due_date && t.due_date<today;
+    return '<div class="task-item">'+
+      '<div><div class="task-title">'+crmEscapeHtml(t.title)+'</div>'+
+      '<div class="task-meta'+(overdue?' overdue':'')+'">'+(t.due_date?('Due '+crmFmtDate(t.due_date)):'No due date')+(t.assigned_to?(' · '+(ownerNameById(t.assigned_to)||'')):'')+'</div></div>'+
+      '<button class="mini-btn" onclick="completeTask(\''+t.id+'\')">Mark done</button>'+
+    '</div>';
+  }).join('');
+}
+
+async function addTask(){
+  const msg=document.getElementById('task-msg');
+  const title=document.getElementById('task-title').value.trim();
+  if(!title){ msg.textContent='Enter a task title.'; msg.className='save-msg error'; return; }
+  msg.textContent='';msg.className='save-msg';
+  try{
+    await apiSend('/api/admin/crm/contacts/'+contactId+'/tasks','POST',{
+      title,
+      due_date: document.getElementById('task-due').value || null,
+      assigned_to: document.getElementById('task-assignee').value || null
+    });
+    document.getElementById('task-title').value='';
+    document.getElementById('task-due').value='';
+    await loadTasksAndTimeline();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+async function completeTask(taskId){
+  try{
+    await apiSend('/api/admin/crm/tasks/'+taskId,'PUT',{completed:true});
+    await loadTasksAndTimeline();
+  }catch(e){
+    alert('Could not complete task: '+e.message);
+  }
+}
+
+async function loadTasksAndTimeline(){
+  const full=await apiGet('/api/admin/crm/contacts/'+contactId);
+  renderTasks(full.tasks);
+  renderTimeline(full.activity);
+}
+async function loadTimeline(){
+  const full=await apiGet('/api/admin/crm/contacts/'+contactId);
+  renderTimeline(full.activity);
+}
+
+function renderTimeline(activity){
+  const el=document.getElementById('timeline-list');
+  if(!activity.length){ el.innerHTML='<p class="hint">Nothing logged yet.</p>'; return; }
+  el.innerHTML=activity.map(a=>
+    '<div class="timeline-item">'+crmFormatActivity(a)+'<div class="timeline-when">'+crmFmtDateTime(a.created_at)+'</div></div>'
+  ).join('');
+}
+
+function renderDealReviews(reviews){
+  const el=document.getElementById('reviews-list');
+  if(!reviews.length){ el.innerHTML='<p class="hint">No reviews yet.</p>'; return; }
+  el.innerHTML=reviews.map(r=>
+    '<div class="review-item"><div><div class="task-title">'+crmEscapeHtml(r.property_address)+'</div>'+
+    '<div class="task-meta">'+crmFmtDate(r.review_date)+' · '+crmEscapeHtml(r.outcome)+(r.notes?(' · '+crmEscapeHtml(r.notes)):'')+'</div></div></div>'
+  ).join('');
+}
+
+async function addDealReview(){
+  const msg=document.getElementById('dr-msg');
+  const address=document.getElementById('dr-address').value.trim();
+  if(!address){ msg.textContent='Enter a property address.'; msg.className='save-msg error'; return; }
+  msg.textContent='';msg.className='save-msg';
+  try{
+    await apiSend('/api/admin/crm/contacts/'+contactId+'/deal-reviews','POST',{
+      property_address: address,
+      review_date: document.getElementById('dr-date').value || null,
+      outcome: document.getElementById('dr-outcome').value,
+      notes: document.getElementById('dr-notes').value
+    });
+    document.getElementById('dr-address').value='';
+    document.getElementById('dr-notes').value='';
+    const full=await apiGet('/api/admin/crm/contacts/'+contactId);
+    renderDealReviews(full.deal_reviews);
+    renderTimeline(full.activity);
+    // A follow-up task is created automatically alongside every review (a
+    // DB trigger, db/029) — re-rendering tasks here (not just reviews/
+    // timeline) is what makes it show up in Open tasks without a full
+    // page reload.
+    renderTasks(full.tasks);
+    msg.textContent='Review added — a follow-up task was created automatically, due in 2 days.';
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+function renderReferrals(referrals){
+  const sent=referrals.filter(r=>r.direction==='sent').length;
+  const received=referrals.filter(r=>r.direction==='received').length;
+  document.getElementById('ref-sent-count').textContent=sent;
+  document.getElementById('ref-received-count').textContent=received;
+  const el=document.getElementById('referrals-list');
+  if(!referrals.length){ el.innerHTML='<p class="hint">No referrals logged yet.</p>'; return; }
+  el.innerHTML=referrals.map(r=>
+    '<div class="referral-item"><div><div class="task-title">'+crmEscapeHtml(r.referred_name)+' ('+r.direction+')</div>'+
+    '<div class="task-meta">'+crmFmtDate(r.created_at)+(r.outcome?(' · '+crmEscapeHtml(r.outcome)):'')+(r.value_estimate!=null?(' · £'+Math.round(r.value_estimate).toLocaleString()):'')+'</div></div></div>'
+  ).join('');
+}
+
+// Which of the four admin sections a contact "belongs to", purely for the
+// back-link's target — the section list pages themselves are what actually
+// filter by tier/category server-side.
+function sectionForContact(c){
+  if(c.contact_category==='referral_partner') return {href:'/admin/partners.html', label:'Partners'};
+  if(c.tier==='tier2_acquisition_partner') return {href:'/admin/tier2.html', label:'Tier 2 — Acquisition Partners'};
+  if(c.tier==='tier3_private_sourcing') return {href:'/admin/tier3.html', label:'Tier 3 — Private Sourcing'};
+  return {href:'/admin/index.html', label:'Tier 1 — Software'};
+}
+
+function renderAll(){
+  document.getElementById('ct-name').textContent=contact.name;
+  document.getElementById('ct-archived-tag').style.display=contact.is_archived?'inline-block':'none';
+  document.getElementById('archive-btn').textContent=contact.is_archived?'Restore':'Archive';
+  renderCoreView();
+
+  const section=sectionForContact(contact);
+  const backLink=document.getElementById('section-back-link');
+  backLink.href=section.href;
+  backLink.textContent='← Back to '+section.label;
+
+  const isTier23=contact.tier==='tier2_acquisition_partner'||contact.tier==='tier3_private_sourcing';
+  document.getElementById('deal-reviews-panel').style.display=isTier23?'block':'none';
+  document.getElementById('referrals-panel').style.display=contact.contact_category==='referral_partner'?'block':'none';
+}
+
+async function loadFullContactAndRender(){
+  const full=await apiGet('/api/admin/crm/contacts/'+contactId);
+  contact=full.contact;
+  renderAll();
+  renderTasks(full.tasks);
+  renderTimeline(full.activity);
+  renderDealReviews(full.deal_reviews);
+  renderReferrals(full.referrals);
+  document.getElementById('pending-panel').style.display='none';
+  document.getElementById('loaded-sections').style.display='block';
+}
+
+async function init(){
+  const auth=await requireSuperuser();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  if(!contactId && !linkedUserId){
+    document.getElementById('state-loading').innerHTML='<p class="hint" style="padding:1.5rem">No contact selected. <a href="/admin/index.html">Back to Admin</a></p>';
+    return;
+  }
+
+  try{
+    ownersCache=await apiGet('/api/admin/crm/owners');
+  }catch(e){ ownersCache=[]; }
+  document.getElementById('task-assignee').innerHTML=ownerOptionsHtml(null,'Unassigned');
+
+  try{
+    if(!contactId && linkedUserId){
+      const matches=await apiGet('/api/admin/crm/contacts?linked_user_id='+encodeURIComponent(linkedUserId)+'&include_archived=true');
+      if(matches.length) contactId=matches[0].id;
+    }
+
+    if(contactId){
+      await loadFullContactAndRender();
+    }else{
+      document.getElementById('ct-name').textContent=prefillName||prefillEmail||'Signed-up user';
+      document.getElementById('section-back-link').href='/admin/index.html';
+      document.getElementById('section-back-link').textContent='← Back to Tier 1 — Software';
+      document.getElementById('pending-panel').style.display='block';
+    }
+
+    document.getElementById('state-loading').style.display='none';
+    document.getElementById('app').style.display='block';
+  }catch(e){
+    document.getElementById('state-loading').innerHTML='<p class="hint" style="padding:1.5rem">'+crmEscapeHtml(e.message)+' <a href="/admin/index.html">Back to Admin</a></p>';
+  }
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PROPulsion Admin · Tier 2 Acquisition Partners</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/admin/admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/admin-guard.js"></script>
+<script src="/admin/crm-shared.js"></script>
+</head>
+<body class="theme-light">
+
+<div id="state-loading"><p class="hint" style="padding:1.5rem">Loading…</p></div>
+
+<div class="shell" id="app">
+  <div id="admin-nav-root" data-active="tier2"></div>
+  <script src="/admin/admin-nav.js"></script>
+
+  <p class="page-title">Tier 2 — Acquisition Partners</p>
+
+  <div class="crm-panel">
+    <div class="filter-bar">
+      <div class="field search"><label>Search</label><input type="text" id="filter-q" placeholder="Name, email, business…" oninput="debouncedReload()"/></div>
+      <div class="field"><label>Stage</label>
+        <select id="filter-stage" onchange="loadContacts()">
+          <option value="">All</option>
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="qualified">Qualified</option>
+          <option value="active">Active</option>
+          <option value="converted">Converted</option>
+          <option value="lost">Lost</option>
+          <option value="churned">Churned</option>
+        </select>
+      </div>
+      <div class="field"><label>Owner</label>
+        <select id="filter-owner" onchange="loadContacts()"><option value="">All</option></select>
+      </div>
+      <div class="field checkbox-field"><input type="checkbox" id="filter-archived" onchange="loadContacts()"/><label for="filter-archived">Include archived</label></div>
+      <button class="btn-primary" onclick="openNewContactModal()">+ New partner</button>
+    </div>
+
+    <div id="contacts-list"><p class="hint">Loading…</p></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="new-contact-overlay" onclick="if(event.target===this)closeNewContactModal()">
+  <div class="card modal-card">
+    <div class="modal-header">
+      <h2>New acquisition partner</h2>
+      <button class="modal-close" onclick="closeNewContactModal()" aria-label="Close">×</button>
+    </div>
+    <div class="modal-form-grid">
+      <div class="field"><label>Name</label><input type="text" id="nc-name"/></div>
+      <div class="field"><label>Category</label>
+        <select id="nc-category">
+          <option value="lead">Lead</option>
+          <option value="client">Client</option>
+        </select>
+      </div>
+      <div class="field"><label>Email</label><input type="email" id="nc-email"/></div>
+      <div class="field"><label>Phone</label><input type="text" id="nc-phone"/></div>
+      <div class="field"><label>Stage</label>
+        <select id="nc-stage">
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="qualified">Qualified</option>
+          <option value="active">Active</option>
+          <option value="converted">Converted</option>
+          <option value="lost">Lost</option>
+          <option value="churned">Churned</option>
+        </select>
+      </div>
+      <div class="field"><label>Source</label><input type="text" id="nc-source" placeholder="facebook_group, referral…"/></div>
+      <div class="field"><label>Owner</label><select id="nc-owner"><option value="">Unassigned</option></select></div>
+      <div class="field"><label>Business name</label><input type="text" id="nc-business-name"/></div>
+    </div>
+    <p class="save-msg" id="nc-msg"></p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="nc-save-btn" onclick="submitNewContact()">Add partner</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null, ownersCache=[];
+let searchDebounce=null;
+let tasksByContact={};
+
+function tokenHeader(){ return {'Authorization':'Bearer '+currentSession.access_token}; }
+async function apiGet(path){
+  const res=await fetch(path,{headers:tokenHeader()});
+  const body=await res.json();
+  if(!res.ok) throw new Error(body.error||'Request failed.');
+  return body;
+}
+async function apiSend(path,method,payload){
+  const res=await fetch(path,{method,headers:{...tokenHeader(),'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const body=await res.json();
+  if(!res.ok) throw new Error(body.error||'Request failed.');
+  return body;
+}
+
+function debouncedReload(){
+  clearTimeout(searchDebounce);
+  searchDebounce=setTimeout(loadContacts, 300);
+}
+
+async function loadOwners(){
+  try{
+    ownersCache=await apiGet('/api/admin/crm/owners');
+    const opts=ownersCache.map(o=>'<option value="'+o.user_id+'">'+crmEscapeHtml(o.name||o.user_id)+'</option>').join('');
+    document.getElementById('filter-owner').innerHTML='<option value="">All</option>'+opts;
+    document.getElementById('nc-owner').innerHTML='<option value="">Unassigned</option>'+opts;
+  }catch(e){ /* dropdowns just stay at their default options */ }
+}
+function ownerNameById(id){
+  if(!id)return null;
+  const o=ownersCache.find(o=>o.user_id===id);
+  return o?crmEscapeHtml(o.name||o.user_id):null;
+}
+
+// Open tasks for every tier2 contact, loaded once per page load rather
+// than per-card, since the tasks endpoint already returns everyone's
+// tasks in one call — filtered here to just the contact ids this page is
+// currently showing.
+async function loadOpenTasks(contactIds){
+  tasksByContact={};
+  try{
+    const tasks=await apiGet('/api/admin/crm/tasks');
+    const idSet=new Set(contactIds);
+    tasks.filter(t=>idSet.has(t.contact_id)).forEach(t=>{
+      if(!tasksByContact[t.contact_id]) tasksByContact[t.contact_id]=[];
+      tasksByContact[t.contact_id].push(t);
+    });
+  }catch(e){ /* inline task lists just stay empty on failure */ }
+}
+
+function renderTaskList(contactId){
+  const tasks=tasksByContact[contactId]||[];
+  if(!tasks.length) return '<p class="hint">No open tasks.</p>';
+  const today=new Date().toISOString().slice(0,10);
+  return tasks.map(t=>{
+    const overdue=t.due_date && t.due_date<today;
+    return '<div class="task-item">'+
+      '<div><div class="task-title">'+crmEscapeHtml(t.title)+'</div>'+
+      '<div class="task-meta'+(overdue?' overdue':'')+'">'+(t.due_date?('Due '+crmFmtDate(t.due_date)):'No due date')+(t.assigned_to?(' · '+(ownerNameById(t.assigned_to)||'')):'')+'</div></div>'+
+      '<button class="mini-btn" onclick="completeTask(\''+t.id+'\',\''+contactId+'\')">Mark done</button>'+
+    '</div>';
+  }).join('');
+}
+
+async function completeTask(taskId, contactId){
+  try{
+    await apiSend('/api/admin/crm/tasks/'+taskId,'PUT',{completed:true});
+    await loadOpenTasks(Object.keys(tasksByContact).concat(contactId));
+    document.getElementById('tasks-'+contactId).innerHTML=renderTaskList(contactId);
+  }catch(e){
+    alert('Could not complete task: '+e.message);
+  }
+}
+
+async function addTaskQuick(contactId){
+  const titleInput=document.getElementById('qt-title-'+contactId);
+  const dueInput=document.getElementById('qt-due-'+contactId);
+  const title=titleInput.value.trim();
+  if(!title) return;
+  try{
+    await apiSend('/api/admin/crm/contacts/'+contactId+'/tasks','POST',{title, due_date: dueInput.value || null});
+    titleInput.value='';
+    dueInput.value='';
+    const contacts=await apiGet('/api/admin/crm/contacts?tier=tier2_acquisition_partner&include_archived=true');
+    await loadOpenTasks(contacts.map(c=>c.id));
+    document.getElementById('tasks-'+contactId).innerHTML=renderTaskList(contactId);
+  }catch(e){
+    alert('Could not add task: '+e.message);
+  }
+}
+
+async function loadContacts(){
+  const list=document.getElementById('contacts-list');
+  const params=new URLSearchParams({tier:'tier2_acquisition_partner'});
+  const stage=document.getElementById('filter-stage').value;
+  const owner=document.getElementById('filter-owner').value;
+  const q=document.getElementById('filter-q').value.trim();
+  const includeArchived=document.getElementById('filter-archived').checked;
+  if(stage)params.set('stage',stage);
+  if(owner)params.set('owner_id',owner);
+  if(q)params.set('q',q);
+  if(includeArchived)params.set('include_archived','true');
+
+  try{
+    const rows=await apiGet('/api/admin/crm/contacts?'+params.toString());
+    if(!rows.length){ list.innerHTML='<p class="hint">No acquisition partners match these filters.</p>'; return; }
+
+    await loadOpenTasks(rows.map(c=>c.id));
+
+    list.innerHTML=rows.map(c=>
+      '<div class="contact-card">'+
+        '<div class="contact-card-header">'+
+          '<div>'+
+            '<a class="contact-card-name" href="/admin/contact.html?id='+c.id+'">'+crmEscapeHtml(c.name)+(c.is_archived?' (archived)':'')+'</a>'+
+            (c.is_stale?'<div class="risk-dot">Stale · no activity in 5+ days</div>':'')+
+            '<div class="contact-card-meta">'+
+              '<span class="stage-pill">'+crmEscapeHtml(CRM_STAGE_LABELS[c.stage]||c.stage)+'</span> · '+
+              (c.business_name?crmEscapeHtml(c.business_name)+' · ':'')+
+              (c.email?crmEscapeHtml(c.email):'No email')+
+              (ownerNameById(c.owner_id)?(' · Owner: '+ownerNameById(c.owner_id)):'')+
+            '</div>'+
+          '</div>'+
+          '<a class="mini-btn" href="/admin/contact.html?id='+c.id+'">Full profile →</a>'+
+        '</div>'+
+        '<div class="contact-card-inline">'+
+          '<p class="contact-card-inline-title">Open tasks</p>'+
+          '<div id="tasks-'+c.id+'">'+renderTaskList(c.id)+'</div>'+
+          '<div class="add-form-row" style="margin-top:.5rem">'+
+            '<div class="field"><input type="text" id="qt-title-'+c.id+'" placeholder="Quick add a task…"/></div>'+
+            '<div class="field"><input type="date" id="qt-due-'+c.id+'"/></div>'+
+            '<button class="mini-btn" onclick="addTaskQuick(\''+c.id+'\')">+ Task</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>'
+    ).join('');
+  }catch(e){
+    list.innerHTML='<p class="save-msg error">'+crmEscapeHtml(e.message)+'</p>';
+  }
+}
+
+function openNewContactModal(){
+  ['nc-name','nc-email','nc-phone','nc-source','nc-business-name'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('nc-category').value='lead';
+  document.getElementById('nc-stage').value='new';
+  document.getElementById('nc-owner').value='';
+  document.getElementById('nc-msg').textContent='';
+  document.getElementById('new-contact-overlay').classList.add('open');
+}
+function closeNewContactModal(){
+  document.getElementById('new-contact-overlay').classList.remove('open');
+}
+
+async function submitNewContact(){
+  const msg=document.getElementById('nc-msg');
+  const btn=document.getElementById('nc-save-btn');
+  const payload={
+    name: document.getElementById('nc-name').value,
+    contact_category: document.getElementById('nc-category').value,
+    tier: 'tier2_acquisition_partner',
+    email: document.getElementById('nc-email').value,
+    phone: document.getElementById('nc-phone').value,
+    stage: document.getElementById('nc-stage').value,
+    source: document.getElementById('nc-source').value,
+    owner_id: document.getElementById('nc-owner').value || null,
+    business_name: document.getElementById('nc-business-name').value
+  };
+  msg.textContent='';msg.className='save-msg';
+  btn.disabled=true;
+  try{
+    const contact=await apiSend('/api/admin/crm/contacts','POST',payload);
+    closeNewContactModal();
+    window.location.href='/admin/contact.html?id='+contact.id;
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+async function init(){
+  const auth=await requireSuperuser();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  document.getElementById('state-loading').style.display='none';
+  document.getElementById('app').style.display='block';
+
+  await loadOwners();
+  loadContacts();
+}
+init();
+</script>
+</body>
+</html>

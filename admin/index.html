@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PROPulsion Admin · Tier 1 Software</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/admin/admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/admin-guard.js"></script>
+<script src="/admin/crm-shared.js"></script>
+</head>
+<body class="theme-light">
+
+<div id="state-loading"><p class="hint" style="padding:1.5rem">Loading…</p></div>
+
+<div class="shell" id="app">
+  <div id="admin-nav-root" data-active="tier1"></div>
+  <script src="/admin/admin-nav.js"></script>
+
+  <p class="page-title">Tier 1 — Software</p>
+
+  <div class="test-mode-banner" id="test-mode-banner" style="display:none">
+    ⚠ Stripe test mode — the subscription/revenue figures below reflect the connected Stripe <strong>test</strong> account, not real customer billing. This banner disappears automatically once a live Stripe key is configured.
+  </div>
+
+  <div class="crm-panel">
+    <p class="subhead">Signed-up users</p>
+    <p class="hint" style="margin:-.4rem 0 1rem">Every real PROPulsion signup, read straight from the database — not a CRM contact list. This auto-updates as people sign up; there's no manual add here.</p>
+
+    <div class="crm-table-wrap">
+      <table class="crm-table">
+        <thead>
+          <tr>
+            <th class="sortable" onclick="sortBy('name')">Name / email</th>
+            <th class="sortable" onclick="sortBy('plan')">Plan</th>
+            <th class="sortable" onclick="sortBy('signup_date')">Signed up</th>
+            <th class="sortable" onclick="sortBy('last_login')">Last login</th>
+            <th class="sortable" onclick="sortBy('deals_saved')">Deals saved</th>
+            <th>Subscription (Stripe)</th>
+          </tr>
+        </thead>
+        <tbody id="roster-tbody"><tr><td colspan="6" class="hint">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null;
+let roster=[];
+let currentSort='signup_date', currentDir='desc';
+
+const STRIPE_STATUS_LABELS={active:'Active',trialing:'Trialing',past_due:'Past due',unpaid:'Unpaid',canceled:'Canceled',incomplete:'Incomplete',incomplete_expired:'Incomplete (expired)',paused:'Paused'};
+const STRIPE_STATUS_TONE={active:'success',trialing:'success',past_due:'warn',unpaid:'warn',incomplete:'warn',canceled:'danger',incomplete_expired:'danger'};
+
+function fmtStripeAmount(amount, currency, interval){
+  if(amount==null) return '';
+  let formatted;
+  try{
+    formatted=new Intl.NumberFormat('en-GB',{style:'currency',currency:(currency||'gbp').toUpperCase()}).format(amount);
+  }catch(e){
+    formatted=amount.toFixed(2)+' '+(currency||'').toUpperCase();
+  }
+  return formatted+(interval?('/'+(interval==='month'?'mo':interval==='year'?'yr':interval)):'');
+}
+
+// Every real case a roster row can be in — none of them ever render blank,
+// per the brief: a clear "No subscription" rather than an empty cell.
+function renderStripeCell(u){
+  if(u.stripe_lookup_failed){
+    return '<span class="hint">Lookup failed</span>';
+  }
+  if(!u.stripe_subscription_id){
+    // profiles.plan and the Stripe subscription id are two separately-
+    // written fields (see server.js's webhook handler) — flagged
+    // distinctly here rather than silently showing "No subscription" for
+    // a user profiles itself says is paid, since that combination points
+    // at a real data gap worth someone's attention.
+    return u.plan==='paid'
+      ? '<span class="hint">Paid (no Stripe ID on file)</span>'
+      : '<span class="hint">No subscription</span>';
+  }
+  if(u.stripe_status==='error'){
+    return '<span class="hint">Stripe error</span>';
+  }
+  const tone=STRIPE_STATUS_TONE[u.stripe_status]||'muted';
+  const label=STRIPE_STATUS_LABELS[u.stripe_status]||u.stripe_status||'—';
+  const amount=fmtStripeAmount(u.stripe_amount,u.stripe_currency,u.stripe_interval);
+  return '<span class="plan-pill '+tone+'">'+crmEscapeHtml(label)+'</span>'+(amount?' <span class="muted-cell" style="font-size:12px">'+crmEscapeHtml(amount)+'</span>':'');
+}
+
+function tokenHeader(){ return {'Authorization':'Bearer '+currentSession.access_token}; }
+async function apiGet(path){
+  const res=await fetch(path,{headers:tokenHeader()});
+  const body=await res.json();
+  if(!res.ok) throw new Error(body.error||'Request failed.');
+  return body;
+}
+
+function sortBy(col){
+  if(currentSort===col){ currentDir=currentDir==='asc'?'desc':'asc'; }
+  else{ currentSort=col; currentDir='asc'; }
+  renderRoster();
+}
+
+function renderRoster(){
+  const tbody=document.getElementById('roster-tbody');
+  if(!roster.length){ tbody.innerHTML='<tr><td colspan="6" class="hint">No signups yet.</td></tr>'; return; }
+
+  const sorted=roster.slice().sort((a,b)=>{
+    let av=a[currentSort], bv=b[currentSort];
+    if(currentSort==='signup_date'||currentSort==='last_login'){
+      av=av?new Date(av).getTime():0; bv=bv?new Date(bv).getTime():0;
+    } else if(typeof av==='string'||typeof bv==='string'){
+      av=(av||'').toString().toLowerCase(); bv=(bv||'').toString().toLowerCase();
+    }
+    if(av<bv) return currentDir==='asc'?-1:1;
+    if(av>bv) return currentDir==='asc'?1:-1;
+    return 0;
+  });
+
+  tbody.innerHTML=sorted.map(u=>{
+    const displayName=u.name?crmEscapeHtml(u.name):'<span class="hint">No name set</span>';
+    const params=new URLSearchParams({linked_user_id:u.user_id, name:u.name||u.email||'', email:u.email||''});
+    return '<tr>'+
+      '<td><a href="/admin/contact.html?'+params.toString()+'">'+
+        '<div class="roster-cell-name">'+displayName+'</div>'+
+        '<div class="roster-cell-sub">'+crmEscapeHtml(u.email)+'</div>'+
+      '</a></td>'+
+      '<td><span class="plan-pill '+u.plan+'">'+(u.plan==='paid'?'Paid':'Free')+'</span></td>'+
+      '<td class="muted-cell">'+crmFmtDate(u.signup_date)+'</td>'+
+      '<td class="muted-cell">'+(u.last_login?crmFmtDate(u.last_login):'Never')+
+        (u.is_at_risk?'<div class="risk-dot">At risk</div>':'')+
+      '</td>'+
+      '<td class="muted-cell">'+u.deals_saved+'</td>'+
+      '<td>'+renderStripeCell(u)+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+async function loadRoster(){
+  const tbody=document.getElementById('roster-tbody');
+  try{
+    const data=await apiGet('/api/admin/users');
+    roster=data.roster;
+    document.getElementById('test-mode-banner').style.display=data.stripe_test_mode?'block':'none';
+    renderRoster();
+  }catch(e){
+    tbody.innerHTML='<tr><td colspan="6" class="save-msg error">'+crmEscapeHtml(e.message)+'</td></tr>';
+  }
+}
+
+async function init(){
+  const auth=await requireSuperuser();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  document.getElementById('state-loading').style.display='none';
+  document.getElementById('app').style.display='block';
+
+  loadRoster();
+}
+init();
+</script>
+</body>
+</html>
