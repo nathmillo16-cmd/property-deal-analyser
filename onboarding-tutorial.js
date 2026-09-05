@@ -67,7 +67,16 @@ var TUTORIAL_STEPS = [
     page: 'index.html',
     selectors: ['.panel.active .results-col .save-btn'],
     title: 'Save the deal',
-    body: 'Happy with the numbers? Save the deal here. Every deal you save is kept on your Saved Deals page so you can come back to it anytime.'
+    // The "Get the Full Analysis" button just below Save is real and
+    // always clickable (it's not disabled in the app) — it's the paid
+    // AI verdict, gated server-side (POST /analyse returns 403 "Upgrade to
+    // unlock" for a free plan). It only LOOKED greyed-out in an earlier
+    // review screenshot because it sat outside this step's own spotlight
+    // and got dimmed by the tutorial's overlay, not because it's actually
+    // disabled — confirmed by reading index.html/server.js directly, not
+    // guessed. Naming it here so a free user isn't left wondering what it
+    // is when they notice it right next to what's being spotlighted.
+    body: "Happy with the numbers? Save the deal here. Every deal you save is kept on your Saved Deals page so you can come back to it anytime. (The \"Get the Full Analysis\" button below runs an AI verdict on the deal, part of the paid plan.)"
   },
   {
     id: 'compare-deals',
