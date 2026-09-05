@@ -16,6 +16,7 @@
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
 <script src="/draft-state.js"></script>
+<script src="/onboarding-tutorial.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 #app{display:none}
@@ -1582,7 +1583,11 @@ async function init(){
 
   // Scroll restore waits for the saved-deals list to finish loading and
   // render, since the list's length is what determines page height.
-  loadSavedDeals().finally(function(){ restoreScrollPosition('saved-deals'); attachScrollSaver('saved-deals'); });
+  loadSavedDeals().finally(function(){
+    restoreScrollPosition('saved-deals');
+    attachScrollSaver('saved-deals');
+    Tutorial.resumeIfActive(currentSession.access_token);
+  });
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;

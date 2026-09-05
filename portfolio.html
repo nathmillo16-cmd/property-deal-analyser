@@ -14,6 +14,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <script src="/draft-state.js"></script>
+<script src="/onboarding-tutorial.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
@@ -528,6 +529,10 @@ async function init(){
 
   if(currentPlan!=='paid'){
     showState('locked');
+    // Still resumed here (not just in the paid branch below) — the
+    // portfolio tutorial step's fallback target is this exact locked panel,
+    // for a free user who reaches this step mid-tour.
+    Tutorial.resumeIfActive(currentSession.access_token);
     return;
   }
 
@@ -535,7 +540,11 @@ async function init(){
   // Scroll restore waits for the portfolio list to finish loading (it's
   // the part of this page whose height varies) so it lands on content
   // that's actually there, not a still-loading placeholder.
-  loadPortfolio().finally(function(){ restoreScrollPosition('portfolio'); attachScrollSaver('portfolio'); });
+  loadPortfolio().finally(function(){
+    restoreScrollPosition('portfolio');
+    attachScrollSaver('portfolio');
+    Tutorial.resumeIfActive(currentSession.access_token);
+  });
   restorePortfolioDraft();
 
   sbClient.auth.onAuthStateChange((_event, session)=>{

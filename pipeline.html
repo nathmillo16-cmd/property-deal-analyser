@@ -15,6 +15,7 @@
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
 <script src="/draft-state.js"></script>
+<script src="/onboarding-tutorial.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
@@ -488,13 +489,21 @@ async function init(){
 
   if(currentPlan!=='paid'){
     showState('locked');
+    // Still resumed here (not just in the paid branch below) — the
+    // pipeline tutorial step's fallback target is this exact locked panel,
+    // for a free user who reaches this step mid-tour.
+    Tutorial.resumeIfActive(currentSession.access_token);
     return;
   }
 
   showState('board');
   // Scroll restore waits for the kanban board to finish loading and
   // render, since the board's height depends on how many deals are in it.
-  loadPipeline().finally(function(){ restoreScrollPosition('pipeline'); attachScrollSaver('pipeline'); });
+  loadPipeline().finally(function(){
+    restoreScrollPosition('pipeline');
+    attachScrollSaver('pipeline');
+    Tutorial.resumeIfActive(currentSession.access_token);
+  });
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;

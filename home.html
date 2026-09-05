@@ -14,6 +14,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <script src="/draft-state.js"></script>
+<script src="/onboarding-tutorial.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css
    (theme-light tokens on this page, since <body> carries that class). */
@@ -194,6 +195,7 @@ let sbClient=null, currentSession=null;
 let savedDeals=[], pipelineDeals=[], pipelineLocked=false;
 let portfolioCount=0, portfolioTotals=null, portfolioLocked=false;
 let needsAttention=[];
+let hasCompletedTutorial=true; // fails closed (assume "already seen") if the profile fetch below doesn't come back
 
 const STAGES=['analysing','viewing','offered','agreed','completed'];
 const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
@@ -304,6 +306,18 @@ async function loadDashboard(){
     needsAttention=(res.ok&&Array.isArray(body))?body:[];
   }catch(e){
     needsAttention=[];
+  }
+
+  // Only fetched here to read has_completed_tutorial, for the onboarding
+  // tour's auto-trigger check below — nothing else on this page uses this
+  // call. Same "fetch just to check one flag" precedent as saved-deals.html
+  // fetching /api/profile purely for currentPlan.
+  try{
+    const res=await fetch('/api/profile',{headers});
+    const body=await res.json();
+    hasCompletedTutorial=res.ok?!!body.has_completed_tutorial:true;
+  }catch(e){
+    hasCompletedTutorial=true;
   }
 
   render();
@@ -455,7 +469,11 @@ async function init(){
   // portfolio) to finish loading and render() to run — the page switches
   // between an empty-state and a populated layout of very different
   // heights, so restoring any earlier is restoring against the wrong one.
-  loadDashboard().finally(function(){ restoreScrollPosition('home'); attachScrollSaver('home'); });
+  loadDashboard().finally(function(){
+    restoreScrollPosition('home');
+    attachScrollSaver('home');
+    Tutorial.enterDashboard(currentSession.access_token, hasCompletedTutorial);
+  });
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;

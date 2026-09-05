@@ -1271,7 +1271,7 @@ app.get('/api/profile', async (req, res) => {
   const token = getBearerToken(req);
   const { data: userData, error: userErr } = await supabase.auth.getUser(token);
   if (userErr || !userData || !userData.user) {
-    return res.json({ target_yield: null, target_roi: null, default_mortgage_rate: null, standard_fees: null, plan: 'free', name: null, role: 'user', default_deposit_pct: null, default_mortgage_term_years: null, default_mortgage_type: null, default_insurance: null, default_management_pct: null, default_maintenance_pct: null, default_refurb_contingency_pct: null });
+    return res.json({ target_yield: null, target_roi: null, default_mortgage_rate: null, standard_fees: null, plan: 'free', name: null, role: 'user', default_deposit_pct: null, default_mortgage_term_years: null, default_mortgage_type: null, default_insurance: null, default_management_pct: null, default_maintenance_pct: null, default_refurb_contingency_pct: null, has_completed_tutorial: false });
   }
   const userId = userData.user.id;
 
@@ -1282,7 +1282,7 @@ app.get('/api/profile', async (req, res) => {
     .single();
 
   if (error || !data) {
-    return res.json({ target_yield: null, target_roi: null, default_mortgage_rate: null, standard_fees: null, plan: 'free', name: null, role: 'user', default_deposit_pct: null, default_mortgage_term_years: null, default_mortgage_type: null, default_insurance: null, default_management_pct: null, default_maintenance_pct: null, default_refurb_contingency_pct: null });
+    return res.json({ target_yield: null, target_roi: null, default_mortgage_rate: null, standard_fees: null, plan: 'free', name: null, role: 'user', default_deposit_pct: null, default_mortgage_term_years: null, default_mortgage_type: null, default_insurance: null, default_management_pct: null, default_maintenance_pct: null, default_refurb_contingency_pct: null, has_completed_tutorial: false });
   }
 
   // name is selected separately and tolerated failing on its own — it's a
@@ -1331,7 +1331,47 @@ app.get('/api/profile', async (req, res) => {
     if (!defaultsError && defaultsRow) investmentDefaults = defaultsRow;
   } catch (e) {}
 
-  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults });
+  // has_completed_tutorial: same decoupled-query treatment as name/role
+  // above, same reason — a newer column (db/031_profiles_has_completed_
+  // tutorial.sql) that may not exist yet on a database that hasn't run
+  // that migration. Fails closed to false, which just means "the tutorial
+  // hasn't been marked complete yet" — the same as a genuinely new user,
+  // so a missing migration degrades to "auto-trigger the tour" rather than
+  // an error. Replaying from Settings never reads this field at all.
+  let hasCompletedTutorial = false;
+  try {
+    const { data: tutorialRow, error: tutorialError } = await supabase.from('profiles').select('has_completed_tutorial').eq('user_id', userId).single();
+    if (!tutorialError && tutorialRow) hasCompletedTutorial = !!tutorialRow.has_completed_tutorial;
+  } catch (e) {}
+
+  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial });
+});
+
+// Marks the onboarding tutorial complete — called when a user finishes OR
+// skips it (both count, per product spec: once shown, don't auto-trigger
+// again). Deliberately its own targeted update, same reasoning as POST
+// /api/profile/name above: reusing the full-upsert POST /api/profile here
+// would risk overwriting a user's saved calculator defaults. Replaying the
+// tutorial from Settings does NOT depend on this flag — that path always
+// starts the tour client-side regardless of what's stored here; this
+// endpoint only ever moves false -> true, never read to gate a replay.
+app.post('/api/profile/tutorial-complete', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in required.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: 'Log in required.' });
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ has_completed_tutorial: true })
+    .eq('user_id', userData.user.id);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ has_completed_tutorial: true });
 });
 
 // Separate from POST /api/profile above on purpose: that endpoint always

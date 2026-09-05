@@ -14,6 +14,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <script src="/draft-state.js"></script>
+<script src="/onboarding-tutorial.js"></script>
 <script src="/calc-engine.js"></script>
 <style>
 /* Page-specific layout only — colours/fonts/radius all come from styles.css (Underwriter). */
@@ -2176,7 +2177,11 @@ cBTL();cHMO();cSA();cFlip();
 // via loadDefaults(), which would otherwise shift the page after we'd
 // already scrolled) — .finally() so it still happens even if auth itself
 // errors, rather than silently never restoring scroll.
-initAuth().finally(function(){ restoreScrollPosition('index'); attachScrollSaver('index'); });
+initAuth().finally(function(){
+  restoreScrollPosition('index');
+  attachScrollSaver('index');
+  if(currentSession)Tutorial.resumeIfActive(currentSession.access_token);
+});
 </script>
 </body>
 </html>
