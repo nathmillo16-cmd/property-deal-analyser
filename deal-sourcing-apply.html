@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PROPulsion · Deal Sourcing</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<style>
+/* Standalone marketing/sales page for the Deal Sourcing service. Deliberately
+   NOT built on the app shell (no nav.js, no auth-guard, no topbar/sidebar) --
+   this is a public funnel page, not a dashboard screen, so it gets its own
+   minimal header and full-width section bands instead. Reuses styles.css's
+   shared tokens (colours/fonts/.field/.btn-primary/.shell) for brand
+   consistency with landing.html/pricing.html, but everything band/layout
+   related is defined here since those are page-local patterns in this app
+   (see landing.html's own <style> block, which does the same thing). */
+html{scroll-behavior:smooth}
+body{margin:0}
+
+.ds-header{
+  display:flex;justify-content:center;padding:1.5rem 1.5rem;border-bottom:1px solid var(--hairline);
+}
+.ds-header .wordmark-logo{height:28px;display:block}
+
+.ds-band{width:100%;padding:clamp(3rem,7vw,5.5rem) 0}
+.ds-inner{max-width:760px;margin:0 auto;padding:0 1.5rem}
+.ds-kicker{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 .75rem}
+.ds-band h1{font-size:clamp(2rem,5vw,3rem);line-height:1.1;margin:0 0 1.25rem;max-width:18ch}
+.ds-band h2{font-size:clamp(1.5rem,3.2vw,2.1rem);margin:0 0 1rem;max-width:24ch}
+.ds-lead{font-size:15.5px;color:var(--muted);max-width:56ch;margin:0 0 1.75rem;line-height:1.6}
+
+/* Hero */
+.ds-hero{text-align:center;padding-top:clamp(3.5rem,8vw,6rem)}
+.ds-hero .ds-kicker{justify-content:center}
+.ds-hero h1{margin-left:auto;margin-right:auto}
+.ds-hero .ds-lead{margin-left:auto;margin-right:auto;text-align:center;font-size:16.5px}
+.ds-service-split{display:flex;gap:2rem;justify-content:center;flex-wrap:wrap;margin:2.25rem 0 2.5rem;text-align:left}
+.ds-service-card{background:var(--surface);border:1px solid rgba(0,0,0,.09);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.02);padding:1.35rem 1.5rem;max-width:290px}
+.ds-service-card h3{font-family:var(--font-head);font-size:15px;margin:0 0 .4rem}
+.ds-service-card p{font-size:13px;color:var(--muted);margin:0;line-height:1.55}
+.ds-service-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:2px 9px;margin-bottom:.6rem}
+.ds-service-tag.direct{color:var(--accent-ink);background:var(--accent)}
+.ds-service-tag.partner{color:var(--accent);background:rgba(75,69,178,.1)}
+
+/* Guarantee band -- indigo, high-trust treatment matching the app's
+   existing hero-panel/offer-box gradient language elsewhere in the app. */
+.ds-guarantee{background:linear-gradient(135deg, var(--accent), #37317f);color:#ffffff}
+.ds-guarantee .ds-kicker{color:rgba(255,255,255,.75)}
+.ds-guarantee h2{color:#ffffff}
+.ds-guarantee-copy{font-size:16px;line-height:1.65;color:rgba(255,255,255,.92);max-width:60ch;margin:0}
+.ds-guarantee-note{font-size:12px;color:rgba(255,255,255,.6);margin:1.25rem 0 0}
+
+/* Selective/application-only framing */
+.ds-selective{border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+
+/* Application form */
+.ds-apply h2{margin-bottom:.4rem}
+.ds-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin-bottom:1rem}
+@media(max-width:560px){.ds-field-grid{grid-template-columns:1fr}}
+.ds-field-grid .field,.ds-apply>form>.field{margin-bottom:0}
+.ds-section-label{font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--input-muted);margin:0 0 .6rem}
+.ds-block{margin-bottom:1.6rem}
+
+.ds-region-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.ds-region-chip{
+  position:relative;display:flex;align-items:center;gap:8px;
+  border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);
+  padding:9px 12px;cursor:pointer;font-size:13px;color:var(--input-ink);
+  background:var(--input-surface);transition:border-color .15s ease,background .15s ease;
+}
+.ds-region-chip input{margin:0;flex-shrink:0}
+.ds-region-chip:has(input:checked){border-color:var(--input-accent);background:rgba(75,69,178,.06)}
+.ds-region-chip .ds-direct-tag{margin-left:auto;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);background:rgba(75,69,178,.1);border-radius:999px;padding:2px 6px;white-space:nowrap}
+
+.ds-error{font-size:13px;color:#E8746B;margin:0 0 1rem;min-height:1em}
+.ds-run-btn{width:100%;text-align:center;display:block;margin-top:.5rem;padding:14px;font-size:15px}
+.ds-run-btn:disabled{opacity:.6;cursor:default}
+
+.ds-confirm{text-align:center;padding:2.5rem 0}
+.ds-confirm h2{margin-left:auto;margin-right:auto}
+.ds-confirm .ds-lead{margin-left:auto;margin-right:auto;text-align:center}
+
+footer.ds-footer{padding:2.5rem 1.5rem;text-align:center;border-top:1px solid var(--hairline)}
+footer.ds-footer p{font-size:11.5px;color:var(--muted);margin:0}
+footer.ds-footer a{color:var(--muted)}
+</style>
+</head>
+<body class="theme-light">
+
+<header class="ds-header">
+  <a href="/"><img src="/assets/propulsion-logo.png" alt="PROPulsion" class="wordmark-logo"></a>
+</header>
+
+<!-- HERO -->
+<section class="ds-band ds-hero">
+  <div class="ds-inner">
+    <p class="ds-kicker">Deal Sourcing</p>
+    <h1>Hand-picked BRRR and BTL deals, sourced for you.</h1>
+    <p class="ds-lead">We source BRRR and BTL deals directly in the East Midlands, and work with a vetted partner network to cover other UK regions, so you get a properly appraised deal wherever you're investing.</p>
+    <a class="btn-primary" href="#apply">Apply now</a>
+
+    <div class="ds-service-split">
+      <div class="ds-service-card">
+        <span class="ds-service-tag direct">Direct sourcing</span>
+        <h3>East Midlands</h3>
+        <p>Sourced and appraised by us, start to finish. This is our home patch.</p>
+      </div>
+      <div class="ds-service-card">
+        <span class="ds-service-tag partner">Partner network</span>
+        <h3>Other UK regions</h3>
+        <p>Matched to a vetted sourcing partner covering your target area.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GUARANTEE -->
+<section class="ds-band ds-guarantee" id="guarantee">
+  <div class="ds-inner">
+    <p class="ds-kicker">The guarantee</p>
+    <h2>If we get the valuation wrong, you don't pay for it.</h2>
+    <p class="ds-guarantee-copy">If the post-refurb RICS valuation comes in below our agreed Target Valuation, beyond a £3,000 tolerance for normal surveyor variance, your success fee is refunded in full. No partial refunds, no sliding scale. If we miss, you get your money back.</p>
+  </div>
+</section>
+
+<!-- SELECTIVE / APPLICATION-ONLY -->
+<section class="ds-band ds-selective">
+  <div class="ds-inner">
+    <p class="ds-kicker">By application</p>
+    <h2>We work with a limited number of investors at a time.</h2>
+    <p class="ds-lead">This protects deal quality for everyone we work with, so we're deliberately not first come, first served. Apply below: not every application is accepted.</p>
+  </div>
+</section>
+
+<!-- APPLICATION FORM -->
+<section class="ds-band ds-apply" id="apply">
+  <div class="ds-inner">
+
+    <div id="ds-form-wrap">
+      <p class="ds-kicker">Apply</p>
+      <h2>Tell us what you're looking for</h2>
+      <p class="ds-lead">Takes about two minutes. We review every application personally.</p>
+
+      <form id="ds-form">
+        <div class="ds-block">
+          <p class="ds-section-label">Your details</p>
+          <div class="ds-field-grid">
+            <div class="field"><label>Name</label><input type="text" id="ds-name" autocomplete="name" required/></div>
+            <div class="field"><label>Email</label><input type="email" id="ds-email" autocomplete="email" required/></div>
+          </div>
+        </div>
+
+        <div class="ds-block">
+          <p class="ds-section-label">Target region(s)</p>
+          <div class="ds-region-grid" id="ds-regions"></div>
+        </div>
+
+        <div class="ds-block">
+          <p class="ds-section-label">Budget range</p>
+          <div class="ds-field-grid">
+            <div class="field"><label>Minimum (£)</label><input type="number" id="ds-budget-min" min="0" step="1000"/></div>
+            <div class="field"><label>Maximum (£)</label><input type="number" id="ds-budget-max" min="0" step="1000"/></div>
+          </div>
+        </div>
+
+        <div class="ds-block">
+          <div class="ds-field-grid">
+            <div class="field">
+              <label>Strategy</label>
+              <select id="ds-strategy" required>
+                <option value="" disabled selected>Select one</option>
+                <option value="BRRR">BRRR</option>
+                <option value="BTL">BTL</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Timeline to purchase</label>
+              <select id="ds-timeline" required>
+                <option value="" disabled selected>Select one</option>
+                <option value="0-3 months">0-3 months</option>
+                <option value="3-6 months">3-6 months</option>
+                <option value="6-12 months">6-12 months</option>
+                <option value="12+ months">12+ months</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-block">
+          <div class="ds-field-grid">
+            <div class="field"><label>Minimum acceptable yield (%)</label><input type="number" id="ds-min-yield" min="0" step="0.1"/></div>
+            <div class="field">
+              <label>Proof of funds status</label>
+              <select id="ds-pof" required>
+                <option value="" disabled selected>Select one</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="in_progress">In progress</option>
+                <option value="not_yet">Not yet</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <p class="ds-error" id="ds-error"></p>
+        <button type="submit" class="btn-primary ds-run-btn" id="ds-submit">Submit application</button>
+      </form>
+    </div>
+
+    <div id="ds-confirm" class="ds-confirm" style="display:none">
+      <h2>Thanks for applying.</h2>
+      <p class="ds-lead">We review every application personally and will be in touch within 48 hours if it's a fit.</p>
+    </div>
+
+  </div>
+</section>
+
+<footer class="ds-footer">
+  <p>PROPulsion &middot; <a href="/">propulsion.app</a></p>
+</footer>
+
+<script>
+var DS_REGIONS = [
+  { value: 'East Midlands', direct: true },
+  { value: 'West Midlands' },
+  { value: 'London' },
+  { value: 'South East' },
+  { value: 'South West' },
+  { value: 'East of England' },
+  { value: 'North West' },
+  { value: 'North East' },
+  { value: 'Yorkshire and the Humber' },
+  { value: 'Scotland' },
+  { value: 'Wales' },
+  { value: 'Northern Ireland' }
+];
+
+(function renderRegions(){
+  var wrap = document.getElementById('ds-regions');
+  wrap.innerHTML = DS_REGIONS.map(function(r){
+    var tag = r.direct ? '<span class="ds-direct-tag">Direct</span>' : '';
+    return '<label class="ds-region-chip"><input type="checkbox" class="ds-region-cb" value="' + r.value + '"/>' + r.value + tag + '</label>';
+  }).join('');
+})();
+
+function dsSelectedRegions(){
+  return Array.prototype.slice.call(document.querySelectorAll('.ds-region-cb:checked')).map(function(cb){ return cb.value; });
+}
+
+document.getElementById('ds-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var errorEl = document.getElementById('ds-error');
+  var submitBtn = document.getElementById('ds-submit');
+  errorEl.textContent = '';
+
+  var name = document.getElementById('ds-name').value.trim();
+  var email = document.getElementById('ds-email').value.trim();
+  var regions = dsSelectedRegions();
+  var budgetMin = document.getElementById('ds-budget-min').value;
+  var budgetMax = document.getElementById('ds-budget-max').value;
+  var strategy = document.getElementById('ds-strategy').value;
+  var timeline = document.getElementById('ds-timeline').value;
+  var minYield = document.getElementById('ds-min-yield').value;
+  var pof = document.getElementById('ds-pof').value;
+
+  if (!name) { errorEl.textContent = 'Enter your name.'; return; }
+  if (!email) { errorEl.textContent = 'Enter your email.'; return; }
+  if (regions.length === 0) { errorEl.textContent = 'Select at least one target region.'; return; }
+  if (!strategy) { errorEl.textContent = 'Select a strategy.'; return; }
+  if (!timeline) { errorEl.textContent = 'Select a timeline to purchase.'; return; }
+  if (!pof) { errorEl.textContent = 'Select your proof of funds status.'; return; }
+  if (budgetMin !== '' && budgetMax !== '' && Number(budgetMin) > Number(budgetMax)) {
+    errorEl.textContent = 'Minimum budget cannot be more than maximum budget.';
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting…';
+
+  try {
+    var res = await fetch('/api/sourcing-applications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name,
+        email: email,
+        regions: regions,
+        budget_min: budgetMin === '' ? null : Number(budgetMin),
+        budget_max: budgetMax === '' ? null : Number(budgetMax),
+        strategy: strategy,
+        timeline: timeline,
+        min_yield: minYield === '' ? null : Number(minYield),
+        proof_of_funds_status: pof
+      })
+    });
+    var body = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = body.error || 'Something went wrong. Please try again.';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit application';
+      return;
+    }
+    document.getElementById('ds-form-wrap').style.display = 'none';
+    document.getElementById('ds-confirm').style.display = 'block';
+    document.getElementById('ds-confirm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    errorEl.textContent = 'Something went wrong. Please try again.';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit application';
+  }
+});
+</script>
+</body>
+</html>

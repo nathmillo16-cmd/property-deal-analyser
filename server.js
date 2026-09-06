@@ -82,6 +82,14 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'landing.html'));
 });
 
+// Deal Sourcing sales page: a standalone, public, no-login marketing/
+// application page, deliberately reached at a clean path rather than
+// /deal-sourcing-apply.html (the actual file, still reachable there too via
+// express.static below, but this is the route that's actually linked to).
+app.get('/deal-sourcing/apply', (req, res) => {
+  res.sendFile(path.join(__dirname, 'deal-sourcing-apply.html'));
+});
+
 app.use(express.static('.'));
 
 app.get('/api/config', (req, res) => {
@@ -89,6 +97,182 @@ app.get('/api/config', (req, res) => {
     supabaseUrl: process.env.SUPABASE_URL,
     supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY
   });
+});
+
+// Deal Sourcing application intake. Deliberately public (no bearer token) --
+// the sales page at /deal-sourcing/apply has no login step, but
+// sourcing_applications.user_id is a NOT NULL FK to auth.users, so every
+// submission still needs a real auth user behind it. Resolved here via the
+// service-role admin API: find-or-create an (unconfirmed, no password) auth
+// user from the applicant's email, then insert the application under that
+// user's id. This is the one place in the app that creates an auth user
+// without the person going through Supabase's own signup flow -- a
+// deliberate, explicit product choice (see conversation), not a pattern to
+// reuse elsewhere without the same thinking.
+const SOURCING_REGIONS = [
+  'East Midlands', 'West Midlands', 'London', 'South East', 'South West',
+  'East of England', 'North West', 'North East', 'Yorkshire and the Humber',
+  'Scotland', 'Wales', 'Northern Ireland'
+];
+const SOURCING_STRATEGIES = ['BRRR', 'BTL'];
+const SOURCING_POF_STATUSES = ['confirmed', 'in_progress', 'not_yet'];
+
+function validateSourcingApplication(body) {
+  const { name, email, regions, budget_min, budget_max, strategy, timeline, min_yield, proof_of_funds_status } = body;
+
+  if (typeof name !== 'string' || !name.trim()) return { error: 'Enter your name.' };
+  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return { error: 'Enter a valid email.' };
+  if (!Array.isArray(regions) || regions.length === 0 || !regions.every((r) => SOURCING_REGIONS.includes(r))) {
+    return { error: 'Select at least one valid target region.' };
+  }
+  if (!SOURCING_STRATEGIES.includes(strategy)) return { error: `strategy must be one of ${SOURCING_STRATEGIES.join('/')}.` };
+  if (typeof timeline !== 'string' || !timeline.trim()) return { error: 'Select a timeline to purchase.' };
+  if (!SOURCING_POF_STATUSES.includes(proof_of_funds_status)) return { error: `proof_of_funds_status must be one of ${SOURCING_POF_STATUSES.join('/')}.` };
+
+  const budgetMin = toNumberOrNull(budget_min);
+  const budgetMax = toNumberOrNull(budget_max);
+  if (budget_min !== null && budget_min !== undefined && budget_min !== '' && budgetMin === null) return { error: 'Minimum budget must be a number.' };
+  if (budget_max !== null && budget_max !== undefined && budget_max !== '' && budgetMax === null) return { error: 'Maximum budget must be a number.' };
+  if (budgetMin !== null && budgetMax !== null && budgetMin > budgetMax) return { error: 'Minimum budget cannot be more than maximum budget.' };
+
+  const minYield = toNumberOrNull(min_yield);
+
+  return {
+    value: {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      regions,
+      budget_min: budgetMin,
+      budget_max: budgetMax,
+      strategy,
+      timeline: timeline.trim(),
+      min_yield: minYield,
+      proof_of_funds_status
+    }
+  };
+}
+
+async function findOrCreateAuthUserByEmail(email, name) {
+  const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    email_confirm: false,
+    user_metadata: { name, source: 'deal_sourcing_application' }
+  });
+  if (!createErr) return created.user.id;
+
+  // Already-registered is the one error we recover from (a repeat
+  // applicant, or an existing app user applying) -- anything else is a
+  // real failure the caller should see.
+  const alreadyExists = createErr.code === 'email_exists' || /already.*registered/i.test(createErr.message || '');
+  if (!alreadyExists) throw new Error(createErr.message);
+
+  const users = await listAllAuthUsers(supabaseAdmin);
+  const existing = users.find((u) => (u.email || '').toLowerCase() === email);
+  if (!existing) throw new Error('Could not resolve an account for this email.');
+  return existing.id;
+}
+
+app.post('/api/sourcing-applications', async (req, res) => {
+  const { value, error: validationError } = validateSourcingApplication(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  let userId;
+  try {
+    userId = await findOrCreateAuthUserByEmail(value.email, value.name);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  // "Selected only East Midlands" means the entire selection is exactly
+  // that one region -- any other region present, alone or alongside it,
+  // routes to manual review instead.
+  const status = (value.regions.length === 1 && value.regions[0] === 'East Midlands') ? 'assigned_internal' : 'new';
+
+  const { data, error } = await supabaseAdmin
+    .from('sourcing_applications')
+    .insert({
+      user_id: userId,
+      regions: value.regions,
+      budget_min: value.budget_min,
+      budget_max: value.budget_max,
+      strategy: value.strategy,
+      timeline: value.timeline,
+      min_yield: value.min_yield,
+      proof_of_funds_status: value.proof_of_funds_status,
+      status
+    })
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ submitted: true, status: data.status });
+});
+
+// Accepted-status -> invite trigger. Internal-only, superuser-gated the same
+// way as every /api/admin/* route -- no partner dashboard/UI calls this yet
+// (deliberately not built, per the "no partner-matching logic" instruction),
+// this is just the backend capability so a future admin action, or a one-off
+// call, can flip an application to 'accepted' and have a real Supabase
+// "set your password" invite go out to the applicant's own account.
+//
+// The invite is best-effort, not transactional with the status update: if it
+// fails, the status change still stands (same "separate, failure-tolerant"
+// shape as the Stripe webhook's stripe_customer_id update above) and the
+// failure is surfaced in the response rather than silently swallowed.
+//
+// Verified directly against the real Supabase Auth API before wiring this in
+// (throwaway test accounts, created and deleted, not left behind -- same
+// precedent as the Settings page password-change verification): calling
+// inviteUserByEmail on the exact kind of unconfirmed, no-password account
+// every applicant gets at submission time succeeds (reaches real send
+// attempt, not an "already registered" rejection); calling it on an email
+// that already belongs to a confirmed, has-password PROPulsion account (an
+// existing customer applying with their normal login email) fails cleanly
+// with a 422 email_exists error and touches nothing about that account --
+// exactly the outcome the try/catch below is built to absorb without
+// failing the whole request.
+const SOURCING_APPLICATION_STATUSES = ['new', 'assigned_internal', 'assigned_partner', 'closed', 'accepted'];
+
+app.put('/api/admin/sourcing-applications/:id/status', async (req, res) => {
+  const authCheck = await requireSuperuser(req, res);
+  if (!authCheck) return;
+
+  const { status } = req.body;
+  if (!SOURCING_APPLICATION_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of ${SOURCING_APPLICATION_STATUSES.join('/')}.` });
+  }
+
+  const { data: application, error: fetchError } = await supabaseAdmin
+    .from('sourcing_applications')
+    .select('id, user_id')
+    .eq('id', req.params.id)
+    .single();
+  if (fetchError || !application) return res.status(404).json({ error: 'Application not found.' });
+
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from('sourcing_applications')
+    .update({ status })
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (updateError) return res.status(400).json({ error: updateError.message });
+
+  let invited = false;
+  let inviteError = null;
+  if (status === 'accepted') {
+    try {
+      const { data: userData, error: userErr } = await supabaseAdmin.auth.admin.getUserById(application.user_id);
+      if (userErr || !userData || !userData.user) throw new Error(userErr ? userErr.message : 'Applicant account not found.');
+      const { error: sendErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(userData.user.email);
+      if (sendErr) throw new Error(sendErr.message);
+      invited = true;
+    } catch (e) {
+      inviteError = e.message;
+      console.error('Sourcing application accepted but invite failed for', req.params.id, e.message);
+    }
+  }
+
+  res.json({ ...updated, invited, inviteError });
 });
 
 // Builds a Supabase client scoped to the logged-in user's own token, so

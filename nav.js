@@ -60,7 +60,12 @@ var NAV_LINKS = [
   { key: 'pipeline', href: '/pipeline.html', label: 'Pipeline' },
   { key: 'portfolio', href: '/portfolio.html', label: 'Portfolio' },
   { key: 'refurb', href: '/refurb.html', label: 'Refurb Estimator' },
-  { key: 'letters', href: '/letters.html', label: 'Letter Templates' }
+  { key: 'letters', href: '/letters.html', label: 'Letter Templates' },
+  // Deliberately external-feeling: opens in a new tab and carries a ↗, since
+  // /deal-sourcing/apply is a standalone public sales page (no app shell),
+  // not another in-app tab like the links above it. No page ever sets
+  // data-active="deal-sourcing", so it never takes the active-link style.
+  { key: 'deal-sourcing', href: '/deal-sourcing/apply', label: 'Apply for Deal Sourcing ↗', external: true }
 ];
 
 (function renderNav(){
@@ -72,7 +77,8 @@ var NAV_LINKS = [
 
   var linksHtml = NAV_LINKS.map(function(l){
     var activeAttr = l.key === active ? ' class="active"' : '';
-    return '<a href="' + l.href + '"' + activeAttr + '>' + l.label + '</a>';
+    var externalAttr = l.external ? ' target="_blank" rel="noopener"' : '';
+    return '<a href="' + l.href + '"' + activeAttr + externalAttr + '>' + l.label + '</a>';
   }).join('');
 
   var authLinkHtml = showSubscribe
