@@ -114,11 +114,14 @@ const SOURCING_REGIONS = [
   'East of England', 'North West', 'North East', 'Yorkshire and the Humber',
   'Scotland', 'Wales', 'Northern Ireland'
 ];
-const SOURCING_STRATEGIES = ['BRRR', 'BTL'];
-const SOURCING_POF_STATUSES = ['confirmed', 'in_progress', 'not_yet'];
+const SOURCING_STRATEGIES = ['BRRR', 'BTL', 'HMO', 'Flip', 'SA', 'Other'];
+// Self-declared readiness, not a verified status -- this is a pre-call
+// application, so nothing here has actually been confirmed by anyone yet
+// (the old 'confirmed'/'in_progress'/'not_yet' values implied otherwise).
+const SOURCING_POF_STATUSES = ['cash_buyer', 'mortgage_aip', 'arranging_finance'];
 
 function validateSourcingApplication(body) {
-  const { name, email, regions, budget_min, budget_max, strategy, timeline, min_yield, proof_of_funds_status } = body;
+  const { name, email, regions, budget_min, budget_max, strategy, strategy_other, timeline, min_yield, proof_of_funds_status } = body;
 
   if (typeof name !== 'string' || !name.trim()) return { error: 'Enter your name.' };
   if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return { error: 'Enter a valid email.' };
@@ -126,6 +129,14 @@ function validateSourcingApplication(body) {
     return { error: 'Select at least one valid target region.' };
   }
   if (!SOURCING_STRATEGIES.includes(strategy)) return { error: `strategy must be one of ${SOURCING_STRATEGIES.join('/')}.` };
+  // There's a single `strategy` text column (no separate free-text column),
+  // so an "Other" pick is folded into it as "Other: <detail>" rather than
+  // storing the literal word "Other" and losing what they actually typed.
+  let finalStrategy = strategy;
+  if (strategy === 'Other') {
+    if (typeof strategy_other !== 'string' || !strategy_other.trim()) return { error: 'Tell us what strategy you have in mind.' };
+    finalStrategy = `Other: ${strategy_other.trim()}`;
+  }
   if (typeof timeline !== 'string' || !timeline.trim()) return { error: 'Select a timeline to purchase.' };
   if (!SOURCING_POF_STATUSES.includes(proof_of_funds_status)) return { error: `proof_of_funds_status must be one of ${SOURCING_POF_STATUSES.join('/')}.` };
 
@@ -144,7 +155,7 @@ function validateSourcingApplication(body) {
       regions,
       budget_min: budgetMin,
       budget_max: budgetMax,
-      strategy,
+      strategy: finalStrategy,
       timeline: timeline.trim(),
       min_yield: minYield,
       proof_of_funds_status
@@ -273,6 +284,78 @@ app.put('/api/admin/sourcing-applications/:id/status', async (req, res) => {
   }
 
   res.json({ ...updated, invited, inviteError });
+});
+
+// Dashboard nudge for logged-in users who haven't applied to Deal Sourcing.
+// Deliberately two calls, not one side-effecting GET: this one is a pure
+// eligibility check (safe to call however often), and POST .../shown below
+// is the one that actually records "shown", called by the client only when
+// it's about to render the banner. Eligible = no sourcing_applications row
+// under this user's own id, AND profiles.deal_sourcing_nudge_last_shown is
+// null or more than 30 days ago -- recording a plain timestamp (rather than
+// a permanent "seen" flag) is what makes it reappear next month instead of
+// being suppressed forever, same as the spec asked for.
+//
+// profiles.deal_sourcing_nudge_last_shown (db/032) is a brand-new, additive
+// column that may not exist yet on a database that hasn't run that
+// migration -- deliberately not applied automatically (per instruction, the
+// owner runs it via the Supabase dashboard SQL editor themselves). Any
+// error reading/writing it (including "column does not exist") fails
+// closed to "don't show the nudge", same fail-closed shape as getUserPlan.
+const DEAL_SOURCING_NUDGE_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
+
+app.get('/api/deal-sourcing-nudge', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to check this.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to check this.' });
+  const userId = userData.user.id;
+
+  try {
+    // supabaseAdmin here, not the RLS-scoped client: this is a system-wide
+    // "has this user ever applied" check for banner logic, not user-facing
+    // display of their own data, and sourcing_applications' RLS policy
+    // (if any) isn't something this route should have to depend on.
+    const { data: existingApp } = await supabaseAdmin
+      .from('sourcing_applications')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+    if (existingApp) return res.json({ eligible: false });
+
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles')
+      .select('deal_sourcing_nudge_last_shown')
+      .eq('user_id', userId)
+      .single();
+    if (profileErr) throw profileErr;
+
+    const lastShown = profile && profile.deal_sourcing_nudge_last_shown ? new Date(profile.deal_sourcing_nudge_last_shown).getTime() : null;
+    const eligible = !lastShown || (Date.now() - lastShown) > DEAL_SOURCING_NUDGE_INTERVAL_MS;
+    res.json({ eligible });
+  } catch (e) {
+    res.json({ eligible: false });
+  }
+});
+
+app.post('/api/deal-sourcing-nudge/shown', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use this.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to use this.' });
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ deal_sourcing_nudge_last_shown: new Date().toISOString() })
+    .eq('user_id', userData.user.id);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // Builds a Supabase client scoped to the logged-in user's own token, so

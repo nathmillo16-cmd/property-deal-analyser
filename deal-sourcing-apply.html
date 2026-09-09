@@ -66,6 +66,7 @@ body{margin:0}
 @media(max-width:560px){.ds-field-grid{grid-template-columns:1fr}}
 .ds-field-grid .field,.ds-apply>form>.field{margin-bottom:0}
 .ds-section-label{font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--input-muted);margin:0 0 .6rem}
+.ds-caption{font-size:12px;color:var(--input-muted);font-style:italic;margin:-.35rem 0 .85rem}
 .ds-block{margin-bottom:1.6rem}
 
 .ds-region-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
@@ -169,6 +170,7 @@ footer.ds-footer a{color:var(--muted)}
 
         <div class="ds-block">
           <p class="ds-section-label">Budget range</p>
+          <p class="ds-caption">Total budget including deposit, refurb costs, and fees.</p>
           <div class="ds-field-grid">
             <div class="field"><label>Minimum (£)</label><input type="number" id="ds-budget-min" min="0" step="1000"/></div>
             <div class="field"><label>Maximum (£)</label><input type="number" id="ds-budget-max" min="0" step="1000"/></div>
@@ -183,6 +185,10 @@ footer.ds-footer a{color:var(--muted)}
                 <option value="" disabled selected>Select one</option>
                 <option value="BRRR">BRRR</option>
                 <option value="BTL">BTL</option>
+                <option value="HMO">HMO</option>
+                <option value="Flip">Flip</option>
+                <option value="SA">SA (serviced accommodation)</option>
+                <option value="Other">Other</option>
               </select>
             </div>
             <div class="field">
@@ -196,6 +202,10 @@ footer.ds-footer a{color:var(--muted)}
               </select>
             </div>
           </div>
+          <div class="field" id="ds-strategy-other-wrap" style="display:none;margin-top:14px">
+            <label>Please specify</label>
+            <input type="text" id="ds-strategy-other"/>
+          </div>
         </div>
 
         <div class="ds-block">
@@ -205,9 +215,9 @@ footer.ds-footer a{color:var(--muted)}
               <label>Proof of funds status</label>
               <select id="ds-pof" required>
                 <option value="" disabled selected>Select one</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="in_progress">In progress</option>
-                <option value="not_yet">Not yet</option>
+                <option value="cash_buyer">Cash buyer</option>
+                <option value="mortgage_aip">Mortgage agreement in principle</option>
+                <option value="arranging_finance">Still arranging finance</option>
               </select>
             </div>
           </div>
@@ -259,6 +269,12 @@ function dsSelectedRegions(){
   return Array.prototype.slice.call(document.querySelectorAll('.ds-region-cb:checked')).map(function(cb){ return cb.value; });
 }
 
+document.getElementById('ds-strategy').addEventListener('change', function(){
+  var isOther = this.value === 'Other';
+  document.getElementById('ds-strategy-other-wrap').style.display = isOther ? 'block' : 'none';
+  if (!isOther) document.getElementById('ds-strategy-other').value = '';
+});
+
 document.getElementById('ds-form').addEventListener('submit', async function(e){
   e.preventDefault();
   var errorEl = document.getElementById('ds-error');
@@ -271,6 +287,7 @@ document.getElementById('ds-form').addEventListener('submit', async function(e){
   var budgetMin = document.getElementById('ds-budget-min').value;
   var budgetMax = document.getElementById('ds-budget-max').value;
   var strategy = document.getElementById('ds-strategy').value;
+  var strategyOther = document.getElementById('ds-strategy-other').value.trim();
   var timeline = document.getElementById('ds-timeline').value;
   var minYield = document.getElementById('ds-min-yield').value;
   var pof = document.getElementById('ds-pof').value;
@@ -279,6 +296,7 @@ document.getElementById('ds-form').addEventListener('submit', async function(e){
   if (!email) { errorEl.textContent = 'Enter your email.'; return; }
   if (regions.length === 0) { errorEl.textContent = 'Select at least one target region.'; return; }
   if (!strategy) { errorEl.textContent = 'Select a strategy.'; return; }
+  if (strategy === 'Other' && !strategyOther) { errorEl.textContent = 'Tell us what strategy you have in mind.'; return; }
   if (!timeline) { errorEl.textContent = 'Select a timeline to purchase.'; return; }
   if (!pof) { errorEl.textContent = 'Select your proof of funds status.'; return; }
   if (budgetMin !== '' && budgetMax !== '' && Number(budgetMin) > Number(budgetMax)) {
@@ -300,6 +318,7 @@ document.getElementById('ds-form').addEventListener('submit', async function(e){
         budget_min: budgetMin === '' ? null : Number(budgetMin),
         budget_max: budgetMax === '' ? null : Number(budgetMax),
         strategy: strategy,
+        strategy_other: strategy === 'Other' ? strategyOther : null,
         timeline: timeline,
         min_yield: minYield === '' ? null : Number(minYield),
         proof_of_funds_status: pof

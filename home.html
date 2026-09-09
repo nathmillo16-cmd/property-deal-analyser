@@ -21,6 +21,17 @@
 #app{display:none}
 .hint{font-size:12.5px;color:var(--muted);font-style:italic;margin:0}
 
+/* Low-key, dismissible Deal Sourcing nudge -- a slim banner, not a card or
+   modal, so it doesn't compete with the hero/board for attention. Shown at
+   most once per 30 days per user (server-decided, see /api/deal-sourcing-
+   nudge); dismiss just hides it for this page view, since the 30-day
+   suppression is already recorded server-side the moment it's shown. */
+.ds-nudge{display:none;align-items:center;justify-content:space-between;gap:1rem;background:rgba(75,69,178,.08);border:1px solid rgba(75,69,178,.22);border-radius:var(--radius-sm);padding:.8rem 1.1rem;margin-bottom:var(--space-4);font-size:13.5px;color:var(--ink)}
+.ds-nudge a{color:var(--accent);font-weight:600;text-decoration:none}
+.ds-nudge a:hover{text-decoration:underline}
+.ds-nudge-close{background:none;border:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;padding:0 2px;flex-shrink:0}
+.ds-nudge-close:hover{color:var(--ink)}
+
 /* Card treatment: white surface, soft lift, and a defined edge —
    strengthened again to 1px/.09 alpha (up from .5px/.08 — still felt too
    faint). Scoped to #app so other, still-dark-theme pages keep their
@@ -130,6 +141,11 @@
   <div id="nav-root" data-active="home" data-subscribe="false"></div>
   <script src="/nav.js"></script>
   <script src="/crm-nav.js"></script>
+
+  <div class="ds-nudge" id="ds-nudge-banner">
+    <p>Want us to source your next deal? <a href="/deal-sourcing/apply" target="_blank" rel="noopener">Apply for Deal Sourcing →</a></p>
+    <button type="button" class="ds-nudge-close" id="ds-nudge-dismiss" aria-label="Dismiss">&times;</button>
+  </div>
 
   <div class="header-row">
     <div>
@@ -475,11 +491,33 @@ async function init(){
     Tutorial.enterDashboard(currentSession.access_token, hasCompletedTutorial);
   });
 
+  checkDealSourcingNudge();
+
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
     if(!currentSession)window.location.href='/';
   });
 }
+
+// Independent of loadDashboard's own data -- doesn't need to block or be
+// blocked by it. Eligibility (no application on file, not shown in the
+// last 30 days) is decided server-side; this just renders the result and,
+// if shown, immediately records that via the separate /shown call so a
+// reload a minute later won't show it again within the same 30-day window.
+async function checkDealSourcingNudge(){
+  try{
+    const headers={'Authorization':'Bearer '+currentSession.access_token};
+    const res=await fetch('/api/deal-sourcing-nudge',{headers});
+    const body=await res.json();
+    if(res.ok && body.eligible){
+      document.getElementById('ds-nudge-banner').style.display='flex';
+      fetch('/api/deal-sourcing-nudge/shown',{method:'POST',headers}).catch(function(){});
+    }
+  }catch(e){}
+}
+document.getElementById('ds-nudge-dismiss').addEventListener('click', function(){
+  document.getElementById('ds-nudge-banner').style.display='none';
+});
 
 init();
 </script>
