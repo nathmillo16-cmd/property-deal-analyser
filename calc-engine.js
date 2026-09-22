@@ -47,7 +47,7 @@ function cBTL(){
   const mNm=rent-ins-maintC-mgmtC-mm, mNy=mNm*12;
   const cNm=rent-maintC-ins-mgmtC, cNy=cNm*12;
   const ag=rent*12;
-  const mTI=sol+mf+srch+dep+ref+pp-loan, cTI=pp+sol+mf+srch+ref;
+  const mTI=sol+mf+srch+dep+ref, cTI=pp+sol+mf+srch+ref;
   const gy=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
   const mMLI=cTI-loan, mROI=mMLI!==0?(mNy/mMLI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
   const mPB=mNy!==0?mMLI/mNy:0, cPB=cNy>0?cTI/cNy:0;
@@ -248,20 +248,21 @@ function cSA(){
   const mny=emv>0?(mCFy/emv)*100:0;
   const cny=emv>0?(cCFy/emv)*100:0;
 
-  const mTI=sol+mf+srch+dep+ref+furn+wg+pp-loan;
+  const mTI=sol+mf+srch+dep+ref+furn+wg;
   const cTI=pp+sol+mf+srch+ref+furn+wg;
-  const mROI=mTI!==0?(mCFy/mTI)*100:0;
+  const mMLI=cTI-loan;
+  const mROI=mMLI!==0?(mCFy/mMLI)*100:0;
   const cROI=cTI>0?(cCFy/cTI)*100:0;
 
   const rmm=mortRepay(loan,mr,term);
   const rmortIntA=rmm*12;
   const rCFy=netInc-rmortIntA, rCFm=rCFy/12;
   const rny=emv>0?(rCFy/emv)*100:0;
-  const rROI=mTI!==0?(rCFy/mTI)*100:0;
+  const rROI=mMLI!==0?(rCFy/mMLI)*100:0;
 
   const oY=ty>0?ag/(ty/100):0;
-  const tMLI=troi>0?mCFy/(troi/100):0, oR=tMLI+loan-sol-mf-srch-ref-furn-wg-dep;
-  const rtMLI=troi>0?rCFy/(troi/100):0, roR=rtMLI+loan-sol-mf-srch-ref-furn-wg-dep;
+  const tMLI=troi>0?mCFy/(troi/100):0, oR=tMLI+loan-sol-mf-srch-ref-furn-wg;
+  const rtMLI=troi>0?rCFy/(troi/100):0, roR=rtMLI+loan-sol-mf-srch-ref-furn-wg;
 
   document.getElementById('sa-ly').textContent=ty;
   document.getElementById('sa-lr').textContent=troi;
