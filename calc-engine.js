@@ -270,6 +270,7 @@ function cSA(){
   s('sam-gy',fP(gy),cl(gy,10,7));
   s('sam-ny',fP(mny),cl(mny,6,4));
   s('sam-roi',fP(mROI),cl(mROI,15,8));
+  s('sam-ti',fmt(mTI));s('sam-mli',fmt(mMLI),mMLI<=0?'good':'');
   s('sam-im',fmt(incM));
   s('sam-iy',fmt(incY));
   s('sam-cfm',fmt(mCFm),cl(mCFm,300,0));
@@ -279,6 +280,7 @@ function cSA(){
   s('sac-gy',fP(gy),cl(gy,10,7));
   s('sac-ny',fP(cny),cl(cny,6,4));
   s('sac-roi',fP(cROI),cl(cROI,15,8));
+  s('sac-ti',fmt(cTI));s('sac-mli',fmt(cTI));
   s('sac-im',fmt(incM));
   s('sac-iy',fmt(incY));
   s('sac-cfm',fmt(cCFm),cl(cCFm,300,0));
@@ -287,6 +289,7 @@ function cSA(){
   s('sar-gy',fP(gy),cl(gy,10,7));
   s('sar-ny',fP(rny),cl(rny,6,4));
   s('sar-roi',fP(rROI),cl(rROI,15,8));
+  s('sar-ti',fmt(mTI));s('sar-mli',fmt(mMLI),mMLI<=0?'good':'');
   s('sar-im',fmt(incM));
   s('sar-iy',fmt(incY));
   s('sar-cfm',fmt(rCFm),cl(rCFm,300,0));
