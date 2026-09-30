@@ -374,7 +374,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Monthly rent (£)</label><input type="number" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Mortgage term (years)</label><input type="number" id="b-term" value="25" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Refurb (£)</label><input type="number" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Solicitor fees (£)</label><input type="number" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Mortgage fees (£)</label><input type="number" id="b-mf" value="300" oninput="markStaleBTL()"/></div>
@@ -383,7 +383,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="markStaleBTL()"/></div>
         </div>
-        <p class="hint">Stamp duty auto-calculated with BTL surcharge. Deposit, yields and money left in use end market value.</p>
+        <p class="hint">Stamp duty auto-calculated with BTL surcharge. Deposit uses purchase price. Yields use end market value.</p>
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
@@ -406,8 +406,7 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bm-gy">—</p></div>
             <div class="m"><p class="ml">Net yield</p><p class="mv" id="bm-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="bm-roi">—</p></div>
-            <div class="m"><p class="ml">Total investment</p><p class="mv" id="bm-ti">—</p></div>
-            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bm-mli">—</p></div>
+            <div class="m"><p class="ml">Total initial investment</p><p class="mv" id="bm-ti">—</p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bm-pb">—</p></div>
           </div>
           <p class="ch section-gap">Mortgage</p>
@@ -425,8 +424,7 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Gross yield</p><p class="mv" id="br-gy">—</p></div>
             <div class="m"><p class="ml">Net yield</p><p class="mv" id="br-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="br-roi">—</p></div>
-            <div class="m"><p class="ml">Total investment</p><p class="mv" id="br-ti">—</p></div>
-            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="br-mli">—</p></div>
+            <div class="m"><p class="ml">Total initial investment</p><p class="mv" id="br-ti">—</p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="br-pb">—</p></div>
           </div>
           <p class="ch section-gap">Mortgage</p>
@@ -479,7 +477,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>End market value (£)</label><input type="number" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Mortgage term (years)</label><input type="number" id="h-term" value="25" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Refurb (£)</label><input type="number" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Solicitor fees (£)</label><input type="number" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Mortgage fees (£)</label><input type="number" id="h-mf" value="300" oninput="markStaleHMO()"/></div>
@@ -521,8 +519,7 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hm-gy">—</p></div>
             <div class="m"><p class="ml">Net yield</p><p class="mv" id="hm-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="hm-roi">—</p></div>
-            <div class="m"><p class="ml">Total investment</p><p class="mv" id="hm-ti">—</p></div>
-            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hm-mli">—</p></div>
+            <div class="m"><p class="ml">Total initial investment</p><p class="mv" id="hm-ti">—</p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hm-pb">—</p></div>
           </div>
           <p class="ch section-gap">Mortgage</p>
@@ -540,8 +537,7 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hr-gy">—</p></div>
             <div class="m"><p class="ml">Net yield</p><p class="mv" id="hr-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="hr-roi">—</p></div>
-            <div class="m"><p class="ml">Total investment</p><p class="mv" id="hr-ti">—</p></div>
-            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hr-mli">—</p></div>
+            <div class="m"><p class="ml">Total initial investment</p><p class="mv" id="hr-ti">—</p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hr-pb">—</p></div>
           </div>
           <p class="ch section-gap">Mortgage</p>
@@ -596,7 +592,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>End market value (£)</label><input type="number" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
           <div class="f"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
           <div class="f"><label>Mortgage term (years)</label><input type="number" id="sa-term" value="25" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Deposit % (of EMV)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
         </div>
         <p class="sl section-gap">Upfront costs</p>
         <div class="g2">
@@ -616,7 +612,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Insurance /mo (£)</label><input type="number" id="sa-ins" value="40" oninput="markStaleSA()"/></div>
           <div class="f"><label>Council tax annual (£)</label><input type="number" id="sa-ct" value="2265" oninput="markStaleSA()"/></div>
         </div>
-        <p class="hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with BTL surcharge. Deposit and yields use end market value.</p>
+        <p class="hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with BTL surcharge. Deposit uses purchase price. Yields use end market value.</p>
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
@@ -637,8 +633,7 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sam-gy">—</p></div>
             <div class="m"><p class="ml">Net yield</p><p class="mv" id="sam-ny">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="sam-roi">—</p></div>
-            <div class="m"><p class="ml">Total investment</p><p class="mv" id="sam-ti">—</p></div>
-            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="sam-mli">—</p></div>
+            <div class="m"><p class="ml">Total initial investment</p><p class="mv" id="sam-ti">—</p></div>
             <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sam-im">—</p></div>
             <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sam-iy">—</p></div>
             <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sam-cfm">—</p></div>
@@ -657,8 +652,7 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sar-gy">—</p></div>
             <div class="m"><p class="ml">Net yield</p><p class="mv" id="sar-ny">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="sar-roi">—</p></div>
-            <div class="m"><p class="ml">Total investment</p><p class="mv" id="sar-ti">—</p></div>
-            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="sar-mli">—</p></div>
+            <div class="m"><p class="ml">Total initial investment</p><p class="mv" id="sar-ti">—</p></div>
             <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sar-im">—</p></div>
             <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sar-iy">—</p></div>
             <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sar-cfm">—</p></div>
@@ -1624,7 +1618,7 @@ DEAL INPUTS:
 - End market value (post-refurb): £${d.emv.toLocaleString()}
 - Monthly rent: £${d.rent.toLocaleString()}
 - Mortgage rate: ${d.mr}%
-- Deposit: ${d.dp}% of EMV
+- Deposit: ${d.dp}% of purchase price
 - Refurb cost: £${d.ref.toLocaleString()}
 - Solicitor fees: £${d.sol.toLocaleString()}
 - Mortgage fees: £${d.mf.toLocaleString()}
@@ -1669,7 +1663,7 @@ DEAL INPUTS:
 - End market value (post-refurb): £${d.emv.toLocaleString()}
 - Total monthly rent: £${d.totalRent.toLocaleString()}
 - Mortgage rate: ${d.mr}%
-- Deposit: ${d.dp}% of EMV
+- Deposit: ${d.dp}% of purchase price
 - Refurb cost: £${d.ref.toLocaleString()}
 - Bills (auto 10% of rent): £${d.bills.toLocaleString()}/mo
 - Council tax: £${d.ctMonthly.toLocaleString()}/mo
@@ -1713,7 +1707,7 @@ DEAL INPUTS:
 - End market value: £${d.emv.toLocaleString()}
 - Nightly rate: £${d.rate} | Occupancy: ${d.occ}%
 - Mortgage rate: ${d.mr}%
-- Deposit: ${d.dp}% of EMV
+- Deposit: ${d.dp}% of purchase price
 - Refurbishment: £${d.ref.toLocaleString()} | Furnishings: £${d.furn.toLocaleString()} | White goods: £${d.wg.toLocaleString()}
 - Management: ${d.mgmt}% | Utilities: ${d.util}% | Maintenance: ${d.maint}% (all % of revenue)
 - Cleaning: £${d.clean}/mo | Insurance: £${d.ins}/mo | Council tax: £${d.ct.toLocaleString()}/yr

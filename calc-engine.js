@@ -42,7 +42,7 @@ function cBTL(){
   const btermEl=document.getElementById('b-term');
   const term=btermEl?(+btermEl.value||25):25;
 
-  const dep=emv*dp, loan=emv-dep, mm=mort(loan,mr), sd=stamp(pp);
+  const dep=pp*dp, loan=pp-dep, mm=mort(loan,mr), sd=stamp(pp);
   const maintC=rent*maint, mgmtC=rent*mgmt;
   const mNm=rent-ins-maintC-mgmtC-mm, mNy=mNm*12;
   const cNm=rent-maintC-ins-mgmtC, cNy=cNm*12;
@@ -59,8 +59,39 @@ function cBTL(){
   const rPB=rNy!==0?mMLI/rNy:0;
 
   const oY=ag/(ty/100);
-  const tMLI=mNy/(tr/100), oR=tMLI+loan-sol-mf-srch-ref;
-  const rtMLI=rNy/(tr/100), roR=rtMLI+loan-sol-mf-srch-ref;
+
+  // Max bid via bisection, not closed-form: loan (and so the mortgage
+  // payment) now depends on the candidate price itself, since deposit is
+  // derived from price, not EMV — the old "+loan" trick assumed loan was a
+  // fixed constant, which is no longer true. Matches HMO/Flip's existing,
+  // proven bisection pattern rather than re-deriving closed-form algebra.
+  let oR=0;
+  {
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
+      const mNyM=(rent-ins-maintC-mgmtC-mmM)*12;
+      const mMLIM=(mid+sol+mf+srch+ref)-loanM;
+      const roiM=mMLIM!==0?(mNyM/mMLIM)*100:0;
+      if(roiM>tr)lo=mid;else hi=mid;
+    }
+    oR=(lo+hi)/2;
+  }
+
+  let roR=0;
+  {
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
+      const rNyM=(rent-ins-maintC-mgmtC-rmmM)*12;
+      const mMLIM=(mid+sol+mf+srch+ref)-loanM;
+      const roiM=mMLIM!==0?(rNyM/mMLIM)*100:0;
+      if(roiM>tr)lo=mid;else hi=mid;
+    }
+    roR=(lo+hi)/2;
+  }
 
   document.getElementById('b-ly').textContent=ty;
   document.getElementById('b-lr').textContent=tr;
@@ -81,11 +112,11 @@ function cBTL(){
   document.getElementById('b-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
   document.getElementById('b-oy').textContent=fmt(oY);
   document.getElementById('b-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
-  document.getElementById('b-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
-  if(oR>0)document.getElementById('b-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
+  document.getElementById('b-or').textContent=oR>0&&oR<1900000?fmt(oR):'Cannot achieve at these inputs';
+  if(oR>0&&oR<1900000)document.getElementById('b-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
   const brorEl=document.getElementById('b-ror');
-  if(brorEl) brorEl.textContent=roR>0?fmt(roR):'Cannot achieve at these inputs';
-  if(roR>0){
+  if(brorEl) brorEl.textContent=roR>0&&roR<1900000?fmt(roR):'Cannot achieve at these inputs';
+  if(roR>0&&roR<1900000){
     const brornEl=document.getElementById('b-rorn');
     if(brornEl) brornEl.textContent=(roR-pp)<0?fmt(Math.abs(roR-pp))+' below asking':fmt(roR-pp)+' above asking';
   }
@@ -134,7 +165,7 @@ function cHMO(){
   const bills=totalRent*0.1;
   document.getElementById('h-bills').textContent='£'+Math.round(bills).toLocaleString();
 
-  const sd=stamp(pp), dep=emv*dp, loan=emv*0.75, mm=mort(loan,mr);
+  const sd=stamp(pp), dep=pp*dp, loan=pp-dep, mm=mort(loan,mr);
   const maintC=totalRent*maint, mgmtC=totalRent*mgmt;
   const mNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC-mm, mNy=mNm*12;
   const cNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC, cNy=cNm*12;
@@ -171,10 +202,22 @@ function cHMO(){
   document.getElementById('h-oy').textContent=oY>0?fmt(oY):'Enter rooms first';
   if(oY>0){document.getElementById('h-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';}
 
+  // Bisection now recomputes the mortgage payment (via depM/loanM/mmM) per
+  // candidate price, not just stamp duty — loan is no longer a flat 75%
+  // LTV of EMV, it's deposit-derived from the candidate price itself, so
+  // it must be re-evaluated at every step same as stamp duty already was.
   let oR=0;
   if(totalRent>0){
     let lo=10000,hi=2000000;
-    for(let i=0;i<80;i++){const mid=(lo+hi)/2;const sdM=stamp(mid).total;const tiM=dep+sol+mf+lic+ref+sdM;const roiM=tiM!==0?(mNy/tiM)*100:0;if(roiM>troi)lo=mid;else hi=mid;}
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      const sdM=stamp(mid).total;
+      const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
+      const mNyM=(totalRent-bills-ins-wifi-ct-maintC-mgmtC-mmM)*12;
+      const tiM=depM+sol+mf+lic+ref+sdM;
+      const roiM=tiM!==0?(mNyM/tiM)*100:0;
+      if(roiM>troi)lo=mid;else hi=mid;
+    }
     oR=(lo+hi)/2;
   }
   document.getElementById('h-or').textContent=oR>0&&oR<1900000?fmt(oR):'Cannot achieve at these inputs';
@@ -183,7 +226,15 @@ function cHMO(){
   let roR=0;
   if(totalRent>0){
     let rlo=10000,rhi=2000000;
-    for(let i=0;i<80;i++){const mid=(rlo+rhi)/2;const sdM=stamp(mid).total;const tiM=dep+sol+mf+lic+ref+sdM;const roiM=tiM!==0?(rNy/tiM)*100:0;if(roiM>troi)rlo=mid;else rhi=mid;}
+    for(let i=0;i<80;i++){
+      const mid=(rlo+rhi)/2;
+      const sdM=stamp(mid).total;
+      const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
+      const rNyM=(totalRent-bills-ins-wifi-ct-maintC-mgmtC-rmmM)*12;
+      const tiM=depM+sol+mf+lic+ref+sdM;
+      const roiM=tiM!==0?(rNyM/tiM)*100:0;
+      if(roiM>troi)rlo=mid;else rhi=mid;
+    }
     roR=(rlo+rhi)/2;
   }
   const hrorEl=document.getElementById('h-ror');
@@ -237,7 +288,7 @@ function cSA(){
   const totalCosts=mgmtCost+utilCost+maintCost+cleanA+insA+ct;
   const netInc=ag-totalCosts;
 
-  const dep=emv*dp, loan=emv-dep, mm=mort(loan,mr), sd=stamp(pp);
+  const dep=pp*dp, loan=pp-dep, mm=mort(loan,mr), sd=stamp(pp);
   const mortIntA=mm*12;
 
   const mCFy=netInc-mortIntA, mCFm=mCFy/12;
@@ -261,8 +312,38 @@ function cSA(){
   const rROI=mMLI!==0?(rCFy/mMLI)*100:0;
 
   const oY=ty>0?ag/(ty/100):0;
-  const tMLI=troi>0?mCFy/(troi/100):0, oR=tMLI+loan-sol-mf-srch-ref-furn-wg;
-  const rtMLI=troi>0?rCFy/(troi/100):0, roR=rtMLI+loan-sol-mf-srch-ref-furn-wg;
+
+  // Max bid via bisection, not closed-form — same reason as BTL: loan (and
+  // so the mortgage payment) now depends on the candidate price itself,
+  // since deposit is derived from price, not EMV. Matches HMO/Flip's
+  // existing, proven bisection pattern rather than re-deriving algebra.
+  let oR=0;
+  {
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
+      const mCFyM=netInc-mmM*12;
+      const mMLIM=(mid+sol+mf+srch+ref+furn+wg)-loanM;
+      const roiM=mMLIM!==0?(mCFyM/mMLIM)*100:0;
+      if(roiM>troi)lo=mid;else hi=mid;
+    }
+    oR=(lo+hi)/2;
+  }
+
+  let roR=0;
+  {
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
+      const rCFyM=netInc-rmmM*12;
+      const mMLIM=(mid+sol+mf+srch+ref+furn+wg)-loanM;
+      const roiM=mMLIM!==0?(rCFyM/mMLIM)*100:0;
+      if(roiM>troi)lo=mid;else hi=mid;
+    }
+    roR=(lo+hi)/2;
+  }
 
   document.getElementById('sa-ly').textContent=ty;
   document.getElementById('sa-lr').textContent=troi;
@@ -300,11 +381,11 @@ function cSA(){
 
   document.getElementById('sa-oy').textContent=oY>0?fmt(oY):'Cannot achieve at these inputs';
   if(oY>0)document.getElementById('sa-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
-  document.getElementById('sa-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
-  if(oR>0)document.getElementById('sa-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
+  document.getElementById('sa-or').textContent=oR>0&&oR<1900000?fmt(oR):'Cannot achieve at these inputs';
+  if(oR>0&&oR<1900000)document.getElementById('sa-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
   const sarorEl=document.getElementById('sa-ror');
-  if(sarorEl) sarorEl.textContent=roR>0?fmt(roR):'Cannot achieve at these inputs';
-  if(roR>0){
+  if(sarorEl) sarorEl.textContent=roR>0&&roR<1900000?fmt(roR):'Cannot achieve at these inputs';
+  if(roR>0&&roR<1900000){
     const sarornEl=document.getElementById('sa-rorn');
     if(sarornEl) sarornEl.textContent=(roR-pp)<0?fmt(Math.abs(roR-pp))+' below asking':fmt(roR-pp)+' above asking';
   }
