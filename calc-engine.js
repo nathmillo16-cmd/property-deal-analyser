@@ -52,6 +52,23 @@ function cBTL(){
   const mMLI=cTI-loan, mROI=mMLI!==0?(mNy/mMLI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
   const mPB=mNy!==0?mMLI/mNy:0, cPB=cNy>0?cTI/cNy:0;
 
+  // BRRR — its own financing tab now (see the fin-tab buttons), not a Cash-
+  // tab toggle. Cash tab above is pure cash-and-hold, unaffected by
+  // refinancing. Refinance loan is EMV-based (a refinance lender lends
+  // against the post-refurb valuation), independent of purchase price —
+  // unlike the purchase mortgage above. Defensive reads so this is a no-op
+  // on any page without this markup, e.g. landing.html's taster calculator.
+  const bbRefiLtvEl=document.getElementById('bb-refi-ltv');
+  const bbRefiLtv=(bbRefiLtvEl?(+bbRefiLtvEl.value||75):75)/100;
+  const bbRefiType=(typeof getDDValue==='function'&&getDDValue('bb-refi-type'))||'io';
+  const bbRefiLoan=emv*bbRefiLtv;
+  const bbRefiPay=bbRefiType==='repay'?mortRepay(bbRefiLoan,mr,term):mort(bbRefiLoan,mr);
+  const bbNm=rent-ins-maintC-mgmtC-bbRefiPay, bbNy=bbNm*12;
+  const bbMLI=cTI-bbRefiLoan;
+  const bbny=emv>0?(bbNy/emv)*100:0;
+  const bbROI=bbMLI!==0?(bbNy/bbMLI)*100:0;
+  const bbPB=bbNy!==0?bbMLI/bbNy:0;
+
   const rmm=mortRepay(loan,mr,term);
   const rNm=rent-ins-maintC-mgmtC-rmm, rNy=rNm*12;
   const rny=emv>0?(rNy/emv)*100:0;
@@ -104,6 +121,12 @@ function cBTL(){
   s('bc-gy',fP(gy),cl(gy,7,5));s('bc-ny2',fP(cny),cl(cny,4,2));
   s('bc-roi',fP(cROI),cl(cROI,15,8));s('bc-ti',fmt(cTI));
   s('bc-mli',fmt(cTI));s('bc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
+  s('bb-nm',fmt(bbNm),cl(bbNm,200,0));s('bb-ny',fmt(bbNy),cl(bbNy,2400,0));
+  s('bb-gy',fP(gy),cl(gy,7,5));s('bb-ny2',fP(bbny),cl(bbny,4,2));
+  s('bb-roi',fP(bbROI),cl(bbROI,15,8));s('bb-ti',fmt(cTI));
+  s('bb-mli',fmt(bbMLI),bbMLI<=0?'good':'');s('bb-pb',bbPB!==0?Math.abs(bbPB).toFixed(2)+' yrs':'N/A');
+  s('bb-refi-loan',fmt(bbRefiLoan));s('bb-refi-ltv-out',fP(bbRefiLtv*100));
+  s('bb-refi-rate',fP(mr));s('bb-refi-mpay',fmt(bbRefiPay));
   s('br-nm',fmt(rNm),cl(rNm,200,0));s('br-ny',fmt(rNy),cl(rNy,2400,0));
   s('br-gy',fP(gy),cl(gy,7,5));s('br-ny2',fP(rny),cl(rny,4,2));
   s('br-roi',fP(rROI),cl(rROI,15,8));s('br-ti',fmt(mTI));
@@ -132,7 +155,12 @@ function cBTL(){
     meetsYield:gy>=ty,meetsROI:mROI>=tr,
     repaymentMonthlyPayment:Math.round(rmm),rNm:Math.round(rNm),rNy:Math.round(rNy),
     rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),rPB:+Math.abs(rPB).toFixed(2),
-    rOR:Math.round(roR),meetsROIRepayment:rROI>=tr};
+    rOR:Math.round(roR),meetsROIRepayment:rROI>=tr,
+    bbNm:Math.round(bbNm),bbNy:Math.round(bbNy),bbny:+bbny.toFixed(2),
+    bbROI:+bbROI.toFixed(2),bbMLI:Math.round(bbMLI),bbPB:+Math.abs(bbPB).toFixed(2),
+    brrrLtv:+(bbRefiLtv*100).toFixed(1),brrrType:bbRefiType,
+    brrrLoan:Math.round(bbRefiLoan),brrrPayment:Math.round(bbRefiPay),
+    meetsROIBRRR:bbROI>=tr};
 }
 
 function cHMO(){
@@ -175,6 +203,23 @@ function cHMO(){
   const mROI=mTI!==0?(mNy/mTI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
   const mPB=mNy!==0?mTI/mNy:0, cPB=cNy>0?cTI/cNy:0;
 
+  // BRRR — its own financing tab now (see the fin-tab buttons), not a Cash-
+  // tab toggle. Cash tab above is pure cash-and-hold, unaffected by
+  // refinancing. Refinance loan is EMV-based (a refinance lender lends
+  // against the post-refurb valuation), independent of purchase price —
+  // unlike the purchase mortgage above. Defensive reads so this is a no-op
+  // on any page without this markup, e.g. landing.html's taster calculator.
+  const hbRefiLtvEl=document.getElementById('hb-refi-ltv');
+  const hbRefiLtv=(hbRefiLtvEl?(+hbRefiLtvEl.value||75):75)/100;
+  const hbRefiType=(typeof getDDValue==='function'&&getDDValue('hb-refi-type'))||'io';
+  const hbRefiLoan=emv*hbRefiLtv;
+  const hbRefiPay=hbRefiType==='repay'?mortRepay(hbRefiLoan,mr,term):mort(hbRefiLoan,mr);
+  const hbNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC-hbRefiPay, hbNy=hbNm*12;
+  const hbMLI=cTI-hbRefiLoan;
+  const hbny=emv>0?(hbNy/emv)*100:0;
+  const hbROI=hbMLI!==0?(hbNy/hbMLI)*100:0;
+  const hbPB=hbNy!==0?hbMLI/hbNy:0;
+
   const rmm=mortRepay(loan,mr,term);
   const rNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC-rmm, rNy=rNm*12;
   const rny=emv>0?(rNy/emv)*100:0;
@@ -193,6 +238,12 @@ function cHMO(){
   s('hc-gy',fP(gy),cl(gy,10,7));s('hc-ny2',fP(cny),cl(cny,6,4));
   s('hc-roi',fP(cROI),cl(cROI,15,8));s('hc-ti',fmt(cTI));
   s('hc-mli',fmt(cTI));s('hc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
+  s('hb-nm',fmt(hbNm),cl(hbNm,300,0));s('hb-ny',fmt(hbNy),cl(hbNy,3600,0));
+  s('hb-gy',fP(gy),cl(gy,10,7));s('hb-ny2',fP(hbny),cl(hbny,6,4));
+  s('hb-roi',fP(hbROI),cl(hbROI,15,8));s('hb-ti',fmt(cTI));
+  s('hb-mli',fmt(hbMLI),hbMLI<=0?'good':'');s('hb-pb',hbPB!==0?Math.abs(hbPB).toFixed(2)+' yrs':'N/A');
+  s('hb-refi-loan',fmt(hbRefiLoan));s('hb-refi-ltv-out',fP(hbRefiLtv*100));
+  s('hb-refi-rate',fP(mr));s('hb-refi-mpay',fmt(hbRefiPay));
   s('hr-nm',fmt(rNm),cl(rNm,300,0));s('hr-ny',fmt(rNy),cl(rNy,3600,0));
   s('hr-gy',fP(gy),cl(gy,10,7));s('hr-ny2',fP(rny),cl(rny,6,4));
   s('hr-roi',fP(rROI),cl(rROI,15,8));s('hr-ti',fmt(mTI));
@@ -255,7 +306,12 @@ function cHMO(){
     repaymentMonthlyPayment:Math.round(rmm),rNm:Math.round(rNm),rNy:Math.round(rNy),
     rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),rPB:+Math.abs(rPB).toFixed(2),
     rOR:Math.round(roR),meetsROIRepayment:rROI>=troi,
-    meetsYield:gy>=ty,meetsROI:mROI>=troi};
+    meetsYield:gy>=ty,meetsROI:mROI>=troi,
+    bbNm:Math.round(hbNm),bbNy:Math.round(hbNy),bbny:+hbny.toFixed(2),
+    bbROI:+hbROI.toFixed(2),bbMLI:Math.round(hbMLI),bbPB:+Math.abs(hbPB).toFixed(2),
+    brrrLtv:+(hbRefiLtv*100).toFixed(1),brrrType:hbRefiType,
+    brrrLoan:Math.round(hbRefiLoan),brrrPayment:Math.round(hbRefiPay),
+    meetsROIBRRR:hbROI>=troi};
 }
 
 function cSA(){
@@ -304,6 +360,22 @@ function cSA(){
   const mMLI=cTI-loan;
   const mROI=mMLI!==0?(mCFy/mMLI)*100:0;
   const cROI=cTI>0?(cCFy/cTI)*100:0;
+
+  // BRRR — its own financing tab now (see the fin-tab buttons), not a Cash-
+  // tab toggle. Cash tab above is pure cash-and-hold, unaffected by
+  // refinancing. Refinance loan is EMV-based (a refinance lender lends
+  // against the post-refurb valuation), independent of purchase price —
+  // unlike the purchase mortgage above. Defensive reads so this is a no-op
+  // on any page without this markup, e.g. landing.html's taster calculator.
+  const sabRefiLtvEl=document.getElementById('sab-refi-ltv');
+  const sabRefiLtv=(sabRefiLtvEl?(+sabRefiLtvEl.value||75):75)/100;
+  const sabRefiType=(typeof getDDValue==='function'&&getDDValue('sab-refi-type'))||'io';
+  const sabRefiLoan=emv*sabRefiLtv;
+  const sabRefiPay=sabRefiType==='repay'?mortRepay(sabRefiLoan,mr,term):mort(sabRefiLoan,mr);
+  const sabCFy=netInc-sabRefiPay*12, sabCFm=sabCFy/12;
+  const sabMLI=cTI-sabRefiLoan;
+  const sabny=emv>0?(sabCFy/emv)*100:0;
+  const sabROI=sabMLI!==0?(sabCFy/sabMLI)*100:0;
 
   const rmm=mortRepay(loan,mr,term);
   const rmortIntA=rmm*12;
@@ -367,6 +439,17 @@ function cSA(){
   s('sac-cfm',fmt(cCFm),cl(cCFm,300,0));
   s('sac-cfy',fmt(cCFy),cl(cCFy,3600,0));
 
+  s('sab-gy',fP(gy),cl(gy,10,7));
+  s('sab-ny',fP(sabny),cl(sabny,6,4));
+  s('sab-roi',fP(sabROI),cl(sabROI,15,8));
+  s('sab-ti',fmt(cTI));s('sab-mli',fmt(sabMLI),sabMLI<=0?'good':'');
+  s('sab-im',fmt(incM));
+  s('sab-iy',fmt(incY));
+  s('sab-cfm',fmt(sabCFm),cl(sabCFm,300,0));
+  s('sab-cfy',fmt(sabCFy),cl(sabCFy,3600,0));
+  s('sab-refi-loan',fmt(sabRefiLoan));s('sab-refi-ltv-out',fP(sabRefiLtv*100));
+  s('sab-refi-rate',fP(mr));s('sab-refi-mpay',fmt(sabRefiPay));
+
   s('sar-gy',fP(gy),cl(gy,10,7));
   s('sar-ny',fP(rny),cl(rny,6,4));
   s('sar-roi',fP(rROI),cl(rROI,15,8));
@@ -402,7 +485,12 @@ function cSA(){
     meetsYield:gy>=ty,meetsROI:mROI>=troi,
     repaymentMonthlyPayment:Math.round(rmm),rCFy:Math.round(rCFy),rCFm:Math.round(rCFm),
     rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),
-    rOR:Math.round(roR),meetsROIRepayment:rROI>=troi};
+    rOR:Math.round(roR),meetsROIRepayment:rROI>=troi,
+    bbCFy:Math.round(sabCFy),bbCFm:Math.round(sabCFm),bbny:+sabny.toFixed(2),
+    bbROI:+sabROI.toFixed(2),bbMLI:Math.round(sabMLI),
+    brrrLtv:+(sabRefiLtv*100).toFixed(1),brrrType:sabRefiType,
+    brrrLoan:Math.round(sabRefiLoan),brrrPayment:Math.round(sabRefiPay),
+    meetsROIBRRR:sabROI>=troi};
 }
 
 function cFlip(){

@@ -398,6 +398,7 @@ body.theme-light .dd-trigger::after{
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('btl','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('btl','r')">Repayment</button>
           <button type="button" class="fin-tab" data-mode="c" onclick="switchFinTab('btl','c')">Cash</button>
+          <button type="button" class="fin-tab" data-mode="brrr" onclick="switchFinTab('btl','brrr')">BRRR</button>
         </div>
         <div class="fin-panel active" data-mode="m">
           <div class="metric-grid">
@@ -446,6 +447,40 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bc-mli">—</p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bc-pb">—</p></div>
           </div>
+        </div>
+        <div class="fin-panel" data-mode="brrr">
+          <div class="g2" style="margin-bottom:1rem">
+            <div class="f"><label>Refinance LTV % (of EMV)</label><input type="number" id="bb-refi-ltv" value="75" oninput="markStaleBTL()"/></div>
+            <div class="f"><label>Refinance type</label>
+              <div class="dd" id="bb-refi-type" data-value="io" data-onchange="markStaleBTL">
+                <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'bb-refi-type')" onkeydown="ddKeydown(event,'bb-refi-type')">
+                  <span>Interest-only</span>
+                </button>
+                <ul class="dd-list" role="listbox">
+                  <li class="dd-opt selected" role="option" aria-selected="true" data-value="io" onclick="selectDDOption(event,'bb-refi-type','io','Interest-only')">Interest-only</li>
+                  <li class="dd-opt" role="option" aria-selected="false" data-value="repay" onclick="selectDDOption(event,'bb-refi-type','repay','Repayment')">Repayment</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bb-nm">—</p></div>
+            <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bb-ny">—</p></div>
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bb-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="bb-ny2">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="bb-roi">—</p></div>
+            <div class="m"><p class="ml">Total investment</p><p class="mv" id="bb-ti">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bb-mli">—</p></div>
+            <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bb-pb">—</p></div>
+          </div>
+          <p class="ch section-gap">Refinance</p>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Refinance loan amount</p><p class="mv" id="bb-refi-loan">—</p></div>
+            <div class="m"><p class="ml">Refinance LTV</p><p class="mv" id="bb-refi-ltv-out">—</p></div>
+            <div class="m"><p class="ml">Interest rate</p><p class="mv" id="bb-refi-rate">—</p></div>
+            <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="bb-refi-mpay">—</p></div>
+          </div>
+          <p class="hint">Refinance rate and term reuse the mortgage rate and term above. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
         </div>
         <div id="b-sn" class="sn"></div>
         <p class="sl section-gap">Recommended offer prices</p>
@@ -511,6 +546,7 @@ body.theme-light .dd-trigger::after{
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('hmo','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('hmo','r')">Repayment</button>
           <button type="button" class="fin-tab" data-mode="c" onclick="switchFinTab('hmo','c')">Cash</button>
+          <button type="button" class="fin-tab" data-mode="brrr" onclick="switchFinTab('hmo','brrr')">BRRR</button>
         </div>
         <div class="fin-panel active" data-mode="m">
           <div class="metric-grid">
@@ -559,6 +595,40 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hc-mli">—</p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hc-pb">—</p></div>
           </div>
+        </div>
+        <div class="fin-panel" data-mode="brrr">
+          <div class="g2" style="margin-bottom:1rem">
+            <div class="f"><label>Refinance LTV % (of EMV)</label><input type="number" id="hb-refi-ltv" value="75" oninput="markStaleHMO()"/></div>
+            <div class="f"><label>Refinance type</label>
+              <div class="dd" id="hb-refi-type" data-value="io" data-onchange="markStaleHMO">
+                <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'hb-refi-type')" onkeydown="ddKeydown(event,'hb-refi-type')">
+                  <span>Interest-only</span>
+                </button>
+                <ul class="dd-list" role="listbox">
+                  <li class="dd-opt selected" role="option" aria-selected="true" data-value="io" onclick="selectDDOption(event,'hb-refi-type','io','Interest-only')">Interest-only</li>
+                  <li class="dd-opt" role="option" aria-selected="false" data-value="repay" onclick="selectDDOption(event,'hb-refi-type','repay','Repayment')">Repayment</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="hb-nm">—</p></div>
+            <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="hb-ny">—</p></div>
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="hb-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="hb-ny2">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="hb-roi">—</p></div>
+            <div class="m"><p class="ml">Total investment</p><p class="mv" id="hb-ti">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hb-mli">—</p></div>
+            <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hb-pb">—</p></div>
+          </div>
+          <p class="ch section-gap">Refinance</p>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Refinance loan amount</p><p class="mv" id="hb-refi-loan">—</p></div>
+            <div class="m"><p class="ml">Refinance LTV</p><p class="mv" id="hb-refi-ltv-out">—</p></div>
+            <div class="m"><p class="ml">Interest rate</p><p class="mv" id="hb-refi-rate">—</p></div>
+            <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="hb-refi-mpay">—</p></div>
+          </div>
+          <p class="hint">Refinance rate and term reuse the mortgage rate and term above. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
         </div>
         <div id="h-sn" class="sn"></div>
         <p class="sl section-gap">Recommended offer prices</p>
@@ -627,6 +697,7 @@ body.theme-light .dd-trigger::after{
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('sa','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('sa','r')">Repayment</button>
           <button type="button" class="fin-tab" data-mode="c" onclick="switchFinTab('sa','c')">Cash</button>
+          <button type="button" class="fin-tab" data-mode="brrr" onclick="switchFinTab('sa','brrr')">BRRR</button>
         </div>
         <div class="fin-panel active" data-mode="m">
           <div class="metric-grid">
@@ -678,6 +749,41 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sac-cfm">—</p></div>
             <div class="m"><p class="ml">Yearly cashflow</p><p class="mv" id="sac-cfy">—</p></div>
           </div>
+        </div>
+        <div class="fin-panel" data-mode="brrr">
+          <div class="g2" style="margin-bottom:1rem">
+            <div class="f"><label>Refinance LTV % (of EMV)</label><input type="number" id="sab-refi-ltv" value="75" oninput="markStaleSA()"/></div>
+            <div class="f"><label>Refinance type</label>
+              <div class="dd" id="sab-refi-type" data-value="io" data-onchange="markStaleSA">
+                <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'sab-refi-type')" onkeydown="ddKeydown(event,'sab-refi-type')">
+                  <span>Interest-only</span>
+                </button>
+                <ul class="dd-list" role="listbox">
+                  <li class="dd-opt selected" role="option" aria-selected="true" data-value="io" onclick="selectDDOption(event,'sab-refi-type','io','Interest-only')">Interest-only</li>
+                  <li class="dd-opt" role="option" aria-selected="false" data-value="repay" onclick="selectDDOption(event,'sab-refi-type','repay','Repayment')">Repayment</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="sab-gy">—</p></div>
+            <div class="m"><p class="ml">Net yield</p><p class="mv" id="sab-ny">—</p></div>
+            <div class="m"><p class="ml">ROI</p><p class="mv" id="sab-roi">—</p></div>
+            <div class="m"><p class="ml">Total investment</p><p class="mv" id="sab-ti">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="sab-mli">—</p></div>
+            <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sab-im">—</p></div>
+            <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sab-iy">—</p></div>
+            <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sab-cfm">—</p></div>
+            <div class="m"><p class="ml">Yearly cashflow</p><p class="mv" id="sab-cfy">—</p></div>
+          </div>
+          <p class="ch section-gap">Refinance</p>
+          <div class="metric-grid">
+            <div class="m"><p class="ml">Refinance loan amount</p><p class="mv" id="sab-refi-loan">—</p></div>
+            <div class="m"><p class="ml">Refinance LTV</p><p class="mv" id="sab-refi-ltv-out">—</p></div>
+            <div class="m"><p class="ml">Interest rate</p><p class="mv" id="sab-refi-rate">—</p></div>
+            <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="sab-refi-mpay">—</p></div>
+          </div>
+          <p class="hint">Refinance rate and term reuse the mortgage rate and term above. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
         </div>
         <div id="sa-sn" class="sn"></div>
         <p class="sl section-gap">Recommended offer prices</p>
@@ -1016,12 +1122,21 @@ function switchFinTab(strategy,mode){
 // it. Never a substitute for Save deal / saved defaults.
 // ---------------------------------------------------------------------
 const DRAFT_FIELD_IDS={
-  btl:['b-pp','b-emv','b-rent','b-mr','b-term','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr'],
-  hmo:['h-pp','h-emv','h-mr','h-term','h-dp','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-maint','h-mgmt','h-r1p','h-r1n','h-r2p','h-r2n','h-r3p','h-r3n','h-r4p','h-r4n','h-ty','h-troi'],
-  sa:['sa-rate','sa-occ','sa-pp','sa-emv','sa-mr','sa-term','sa-dp','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-mgmt','sa-util','sa-maint','sa-clean','sa-ins','sa-ct','sa-ty','sa-troi'],
+  btl:['b-pp','b-emv','b-rent','b-mr','b-term','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr','bb-refi-ltv'],
+  hmo:['h-pp','h-emv','h-mr','h-term','h-dp','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-maint','h-mgmt','h-r1p','h-r1n','h-r2p','h-r2n','h-r3p','h-r3n','h-r4p','h-r4n','h-ty','h-troi','hb-refi-ltv'],
+  sa:['sa-rate','sa-occ','sa-pp','sa-emv','sa-mr','sa-term','sa-dp','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-mgmt','sa-util','sa-maint','sa-clean','sa-ins','sa-ct','sa-ty','sa-troi','sab-refi-ltv'],
   flip:['fl-pp','fl-bf','fl-ref','fl-sv','fl-agent','fl-cont','fl-troi'],
 };
 const CP_TYPE_LABELS={D:'Detached',S:'Semi',T:'Terraced',F:'Flat',O:'Other'};
+const REFI_TYPE_LABELS={io:'Interest-only',repay:'Repayment'};
+// The refinance type (custom dd) isn't a plain .value input, so it can't go
+// through the generic DRAFT_FIELD_IDS loop above — same reason the Comps
+// tab's cp-type/cp-apply-target dd's are handled as their own bespoke block
+// rather than in that loop. LTV is a plain number input and already lives
+// in DRAFT_FIELD_IDS. The BRRR tab is now just a fin-tab like Interest-only/
+// Repayment/Cash (selected via switchFinTab, not a checkbox), so there's no
+// on/off state left to persist here.
+const REFI_TYPE_IDS={btl:'bb-refi-type',hmo:'hb-refi-type',sa:'sab-refi-type'};
 
 function currentIndexDraftState(){
   const fields={};
@@ -1036,9 +1151,14 @@ function currentIndexDraftState(){
   const tierRadio=document.querySelector('input[name="cp-tier"]:checked');
   const floorAreaEl=document.getElementById('cp-floor-area');
   const postcodeEl=document.getElementById('cp-postcode');
+  const refi={};
+  Object.keys(REFI_TYPE_IDS).forEach(strategy=>{
+    refi[strategy]={type: getDDValue(REFI_TYPE_IDS[strategy])};
+  });
   return {
     activeTab: currentTab,
     fields,
+    refi,
     comps:{
       postcode: postcodeEl?postcodeEl.value:'',
       propertyType: getDDValue('cp-type'),
@@ -1077,6 +1197,19 @@ function restoreIndexDraft(){
       });
     }
   }catch(e){ /* whole-strategy restore failed — leave those fields at their defaults */ }
+
+  try{
+    const r=d.refi;
+    if(r&&typeof r==='object'){
+      Object.keys(REFI_TYPE_IDS).forEach(strategy=>{
+        const saved=r[strategy];
+        if(!saved||typeof saved!=='object')return;
+        try{
+          if(saved.type)setDDValue(REFI_TYPE_IDS[strategy], saved.type, REFI_TYPE_LABELS[saved.type]||saved.type);
+        }catch(e){ /* one bad strategy's refi state shouldn't block the rest */ }
+      });
+    }
+  }catch(e){ /* refi restore failed — leave those fields at their defaults */ }
 
   try{
     const c=d.comps;
