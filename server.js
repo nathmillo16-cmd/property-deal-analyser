@@ -1,5 +1,6 @@
 require('dotenv').config();
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
@@ -71,6 +72,95 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
   res.json({ received: true });
 });
 
+// "Contact us" / bug report, sent from support.js (the modal opened from the
+// shared nav on every logged-in page). Registered BEFORE the global
+// express.json() below, with its own larger body limit, because an optional
+// screenshot travels inside the JSON as base64 — the global parser's default
+// 100kb limit would reject it before this handler ever ran. Same "route-
+// specific parser registered early" placement as the Stripe webhook above.
+//
+// Free to every logged-in user (not plan-gated): support has to be reachable
+// by anyone, including someone stuck on a billing problem. Uses the caller's
+// own RLS-scoped client for BOTH the storage upload and the row insert, so
+// db/033's policies (own folder, own row, status pinned to 'new') are what
+// actually enforce scoping, not just this code. Email comes from the
+// verified session, never from the request body.
+const SUPPORT_CATEGORIES = ['Bug', 'Question', 'Feature idea', 'Billing'];
+const SUPPORT_SCREENSHOT_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+const SUPPORT_SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024;
+
+app.post('/api/support-requests', express.json({ limit: '8mb' }), async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to contact us.' });
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: 'Log in to contact us.' });
+  }
+  const user = userData.user;
+
+  const body = req.body || {};
+  const category = body.category;
+  const tryingToDo = typeof body.trying_to_do === 'string' ? body.trying_to_do.trim() : '';
+  const whatHappened = typeof body.what_happened === 'string' ? body.what_happened.trim() : '';
+  const pageUrl = typeof body.page_url === 'string' ? body.page_url.slice(0, 2000) : null;
+
+  if (!SUPPORT_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Choose a category.' });
+  if (!tryingToDo) return res.status(400).json({ error: 'Tell us what you were trying to do.' });
+  if (!whatHappened) return res.status(400).json({ error: 'Tell us what happened instead.' });
+  if (tryingToDo.length > 5000 || whatHappened.length > 5000) {
+    return res.status(400).json({ error: 'Please keep each answer under 5,000 characters.' });
+  }
+
+  let screenshotPath = null;
+  if (body.screenshot) {
+    const { type, data } = body.screenshot;
+    const ext = SUPPORT_SCREENSHOT_TYPES[type];
+    if (!ext || typeof data !== 'string') {
+      return res.status(400).json({ error: 'Screenshots must be PNG, JPG, WEBP or GIF.' });
+    }
+    const buffer = Buffer.from(data, 'base64');
+    if (buffer.length === 0 || buffer.length > SUPPORT_SCREENSHOT_MAX_BYTES) {
+      return res.status(400).json({ error: 'Screenshots must be under 5MB.' });
+    }
+    // Path scoped to the user's own id, matching db/033's storage policies.
+    screenshotPath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadErr } = await supabase.storage
+      .from('support-screenshots')
+      .upload(screenshotPath, buffer, { contentType: type, upsert: false });
+    if (uploadErr) {
+      console.error('Support request: screenshot upload failed for', user.id, uploadErr.message);
+      return res.status(400).json({ error: 'Your screenshot could not be uploaded. Try again, or send without it.' });
+    }
+  }
+
+  const { data: row, error } = await supabase
+    .from('support_requests')
+    .insert({
+      email: user.email,
+      category,
+      trying_to_do: tryingToDo,
+      what_happened: whatHappened,
+      page_url: pageUrl,
+      screenshot_url: screenshotPath,
+    })
+    .select('id, created_at')
+    .single();
+
+  if (error) {
+    console.error('Support request: insert failed for', user.id, error.message);
+    return res.status(400).json({ error: 'Your message could not be sent. Please try again.' });
+  }
+
+  // TODO: notify the team about the new request (e.g. an email to the
+  // support inbox with the category, user email and a signed screenshot
+  // link) once a sending domain is set up. Nothing is sent yet; new rows
+  // are only visible in the Supabase dashboard (support_requests, status
+  // 'new').
+
+  res.json(row);
+});
+
 app.use(express.json());
 
 // The bare root now serves the public landing page, not the calculator, so a
@@ -99,124 +189,42 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// Deal Sourcing application intake. Deliberately public (no bearer token) --
-// the sales page at /deal-sourcing/apply has no login step, but
-// sourcing_applications.user_id is a NOT NULL FK to auth.users, so every
-// submission still needs a real auth user behind it. Resolved here via the
-// service-role admin API: find-or-create an (unconfirmed, no password) auth
-// user from the applicant's email, then insert the application under that
-// user's id. This is the one place in the app that creates an auth user
-// without the person going through Supabase's own signup flow -- a
-// deliberate, explicit product choice (see conversation), not a pattern to
-// reuse elsewhere without the same thinking.
-const SOURCING_REGIONS = [
-  'East Midlands', 'West Midlands', 'London', 'South East', 'South West',
-  'East of England', 'North West', 'North East', 'Yorkshire and the Humber',
-  'Scotland', 'Wales', 'Northern Ireland'
-];
-const SOURCING_STRATEGIES = ['BRRR', 'BTL', 'HMO', 'Flip', 'SA', 'Other'];
-// Self-declared readiness, not a verified status -- this is a pre-call
-// application, so nothing here has actually been confirmed by anyone yet
-// (the old 'confirmed'/'in_progress'/'not_yet' values implied otherwise).
-const SOURCING_POF_STATUSES = ['cash_buyer', 'mortgage_aip', 'arranging_finance'];
+// Deal Sourcing waitlist. The service isn't taking applications yet, so the
+// public page at /deal-sourcing/apply now only collects a waitlist email.
+//
+// This REPLACES the old POST /api/sourcing-applications intake, which
+// silently created an unconfirmed Supabase auth user for every applicant's
+// email via the service-role admin API. That route (and its find-or-create
+// helper) is gone, so nothing on the public page can create an account any
+// more. The sourcing_applications table and its existing rows are untouched,
+// and the admin status endpoint below still works on them.
+//
+// Write path is still browser -> server -> Supabase, but with a plain
+// anon-key client (no user token, no service role), so db/034's
+// "anon insert only" RLS policy is what actually permits the write. No
+// .select() after the insert: anon has no read policy on this table, by
+// design. A repeat email (unique violation, 23505) is reported as success,
+// so the form never reveals whether an address is already on the list.
+const supabaseAnon = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
 
-function validateSourcingApplication(body) {
-  const { name, email, regions, budget_min, budget_max, strategy, strategy_other, timeline, min_yield, proof_of_funds_status } = body;
-
-  if (typeof name !== 'string' || !name.trim()) return { error: 'Enter your name.' };
-  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return { error: 'Enter a valid email.' };
-  if (!Array.isArray(regions) || regions.length === 0 || !regions.every((r) => SOURCING_REGIONS.includes(r))) {
-    return { error: 'Select at least one valid target region.' };
-  }
-  if (!SOURCING_STRATEGIES.includes(strategy)) return { error: `strategy must be one of ${SOURCING_STRATEGIES.join('/')}.` };
-  // There's a single `strategy` text column (no separate free-text column),
-  // so an "Other" pick is folded into it as "Other: <detail>" rather than
-  // storing the literal word "Other" and losing what they actually typed.
-  let finalStrategy = strategy;
-  if (strategy === 'Other') {
-    if (typeof strategy_other !== 'string' || !strategy_other.trim()) return { error: 'Tell us what strategy you have in mind.' };
-    finalStrategy = `Other: ${strategy_other.trim()}`;
-  }
-  if (typeof timeline !== 'string' || !timeline.trim()) return { error: 'Select a timeline to purchase.' };
-  if (!SOURCING_POF_STATUSES.includes(proof_of_funds_status)) return { error: `proof_of_funds_status must be one of ${SOURCING_POF_STATUSES.join('/')}.` };
-
-  const budgetMin = toNumberOrNull(budget_min);
-  const budgetMax = toNumberOrNull(budget_max);
-  if (budget_min !== null && budget_min !== undefined && budget_min !== '' && budgetMin === null) return { error: 'Minimum budget must be a number.' };
-  if (budget_max !== null && budget_max !== undefined && budget_max !== '' && budgetMax === null) return { error: 'Maximum budget must be a number.' };
-  if (budgetMin !== null && budgetMax !== null && budgetMin > budgetMax) return { error: 'Minimum budget cannot be more than maximum budget.' };
-
-  const minYield = toNumberOrNull(min_yield);
-
-  return {
-    value: {
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      regions,
-      budget_min: budgetMin,
-      budget_max: budgetMax,
-      strategy: finalStrategy,
-      timeline: timeline.trim(),
-      min_yield: minYield,
-      proof_of_funds_status
-    }
-  };
-}
-
-async function findOrCreateAuthUserByEmail(email, name) {
-  const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    email_confirm: false,
-    user_metadata: { name, source: 'deal_sourcing_application' }
-  });
-  if (!createErr) return created.user.id;
-
-  // Already-registered is the one error we recover from (a repeat
-  // applicant, or an existing app user applying) -- anything else is a
-  // real failure the caller should see.
-  const alreadyExists = createErr.code === 'email_exists' || /already.*registered/i.test(createErr.message || '');
-  if (!alreadyExists) throw new Error(createErr.message);
-
-  const users = await listAllAuthUsers(supabaseAdmin);
-  const existing = users.find((u) => (u.email || '').toLowerCase() === email);
-  if (!existing) throw new Error('Could not resolve an account for this email.');
-  return existing.id;
-}
-
-app.post('/api/sourcing-applications', async (req, res) => {
-  const { value, error: validationError } = validateSourcingApplication(req.body);
-  if (validationError) return res.status(400).json({ error: validationError });
-
-  let userId;
-  try {
-    userId = await findOrCreateAuthUserByEmail(value.email, value.name);
-  } catch (e) {
-    return res.status(400).json({ error: e.message });
+app.post('/api/sourcing-waitlist', async (req, res) => {
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Enter a valid email address.' });
   }
 
-  // "Selected only East Midlands" means the entire selection is exactly
-  // that one region -- any other region present, alone or alongside it,
-  // routes to manual review instead.
-  const status = (value.regions.length === 1 && value.regions[0] === 'East Midlands') ? 'assigned_internal' : 'new';
+  const { error } = await supabaseAnon.from('sourcing_waitlist').insert({ email });
+  if (error && error.code !== '23505') {
+    console.error('Sourcing waitlist: insert failed', error.message);
+    return res.status(400).json({ error: 'Something went wrong. Please try again.' });
+  }
 
-  const { data, error } = await supabaseAdmin
-    .from('sourcing_applications')
-    .insert({
-      user_id: userId,
-      regions: value.regions,
-      budget_min: value.budget_min,
-      budget_max: value.budget_max,
-      strategy: value.strategy,
-      timeline: value.timeline,
-      min_yield: value.min_yield,
-      proof_of_funds_status: value.proof_of_funds_status,
-      status
-    })
-    .select()
-    .single();
+  // TODO: send a "you're on the list" confirmation email once a sending
+  // domain is set up. Nothing is sent yet.
 
-  if (error) return res.status(400).json({ error: error.message });
-  res.json({ submitted: true, status: data.status });
+  res.json({ joined: true });
 });
 
 // Accepted-status -> invite trigger. Internal-only, superuser-gated the same
@@ -2456,6 +2464,135 @@ app.get('/api/admin/crm/owners', async (req, res) => {
 // integration" placeholder client-side, never persisted, since faking or
 // half-persisting a number here would be worse than admitting it's not
 // wired up yet.
+// ---------- Admin: Support requests (admin/support.html) ----------
+// Same gate as every other /api/admin/* route: requireSuperuser() checks the
+// role server-side, then every query runs through that admin's own
+// RLS-scoped client, where db/035's additive is_superuser() policies are
+// what grant cross-user read/update. No service-role client here.
+const SUPPORT_STATUSES = ['new', 'in_progress', 'resolved'];
+const SUPPORT_OPEN_STATUSES = ['new', 'in_progress'];
+const SUPPORT_SCREENSHOT_URL_TTL_SECONDS = 60;
+
+async function countOpenSupportRequests(supabase) {
+  const { count, error } = await supabase
+    .from('support_requests')
+    .select('id', { count: 'exact', head: true })
+    .in('status', SUPPORT_OPEN_STATUSES);
+  if (error) throw new Error(error.message);
+  return count || 0;
+}
+
+app.get('/api/admin/support-requests', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+
+  const { status, category } = req.query;
+  let query = supabase
+    .from('support_requests')
+    .select('id, created_at, email, category, trying_to_do, what_happened, page_url, screenshot_url, status')
+    .order('created_at', { ascending: false });
+  if (status) {
+    if (!SUPPORT_STATUSES.includes(status)) return res.status(400).json({ error: `status must be one of ${SUPPORT_STATUSES.join('/')}.` });
+    query = query.eq('status', status);
+  }
+  if (category) {
+    if (!SUPPORT_CATEGORIES.includes(category)) return res.status(400).json({ error: `category must be one of ${SUPPORT_CATEGORIES.join('/')}.` });
+    query = query.eq('category', category);
+  }
+
+  const { data, error } = await query;
+  if (error) return res.status(400).json({ error: error.message });
+
+  try {
+    // open_count ignores the filters on purpose: it backs the "Support (N)"
+    // nav label, which is always the total of New + In progress.
+    const openCount = await countOpenSupportRequests(supabase);
+    // screenshot_url is a private storage path, not something the page can
+    // open, so only a has_screenshot flag goes back; the page asks for a
+    // signed URL on click via the route below.
+    const requests = data.map(({ screenshot_url, ...r }) => ({ ...r, has_screenshot: !!screenshot_url }));
+    res.json({ requests, open_count: openCount });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Lightweight count for the admin nav's "Support (N)" label on every admin
+// page, so pages other than Support don't fetch the whole list for it.
+app.get('/api/admin/support-requests/open-count', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+  try {
+    res.json({ open_count: await countOpenSupportRequests(supabase) });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.put('/api/admin/support-requests/:id/status', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+
+  const { status } = req.body;
+  if (!SUPPORT_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of ${SUPPORT_STATUSES.join('/')}.` });
+  }
+
+  const { data, error } = await supabase
+    .from('support_requests')
+    .update({ status })
+    .eq('id', req.params.id)
+    .select('id, status')
+    .maybeSingle();
+  if (error) return res.status(400).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'Support request not found.' });
+
+  try {
+    res.json({ ...data, open_count: await countOpenSupportRequests(supabase) });
+  } catch (e) {
+    res.json(data);
+  }
+});
+
+// Short-lived signed URL for one request's screenshot in the private
+// support-screenshots bucket. The path is looked up from the row here,
+// never taken from the client, so this can only ever sign a path that a
+// real support request points at.
+app.get('/api/admin/support-requests/:id/screenshot-url', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+
+  const { data: row, error } = await supabase
+    .from('support_requests')
+    .select('screenshot_url')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (error) return res.status(400).json({ error: error.message });
+  if (!row || !row.screenshot_url) return res.status(404).json({ error: 'No screenshot for this request.' });
+
+  const { data: signed, error: signError } = await supabase.storage
+    .from('support-screenshots')
+    .createSignedUrl(row.screenshot_url, SUPPORT_SCREENSHOT_URL_TTL_SECONDS);
+  if (signError || !signed) return res.status(400).json({ error: signError ? signError.message : 'Could not create a link.' });
+
+  res.json({ url: signed.signedUrl, expires_in: SUPPORT_SCREENSHOT_URL_TTL_SECONDS });
+});
+
+// ---------- Admin: Deal Sourcing waitlist (admin/tier3.html) ----------
+// Read-only, superuser-gated the same way; db/035's superuser select policy
+// is the only read access anyone has to sourcing_waitlist.
+app.get('/api/admin/sourcing-waitlist', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+
+  const { data, error } = await supabase
+    .from('sourcing_waitlist')
+    .select('id, email, created_at')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
 app.get('/api/admin/users', async (req, res) => {
   const authCheck = await requireSuperuser(req, res);
   if (!authCheck) return;

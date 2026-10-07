@@ -15,6 +15,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
+<script src="/results-disclaimer.js"></script>
 <script src="/draft-state.js"></script>
 <script src="/onboarding-tutorial.js"></script>
 <style>
@@ -236,6 +237,7 @@ body.theme-light .dd-trigger::after{
     <div class="modal-section">
       <p class="subhead">Analysis</p>
       <div id="workspace-analysis-list"></div>
+      <p class="results-disclaimer"></p>
     </div>
 
     <div class="modal-section">
@@ -1022,6 +1024,22 @@ async function downloadPropertyPack(){
   const margin=40;
   const contentW=pageW-margin*2;
 
+  // Footer layout, measured up front so page breaks below can keep content
+  // clear of it. The disclaimer wording is RESULTS_DISCLAIMER_TEXT from
+  // results-disclaimer.js, the same text shown under every results panel
+  // in the app, so it only ever lives in one place.
+  doc.setFont('Sora','normal');
+  const disclaimerFontSize=7;
+  doc.setFontSize(disclaimerFontSize);
+  const disclaimerLines=doc.splitTextToSize(RESULTS_DISCLAIMER_TEXT, contentW);
+  const footerLineH=9;
+  const footerInfoY=pageH-20;
+  const footerDisclaimerY=footerInfoY-14-(disclaimerLines.length-1)*footerLineH;
+  const footerRuleY=footerDisclaimerY-12;
+  // ensureSpace() breaks the page when content would pass pageH-margin, so
+  // passing this smaller "page height" keeps content above the footer rule.
+  const contentPageH=footerRuleY-8+margin;
+
   const addressLine=(deal.address&&deal.address.trim())?deal.address.trim():dealDisplayName(deal);
   const strategyLabel=DEAL_TO_PORTFOLIO_TYPE[deal.deal_type]||deal.deal_type.toUpperCase();
   const generatedDate=packDateOnly(new Date().toISOString());
@@ -1085,7 +1103,7 @@ async function downloadPropertyPack(){
   // --- Comps (only if a snapshot was saved with this deal) ---
   const snap=deal.comps_snapshot;
   if(snap){
-    y=ensureSpace(doc,y,140,margin,pageH);
+    y=ensureSpace(doc,y,140,margin,contentPageH);
     y=packSectionHeader(doc,'Comps',margin,y);
 
     const asOfLabel=packDateOnly(snap.asOf)||createdDate;
@@ -1102,7 +1120,7 @@ async function downloadPropertyPack(){
 
     const rows=computeCompsSummaryRows(snap);
     rows.forEach(([label,val])=>{
-      y=ensureSpace(doc,y,20,margin,pageH);
+      y=ensureSpace(doc,y,20,margin,contentPageH);
       doc.setDrawColor(...PACK_HAIRLINE);
       doc.setLineWidth(0.5);
       doc.line(margin,y+4,pageW-margin,y+4);
@@ -1123,12 +1141,14 @@ async function downloadPropertyPack(){
     doc.setPage(p);
     doc.setDrawColor(...PACK_HAIRLINE);
     doc.setLineWidth(0.75);
-    doc.line(margin,pageH-34,pageW-margin,pageH-34);
+    doc.line(margin,footerRuleY,pageW-margin,footerRuleY);
     doc.setFont('Sora','normal');
-    doc.setFontSize(8);
+    doc.setFontSize(disclaimerFontSize);
     doc.setTextColor(...PACK_MUTED);
-    doc.text('Generated '+generatedDate+(createdDate?' · figures as analysed on '+createdDate:''), margin, pageH-20);
-    doc.text('Page '+p+' of '+pageCount, pageW-margin, pageH-20, {align:'right'});
+    doc.text(disclaimerLines, margin, footerDisclaimerY, {lineHeightFactor:footerLineH/disclaimerFontSize});
+    doc.setFontSize(8);
+    doc.text('Generated '+generatedDate+(createdDate?' · figures as analysed on '+createdDate:''), margin, footerInfoY);
+    doc.text('Page '+p+' of '+pageCount, pageW-margin, footerInfoY, {align:'right'});
   }
 
   const slugSource=(deal.address&&deal.address.trim())?deal.address:dealDisplayName(deal);
