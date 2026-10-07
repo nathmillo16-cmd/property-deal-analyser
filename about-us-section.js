@@ -26,7 +26,7 @@ var ABOUT_US_FOUNDERS = [
   {
     name: 'Cameron Hearne',
     photo: null,
-    bio: 'is the investor side of the business. Alongside a full-time career, he taught himself property investing from scratch: hours of research, real numbers, real mistakes. His goal was consistent passive income and the freedom to travel and see more of the world. That became his first live deal, a tenanted Buy-to-Let in Mansfield, run through the same numbers you\'ll see on this platform. The yield and cash flow assumptions here are the ones he used with his own money.'
+    bio: 'is the investor side of the business. Alongside a full-time career, he taught himself property investing from scratch: hours of research, real numbers, real mistakes. His goal was consistent passive income and the freedom to travel and see more of the world. That learning became his first live deal, a tenanted Buy-to-Let in Mansfield, run through the same numbers you\'ll see on this platform. The yield and cash flow assumptions here are the ones he used with his own money.'
   },
   {
     name: 'Nathan Millington',
