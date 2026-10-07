@@ -189,124 +189,42 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// Deal Sourcing application intake. Deliberately public (no bearer token) --
-// the sales page at /deal-sourcing/apply has no login step, but
-// sourcing_applications.user_id is a NOT NULL FK to auth.users, so every
-// submission still needs a real auth user behind it. Resolved here via the
-// service-role admin API: find-or-create an (unconfirmed, no password) auth
-// user from the applicant's email, then insert the application under that
-// user's id. This is the one place in the app that creates an auth user
-// without the person going through Supabase's own signup flow -- a
-// deliberate, explicit product choice (see conversation), not a pattern to
-// reuse elsewhere without the same thinking.
-const SOURCING_REGIONS = [
-  'East Midlands', 'West Midlands', 'London', 'South East', 'South West',
-  'East of England', 'North West', 'North East', 'Yorkshire and the Humber',
-  'Scotland', 'Wales', 'Northern Ireland'
-];
-const SOURCING_STRATEGIES = ['BRRR', 'BTL', 'HMO', 'Flip', 'SA', 'Other'];
-// Self-declared readiness, not a verified status -- this is a pre-call
-// application, so nothing here has actually been confirmed by anyone yet
-// (the old 'confirmed'/'in_progress'/'not_yet' values implied otherwise).
-const SOURCING_POF_STATUSES = ['cash_buyer', 'mortgage_aip', 'arranging_finance'];
+// Deal Sourcing waitlist. The service isn't taking applications yet, so the
+// public page at /deal-sourcing/apply now only collects a waitlist email.
+//
+// This REPLACES the old POST /api/sourcing-applications intake, which
+// silently created an unconfirmed Supabase auth user for every applicant's
+// email via the service-role admin API. That route (and its find-or-create
+// helper) is gone, so nothing on the public page can create an account any
+// more. The sourcing_applications table and its existing rows are untouched,
+// and the admin status endpoint below still works on them.
+//
+// Write path is still browser -> server -> Supabase, but with a plain
+// anon-key client (no user token, no service role), so db/034's
+// "anon insert only" RLS policy is what actually permits the write. No
+// .select() after the insert: anon has no read policy on this table, by
+// design. A repeat email (unique violation, 23505) is reported as success,
+// so the form never reveals whether an address is already on the list.
+const supabaseAnon = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
 
-function validateSourcingApplication(body) {
-  const { name, email, regions, budget_min, budget_max, strategy, strategy_other, timeline, min_yield, proof_of_funds_status } = body;
-
-  if (typeof name !== 'string' || !name.trim()) return { error: 'Enter your name.' };
-  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return { error: 'Enter a valid email.' };
-  if (!Array.isArray(regions) || regions.length === 0 || !regions.every((r) => SOURCING_REGIONS.includes(r))) {
-    return { error: 'Select at least one valid target region.' };
-  }
-  if (!SOURCING_STRATEGIES.includes(strategy)) return { error: `strategy must be one of ${SOURCING_STRATEGIES.join('/')}.` };
-  // There's a single `strategy` text column (no separate free-text column),
-  // so an "Other" pick is folded into it as "Other: <detail>" rather than
-  // storing the literal word "Other" and losing what they actually typed.
-  let finalStrategy = strategy;
-  if (strategy === 'Other') {
-    if (typeof strategy_other !== 'string' || !strategy_other.trim()) return { error: 'Tell us what strategy you have in mind.' };
-    finalStrategy = `Other: ${strategy_other.trim()}`;
-  }
-  if (typeof timeline !== 'string' || !timeline.trim()) return { error: 'Select a timeline to purchase.' };
-  if (!SOURCING_POF_STATUSES.includes(proof_of_funds_status)) return { error: `proof_of_funds_status must be one of ${SOURCING_POF_STATUSES.join('/')}.` };
-
-  const budgetMin = toNumberOrNull(budget_min);
-  const budgetMax = toNumberOrNull(budget_max);
-  if (budget_min !== null && budget_min !== undefined && budget_min !== '' && budgetMin === null) return { error: 'Minimum budget must be a number.' };
-  if (budget_max !== null && budget_max !== undefined && budget_max !== '' && budgetMax === null) return { error: 'Maximum budget must be a number.' };
-  if (budgetMin !== null && budgetMax !== null && budgetMin > budgetMax) return { error: 'Minimum budget cannot be more than maximum budget.' };
-
-  const minYield = toNumberOrNull(min_yield);
-
-  return {
-    value: {
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      regions,
-      budget_min: budgetMin,
-      budget_max: budgetMax,
-      strategy: finalStrategy,
-      timeline: timeline.trim(),
-      min_yield: minYield,
-      proof_of_funds_status
-    }
-  };
-}
-
-async function findOrCreateAuthUserByEmail(email, name) {
-  const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    email_confirm: false,
-    user_metadata: { name, source: 'deal_sourcing_application' }
-  });
-  if (!createErr) return created.user.id;
-
-  // Already-registered is the one error we recover from (a repeat
-  // applicant, or an existing app user applying) -- anything else is a
-  // real failure the caller should see.
-  const alreadyExists = createErr.code === 'email_exists' || /already.*registered/i.test(createErr.message || '');
-  if (!alreadyExists) throw new Error(createErr.message);
-
-  const users = await listAllAuthUsers(supabaseAdmin);
-  const existing = users.find((u) => (u.email || '').toLowerCase() === email);
-  if (!existing) throw new Error('Could not resolve an account for this email.');
-  return existing.id;
-}
-
-app.post('/api/sourcing-applications', async (req, res) => {
-  const { value, error: validationError } = validateSourcingApplication(req.body);
-  if (validationError) return res.status(400).json({ error: validationError });
-
-  let userId;
-  try {
-    userId = await findOrCreateAuthUserByEmail(value.email, value.name);
-  } catch (e) {
-    return res.status(400).json({ error: e.message });
+app.post('/api/sourcing-waitlist', async (req, res) => {
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Enter a valid email address.' });
   }
 
-  // "Selected only East Midlands" means the entire selection is exactly
-  // that one region -- any other region present, alone or alongside it,
-  // routes to manual review instead.
-  const status = (value.regions.length === 1 && value.regions[0] === 'East Midlands') ? 'assigned_internal' : 'new';
+  const { error } = await supabaseAnon.from('sourcing_waitlist').insert({ email });
+  if (error && error.code !== '23505') {
+    console.error('Sourcing waitlist: insert failed', error.message);
+    return res.status(400).json({ error: 'Something went wrong. Please try again.' });
+  }
 
-  const { data, error } = await supabaseAdmin
-    .from('sourcing_applications')
-    .insert({
-      user_id: userId,
-      regions: value.regions,
-      budget_min: value.budget_min,
-      budget_max: value.budget_max,
-      strategy: value.strategy,
-      timeline: value.timeline,
-      min_yield: value.min_yield,
-      proof_of_funds_status: value.proof_of_funds_status,
-      status
-    })
-    .select()
-    .single();
+  // TODO: send a "you're on the list" confirmation email once a sending
+  // domain is set up. Nothing is sent yet.
 
-  if (error) return res.status(400).json({ error: error.message });
-  res.json({ submitted: true, status: data.status });
+  res.json({ joined: true });
 });
 
 // Accepted-status -> invite trigger. Internal-only, superuser-gated the same

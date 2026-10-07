@@ -65,7 +65,7 @@ var NAV_LINKS = [
   // /deal-sourcing/apply is a standalone public sales page (no app shell),
   // not another in-app tab like the links above it. No page ever sets
   // data-active="deal-sourcing", so it never takes the active-link style.
-  { key: 'deal-sourcing', href: '/deal-sourcing/apply', label: 'Apply for Deal Sourcing ↗', external: true }
+  { key: 'deal-sourcing', href: '/deal-sourcing/apply', label: 'Deal Sourcing ↗', external: true }
 ];
 
 (function renderNav(){
