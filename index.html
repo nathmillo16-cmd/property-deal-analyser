@@ -16,6 +16,7 @@
 <script src="/draft-state.js"></script>
 <script src="/onboarding-tutorial.js"></script>
 <script src="/calc-engine.js"></script>
+<script src="/results-disclaimer.js"></script>
 <style>
 /* Page-specific layout only — colours/fonts/radius all come from styles.css (Underwriter). */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
@@ -486,6 +487,7 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
+        <p class="results-disclaimer"></p>
         <button class="save-btn" onclick="saveDeal('btl')" id="btn-save-btl">Save deal</button>
         <p class="save-msg" id="btl-save-msg"></p>
         <button class="analyse-btn" onclick="analyse('btl')" id="btn-btl">Get the Full Analysis</button>
@@ -634,6 +636,7 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="h-ly">10</span>% gross yield</p><p class="ov" id="h-oy">—</p><p class="on" id="h-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
+        <p class="results-disclaimer"></p>
         <button class="save-btn" onclick="saveDeal('hmo')" id="btn-save-hmo">Save deal</button>
         <p class="save-msg" id="hmo-save-msg"></p>
         <button class="analyse-btn" onclick="analyse('hmo')" id="btn-hmo">Get the Full Analysis</button>
@@ -789,6 +792,7 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="sa-ly">12</span>% gross yield</p><p class="ov" id="sa-oy">—</p><p class="on" id="sa-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="sa-lr">20</span>% ROI (mortgage)</p><p class="ov" id="sa-or">—</p><p class="on" id="sa-orn"></p></div>
+        <p class="results-disclaimer"></p>
         <button class="save-btn" onclick="saveDeal('sa')" id="btn-save-sa">Save deal</button>
         <p class="save-msg" id="sa-save-msg"></p>
         <button class="analyse-btn" onclick="analyse('sa')" id="btn-sa">Get the Full Analysis</button>
@@ -837,6 +841,7 @@ body.theme-light .dd-trigger::after{
         </div>
         <p class="sl section-gap">Recommended max bid</p>
         <div class="ob"><p class="ot">To achieve <span id="fl-lr">20</span>% ROI</p><p class="ov" id="fl-or">—</p><p class="on" id="fl-orn"></p></div>
+        <p class="results-disclaimer"></p>
         <button class="save-btn" onclick="saveDeal('flip')" id="btn-save-flip">Save deal</button>
         <p class="save-msg" id="flip-save-msg"></p>
         <button class="analyse-btn" onclick="analyse('flip')" id="btn-flip">Get the Full Analysis</button>
@@ -969,6 +974,7 @@ body.theme-light .dd-trigger::after{
           <button class="save-btn" onclick="applyGDV()" id="btn-use-gdv" disabled>Use this GDV →</button>
           <p class="save-msg" id="cp-apply-msg"></p>
         </div>
+        <p class="results-disclaimer"></p>
       </div>
     </div>
   </div>
