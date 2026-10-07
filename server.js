@@ -2464,6 +2464,135 @@ app.get('/api/admin/crm/owners', async (req, res) => {
 // integration" placeholder client-side, never persisted, since faking or
 // half-persisting a number here would be worse than admitting it's not
 // wired up yet.
+// ---------- Admin: Support requests (admin/support.html) ----------
+// Same gate as every other /api/admin/* route: requireSuperuser() checks the
+// role server-side, then every query runs through that admin's own
+// RLS-scoped client, where db/035's additive is_superuser() policies are
+// what grant cross-user read/update. No service-role client here.
+const SUPPORT_STATUSES = ['new', 'in_progress', 'resolved'];
+const SUPPORT_OPEN_STATUSES = ['new', 'in_progress'];
+const SUPPORT_SCREENSHOT_URL_TTL_SECONDS = 60;
+
+async function countOpenSupportRequests(supabase) {
+  const { count, error } = await supabase
+    .from('support_requests')
+    .select('id', { count: 'exact', head: true })
+    .in('status', SUPPORT_OPEN_STATUSES);
+  if (error) throw new Error(error.message);
+  return count || 0;
+}
+
+app.get('/api/admin/support-requests', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+
+  const { status, category } = req.query;
+  let query = supabase
+    .from('support_requests')
+    .select('id, created_at, email, category, trying_to_do, what_happened, page_url, screenshot_url, status')
+    .order('created_at', { ascending: false });
+  if (status) {
+    if (!SUPPORT_STATUSES.includes(status)) return res.status(400).json({ error: `status must be one of ${SUPPORT_STATUSES.join('/')}.` });
+    query = query.eq('status', status);
+  }
+  if (category) {
+    if (!SUPPORT_CATEGORIES.includes(category)) return res.status(400).json({ error: `category must be one of ${SUPPORT_CATEGORIES.join('/')}.` });
+    query = query.eq('category', category);
+  }
+
+  const { data, error } = await query;
+  if (error) return res.status(400).json({ error: error.message });
+
+  try {
+    // open_count ignores the filters on purpose: it backs the "Support (N)"
+    // nav label, which is always the total of New + In progress.
+    const openCount = await countOpenSupportRequests(supabase);
+    // screenshot_url is a private storage path, not something the page can
+    // open, so only a has_screenshot flag goes back; the page asks for a
+    // signed URL on click via the route below.
+    const requests = data.map(({ screenshot_url, ...r }) => ({ ...r, has_screenshot: !!screenshot_url }));
+    res.json({ requests, open_count: openCount });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Lightweight count for the admin nav's "Support (N)" label on every admin
+// page, so pages other than Support don't fetch the whole list for it.
+app.get('/api/admin/support-requests/open-count', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+  try {
+    res.json({ open_count: await countOpenSupportRequests(supabase) });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.put('/api/admin/support-requests/:id/status', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+
+  const { status } = req.body;
+  if (!SUPPORT_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of ${SUPPORT_STATUSES.join('/')}.` });
+  }
+
+  const { data, error } = await supabase
+    .from('support_requests')
+    .update({ status })
+    .eq('id', req.params.id)
+    .select('id, status')
+    .maybeSingle();
+  if (error) return res.status(400).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'Support request not found.' });
+
+  try {
+    res.json({ ...data, open_count: await countOpenSupportRequests(supabase) });
+  } catch (e) {
+    res.json(data);
+  }
+});
+
+// Short-lived signed URL for one request's screenshot in the private
+// support-screenshots bucket. The path is looked up from the row here,
+// never taken from the client, so this can only ever sign a path that a
+// real support request points at.
+app.get('/api/admin/support-requests/:id/screenshot-url', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+
+  const { data: row, error } = await supabase
+    .from('support_requests')
+    .select('screenshot_url')
+    .eq('id', req.params.id)
+    .maybeSingle();
+  if (error) return res.status(400).json({ error: error.message });
+  if (!row || !row.screenshot_url) return res.status(404).json({ error: 'No screenshot for this request.' });
+
+  const { data: signed, error: signError } = await supabase.storage
+    .from('support-screenshots')
+    .createSignedUrl(row.screenshot_url, SUPPORT_SCREENSHOT_URL_TTL_SECONDS);
+  if (signError || !signed) return res.status(400).json({ error: signError ? signError.message : 'Could not create a link.' });
+
+  res.json({ url: signed.signedUrl, expires_in: SUPPORT_SCREENSHOT_URL_TTL_SECONDS });
+});
+
+// ---------- Admin: Deal Sourcing waitlist (admin/tier3.html) ----------
+// Read-only, superuser-gated the same way; db/035's superuser select policy
+// is the only read access anyone has to sourcing_waitlist.
+app.get('/api/admin/sourcing-waitlist', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+
+  const { data, error } = await supabase
+    .from('sourcing_waitlist')
+    .select('id, email, created_at')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
 app.get('/api/admin/users', async (req, res) => {
   const authCheck = await requireSuperuser(req, res);
   if (!authCheck) return;

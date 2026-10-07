@@ -148,3 +148,16 @@ body.theme-light .contact-card{border:1px solid rgba(0,0,0,.08)}
 @keyframes voice-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .voice-transcript{margin-top:.6rem;font-size:13px;color:var(--ink);background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.6rem .75rem;min-height:2.4em;white-space:pre-wrap}
 .voice-unsupported{font-size:11.5px;color:var(--muted);font-style:italic}
+
+/* Support (admin/support.html) — long free-text cells wrap within a
+   readable width instead of stretching the table; date/page stay on one line. */
+.support-table{min-width:980px}
+.support-table td{vertical-align:top}
+.support-table td.support-text{max-width:260px;white-space:pre-wrap;word-break:break-word}
+.support-table td.support-nowrap{white-space:nowrap}
+.support-status-field{margin:0;min-width:140px}
+.support-table .save-msg{margin-top:.25rem}
+
+/* Waitlist (admin/tier3.html) */
+.waitlist-count{font-size:12.5px;font-weight:700;color:var(--muted);margin-left:.4rem}
+.waitlist-list{max-height:320px;overflow-y:auto}

@@ -27,6 +27,24 @@
 
   <p class="page-title">Tier 3 — Private Sourcing</p>
 
+  <!-- Deal Sourcing waitlist (from the coming-soon page at
+       /deal-sourcing/apply). Read-only; superuser-gated server-side via
+       GET /api/admin/sourcing-waitlist and db/035's superuser select policy. -->
+  <div class="crm-panel" id="waitlist-panel">
+    <div class="panel-header">
+      <p class="subhead">Waitlist<span class="waitlist-count" id="waitlist-count"></span></p>
+      <button class="mini-btn" id="waitlist-copy-btn" onclick="copyWaitlistEmails()" disabled>Copy all emails</button>
+    </div>
+    <p class="hint" style="margin:-.4rem 0 1rem">People who joined the Deal Sourcing waitlist, newest first. Copied emails are comma separated, ready to paste into the BCC field.</p>
+    <p class="save-msg" id="waitlist-msg" style="margin:-.5rem 0 .5rem"></p>
+    <div class="crm-table-wrap waitlist-list">
+      <table class="crm-table" style="min-width:0">
+        <thead><tr><th>Email</th><th>Joined</th></tr></thead>
+        <tbody id="waitlist-tbody"><tr><td colspan="2" class="hint">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="crm-panel">
     <div class="filter-bar">
       <div class="field search"><label>Search</label><input type="text" id="filter-q" placeholder="Name, email, business…" oninput="debouncedReload()"/></div>
@@ -220,6 +238,46 @@ async function loadContacts(){
   }
 }
 
+let waitlistEmails=[];
+
+async function loadWaitlist(){
+  const tbody=document.getElementById('waitlist-tbody');
+  const countEl=document.getElementById('waitlist-count');
+  const copyBtn=document.getElementById('waitlist-copy-btn');
+  try{
+    const rows=await apiGet('/api/admin/sourcing-waitlist');
+    waitlistEmails=rows.map(r=>r.email);
+    countEl.textContent='('+rows.length+')';
+    copyBtn.disabled=!rows.length;
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="2" class="hint">No one has joined the waitlist yet.</td></tr>'; return; }
+    tbody.innerHTML=rows.map(r=>
+      '<tr><td>'+crmEscapeHtml(r.email)+'</td><td class="muted-cell">'+crmFmtDate(r.created_at)+'</td></tr>'
+    ).join('');
+  }catch(e){
+    countEl.textContent='';
+    copyBtn.disabled=true;
+    tbody.innerHTML='<tr><td colspan="2" class="save-msg error">'+crmEscapeHtml(e.message)+'</td></tr>';
+  }
+}
+
+async function copyWaitlistEmails(){
+  const msg=document.getElementById('waitlist-msg');
+  const text=waitlistEmails.join(', ');
+  msg.className='save-msg';
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(e){
+    // Fallback for browsers that block the async clipboard API.
+    const ta=document.createElement('textarea');
+    ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    const ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(!ok){ msg.textContent='Could not copy. Select the emails in the table instead.'; msg.className='save-msg error'; return; }
+  }
+  msg.textContent='Copied '+waitlistEmails.length+' email'+(waitlistEmails.length===1?'':'s')+'.';
+}
+
 function openNewContactModal(){
   ['nc-name','nc-email','nc-phone','nc-source'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('nc-category').value='lead';
@@ -267,6 +325,7 @@ async function init(){
   document.getElementById('state-loading').style.display='none';
   document.getElementById('app').style.display='block';
 
+  loadWaitlist();
   await loadOwners();
   loadContacts();
 }
