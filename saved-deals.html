@@ -1050,12 +1050,37 @@ async function downloadPropertyPack(){
   doc.setFillColor(...PACK_INDIGO);
   doc.rect(0,0,pageW,headerH,'F');
   doc.setTextColor(...PACK_WHITE);
+  // The address gets at most two lines, measured with the real font
+  // before drawing, and the strategy line is placed under whichever line
+  // the address actually ends on. (It used to be fixed at y=70, the same
+  // spot jsPDF's own wrap put a second address line, so long addresses
+  // overlapped it.) A one-line address keeps the original positions
+  // (address at 46, strategy at 70). If two lines at 20pt aren't enough,
+  // the font steps down to a 15pt floor, and anything still left over is
+  // cut with an ellipsis rather than spilling out of the header band.
+  // The -150 keeps the address clear of the "Generated" date top right.
+  const addressMaxW=contentW-150;
   doc.setFont('Sora','bold');
-  doc.setFontSize(20);
-  doc.text(addressLine, margin, 46, {maxWidth:contentW-150});
+  let addressSize=20;
+  let addressLines;
+  for(;;){
+    doc.setFontSize(addressSize);
+    addressLines=doc.splitTextToSize(addressLine, addressMaxW);
+    if(addressLines.length<=2||addressSize<=15)break;
+    addressSize--;
+  }
+  if(addressLines.length>2){
+    let last=addressLines.slice(1).join(' ');
+    while(last.length>1&&doc.getTextWidth(last+'…')>addressMaxW)last=last.slice(0,-1);
+    addressLines=[addressLines[0], last.trimEnd()+'…'];
+  }
+  const addressLineH=addressSize*1.15;
+  const addressTopY=addressLines.length===1?46:40;
+  doc.text(addressLines, margin, addressTopY, {lineHeightFactor:1.15});
+  const addressLastY=addressTopY+(addressLines.length-1)*addressLineH;
   doc.setFont('Sora','normal');
   doc.setFontSize(11);
-  doc.text(strategyLabel+' · Deal analysis', margin, 70);
+  doc.text(strategyLabel+' · Deal analysis', margin, addressLastY+24);
   doc.setFontSize(9);
   doc.text('Generated '+generatedDate, pageW-margin, 30, {align:'right'});
 
