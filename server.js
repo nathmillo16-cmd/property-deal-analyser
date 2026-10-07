@@ -209,7 +209,68 @@ const supabaseAnon = createClient(process.env.SUPABASE_URL, process.env.SUPABASE
   auth: { persistSession: false, autoRefreshToken: false }
 });
 
-app.post('/api/sourcing-waitlist', async (req, res) => {
+// Rate limit for the public waitlist form ONLY: max 5 requests per IP per
+// 15 minutes. In-memory (no new dependency, no database), so it resets if
+// the server restarts and only counts within this one process, which is
+// fine for a single Render instance and a low-stakes form.
+//
+// Client IP: Render puts 3 proxy hops in front of the app and APPENDS to any
+// X-Forwarded-For the visitor sends rather than replacing it, so the
+// left-most entry can be faked. The real visitor is the 3rd entry from the
+// right (what Express's `trust proxy` = 3 would give, the value commonly
+// recommended for rate limiting on Render). Worked out here rather than via
+// app.set('trust proxy'), so no other endpoint's behaviour changes.
+//
+// Fail-safe: if that resolves to a private/internal address, the hop count
+// is wrong for this environment (Render changed its proxy chain, or a local
+// request with no proxy at all). Rather than lumping every visitor under
+// one shared proxy IP and blocking real sign-ups, the limiter then skips.
+const WAITLIST_RATE_LIMIT = 5;
+const WAITLIST_RATE_WINDOW_MS = 15 * 60 * 1000;
+const RENDER_PROXY_HOPS = 3;
+const waitlistHitsByIp = new Map();
+
+function waitlistClientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  // Same rule as Express trust proxy = N: the socket peer is hop 1, then
+  // walk X-Forwarded-For from the right.
+  const chain = [req.socket.remoteAddress || '', ...forwarded.reverse()];
+  return chain[Math.min(RENDER_PROXY_HOPS, chain.length - 1)];
+}
+
+function isPrivateIp(ip) {
+  const v4 = String(ip).replace(/^::ffff:/, '');
+  return /^(10\.|127\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(v4) ||
+    v4 === '::1' || /^f[cd]/i.test(v4) || /^fe80:/i.test(v4) || v4 === '';
+}
+
+function waitlistRateLimit(req, res, next) {
+  const ip = waitlistClientIp(req);
+  if (isPrivateIp(ip)) return next();
+
+  const now = Date.now();
+  const recent = (waitlistHitsByIp.get(ip) || []).filter((t) => now - t < WAITLIST_RATE_WINDOW_MS);
+  if (recent.length >= WAITLIST_RATE_LIMIT) {
+    const retryAfterSec = Math.ceil((recent[0] + WAITLIST_RATE_WINDOW_MS - now) / 1000);
+    res.set('Retry-After', String(retryAfterSec));
+    return res.status(429).json({ error: 'Too many attempts. Please try again in a few minutes.' });
+  }
+  recent.push(now);
+  waitlistHitsByIp.set(ip, recent);
+  next();
+}
+
+// Drop IPs with no hits inside the window, so the map can't grow forever.
+// unref() so this timer never keeps the process alive on its own.
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, hits] of waitlistHitsByIp) {
+    if (!hits.some((t) => now - t < WAITLIST_RATE_WINDOW_MS)) waitlistHitsByIp.delete(ip);
+  }
+}, WAITLIST_RATE_WINDOW_MS).unref();
+
+app.post('/api/sourcing-waitlist', waitlistRateLimit, async (req, res) => {
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Enter a valid email address.' });
