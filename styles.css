@@ -343,6 +343,8 @@ input[type="checkbox"]:focus-visible{outline:none;border-color:var(--accent)}
 .support-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
 .support-close:hover{color:var(--ink)}
 .support-hint{font-size:13px;color:var(--muted);margin:0 0 1rem}
+.support-hint.support-direct{margin-top:-.6rem}
+.support-hint a{color:var(--accent);font-weight:600}
 .support-card .field textarea{
   font-family:var(--font-body);font-size:14px;color:var(--input-ink);
   background-color:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);

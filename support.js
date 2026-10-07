@@ -17,6 +17,9 @@
 (function(){
   var SUPPORT_MAX_BYTES = 5 * 1024 * 1024;
   var SUPPORT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+  // Public support address shown in the modal. Display only: nothing is
+  // sent to it automatically (see the notification TODO in server.js).
+  var SUPPORT_CONTACT_EMAIL = 'cameron@propulsionproperty.co.uk';
   var supportClientPromise = null;
 
   function getSupportClient(){
@@ -52,6 +55,7 @@
           '</div>' +
           '<form id="support-form" novalidate>' +
             '<p class="support-hint">Report a bug, ask a question or share an idea. We read every message.</p>' +
+            '<p class="support-hint support-direct">Or email us directly at <a href="mailto:' + SUPPORT_CONTACT_EMAIL + '">' + SUPPORT_CONTACT_EMAIL + '</a></p>' +
             '<div class="field"><label for="support-category">Category</label>' +
               '<select id="support-category">' +
                 '<option value="Bug">Bug</option>' +
