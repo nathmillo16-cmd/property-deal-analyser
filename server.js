@@ -1,5 +1,6 @@
 require('dotenv').config();
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
@@ -69,6 +70,95 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
   }
 
   res.json({ received: true });
+});
+
+// "Contact us" / bug report, sent from support.js (the modal opened from the
+// shared nav on every logged-in page). Registered BEFORE the global
+// express.json() below, with its own larger body limit, because an optional
+// screenshot travels inside the JSON as base64 — the global parser's default
+// 100kb limit would reject it before this handler ever ran. Same "route-
+// specific parser registered early" placement as the Stripe webhook above.
+//
+// Free to every logged-in user (not plan-gated): support has to be reachable
+// by anyone, including someone stuck on a billing problem. Uses the caller's
+// own RLS-scoped client for BOTH the storage upload and the row insert, so
+// db/033's policies (own folder, own row, status pinned to 'new') are what
+// actually enforce scoping, not just this code. Email comes from the
+// verified session, never from the request body.
+const SUPPORT_CATEGORIES = ['Bug', 'Question', 'Feature idea', 'Billing'];
+const SUPPORT_SCREENSHOT_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+const SUPPORT_SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024;
+
+app.post('/api/support-requests', express.json({ limit: '8mb' }), async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to contact us.' });
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: 'Log in to contact us.' });
+  }
+  const user = userData.user;
+
+  const body = req.body || {};
+  const category = body.category;
+  const tryingToDo = typeof body.trying_to_do === 'string' ? body.trying_to_do.trim() : '';
+  const whatHappened = typeof body.what_happened === 'string' ? body.what_happened.trim() : '';
+  const pageUrl = typeof body.page_url === 'string' ? body.page_url.slice(0, 2000) : null;
+
+  if (!SUPPORT_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Choose a category.' });
+  if (!tryingToDo) return res.status(400).json({ error: 'Tell us what you were trying to do.' });
+  if (!whatHappened) return res.status(400).json({ error: 'Tell us what happened instead.' });
+  if (tryingToDo.length > 5000 || whatHappened.length > 5000) {
+    return res.status(400).json({ error: 'Please keep each answer under 5,000 characters.' });
+  }
+
+  let screenshotPath = null;
+  if (body.screenshot) {
+    const { type, data } = body.screenshot;
+    const ext = SUPPORT_SCREENSHOT_TYPES[type];
+    if (!ext || typeof data !== 'string') {
+      return res.status(400).json({ error: 'Screenshots must be PNG, JPG, WEBP or GIF.' });
+    }
+    const buffer = Buffer.from(data, 'base64');
+    if (buffer.length === 0 || buffer.length > SUPPORT_SCREENSHOT_MAX_BYTES) {
+      return res.status(400).json({ error: 'Screenshots must be under 5MB.' });
+    }
+    // Path scoped to the user's own id, matching db/033's storage policies.
+    screenshotPath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadErr } = await supabase.storage
+      .from('support-screenshots')
+      .upload(screenshotPath, buffer, { contentType: type, upsert: false });
+    if (uploadErr) {
+      console.error('Support request: screenshot upload failed for', user.id, uploadErr.message);
+      return res.status(400).json({ error: 'Your screenshot could not be uploaded. Try again, or send without it.' });
+    }
+  }
+
+  const { data: row, error } = await supabase
+    .from('support_requests')
+    .insert({
+      email: user.email,
+      category,
+      trying_to_do: tryingToDo,
+      what_happened: whatHappened,
+      page_url: pageUrl,
+      screenshot_url: screenshotPath,
+    })
+    .select('id, created_at')
+    .single();
+
+  if (error) {
+    console.error('Support request: insert failed for', user.id, error.message);
+    return res.status(400).json({ error: 'Your message could not be sent. Please try again.' });
+  }
+
+  // TODO: notify the team about the new request (e.g. an email to the
+  // support inbox with the category, user email and a signed screenshot
+  // link) once a sending domain is set up. Nothing is sent yet; new rows
+  // are only visible in the Supabase dashboard (support_requests, status
+  // 'new').
+
+  res.json(row);
 });
 
 app.use(express.json());

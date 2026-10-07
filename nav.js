@@ -99,9 +99,13 @@ var NAV_LINKS = [
       '</div>' +
     '</div>';
 
+  // "Contact us" sits in the auth-bar on every logged-in page, beside the
+  // user menu. Its modal lives in support.js, loaded just below.
+  var contactHtml = '<a href="#" id="contact-us-link" onclick="if(window.openSupportModal)openSupportModal(event);return false;">Contact us</a>';
+
   var authBarHtml = showSubscribe
-    ? '<a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade · £29/mo</a>' + userMenuHtml
-    : userMenuHtml;
+    ? '<a id="subscribe-link" href="#" style="display:none;margin-right:1rem">Subscribe / Upgrade · £29/mo</a>' + contactHtml + userMenuHtml
+    : contactHtml + userMenuHtml;
 
   root.innerHTML =
     '<div class="topbar">' +
@@ -109,6 +113,17 @@ var NAV_LINKS = [
       '<div class="nav-links">' + linksHtml + '</div>' +
       '<div class="auth-bar">' + authBarHtml + '</div>' +
     '</div>';
+
+  // Load the Contact us modal (support.js) from here rather than via a
+  // <script> tag on every page, so it is guaranteed to exist wherever the
+  // nav link that opens it does. It only defines functions and attaches
+  // nothing until the link is clicked, so async loading is fine.
+  if (!document.getElementById('support-js')) {
+    var s = document.createElement('script');
+    s.src = '/support.js';
+    s.id = 'support-js';
+    document.body.appendChild(s);
+  }
 })();
 
 function toggleUserMenu(e){
