@@ -21,20 +21,29 @@ function fmt(n){return'£'+Math.round(n).toLocaleString();}
 function fP(n){return n.toFixed(2)+'%';}
 function cl(v,g,w){return v>=g?'good':v>=w?'warn':'bad';}
 function s(id,val,cls){const e=document.getElementById(id);if(e){e.textContent=val;if(cls!==undefined)e.className='mv '+(cls||'');}}
+// Money inputs can now display thousands separators (e.g. "110,000") —
+// reads the same way +el.value||0 always has, just strips commas first.
+// Input-reading only, no calculation logic touched.
+function moneyVal(id){
+  const el=document.getElementById(id);
+  if(!el) return 0;
+  const n=+String(el.value).replace(/,/g,'');
+  return Number.isFinite(n)?n:0;
+}
 
 let btlData={}, hmoData={}, saData={}, flipData={};
 
 function cBTL(){
-  const pp=+document.getElementById('b-pp').value||0;
-  const emv=+document.getElementById('b-emv').value||0;
-  const rent=+document.getElementById('b-rent').value||0;
+  const pp=moneyVal('b-pp');
+  const emv=moneyVal('b-emv');
+  const rent=moneyVal('b-rent');
   const mr=+document.getElementById('b-mr').value||0;
   const dp=(+document.getElementById('b-dp').value||25)/100;
-  const ref=+document.getElementById('b-ref').value||0;
-  const sol=+document.getElementById('b-sol').value||0;
-  const mf=+document.getElementById('b-mf').value||0;
-  const srch=+document.getElementById('b-srch').value||0;
-  const ins=+document.getElementById('b-ins').value||0;
+  const ref=moneyVal('b-ref');
+  const sol=moneyVal('b-sol');
+  const mf=moneyVal('b-mf');
+  const srch=moneyVal('b-srch');
+  const ins=moneyVal('b-ins');
   const mgmt=(+document.getElementById('b-mgmt').value||0)/100;
   const maint=(+document.getElementById('b-maint').value||10)/100;
   const ty=+document.getElementById('b-ty').value||7;
@@ -164,18 +173,18 @@ function cBTL(){
 }
 
 function cHMO(){
-  const pp=+document.getElementById('h-pp').value||0;
-  const emv=+document.getElementById('h-emv').value||0;
+  const pp=moneyVal('h-pp');
+  const emv=moneyVal('h-emv');
   const mr=+document.getElementById('h-mr').value||5;
   const dp=(+document.getElementById('h-dp').value||25)/100;
-  const ref=+document.getElementById('h-ref').value||0;
-  const sol=+document.getElementById('h-sol').value||0;
-  const mf=+document.getElementById('h-mf').value||0;
-  const lic=+document.getElementById('h-lic').value||0;
-  const srch=+document.getElementById('h-srch').value||0;
-  const ins=+document.getElementById('h-ins').value||0;
-  const wifi=+document.getElementById('h-wifi').value||0;
-  const ct=(+document.getElementById('h-ct').value||0)/12;
+  const ref=moneyVal('h-ref');
+  const sol=moneyVal('h-sol');
+  const mf=moneyVal('h-mf');
+  const lic=moneyVal('h-lic');
+  const srch=moneyVal('h-srch');
+  const ins=moneyVal('h-ins');
+  const wifi=moneyVal('h-wifi');
+  const ct=moneyVal('h-ct')/12;
   const maint=(+document.getElementById('h-maint').value||0)/100;
   const mgmt=(+document.getElementById('h-mgmt').value||0)/100;
   const ty=+document.getElementById('h-ty').value||10;
@@ -183,10 +192,10 @@ function cHMO(){
   const htermEl=document.getElementById('h-term');
   const term=htermEl?(+htermEl.value||25):25;
 
-  const rooms=[[+document.getElementById('h-r1p').value||0,+document.getElementById('h-r1n').value||0,'h-r1t'],
-               [+document.getElementById('h-r2p').value||0,+document.getElementById('h-r2n').value||0,'h-r2t'],
-               [+document.getElementById('h-r3p').value||0,+document.getElementById('h-r3n').value||0,'h-r3t'],
-               [+document.getElementById('h-r4p').value||0,+document.getElementById('h-r4n').value||0,'h-r4t']];
+  const rooms=[[moneyVal('h-r1p'),+document.getElementById('h-r1n').value||0,'h-r1t'],
+               [moneyVal('h-r2p'),+document.getElementById('h-r2n').value||0,'h-r2t'],
+               [moneyVal('h-r3p'),+document.getElementById('h-r3n').value||0,'h-r3t'],
+               [moneyVal('h-r4p'),+document.getElementById('h-r4n').value||0,'h-r4t']];
   let totalRent=0;
   rooms.forEach(([price,num,id])=>{const t=price*num;totalRent+=t;document.getElementById(id).textContent='£'+t.toLocaleString();});
   document.getElementById('h-tr').textContent='£'+totalRent.toLocaleString();
@@ -315,24 +324,24 @@ function cHMO(){
 }
 
 function cSA(){
-  const rate=+document.getElementById('sa-rate').value||0;
+  const rate=moneyVal('sa-rate');
   const occ=+document.getElementById('sa-occ').value||0;
-  const pp=+document.getElementById('sa-pp').value||0;
-  const emv=+document.getElementById('sa-emv').value||0;
+  const pp=moneyVal('sa-pp');
+  const emv=moneyVal('sa-emv');
   const mr=+document.getElementById('sa-mr').value||0;
   const dp=(+document.getElementById('sa-dp').value||25)/100;
-  const sol=+document.getElementById('sa-sol').value||0;
-  const mf=+document.getElementById('sa-mf').value||0;
-  const srch=+document.getElementById('sa-srch').value||0;
-  const ref=+document.getElementById('sa-ref').value||0;
-  const furn=+document.getElementById('sa-furn').value||0;
-  const wg=+document.getElementById('sa-wg').value||0;
+  const sol=moneyVal('sa-sol');
+  const mf=moneyVal('sa-mf');
+  const srch=moneyVal('sa-srch');
+  const ref=moneyVal('sa-ref');
+  const furn=moneyVal('sa-furn');
+  const wg=moneyVal('sa-wg');
   const mgmt=(+document.getElementById('sa-mgmt').value||10)/100;
   const util=(+document.getElementById('sa-util').value||10)/100;
   const maint=(+document.getElementById('sa-maint').value||10)/100;
-  const clean=+document.getElementById('sa-clean').value||0;
-  const ins=+document.getElementById('sa-ins').value||0;
-  const ct=+document.getElementById('sa-ct').value||0;
+  const clean=moneyVal('sa-clean');
+  const ins=moneyVal('sa-ins');
+  const ct=moneyVal('sa-ct');
   const ty=+document.getElementById('sa-ty').value||12;
   const troi=+document.getElementById('sa-troi').value||20;
   const satermEl=document.getElementById('sa-term');
@@ -494,10 +503,10 @@ function cSA(){
 }
 
 function cFlip(){
-  const pp=+document.getElementById('fl-pp').value||0;
-  const bf=+document.getElementById('fl-bf').value||0;
-  const ref=+document.getElementById('fl-ref').value||0;
-  const sv=+document.getElementById('fl-sv').value||0;
+  const pp=moneyVal('fl-pp');
+  const bf=moneyVal('fl-bf');
+  const ref=moneyVal('fl-ref');
+  const sv=moneyVal('fl-sv');
   const agentPct=(+document.getElementById('fl-agent').value||2)/100;
   const contPct=(+document.getElementById('fl-cont').value||0)/100;
   const troi=+document.getElementById('fl-troi').value||20;

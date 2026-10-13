@@ -264,6 +264,10 @@ body.theme-light #cp-confidence.verdict-no{color:var(--warn)}
   border:1px solid var(--accent);border-radius:var(--radius-sm);padding:.6rem .85rem;margin-bottom:1.1rem;
 }
 body.theme-light .stale-note{background:rgba(75,69,178,.08)}
+.value-warning{
+  display:none;font-size:12px;border-radius:var(--radius-sm);padding:.6rem .85rem;margin-bottom:1.1rem;
+}
+body.theme-light .value-warning{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn)}
 
 .save-btn{
   width:100%;padding:11px;background:transparent;color:var(--accent);
@@ -370,17 +374,17 @@ body.theme-light .dd-trigger::after{
       <div class="input-col">
         <p class="sl">Property details</p>
         <div class="g2">
-          <div class="f"><label>Purchase price (£)</label><input type="number" id="b-pp" value="140000" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>End market value (£)</label><input type="number" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Monthly rent (£)</label><input type="number" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="b-pp" value="140000" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>End market value (£)</label><input type="text" inputmode="decimal" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Monthly rent (£)</label><input type="text" inputmode="decimal" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Mortgage term (years)</label><input type="number" id="b-term" value="25" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Refurb (£)</label><input type="number" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="b-mf" value="300" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Searches (£)</label><input type="number" id="b-srch" value="0" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="b-ins" value="50" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="b-mf" value="300" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Searches (£)</label><input type="text" inputmode="decimal" id="b-srch" value="0" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Insurance /mo (£)</label><input type="text" inputmode="decimal" id="b-ins" value="50" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="markStaleBTL()"/></div>
         </div>
@@ -395,6 +399,7 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="btl-stale">Inputs changed. Press Analyse deal to update these results.</p>
+        <p class="value-warning" id="b-value-warning">End market value is much lower than purchase price. Check for a missing zero.</p>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('btl','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('btl','r')">Repayment</button>
@@ -510,29 +515,29 @@ body.theme-light .dd-trigger::after{
       <div class="input-col">
         <p class="sl">Property details</p>
         <div class="g2">
-          <div class="f"><label>Purchase price (£)</label><input type="number" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>End market value (£)</label><input type="number" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>End market value (£)</label><input type="text" inputmode="decimal" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Mortgage term (years)</label><input type="number" id="h-term" value="25" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Refurb (£)</label><input type="number" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="h-mf" value="300" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Licensing fee (£)</label><input type="number" id="h-lic" value="650" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Searches (£)</label><input type="number" id="h-srch" value="0" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="h-ins" value="30" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>WiFi /mo (£)</label><input type="number" id="h-wifi" value="50" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Council tax annual (£)</label><input type="number" id="h-ct" value="2265" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="h-mf" value="300" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Licensing fee (£)</label><input type="text" inputmode="decimal" id="h-lic" value="650" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Searches (£)</label><input type="text" inputmode="decimal" id="h-srch" value="0" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Insurance /mo (£)</label><input type="text" inputmode="decimal" id="h-ins" value="30" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>WiFi /mo (£)</label><input type="text" inputmode="decimal" id="h-wifi" value="50" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Council tax annual (£)</label><input type="text" inputmode="decimal" id="h-ct" value="2265" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="markStaleHMO()"/></div>
         </div>
         <p class="hint">Bills auto-calculated as 10% of total rent. Stamp duty auto-calculated. Council tax entered annually.</p>
         <p class="sl section-gap">Room breakdown</p>
         <div class="rg"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
-        <div class="rg"><span>Single</span><input type="number" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r1t">£0</span></div>
-        <div class="rg"><span>Double</span><input type="number" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="rt" id="h-r2t">£0</span></div>
-        <div class="rg"><span>Single en suite</span><input type="number" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r3t">£0</span></div>
-        <div class="rg"><span>Double en suite</span><input type="number" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r4t">£0</span></div>
+        <div class="rg"><span>Single</span><input type="text" inputmode="decimal" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r1t">£0</span></div>
+        <div class="rg"><span>Double</span><input type="text" inputmode="decimal" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="rt" id="h-r2t">£0</span></div>
+        <div class="rg"><span>Single en suite</span><input type="text" inputmode="decimal" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r3t">£0</span></div>
+        <div class="rg"><span>Double en suite</span><input type="text" inputmode="decimal" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r4t">£0</span></div>
         <div class="trow">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
@@ -544,6 +549,7 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="hmo-stale">Inputs changed. Press Analyse deal to update these results.</p>
+        <p class="value-warning" id="h-value-warning">End market value is much lower than purchase price. Check for a missing zero.</p>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('hmo','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('hmo','r')">Repayment</button>
@@ -659,31 +665,31 @@ body.theme-light .dd-trigger::after{
       <div class="input-col">
         <p class="sl">Property details</p>
         <div class="g2">
-          <div class="f"><label>Nightly rate (£)</label><input type="number" id="sa-rate" value="150" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Nightly rate (£)</label><input type="text" inputmode="decimal" id="sa-rate" value="150" oninput="markStaleSA()"/></div>
           <div class="f"><label>Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Purchase price (£)</label><input type="number" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
-          <div class="f"><label>End market value (£)</label><input type="number" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>End market value (£)</label><input type="text" inputmode="decimal" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
           <div class="f"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
           <div class="f"><label>Mortgage term (years)</label><input type="number" id="sa-term" value="25" oninput="markStaleSA()"/></div>
           <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
         </div>
         <p class="sl section-gap">Upfront costs</p>
         <div class="g2">
-          <div class="f"><label>Solicitor fees (£)</label><input type="number" id="sa-sol" value="1800" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Mortgage fees (£)</label><input type="number" id="sa-mf" value="300" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Searches (£)</label><input type="number" id="sa-srch" value="0" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Refurbishment (£)</label><input type="number" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Furnishings (£)</label><input type="number" id="sa-furn" value="8000" oninput="markStaleSA()"/></div>
-          <div class="f"><label>White goods (£)</label><input type="number" id="sa-wg" value="2000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="sa-sol" value="1800" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="sa-mf" value="300" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Searches (£)</label><input type="text" inputmode="decimal" id="sa-srch" value="0" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Furnishings (£)</label><input type="text" inputmode="decimal" id="sa-furn" value="8000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>White goods (£)</label><input type="text" inputmode="decimal" id="sa-wg" value="2000" oninput="markStaleSA()"/></div>
         </div>
         <p class="sl section-gap">Running costs</p>
         <div class="g2">
           <div class="f"><label>Management % of revenue</label><input type="number" id="sa-mgmt" value="10" oninput="markStaleSA()"/></div>
           <div class="f"><label>Utilities % of revenue</label><input type="number" id="sa-util" value="10" oninput="markStaleSA()"/></div>
           <div class="f"><label>Maintenance % of revenue</label><input type="number" id="sa-maint" value="10" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Cleaning /mo (£)</label><input type="number" id="sa-clean" value="400" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Insurance /mo (£)</label><input type="number" id="sa-ins" value="40" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Council tax annual (£)</label><input type="number" id="sa-ct" value="2265" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Cleaning /mo (£)</label><input type="text" inputmode="decimal" id="sa-clean" value="400" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Insurance /mo (£)</label><input type="text" inputmode="decimal" id="sa-ins" value="40" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Council tax annual (£)</label><input type="text" inputmode="decimal" id="sa-ct" value="2265" oninput="markStaleSA()"/></div>
         </div>
         <p class="hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with BTL surcharge. Deposit uses purchase price. Yields use end market value.</p>
         <p class="sl section-gap">Targets</p>
@@ -696,6 +702,7 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="sa-stale">Inputs changed. Press Analyse deal to update these results.</p>
+        <p class="value-warning" id="sa-value-warning">End market value is much lower than purchase price. Check for a missing zero.</p>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('sa','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('sa','r')">Repayment</button>
@@ -815,10 +822,10 @@ body.theme-light .dd-trigger::after{
       <div class="input-col">
         <p class="sl">Property details</p>
         <div class="g2">
-          <div class="f"><label>Purchase price (£)</label><input type="number" id="fl-pp" value="150000" oninput="markStaleFlip()"/></div>
-          <div class="f"><label>Buying fees (£)</label><input type="number" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
-          <div class="f"><label>Refurbishment (£)</label><input type="number" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
-          <div class="f"><label>Sale value (£)</label><input type="number" id="fl-sv" value="220000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="fl-pp" value="150000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Buying fees (£)</label><input type="text" inputmode="decimal" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Sale value (£)</label><input type="text" inputmode="decimal" id="fl-sv" value="220000" oninput="markStaleFlip()"/></div>
           <div class="f"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
           <div class="f"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
         </div>
@@ -830,6 +837,7 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="flip-stale">Inputs changed. Press Analyse deal to update these results.</p>
+        <p class="value-warning" id="fl-value-warning">Sale value is much lower than purchase price. Check for a missing zero.</p>
         <div class="metric-grid">
           <div class="m"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
           <div class="m"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
@@ -1144,13 +1152,154 @@ const REFI_TYPE_LABELS={io:'Interest-only',repay:'Repayment'};
 // on/off state left to persist here.
 const REFI_TYPE_IDS={btl:'bb-refi-type',hmo:'hb-refi-type',sa:'sab-refi-type'};
 
+// ---------------------------------------------------------------------
+// Money-input thousands separators (e.g. "110,000"). Display only — the
+// underlying value calc-engine.js and this page both read is always
+// parsed through the same comma-stripping logic (moneyVal(), defined in
+// calc-engine.js and already loaded globally by the time this script
+// runs), so whether a field currently shows commas or plain digits never
+// affects a result. Switched from type="number" to type="text" (a number
+// input can't render a comma at all), with inputmode="decimal" to keep
+// the numeric keypad on mobile.
+// ---------------------------------------------------------------------
+const MONEY_FIELD_IDS={
+  btl:['b-pp','b-emv','b-rent','b-ref','b-sol','b-mf','b-srch','b-ins'],
+  hmo:['h-pp','h-emv','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-r1p','h-r2p','h-r3p','h-r4p'],
+  sa:['sa-rate','sa-pp','sa-emv','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-clean','sa-ins','sa-ct'],
+  flip:['fl-pp','fl-bf','fl-ref','fl-sv'],
+};
+const MONEY_FIELD_SET=new Set(Object.values(MONEY_FIELD_IDS).flat());
+
+// digitsOnly/groupThousands/formatMoneyString are the single source of
+// truth for turning raw typed text into "110,000" — used both for the
+// whole-value case (page load, draft restore, saved defaults: no cursor to
+// preserve) and the live-typing case below (cursor matters a lot there).
+// A decimal point is tolerated (at most one), matching what these fields
+// already allowed back when they were type="number".
+function digitsOnly(str){
+  let seenDot=false,out='';
+  for(const ch of String(str)){
+    if(ch>='0'&&ch<='9')out+=ch;
+    else if(ch==='.'&&!seenDot){out+=ch;seenDot=true;}
+  }
+  return out;
+}
+function groupThousands(intDigits){
+  return intDigits.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
+function formatMoneyString(raw){
+  const cleaned=digitsOnly(raw);
+  const dot=cleaned.indexOf('.');
+  if(dot===-1)return groupThousands(cleaned);
+  return groupThousands(cleaned.slice(0,dot))+'.'+cleaned.slice(dot+1);
+}
+function formatMoneyField(el){
+  // Whole-value formatting only — no interactive cursor to preserve here,
+  // since this runs on page load / after draft restore / after saved
+  // defaults load, never while the user is actively typing.
+  if(el.value==='')return;
+  el.value=formatMoneyString(el.value);
+}
+function formatAllMoneyFields(){
+  MONEY_FIELD_SET.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&document.activeElement!==el)formatMoneyField(el);
+  });
+}
+
+// Cursor preservation for live typing: count digits/decimal-point (i.e.
+// everything except the comma separators we insert) before the cursor in
+// the OLD value, reformat, then walk the NEW value to put the cursor back
+// after that same count of meaningful characters — so editing a digit in
+// the middle of "110,000" never jumps the cursor to the end, regardless of
+// how the comma grouping shifts around it.
+function isMoneyChar(c){return(c>='0'&&c<='9')||c==='.';}
+function meaningfulCountBefore(str,pos){
+  let n=0;
+  for(let i=0;i<pos;i++)if(isMoneyChar(str[i]))n++;
+  return n;
+}
+function cursorPosForMeaningfulCount(formatted,target){
+  if(target<=0)return 0;
+  let count=0;
+  for(let i=0;i<formatted.length;i++){
+    if(isMoneyChar(formatted[i])){
+      count++;
+      if(count>=target)return i+1;
+    }
+  }
+  return formatted.length;
+}
+function setFormattedMoneyValue(el,raw,meaningfulBefore){
+  const formatted=formatMoneyString(raw);
+  el.value=formatted;
+  const pos=cursorPosForMeaningfulCount(formatted,meaningfulBefore);
+  el.setSelectionRange(pos,pos);
+}
+function reformatMoneyFieldLive(el){
+  const raw=el.value;
+  const pos=el.selectionStart==null?raw.length:el.selectionStart;
+  setFormattedMoneyValue(el,raw,meaningfulCountBefore(raw,pos));
+}
+// Backspace/Delete land on a comma as often as on a digit once a field has
+// thousands separators — deleting the comma itself and leaving the digits
+// untouched would just make reformatting put the same comma straight back,
+// which reads as "backspace did nothing". Intercepted at keydown (before
+// the browser acts) so Backspace/Delete next to a comma instead removes
+// the adjacent DIGIT, same as if the comma weren't there. Anything else
+// (a real text selection, a plain digit key) is left to behave natively;
+// the 'input' listener's live reformat handles those cases already.
+function moneyFieldKeydown(e){
+  const el=e.target;
+  if(el.selectionStart!==el.selectionEnd)return;
+  const pos=el.selectionStart, val=el.value;
+  if(e.key==='Backspace'&&pos>0&&val[pos-1]===','){
+    e.preventDefault();
+    setFormattedMoneyValue(el,val.slice(0,pos-2)+val.slice(pos),meaningfulCountBefore(val,pos-2));
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+  }else if(e.key==='Delete'&&pos<val.length&&val[pos]===','){
+    e.preventDefault();
+    setFormattedMoneyValue(el,val.slice(0,pos)+val.slice(pos+2),meaningfulCountBefore(val,pos));
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+}
+function initMoneyFields(){
+  MONEY_FIELD_SET.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    formatMoneyField(el);
+    el.addEventListener('keydown',moneyFieldKeydown);
+    el.addEventListener('input',()=>reformatMoneyFieldLive(el));
+  });
+}
+
+// ---------------------------------------------------------------------
+// Sanity warning: end value (or, for Flip, sale value) far below purchase
+// price usually means a missing zero, not a genuine deal. Warn only —
+// never blocks analysis, since a real below-value purchase is a normal,
+// supported scenario. Uses moneyVal() (calc-engine.js) so a comma-
+// formatted value parses exactly the way the engine itself reads it.
+// ---------------------------------------------------------------------
+function checkValueWarning(ppId,endId,warningId){
+  const pp=moneyVal(ppId), end=moneyVal(endId);
+  const el=document.getElementById(warningId);
+  if(el)el.style.display=(pp>0&&end>0&&end<pp*0.5)?'block':'none';
+}
+function checkValueWarningBTL(){checkValueWarning('b-pp','b-emv','b-value-warning');}
+function checkValueWarningHMO(){checkValueWarning('h-pp','h-emv','h-value-warning');}
+function checkValueWarningSA(){checkValueWarning('sa-pp','sa-emv','sa-value-warning');}
+function checkValueWarningFlip(){checkValueWarning('fl-pp','fl-sv','fl-value-warning');}
+
 function currentIndexDraftState(){
   const fields={};
   Object.keys(DRAFT_FIELD_IDS).forEach(strategy=>{
     const obj={};
     DRAFT_FIELD_IDS[strategy].forEach(id=>{
       const el=document.getElementById(id);
-      if(el)obj[id]=el.value;
+      if(!el)return;
+      // Store money fields comma-free — a formatted "110,000" displays fine
+      // either way on restore, but a clean value is simpler to read back.
+      obj[id]=MONEY_FIELD_SET.has(id)?String(el.value).replace(/,/g,''):el.value;
     });
     fields[strategy]=obj;
   });
@@ -1264,16 +1413,16 @@ function clearIndexDraft(){
 let btlAnalysed=false, hmoAnalysed=false, saAnalysed=false, flipAnalysed=false;
 
 function runBTL(){ cBTL(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; saveIndexDraft(); }
-function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; saveIndexDraft(); }
+function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; checkValueWarningBTL(); saveIndexDraft(); }
 
 function runHMO(){ cHMO(); hmoAnalysed=true; document.getElementById('hmo-stale').style.display='none'; saveIndexDraft(); }
-function markStaleHMO(){ if(hmoAnalysed) document.getElementById('hmo-stale').style.display='block'; saveIndexDraft(); }
+function markStaleHMO(){ if(hmoAnalysed) document.getElementById('hmo-stale').style.display='block'; checkValueWarningHMO(); saveIndexDraft(); }
 
 function runSA(){ cSA(); saAnalysed=true; document.getElementById('sa-stale').style.display='none'; saveIndexDraft(); }
-function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style.display='block'; saveIndexDraft(); }
+function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style.display='block'; checkValueWarningSA(); saveIndexDraft(); }
 
 function runFlip(){ cFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; saveIndexDraft(); }
-function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; saveIndexDraft(); }
+function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; checkValueWarningFlip(); saveIndexDraft(); }
 
 let lastCompsResult=null, lastCrimeResult=null, lastPlanningResult=null, lastEmploymentResult=null;
 const GDV_THIN_EVIDENCE_THRESHOLD=8;
@@ -2167,7 +2316,7 @@ function handleSaveModalOverlayClick(e){
 }
 
 function numOrNull(id){
-  const v=document.getElementById(id).value;
+  const v=String(document.getElementById(id).value).replace(/,/g,'');
   if(v==='')return null;
   const n=+v;
   return Number.isFinite(n)?n:null;
@@ -2305,6 +2454,8 @@ async function loadDefaults(){
     }
 
     cBTL();cHMO();cSA();
+    formatAllMoneyFields();
+    checkValueWarningBTL();checkValueWarningHMO();checkValueWarningSA();
   }catch(e){
     // fail silently — calculator keeps its built-in default values
   }
@@ -2312,6 +2463,8 @@ async function loadDefaults(){
 
 restoreIndexDraft();
 cBTL();cHMO();cSA();cFlip();
+initMoneyFields();
+checkValueWarningBTL();checkValueWarningHMO();checkValueWarningSA();checkValueWarningFlip();
 // Scroll restore waits for initAuth() to fully settle (it can re-render
 // via loadDefaults(), which would otherwise shift the page after we'd
 // already scrolled) — .finally() so it still happens even if auth itself
