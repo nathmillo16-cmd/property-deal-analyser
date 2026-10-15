@@ -671,7 +671,7 @@ app.get('/api/deals', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id, seller_position')
     .order('created_at', { ascending: false });
 
   if (error) return res.status(400).json({ error: error.message });
@@ -692,13 +692,17 @@ function parseDateOnlyUTCms(dateStr) {
 }
 
 // GET /api/needs-attention — three criteria, thresholds live only here:
-//   (i)   "chase"  — a Pending offer whose created_at is >3 days old.
+//   (i)   "chase"  — a Pending OR Countered offer whose created_at is >3
+//                    days old. Countered counts too (Deal Workspace Phase
+//                    1): a counter-offer sitting unanswered is just as
+//                    time-sensitive as a plain pending one — the ball's
+//                    back on the sourcer either way.
 //   (ii)  "update" — a Viewing-stage deal whose viewing_date has passed
 //                    with no note logged on or after that date.
 //   (iii) "review" — an Analysing-stage deal whose updated_at is >7 days old.
-// Three queries total (deals, pending offers, notes), not one per deal —
-// grouped/joined in JS below rather than looping fetches per deal.
-// Deduped to ONE reason per deal, in priority order chase > update >
+// Three queries total (deals, pending/countered offers, notes), not one
+// per deal — grouped/joined in JS below rather than looping fetches per
+// deal. Deduped to ONE reason per deal, in priority order chase > update >
 // review, rather than returning multiple rows for the same deal.
 app.get('/api/needs-attention', async (req, res) => {
   const supabase = supabaseForRequest(req);
@@ -711,7 +715,7 @@ app.get('/api/needs-attention', async (req, res) => {
 
   const [dealsRes, offersRes, notesRes] = await Promise.all([
     supabase.from('deals').select('id, deal_data, pipeline_stage, updated_at, viewing_date'),
-    supabase.from('deal_offers').select('id, deal_id, created_at').eq('outcome', 'Pending'),
+    supabase.from('deal_offers').select('id, deal_id, created_at, outcome').in('outcome', ['Pending', 'Countered']),
     supabase.from('deal_notes').select('deal_id, created_at'),
   ]);
 
@@ -740,23 +744,24 @@ app.get('/api/needs-attention', async (req, res) => {
   const results = [];
   const flaggedDealIds = new Set();
 
-  // (i) chase — oldest qualifying Pending offer per deal.
+  // (i) chase — oldest qualifying Pending/Countered offer per deal.
   const oldestPendingByDeal = new Map();
   for (const o of pendingOffers) {
     const ageMs = nowMs - new Date(o.created_at).getTime();
     if (ageMs <= NEEDS_ATTENTION_CHASE_DAYS * MS_PER_DAY) continue;
     const existing = oldestPendingByDeal.get(o.deal_id);
-    if (!existing || ageMs > existing.ageMs) oldestPendingByDeal.set(o.deal_id, { offerId: o.id, ageMs });
+    if (!existing || ageMs > existing.ageMs) oldestPendingByDeal.set(o.deal_id, { offerId: o.id, ageMs, outcome: o.outcome });
   }
   for (const [dealId, info] of oldestPendingByDeal) {
     const deal = dealsById.get(dealId);
     if (!deal) continue; // offer's deal was deleted or isn't this user's (RLS already scopes both, just a defensive guard)
     const days = Math.floor(info.ageMs / MS_PER_DAY);
+    const verb = info.outcome === 'Countered' ? 'Counter-offer awaiting response' : 'Offer pending';
     results.push({
       deal_id: dealId,
       deal_name: dealName(deal),
       reason: 'chase',
-      detail: `Offer pending ${days} day${days === 1 ? '' : 's'}`,
+      detail: `${verb} ${days} day${days === 1 ? '' : 's'}`,
     });
     flaggedDealIds.add(dealId);
   }
@@ -821,7 +826,7 @@ app.post('/api/deals/:id/name', async (req, res) => {
     .from('deals')
     .update({ deal_data: updatedData })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id, seller_position')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -851,7 +856,38 @@ app.post('/api/deals/:id/viewing-date', async (req, res) => {
     .from('deals')
     .update({ viewing_date })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id, seller_position')
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
+  res.json(data);
+});
+
+// Narrow update for the Deal Workspace's Seller Position section (Phase 1,
+// saved-deals.html) — a single jsonb snapshot per deal (db/040), same
+// "only touches this one column" pattern as /name and /viewing-date
+// above. null/absent clears it back to "nothing recorded"; any object is
+// accepted as-is (chain_status/motivation/timescale/notes are all plain
+// optional strings decided client-side — there's nothing here that needs
+// server-side validation beyond "it's an object or null").
+app.post('/api/deals/:id/seller-position', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to update deals.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  let { seller_position } = req.body;
+  if (seller_position === undefined) seller_position = null;
+  if (seller_position !== null && typeof seller_position !== 'object') {
+    return res.status(400).json({ error: 'seller_position must be an object, or null to clear.' });
+  }
+
+  const { data, error } = await supabase
+    .from('deals')
+    .update({ seller_position })
+    .eq('id', req.params.id)
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id, seller_position')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -897,7 +933,7 @@ app.put('/api/deals/:id/refurb-estimate', async (req, res) => {
     .from('deals')
     .update({ refurb_estimate_id })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id, seller_position')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -946,10 +982,22 @@ app.post('/api/deals/:id/refresh-figures', async (req, res) => {
     .from('deals')
     .update({ deal_data: updatedData })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id, seller_position')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
+
+  // Activity Timeline entry (deal_refurb_log, db/039) — best-effort: the
+  // figures are already saved by this point, so a logging failure here
+  // must never surface as a save failure to the user. Deliberately NOT
+  // awaited into the response path's error handling; a failed insert just
+  // means this one re-run won't show in the timeline, nothing else breaks.
+  supabase
+    .from('deal_refurb_log')
+    .insert({ deal_id: req.params.id, event_type: 'rerun_saved', refurb_cost: updatedData.ref ?? null })
+    .then(() => {})
+    .catch(() => {});
+
   res.json(data);
 });
 
@@ -984,7 +1032,7 @@ app.post('/api/pipeline', async (req, res) => {
     .from('deals')
     .update({ pipeline_stage: 'analysing' })
     .eq('id', deal_id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id, seller_position')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -1002,7 +1050,7 @@ app.get('/api/pipeline', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id, seller_position')
     .not('pipeline_stage', 'is', null)
     .order('created_at', { ascending: false });
 
@@ -1028,7 +1076,7 @@ app.post('/api/pipeline/:id/stage', async (req, res) => {
     .from('deals')
     .update({ pipeline_stage: stage })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id, seller_position')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -1045,18 +1093,35 @@ async function dealBelongsToRequester(supabase, dealId) {
   return !error && !!data;
 }
 
+const NOTE_TYPES = ['note', 'call', 'viewing'];
+
+// note_type backs the Activity Timeline's quick-add chips (Deal Workspace
+// Phase 1) — optional and defaults to 'note', so every existing caller
+// (pipeline.html's own separate Notes & Offers modal never sends it) keeps
+// inserting plain notes exactly as before.
 function validateNoteInput(body) {
-  const { note_text } = body;
+  const { note_text, note_type } = body;
   if (typeof note_text !== 'string' || !note_text.trim()) {
     return { error: 'Enter a note.' };
   }
-  return { value: { note_text: note_text.trim() } };
+  const resolvedType = note_type || 'note';
+  if (!NOTE_TYPES.includes(resolvedType)) {
+    return { error: `note_type must be one of ${NOTE_TYPES.join('/')}.` };
+  }
+  return { value: { note_text: note_text.trim(), note_type: resolvedType } };
 }
 
-const OFFER_OUTCOMES = ['Pending', 'Rejected', 'Accepted', 'Withdrawn'];
+const OFFER_OUTCOMES = ['Pending', 'Rejected', 'Countered', 'Accepted', 'Withdrawn'];
+const OFFER_CONDITIONS = ['subject to survey', 'subject to mortgage', 'cash buyer', 'chain-free'];
 
+// agent_feedback/conditions/conditions_other are all optional (Deal
+// Workspace Phase 1's Offers upgrade) — an offer with none of them is
+// still a perfectly valid offer, same as before this existed. conditions
+// is checked against the fixed vocabulary the offer form actually offers
+// as toggle-pills; anything else belongs in the free-text conditions_other
+// field instead, not smuggled into the array.
 function validateOfferInput(body) {
-  const { amount, offer_date, outcome } = body;
+  const { amount, offer_date, outcome, agent_feedback, conditions, conditions_other } = body;
   const amt = Number(amount);
   if (!Number.isFinite(amt) || amt < 0) return { error: 'Amount must be a number ≥ 0.' };
   if (typeof offer_date !== 'string' || !offer_date.trim()) return { error: 'Enter an offer date.' };
@@ -1064,7 +1129,17 @@ function validateOfferInput(body) {
   if (!OFFER_OUTCOMES.includes(resolvedOutcome)) {
     return { error: `outcome must be one of ${OFFER_OUTCOMES.join('/')}.` };
   }
-  return { value: { amount: amt, offer_date, outcome: resolvedOutcome } };
+  let resolvedConditions = [];
+  if (conditions !== undefined) {
+    if (!Array.isArray(conditions) || !conditions.every((c) => OFFER_CONDITIONS.includes(c))) {
+      return { error: `conditions must only contain: ${OFFER_CONDITIONS.join(', ')}.` };
+    }
+    resolvedConditions = conditions;
+  }
+  const value = { amount: amt, offer_date, outcome: resolvedOutcome, conditions: resolvedConditions };
+  if (agent_feedback !== undefined) value.agent_feedback = agent_feedback ? String(agent_feedback).trim() || null : null;
+  if (conditions_other !== undefined) value.conditions_other = conditions_other ? String(conditions_other).trim() || null : null;
+  return { value };
 }
 
 app.post('/api/deals/:dealId/notes', async (req, res) => {
@@ -1083,7 +1158,7 @@ app.post('/api/deals/:dealId/notes', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deal_notes')
-    .insert({ deal_id: req.params.dealId, note_text: value.note_text })
+    .insert({ deal_id: req.params.dealId, note_text: value.note_text, note_type: value.note_type })
     .select()
     .single();
 
@@ -1203,6 +1278,77 @@ app.delete('/api/offers/:id', async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   res.json({ deleted: true });
+});
+
+// GET /api/deals/:dealId/activity — the Deal Workspace's unified Activity
+// Timeline (Phase 1, saved-deals.html). Merges four existing sources —
+// deal_notes, deal_offers, deal_stage_log (db/038), deal_refurb_log
+// (db/039) — into one array, normalised to a common {type, created_at,
+// ...} shape and sorted newest-first by created_at. This is a pure read:
+// nothing is copied or rewritten, so existing notes/offers data is never
+// touched by this endpoint, and pipeline.html's own separate Notes &
+// Offers modal (which reads deal_notes/deal_offers directly, not this
+// endpoint) is completely unaffected.
+//
+// Sorted by created_at throughout, not offer_date — offer_date is a
+// user-entered business date (can be backdated) and isn't a reliable
+// "when did this actually get logged" signal the way created_at is for
+// every row in every one of these four tables.
+app.get('/api/deals/:dealId/activity', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  const [notesRes, offersRes, stageRes, refurbRes] = await Promise.all([
+    supabase.from('deal_notes').select('*').eq('deal_id', req.params.dealId),
+    supabase.from('deal_offers').select('*').eq('deal_id', req.params.dealId),
+    supabase.from('deal_stage_log').select('*').eq('deal_id', req.params.dealId),
+    supabase.from('deal_refurb_log').select('*').eq('deal_id', req.params.dealId),
+  ]);
+
+  if (notesRes.error) return res.status(400).json({ error: notesRes.error.message });
+  if (offersRes.error) return res.status(400).json({ error: offersRes.error.message });
+  if (stageRes.error) return res.status(400).json({ error: stageRes.error.message });
+  if (refurbRes.error) return res.status(400).json({ error: refurbRes.error.message });
+
+  const entries = [
+    ...(notesRes.data || []).map((n) => ({
+      type: n.note_type || 'note',
+      id: n.id,
+      created_at: n.created_at,
+      note_text: n.note_text,
+    })),
+    ...(offersRes.data || []).map((o) => ({
+      type: 'offer',
+      id: o.id,
+      created_at: o.created_at,
+      amount: o.amount,
+      offer_date: o.offer_date,
+      outcome: o.outcome,
+      agent_feedback: o.agent_feedback || null,
+      conditions: o.conditions || [],
+      conditions_other: o.conditions_other || null,
+    })),
+    ...(stageRes.data || []).map((s) => ({
+      type: 'stage_changed',
+      id: s.id,
+      created_at: s.changed_at,
+      from_stage: s.from_stage,
+      to_stage: s.to_stage,
+    })),
+    ...(refurbRes.data || []).map((r) => ({
+      type: 'refurb_' + r.event_type, // refurb_linked / refurb_unlinked / refurb_rerun_saved
+      id: r.id,
+      created_at: r.created_at,
+      estimate_name: r.estimate_name || null,
+      refurb_cost: r.refurb_cost,
+    })),
+  ];
+
+  entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  res.json(entries);
 });
 
 app.post('/api/portfolio', async (req, res) => {

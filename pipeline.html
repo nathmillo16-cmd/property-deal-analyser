@@ -340,6 +340,13 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
       <h2 id="details-modal-title">—</h2>
       <button class="modal-close" onclick="closeDealDetails()" aria-label="Close">×</button>
     </div>
+    <!-- Links to the Deal Workspace (saved-deals.html) for the richer
+         Phase 1 build (seller position, the unified Activity Timeline,
+         Refurb). Deliberately NOT replicated here — this modal stays the
+         simpler notes/offers view it's always been; href set per-deal in
+         openDealDetails() below via saved-deals.html's own ?openDeal=
+         deep link (already supported there). -->
+    <p class="hint" style="margin:-.5rem 0 1rem"><a href="saved-deals.html" id="open-full-deal-link">Open full deal →</a></p>
 
     <div class="modal-section">
       <p class="subhead">Notes</p>
@@ -363,6 +370,7 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
             </button>
             <ul class="dd-list" role="listbox">
               <li class="dd-opt selected" role="option" aria-selected="true" data-value="Pending" onclick="selectDDOption(event,'offer-outcome','Pending','Pending')">Pending</li>
+              <li class="dd-opt" role="option" aria-selected="false" data-value="Countered" onclick="selectDDOption(event,'offer-outcome','Countered','Countered')">Countered</li>
               <li class="dd-opt" role="option" aria-selected="false" data-value="Rejected" onclick="selectDDOption(event,'offer-outcome','Rejected','Rejected')">Rejected</li>
               <li class="dd-opt" role="option" aria-selected="false" data-value="Accepted" onclick="selectDDOption(event,'offer-outcome','Accepted','Accepted')">Accepted</li>
               <li class="dd-opt" role="option" aria-selected="false" data-value="Withdrawn" onclick="selectDDOption(event,'offer-outcome','Withdrawn','Withdrawn')">Withdrawn</li>
@@ -1026,6 +1034,7 @@ function openDealDetails(dealId){
   detailsDealId=dealId;
 
   document.getElementById('details-modal-title').textContent=dealDisplayName(deal);
+  document.getElementById('open-full-deal-link').href='saved-deals.html?openDeal='+encodeURIComponent(dealId);
   document.getElementById('note-input').value='';
   document.getElementById('note-msg').textContent='';document.getElementById('note-msg').className='save-msg';
   document.getElementById('offer-amount').value='';
@@ -1126,7 +1135,7 @@ async function loadOffers(dealId){
     }
     listEl.innerHTML=offers.map(o=>{
       const ddId='dd-offer-outcome-'+o.id;
-      const opts=['Pending','Rejected','Accepted','Withdrawn'].map(v=>
+      const opts=['Pending','Countered','Rejected','Accepted','Withdrawn'].map(v=>
         `<li class="dd-opt${v===o.outcome?' selected':''}" role="option" aria-selected="${v===o.outcome}" data-value="${v}" onclick="selectDDOption(event,'${ddId}','${v}','${v}')">${v}</li>`
       ).join('');
       return `<div class="offer-item">

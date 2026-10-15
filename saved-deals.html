@@ -168,6 +168,42 @@ body.theme-light .dd-trigger::after{
 .workspace-lock{text-align:center;padding:1rem;background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm)}
 .workspace-lock p{color:var(--muted);font-size:12.5px;margin:0 0 .75rem}
 .workspace-lock .btn-primary{font-size:12.5px;padding:.5rem 1rem}
+
+/* Deal Workspace Phase 1 — Seller position + Activity Timeline. Fresh
+   classes, light-theme only (no dark-mode legacy to preserve, same as
+   refurb.html's own .mini-btn when it was first defined there). */
+.field textarea{
+  font-family:var(--font-body);font-size:14px;color:var(--input-ink);
+  background-color:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);
+  padding:10px 12px;width:100%;resize:vertical;min-height:60px;
+}
+.field textarea:focus{outline:none;border-color:var(--input-accent)}
+
+.seller-position-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1rem}
+
+.chip-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+.chip{font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink);background:var(--surface-2);border:1.5px solid var(--hairline);border-radius:999px;padding:7px 14px;cursor:pointer;white-space:nowrap}
+.chip:hover{border-color:var(--hairline-strong)}
+.chip.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+.quick-add-form{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:1rem;margin-bottom:1rem}
+
+.condition-pills{display:flex;gap:6px;flex-wrap:wrap;margin:.4rem 0}
+.condition-pill{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--muted);background:var(--surface);border:1.5px solid var(--hairline);border-radius:999px;padding:5px 11px;cursor:pointer;white-space:nowrap}
+.condition-pill.active{color:var(--accent);background:rgba(75,69,178,.10);border-color:var(--accent)}
+
+.activity-item{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.65rem .85rem;margin-bottom:8px}
+.activity-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap}
+.activity-type-tag{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);background:rgba(75,69,178,.10);border-radius:999px;padding:2px 8px;white-space:nowrap}
+.activity-date{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.activity-body{font-size:13px;color:var(--ink);margin-top:5px;white-space:pre-wrap;word-break:break-word}
+.activity-offer-amount{font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.activity-maxbid{font-size:12px;margin-top:4px}
+.activity-maxbid.good{color:var(--success-ink)}
+.activity-maxbid.over{color:var(--danger-ink)}
+.activity-feedback{font-size:12.5px;color:var(--muted);margin-top:4px;font-style:italic}
+.activity-conditions{font-size:11.5px;color:var(--muted);margin-top:4px}
+.activity-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
 </style>
 </head>
 <body class="theme-light">
@@ -259,47 +295,113 @@ body.theme-light .dd-trigger::after{
     </div>
 
     <div class="modal-section">
-      <p class="subhead">Notes</p>
-      <div id="workspace-notes-gated">
-        <div class="modal-form-row">
-          <div class="field"><label>Note</label><input type="text" id="note-input"/></div>
-          <button class="btn-primary" onclick="addNote()">Add note</button>
-        </div>
-        <p class="save-msg" id="note-msg"></p>
-        <div id="notes-list"><p class="hint">Loading…</p></div>
-      </div>
-      <div class="workspace-lock" id="workspace-notes-lock" style="display:none">
-        <p>Notes are a paid feature.</p>
-        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
-      </div>
-    </div>
-
-    <div class="modal-section">
-      <p class="subhead">Offer history</p>
-      <div id="workspace-offers-gated">
-        <div class="modal-form-row">
-          <div class="field"><label>Amount (£)</label><input type="number" id="offer-amount"/></div>
-          <div class="field"><label>Date</label><input type="date" id="offer-date"/></div>
-          <div class="field"><label>Outcome</label>
-            <div class="dd" id="offer-outcome" data-value="Pending">
-              <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'offer-outcome')" onkeydown="ddKeydown(event,'offer-outcome')">
-                <span>Pending</span>
+      <div id="workspace-activity-gated">
+        <p class="subhead">Seller position</p>
+        <div class="seller-position-grid">
+          <div class="field"><label>Chain status</label>
+            <div class="dd" id="sp-chain-status" data-value="">
+              <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'sp-chain-status')" onkeydown="ddKeydown(event,'sp-chain-status')">
+                <span>Not set</span>
               </button>
               <ul class="dd-list" role="listbox">
-                <li class="dd-opt selected" role="option" aria-selected="true" data-value="Pending" onclick="selectDDOption(event,'offer-outcome','Pending','Pending')">Pending</li>
-                <li class="dd-opt" role="option" aria-selected="false" data-value="Rejected" onclick="selectDDOption(event,'offer-outcome','Rejected','Rejected')">Rejected</li>
-                <li class="dd-opt" role="option" aria-selected="false" data-value="Accepted" onclick="selectDDOption(event,'offer-outcome','Accepted','Accepted')">Accepted</li>
-                <li class="dd-opt" role="option" aria-selected="false" data-value="Withdrawn" onclick="selectDDOption(event,'offer-outcome','Withdrawn','Withdrawn')">Withdrawn</li>
+                <li class="dd-opt selected" role="option" aria-selected="true" data-value="" onclick="selectDDOption(event,'sp-chain-status','','Not set')">Not set</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="chain-free" onclick="selectDDOption(event,'sp-chain-status','chain-free','Chain-free')">Chain-free</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="has-chain-not-found" onclick="selectDDOption(event,'sp-chain-status','has-chain-not-found','Has chain, not found')">Has chain, not found</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="found-under-offer" onclick="selectDDOption(event,'sp-chain-status','found-under-offer','Found, under offer')">Found, under offer</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="found-exchanged" onclick="selectDDOption(event,'sp-chain-status','found-exchanged','Found, exchanged')">Found, exchanged</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="unknown" onclick="selectDDOption(event,'sp-chain-status','unknown','Unknown')">Unknown</li>
               </ul>
             </div>
           </div>
-          <button class="btn-primary" onclick="addOffer()">Add offer</button>
+          <div class="field"><label>Motivation</label>
+            <div class="dd" id="sp-motivation" data-value="">
+              <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'sp-motivation')" onkeydown="ddKeydown(event,'sp-motivation')">
+                <span>Not set</span>
+              </button>
+              <ul class="dd-list" role="listbox">
+                <li class="dd-opt selected" role="option" aria-selected="true" data-value="" onclick="selectDDOption(event,'sp-motivation','','Not set')">Not set</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="relocating" onclick="selectDDOption(event,'sp-motivation','relocating','Relocating')">Relocating</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="downsizing" onclick="selectDDOption(event,'sp-motivation','downsizing','Downsizing')">Downsizing</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="divorce-separation" onclick="selectDDOption(event,'sp-motivation','divorce-separation','Divorce or separation')">Divorce or separation</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="financial-pressure" onclick="selectDDOption(event,'sp-motivation','financial-pressure','Financial pressure')">Financial pressure</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="inherited" onclick="selectDDOption(event,'sp-motivation','inherited','Inherited property')">Inherited property</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="retirement" onclick="selectDDOption(event,'sp-motivation','retirement','Retirement')">Retirement</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="other" onclick="selectDDOption(event,'sp-motivation','other','Other')">Other</li>
+              </ul>
+            </div>
+          </div>
+          <div class="field"><label>Timescale</label>
+            <div class="dd" id="sp-timescale" data-value="">
+              <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'sp-timescale')" onkeydown="ddKeydown(event,'sp-timescale')">
+                <span>Not set</span>
+              </button>
+              <ul class="dd-list" role="listbox">
+                <li class="dd-opt selected" role="option" aria-selected="true" data-value="" onclick="selectDDOption(event,'sp-timescale','','Not set')">Not set</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="asap" onclick="selectDDOption(event,'sp-timescale','asap','ASAP')">ASAP</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="1-3-months" onclick="selectDDOption(event,'sp-timescale','1-3-months','1 to 3 months')">1 to 3 months</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="3-6-months" onclick="selectDDOption(event,'sp-timescale','3-6-months','3 to 6 months')">3 to 6 months</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="6-plus-months" onclick="selectDDOption(event,'sp-timescale','6-plus-months','6+ months')">6+ months</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="not-in-a-rush" onclick="selectDDOption(event,'sp-timescale','not-in-a-rush','Not in a rush')">Not in a rush</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="unknown" onclick="selectDDOption(event,'sp-timescale','unknown','Unknown')">Unknown</li>
+              </ul>
+            </div>
+          </div>
         </div>
-        <p class="save-msg" id="offer-msg"></p>
-        <div id="offers-list"><p class="hint">Loading…</p></div>
+        <div class="field"><label>Notes</label><textarea id="sp-notes" rows="2" placeholder="Anything else about the seller's situation"></textarea></div>
+        <button class="btn-primary" onclick="saveSellerPosition()">Save seller position</button>
+        <p class="save-msg" id="sp-msg"></p>
+
+        <p class="subhead" style="margin-top:1.75rem">Activity</p>
+        <div class="chip-bar">
+          <button type="button" class="chip" id="chip-note" onclick="toggleQuickAdd('note')">+ Note</button>
+          <button type="button" class="chip" id="chip-call" onclick="toggleQuickAdd('call')">+ Call</button>
+          <button type="button" class="chip" id="chip-viewing" onclick="toggleQuickAdd('viewing')">+ Viewing</button>
+          <button type="button" class="chip" id="chip-offer" onclick="toggleQuickAdd('offer')">+ Offer</button>
+        </div>
+
+        <div class="quick-add-form" id="quick-add-note-form" style="display:none">
+          <div class="field"><label id="quick-add-note-label">Note</label><input type="text" id="quick-add-text"/></div>
+          <button class="btn-primary" onclick="submitQuickNote()">Add</button>
+          <p class="save-msg" id="quick-add-note-msg"></p>
+        </div>
+
+        <div class="quick-add-form" id="quick-add-offer-form" style="display:none">
+          <div class="modal-form-row">
+            <div class="field"><label>Amount (£)</label><input type="number" id="offer-amount"/></div>
+            <div class="field"><label>Date</label><input type="date" id="offer-date"/></div>
+            <div class="field"><label>Outcome</label>
+              <div class="dd" id="offer-outcome" data-value="Pending">
+                <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'offer-outcome')" onkeydown="ddKeydown(event,'offer-outcome')">
+                  <span>Pending</span>
+                </button>
+                <ul class="dd-list" role="listbox">
+                  <li class="dd-opt selected" role="option" aria-selected="true" data-value="Pending" onclick="selectDDOption(event,'offer-outcome','Pending','Pending')">Pending</li>
+                  <li class="dd-opt" role="option" aria-selected="false" data-value="Countered" onclick="selectDDOption(event,'offer-outcome','Countered','Countered')">Countered</li>
+                  <li class="dd-opt" role="option" aria-selected="false" data-value="Rejected" onclick="selectDDOption(event,'offer-outcome','Rejected','Rejected')">Rejected</li>
+                  <li class="dd-opt" role="option" aria-selected="false" data-value="Accepted" onclick="selectDDOption(event,'offer-outcome','Accepted','Accepted')">Accepted</li>
+                  <li class="dd-opt" role="option" aria-selected="false" data-value="Withdrawn" onclick="selectDDOption(event,'offer-outcome','Withdrawn','Withdrawn')">Withdrawn</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="field"><label>Conditions</label>
+            <div class="condition-pills" id="offer-conditions-pills">
+              <button type="button" class="condition-pill" data-condition="subject to survey" onclick="toggleConditionPill(this)">Subject to survey</button>
+              <button type="button" class="condition-pill" data-condition="subject to mortgage" onclick="toggleConditionPill(this)">Subject to mortgage</button>
+              <button type="button" class="condition-pill" data-condition="cash buyer" onclick="toggleConditionPill(this)">Cash buyer</button>
+              <button type="button" class="condition-pill" data-condition="chain-free" onclick="toggleConditionPill(this)">Chain-free</button>
+            </div>
+            <input type="text" id="offer-conditions-other" placeholder="Other condition (optional)"/>
+          </div>
+          <div class="field"><label>Agent feedback</label><input type="text" id="offer-feedback"/></div>
+          <button class="btn-primary" onclick="submitQuickOffer()">Add offer</button>
+          <p class="save-msg" id="quick-add-offer-msg"></p>
+        </div>
+
+        <div id="activity-feed"><p class="hint">Loading…</p></div>
       </div>
-      <div class="workspace-lock" id="workspace-offers-lock" style="display:none">
-        <p>Offer history is a paid feature.</p>
+      <div class="workspace-lock" id="workspace-activity-lock" style="display:none">
+        <p>Seller position and the activity timeline are a paid feature.</p>
         <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
       </div>
     </div>
@@ -1206,25 +1308,20 @@ function updateWorkspaceGating(deal){
 
   document.getElementById('workspace-refurb-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-refurb-lock').style.display=paid?'none':'block';
-  document.getElementById('workspace-notes-gated').style.display=paid?'block':'none';
-  document.getElementById('workspace-notes-lock').style.display=paid?'none':'block';
-  document.getElementById('workspace-offers-gated').style.display=paid?'block':'none';
-  document.getElementById('workspace-offers-lock').style.display=paid?'none':'block';
+  document.getElementById('workspace-activity-gated').style.display=paid?'block':'none';
+  document.getElementById('workspace-activity-lock').style.display=paid?'none':'block';
   document.getElementById('workspace-stage-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-stage-lock').style.display=paid?'none':'block';
 
   if(!paid)return;
 
-  document.getElementById('note-input').value='';
-  document.getElementById('note-msg').textContent='';document.getElementById('note-msg').className='save-msg';
-  document.getElementById('offer-amount').value='';
-  document.getElementById('offer-date').value='';
-  setDDValue('offer-outcome', 'Pending', 'Pending');
-  document.getElementById('offer-msg').textContent='';document.getElementById('offer-msg').className='save-msg';
+  closeAllQuickAdd();
+  resetOfferForm();
+  document.getElementById('sp-msg').textContent='';document.getElementById('sp-msg').className='save-msg';
 
   loadRefurbSection(deal);
-  loadNotes(workspaceDealId);
-  loadOffers(workspaceDealId);
+  loadSellerPosition(deal);
+  loadActivity(workspaceDealId);
   renderWorkspaceStageControl(deal);
 }
 
@@ -1303,112 +1400,143 @@ function reRunWithRefurb(newRef){
   if(deal)goToRerun(deal,newRef);
 }
 
-async function loadNotes(dealId){
-  const listEl=document.getElementById('notes-list');
-  listEl.innerHTML='<p class="hint">Loading…</p>';
-  try{
-    const res=await fetch(`/api/deals/${dealId}/notes`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
-    const notes=await res.json();
-    if(!res.ok)throw new Error(notes.error||'Could not load notes.');
+// ---------------------------------------------------------------------
+// Seller position (Deal Workspace Phase 1) — one record per deal
+// (deals.seller_position, db/040), written via POST /api/deals/:id/
+// seller-position, which only ever touches that one column. chain_status/
+// motivation/timescale are each a small fixed-option dropdown (reusing the
+// app's own .dd component) plus a free-text notes field for anything else
+// — matches "short structured fields plus notes" from the brief exactly.
+// ---------------------------------------------------------------------
+const SP_CHAIN_STATUS_LABELS={'chain-free':'Chain-free','has-chain-not-found':'Has chain, not found','found-under-offer':'Found, under offer','found-exchanged':'Found, exchanged','unknown':'Unknown'};
+const SP_MOTIVATION_LABELS={relocating:'Relocating',downsizing:'Downsizing','divorce-separation':'Divorce or separation','financial-pressure':'Financial pressure',inherited:'Inherited property',retirement:'Retirement',other:'Other'};
+const SP_TIMESCALE_LABELS={asap:'ASAP','1-3-months':'1 to 3 months','3-6-months':'3 to 6 months','6-plus-months':'6+ months','not-in-a-rush':'Not in a rush',unknown:'Unknown'};
 
-    if(notes.length===0){
-      listEl.innerHTML='<p class="hint">No notes yet.</p>';
-      return;
-    }
-    listEl.innerHTML=notes.map(n=>`<div class="note-item">
-      <button class="mini-btn danger note-delete" onclick="deleteNote('${n.id}')">Delete</button>
-      <p class="note-date">${fmtTimestamp(n.created_at)}</p>
-      <p class="note-text">${escapeHtml(n.note_text)}</p>
-    </div>`).join('');
+function loadSellerPosition(deal){
+  const sp=deal.seller_position||{};
+  setDDValue('sp-chain-status', sp.chain_status||'', SP_CHAIN_STATUS_LABELS[sp.chain_status]||'Not set');
+  setDDValue('sp-motivation', sp.motivation||'', SP_MOTIVATION_LABELS[sp.motivation]||'Not set');
+  setDDValue('sp-timescale', sp.timescale||'', SP_TIMESCALE_LABELS[sp.timescale]||'Not set');
+  document.getElementById('sp-notes').value=sp.notes||'';
+}
+
+async function saveSellerPosition(){
+  if(!workspaceDealId)return;
+  const msg=document.getElementById('sp-msg');
+  const seller_position={
+    chain_status:getDDValue('sp-chain-status')||null,
+    motivation:getDDValue('sp-motivation')||null,
+    timescale:getDDValue('sp-timescale')||null,
+    notes:document.getElementById('sp-notes').value.trim()||null,
+  };
+  msg.className='save-msg';msg.textContent='';
+  try{
+    const res=await fetch(`/api/deals/${workspaceDealId}/seller-position`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({seller_position})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not save seller position.');
+    const idx=savedDealsCache.findIndex(d=>d.id===workspaceDealId);
+    if(idx>-1)savedDealsCache[idx]=body;
+    msg.textContent='Saved.';msg.className='save-msg success';
   }catch(e){
-    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+    msg.textContent=e.message;msg.className='save-msg error';
   }
 }
 
-async function addNote(){
-  if(!workspaceDealId)return;
-  const input=document.getElementById('note-input');
-  const msg=document.getElementById('note-msg');
+// ---------------------------------------------------------------------
+// Activity Timeline (Deal Workspace Phase 1) — a unified, newest-first
+// feed merging deal_notes/deal_offers/deal_stage_log/deal_refurb_log via
+// GET /api/deals/:dealId/activity (server.js does the merge+sort; this
+// page just renders what comes back). The quick-add chip bar covers four
+// entry types: Note/Call/Viewing share one simple single-field form (just
+// a different note_type and label); Offer opens its own richer structured
+// form. Both write through the SAME existing endpoints the old separate
+// Notes/Offers sections used (POST .../notes, POST .../offers) — only the
+// surrounding UI changed, not the write paths.
+// ---------------------------------------------------------------------
+let currentQuickAddType=null;
+const QUICK_ADD_NOTE_LABELS={note:'Note',call:'What was said on the call',viewing:'What you saw at the viewing'};
+
+function closeAllQuickAdd(){
+  ['note','call','viewing','offer'].forEach(t=>{
+    const chip=document.getElementById('chip-'+t);
+    if(chip)chip.classList.remove('active');
+  });
+  document.getElementById('quick-add-note-form').style.display='none';
+  document.getElementById('quick-add-offer-form').style.display='none';
+  currentQuickAddType=null;
+}
+
+function toggleQuickAdd(type){
+  const alreadyOpen=currentQuickAddType===type;
+  closeAllQuickAdd();
+  if(alreadyOpen)return;
+  currentQuickAddType=type;
+  document.getElementById('chip-'+type).classList.add('active');
+  if(type==='offer'){
+    document.getElementById('quick-add-offer-form').style.display='block';
+  }else{
+    document.getElementById('quick-add-note-label').textContent=QUICK_ADD_NOTE_LABELS[type];
+    document.getElementById('quick-add-text').value='';
+    const noteMsg=document.getElementById('quick-add-note-msg');
+    noteMsg.textContent='';noteMsg.className='save-msg';
+    document.getElementById('quick-add-note-form').style.display='block';
+    document.getElementById('quick-add-text').focus();
+  }
+}
+
+function toggleConditionPill(btn){
+  btn.classList.toggle('active');
+}
+
+function resetOfferForm(){
+  document.getElementById('offer-amount').value='';
+  document.getElementById('offer-date').value='';
+  setDDValue('offer-outcome', 'Pending', 'Pending');
+  document.getElementById('offer-conditions-other').value='';
+  document.getElementById('offer-feedback').value='';
+  document.querySelectorAll('#offer-conditions-pills .condition-pill').forEach(p=>p.classList.remove('active'));
+  const msg=document.getElementById('quick-add-offer-msg');
+  msg.textContent='';msg.className='save-msg';
+}
+
+async function submitQuickNote(){
+  if(!workspaceDealId||!currentQuickAddType||currentQuickAddType==='offer')return;
+  const input=document.getElementById('quick-add-text');
+  const msg=document.getElementById('quick-add-note-msg');
   const text=input.value.trim();
-  if(!text){ msg.textContent='Enter a note.'; msg.className='save-msg error'; return; }
+  if(!text){ msg.textContent='Enter some text.'; msg.className='save-msg error'; return; }
 
   msg.className='save-msg';msg.textContent='';
   try{
     const res=await fetch(`/api/deals/${workspaceDealId}/notes`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({note_text:text})
+      body:JSON.stringify({note_text:text, note_type:currentQuickAddType})
     });
     const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not add note.');
-    input.value='';
-    await loadNotes(workspaceDealId);
+    if(!res.ok)throw new Error(body.error||'Could not add this.');
+    closeAllQuickAdd();
+    await loadActivity(workspaceDealId);
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';
   }
 }
 
-async function deleteNote(noteId){
+async function submitQuickOffer(){
   if(!workspaceDealId)return;
-  if(!confirm('Delete this note?'))return;
-  try{
-    const res=await fetch(`/api/notes/${noteId}`,{
-      method:'DELETE',
-      headers:{'Authorization':'Bearer '+currentSession.access_token}
-    });
-    const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not delete note.');
-    await loadNotes(workspaceDealId);
-  }catch(e){
-    alert('Could not delete note: '+e.message);
-  }
-}
-
-async function loadOffers(dealId){
-  const listEl=document.getElementById('offers-list');
-  listEl.innerHTML='<p class="hint">Loading…</p>';
-  try{
-    const res=await fetch(`/api/deals/${dealId}/offers`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
-    const offers=await res.json();
-    if(!res.ok)throw new Error(offers.error||'Could not load offers.');
-
-    if(offers.length===0){
-      listEl.innerHTML='<p class="hint">No offers yet.</p>';
-      return;
-    }
-    listEl.innerHTML=offers.map(o=>{
-      const ddId='dd-offer-outcome-'+o.id;
-      const opts=['Pending','Rejected','Accepted','Withdrawn'].map(v=>
-        `<li class="dd-opt${v===o.outcome?' selected':''}" role="option" aria-selected="${v===o.outcome}" data-value="${v}" onclick="selectDDOption(event,'${ddId}','${v}','${v}')">${v}</li>`
-      ).join('');
-      return `<div class="offer-item">
-      <div class="offer-info">
-        <span class="offer-amount">${fmt(o.amount)}</span>
-        <span class="offer-date">${fmtDateOnly(o.offer_date)}</span>
-      </div>
-      <div class="offer-controls">
-        <div class="dd" id="${ddId}" data-value="${o.outcome}" data-onchange="handleOfferOutcomeChange">
-          <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'${ddId}')" onkeydown="ddKeydown(event,'${ddId}')">
-            <span>${o.outcome}</span>
-          </button>
-          <ul class="dd-list" role="listbox">${opts}</ul>
-        </div>
-        <button class="mini-btn danger" onclick="deleteOffer('${o.id}')">Delete</button>
-      </div>
-    </div>`;
-    }).join('');
-  }catch(e){
-    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
-  }
-}
-
-async function addOffer(){
-  if(!workspaceDealId)return;
-  const msg=document.getElementById('offer-msg');
+  const msg=document.getElementById('quick-add-offer-msg');
+  const conditions=Array.from(document.querySelectorAll('#offer-conditions-pills .condition-pill.active')).map(p=>p.dataset.condition);
   const payload={
     amount:document.getElementById('offer-amount').value,
     offer_date:document.getElementById('offer-date').value,
-    outcome:getDDValue('offer-outcome')
+    outcome:getDDValue('offer-outcome'),
+    conditions,
+    conditions_other:document.getElementById('offer-conditions-other').value.trim()||null,
+    agent_feedback:document.getElementById('offer-feedback').value.trim()||null,
   };
 
   msg.className='save-msg';msg.textContent='';
@@ -1420,24 +1548,39 @@ async function addOffer(){
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not add offer.');
-    document.getElementById('offer-amount').value='';
-    document.getElementById('offer-date').value='';
-    setDDValue('offer-outcome', 'Pending', 'Pending');
-    await loadOffers(workspaceDealId);
+    closeAllQuickAdd();
+    resetOfferForm();
+    await loadActivity(workspaceDealId);
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';
   }
 }
 
-// Bridges the generic dropdown's data-onchange callback back to the
-// per-offer outcome id embedded in the dd's own element id (dd-offer-
-// outcome-<offerId>) — updateOfferOutcome() itself is unchanged.
-function handleOfferOutcomeChange(id, value){
-  const offerId=id.replace('dd-offer-outcome-','');
-  updateOfferOutcome(offerId, value);
+async function deleteNoteFromActivity(noteId){
+  if(!workspaceDealId)return;
+  if(!confirm('Delete this entry?'))return;
+  try{
+    const res=await fetch(`/api/notes/${noteId}`,{
+      method:'DELETE',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not delete this.');
+    await loadActivity(workspaceDealId);
+  }catch(e){
+    alert('Could not delete this: '+e.message);
+  }
 }
 
-async function updateOfferOutcome(offerId, outcome){
+// Bridges the generic dropdown's data-onchange callback back to the
+// per-offer outcome id embedded in the dd's own element id (dd-activity-
+// offer-outcome-<offerId>).
+function handleActivityOfferOutcomeChange(id, value){
+  const offerId=id.replace('dd-activity-offer-outcome-','');
+  updateOfferOutcomeFromActivity(offerId, value);
+}
+
+async function updateOfferOutcomeFromActivity(offerId, outcome){
   if(!workspaceDealId)return;
   try{
     const res=await fetch(`/api/offers/${offerId}`,{
@@ -1447,13 +1590,13 @@ async function updateOfferOutcome(offerId, outcome){
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not update offer.');
-    await loadOffers(workspaceDealId);
+    await loadActivity(workspaceDealId);
   }catch(e){
     alert('Could not update offer: '+e.message);
   }
 }
 
-async function deleteOffer(offerId){
+async function deleteOfferFromActivity(offerId){
   if(!workspaceDealId)return;
   if(!confirm('Delete this offer?'))return;
   try{
@@ -1463,9 +1606,120 @@ async function deleteOffer(offerId){
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not delete offer.');
-    await loadOffers(workspaceDealId);
+    await loadActivity(workspaceDealId);
   }catch(e){
     alert('Could not delete offer: '+e.message);
+  }
+}
+
+// "Max bid (interest-only)" for BTL/HMO/SA — oR is calc-engine.js's
+// interest-only ROI max bid, the one figure actually wired to a label
+// anywhere in the app (the Analysis section above, the compare table, the
+// Property Pack PDF all already show it as "Max bid (ROI)"; repayment's
+// rOR has no display anywhere — see the CLAUDE.md backlog note). Flip has
+// no financing modes at all (cash-only), so it keeps the plain "Max bid
+// (ROI)" wording rather than a financing qualifier that wouldn't apply.
+// The achievability guard mirrors calc-engine.js's own exactly (oR>0 &&
+// oR<1900000 for BTL/HMO/SA; oR>0 only for Flip, matching its own wider
+// search range) — oR is still a number even when "not achievable" (a
+// bisection-search-bound artefact), so without this guard a headroom
+// figure could silently show against a meaningless value.
+const MAX_BID_LABELS={btl:'Max bid (interest-only)',hmo:'Max bid (interest-only)',sa:'Max bid (interest-only)',flip:'Max bid (ROI)'};
+
+function computeMaxBidLine(deal, amount){
+  const d=deal.deal_data||{};
+  const oR=d.oR;
+  const label=MAX_BID_LABELS[deal.deal_type]||'Max bid (ROI)';
+  const achievable=oR!=null&&(deal.deal_type==='flip'?oR>0:(oR>0&&oR<1900000));
+  if(!achievable){
+    return `<p class="activity-maxbid">${escapeHtml(label)}: not achievable at these inputs</p>`;
+  }
+  const headroom=oR-amount;
+  if(headroom>=0){
+    return `<p class="activity-maxbid good">${escapeHtml(label)} ${fmt(oR)} · ${fmt(headroom)} headroom</p>`;
+  }
+  return `<p class="activity-maxbid over">${escapeHtml(label)} ${fmt(oR)} · ${fmt(Math.abs(headroom))} over max bid</p>`;
+}
+
+function stageLabel(stage){
+  return stage?(WORKSPACE_STAGE_LABELS[stage]||stage):'Not in pipeline';
+}
+
+const ACTIVITY_TYPE_TAGS={note:'Note',call:'Call',viewing:'Viewing',offer:'Offer',stage_changed:'Stage',refurb_linked:'Refurb',refurb_unlinked:'Refurb',refurb_rerun_saved:'Refurb'};
+
+function renderActivityEntry(e, deal){
+  const tag=ACTIVITY_TYPE_TAGS[e.type]||e.type;
+  const date=fmtTimestamp(e.created_at);
+
+  if(e.type==='note'||e.type==='call'||e.type==='viewing'){
+    return `<div class="activity-item">
+      <div class="activity-head"><span class="activity-type-tag">${tag}</span><span class="activity-date">${date}</span></div>
+      <p class="activity-body">${escapeHtml(e.note_text)}</p>
+      <div class="activity-controls"><button class="mini-btn danger" onclick="deleteNoteFromActivity('${e.id}')">Delete</button></div>
+    </div>`;
+  }
+
+  if(e.type==='offer'){
+    const ddId='dd-activity-offer-outcome-'+e.id;
+    const opts=['Pending','Countered','Rejected','Accepted','Withdrawn'].map(v=>
+      `<li class="dd-opt${v===e.outcome?' selected':''}" role="option" aria-selected="${v===e.outcome}" data-value="${v}" onclick="selectDDOption(event,'${ddId}','${v}','${v}')">${v}</li>`
+    ).join('');
+    const conditions=(e.conditions||[]).map(c=>escapeHtml(c)).concat(e.conditions_other?[escapeHtml(e.conditions_other)]:[]);
+    return `<div class="activity-item">
+      <div class="activity-head">
+        <span class="activity-type-tag">${tag}</span>
+        <span class="activity-date">${fmtDateOnly(e.offer_date)} · logged ${date}</span>
+      </div>
+      <p class="activity-offer-amount">${fmt(e.amount)}</p>
+      ${deal?computeMaxBidLine(deal,e.amount):''}
+      <div class="activity-controls">
+        <div class="dd" id="${ddId}" data-value="${e.outcome}" data-onchange="handleActivityOfferOutcomeChange">
+          <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'${ddId}')" onkeydown="ddKeydown(event,'${ddId}')">
+            <span>${e.outcome}</span>
+          </button>
+          <ul class="dd-list" role="listbox">${opts}</ul>
+        </div>
+        <button class="mini-btn danger" onclick="deleteOfferFromActivity('${e.id}')">Delete</button>
+      </div>
+      ${conditions.length?`<p class="activity-conditions">Conditions: ${conditions.join(', ')}</p>`:''}
+      ${e.agent_feedback?`<p class="activity-feedback">"${escapeHtml(e.agent_feedback)}"</p>`:''}
+    </div>`;
+  }
+
+  if(e.type==='stage_changed'){
+    return `<div class="activity-item">
+      <div class="activity-head"><span class="activity-type-tag">${tag}</span><span class="activity-date">${date}</span></div>
+      <p class="activity-body">${escapeHtml(stageLabel(e.from_stage))} → ${escapeHtml(stageLabel(e.to_stage))}</p>
+    </div>`;
+  }
+
+  // refurb_linked / refurb_unlinked / refurb_rerun_saved
+  let body;
+  if(e.type==='refurb_linked')body=e.estimate_name?`Linked refurb estimate "${escapeHtml(e.estimate_name)}"`:'Linked a refurb estimate';
+  else if(e.type==='refurb_unlinked')body=e.estimate_name?`Unlinked refurb estimate "${escapeHtml(e.estimate_name)}"`:'Unlinked a refurb estimate';
+  else body=`Re-ran and saved with refurb cost ${fmt(e.refurb_cost||0)}`;
+  return `<div class="activity-item">
+    <div class="activity-head"><span class="activity-type-tag">${tag}</span><span class="activity-date">${date}</span></div>
+    <p class="activity-body">${body}</p>
+  </div>`;
+}
+
+async function loadActivity(dealId){
+  const feedEl=document.getElementById('activity-feed');
+  feedEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch(`/api/deals/${dealId}/activity`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const entries=await res.json();
+    if(!res.ok)throw new Error(entries.error||'Could not load activity.');
+
+    if(entries.length===0){
+      feedEl.innerHTML='<p class="hint">No activity yet. Use the chips above to add a note, call, viewing or offer.</p>';
+      return;
+    }
+    const deal=savedDealsCache.find(d=>d.id===dealId);
+    feedEl.innerHTML=entries.map(e=>renderActivityEntry(e, deal)).join('');
+  }catch(e){
+    feedEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
   }
 }
 
