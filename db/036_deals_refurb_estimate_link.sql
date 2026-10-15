@@ -1,0 +1,28 @@
+-- Run this in the Supabase SQL editor. Links a saved deal to (at most) one
+-- refurb estimate, backing the Deal Workspace's new "Refurb" section
+-- (saved-deals.html) and /api/deals/:id/refurb-estimate in server.js.
+--
+-- deals.refurb_estimate_id, not refurb_estimates.deal_id: the constraint is
+-- "a deal has at most one linked estimate" (a plain nullable FK column on
+-- deals already gives this for free), not "an estimate belongs to exactly
+-- one deal" — the same estimate may be reused across more than one deal
+-- later, which a deal_id column on refurb_estimates would have ruled out.
+--
+-- on delete set null, deliberately not cascade or restrict: deleting the
+-- ESTIMATE should only clear the deal's link, never touch the deal itself
+-- (a deal always keeps its own analysed figures regardless of any link —
+-- linking never rewrites deal_data). Deleting the DEAL needs no special
+-- handling in this FK's direction at all, since refurb_estimates is the
+-- referenced table here, not the referencing one — removing a deals row
+-- never cascades onto it.
+--
+-- No RLS change needed: this is just a column on deals, already covered by
+-- deals' own existing RLS policies (auth.uid() = user_id), and the FK
+-- target (refurb_estimates) already has its own RLS from db/009. The new
+-- /api/deals/:id/refurb-estimate endpoint independently verifies both the
+-- deal and the estimate belong to the caller before writing this column,
+-- same pattern as every other deal-id-bearing POST in this app.
+--
+-- Safe to re-run: add column uses `if not exists`.
+
+alter table deals add column if not exists refurb_estimate_id uuid references refurb_estimates(id) on delete set null;

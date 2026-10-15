@@ -671,7 +671,7 @@ app.get('/api/deals', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
     .order('created_at', { ascending: false });
 
   if (error) return res.status(400).json({ error: error.message });
@@ -821,7 +821,7 @@ app.post('/api/deals/:id/name', async (req, res) => {
     .from('deals')
     .update({ deal_data: updatedData })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -851,7 +851,102 @@ app.post('/api/deals/:id/viewing-date', async (req, res) => {
     .from('deals')
     .update({ viewing_date })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
+  res.json(data);
+});
+
+// Attaches (or, with refurb_estimate_id: null, unlinks) a refurb estimate
+// to a deal — the Deal Workspace's Refurb section (saved-deals.html), and
+// refurb.html's own "start new from a deal" flow once it's saved. Paid-
+// gated same as the refurb estimator and the rest of the Deal Workspace.
+// Attaching a different estimate just overwrites the column — "one
+// estimate per deal, attaching a new one replaces the link" needs no code
+// beyond a plain update, same reasoning as the rename endpoint's
+// deal_data merge elsewhere in this file. Unlinking never deletes the
+// estimate itself, only this deal's pointer to it.
+app.put('/api/deals/:id/refurb-estimate', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the refurb estimator.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the refurb estimator.' });
+
+  if (!(await dealBelongsToRequester(supabase, req.params.id))) {
+    return res.status(404).json({ error: 'Deal not found.' });
+  }
+
+  let { refurb_estimate_id } = req.body;
+  if (refurb_estimate_id === undefined || refurb_estimate_id === '') refurb_estimate_id = null;
+
+  if (refurb_estimate_id !== null) {
+    // RLS already scopes this select to the requester's own estimates —
+    // same trick dealBelongsToRequester uses — so a hit here means the
+    // estimate genuinely belongs to this user, not just that the id exists.
+    const { data: estimate, error: estimateErr } = await supabase
+      .from('refurb_estimates')
+      .select('id')
+      .eq('id', refurb_estimate_id)
+      .single();
+    if (estimateErr || !estimate) return res.status(404).json({ error: 'Refurb estimate not found.' });
+  }
+
+  const { data, error } = await supabase
+    .from('deals')
+    .update({ refurb_estimate_id })
+    .eq('id', req.params.id)
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
+    .single();
+
+  if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
+  res.json(data);
+});
+
+// Narrow update used by the "re-run with this refurb cost" flow (index.html's
+// autoSaveRerun(), triggered from refurb.html/saved-deals.html via rerun-
+// prefill.js) — overwrites ONLY deal_data with freshly recalculated figures,
+// never touches id, pipeline_stage, address, viewing_date, comps_snapshot, or
+// refurb_estimate_id (separate columns, untouched by this .update()), and
+// never touches notes/offers (separate tables entirely). The deal's name is
+// preserved from the existing row, not trusted from the client, for the same
+// reason the rename endpoint above merges rather than overwrites — a re-run
+// is a figures refresh, not a rename. deal_type is required and checked
+// against the existing row so a stale/mismatched client payload can never
+// land the wrong strategy's figures in another deal's row.
+app.post('/api/deals/:id/refresh-figures', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to update deals.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the refurb estimator.' });
+
+  const { deal_type, deal_data } = req.body;
+  if (!['btl', 'hmo', 'sa', 'flip'].includes(deal_type)) {
+    return res.status(400).json({ error: 'deal_type must be "btl", "hmo", "sa", or "flip".' });
+  }
+  if (!deal_data || typeof deal_data !== 'object') {
+    return res.status(400).json({ error: 'Missing deal_data.' });
+  }
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('deals')
+    .select('deal_type, deal_data')
+    .eq('id', req.params.id)
+    .single();
+  if (fetchErr || !existing) return res.status(404).json({ error: 'Deal not found.' });
+  if (existing.deal_type !== deal_type) {
+    return res.status(400).json({ error: 'This deal is not a ' + deal_type.toUpperCase() + ' deal.' });
+  }
+
+  const updatedData = { ...deal_data, name: existing.deal_data && existing.deal_data.name };
+
+  const { data, error } = await supabase
+    .from('deals')
+    .update({ deal_data: updatedData })
+    .eq('id', req.params.id)
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -889,7 +984,7 @@ app.post('/api/pipeline', async (req, res) => {
     .from('deals')
     .update({ pipeline_stage: 'analysing' })
     .eq('id', deal_id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
@@ -907,7 +1002,7 @@ app.get('/api/pipeline', async (req, res) => {
 
   const { data, error } = await supabase
     .from('deals')
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
     .not('pipeline_stage', 'is', null)
     .order('created_at', { ascending: false });
 
@@ -933,7 +1028,7 @@ app.post('/api/pipeline/:id/stage', async (req, res) => {
     .from('deals')
     .update({ pipeline_stage: stage })
     .eq('id', req.params.id)
-    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot')
+    .select('id, deal_type, deal_data, created_at, pipeline_stage, address, updated_at, viewing_date, comps_snapshot, refurb_estimate_id')
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });

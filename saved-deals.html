@@ -17,6 +17,8 @@
 <script src="/compare-deals.js"></script>
 <script src="/results-disclaimer.js"></script>
 <script src="/draft-state.js"></script>
+<script src="/refurb-totals.js"></script>
+<script src="/rerun-prefill.js"></script>
 <script src="/onboarding-tutorial.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
@@ -243,6 +245,17 @@ body.theme-light .dd-trigger::after{
     <div class="modal-section">
       <p class="subhead" id="workspace-comps-heading">Comps</p>
       <div id="workspace-comps-body"></div>
+    </div>
+
+    <div class="modal-section">
+      <p class="subhead">Refurb</p>
+      <div id="workspace-refurb-gated">
+        <div id="workspace-refurb-body"><p class="hint">Loading…</p></div>
+      </div>
+      <div class="workspace-lock" id="workspace-refurb-lock" style="display:none">
+        <p>Linking a refurb estimate is a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
+      </div>
     </div>
 
     <div class="modal-section">
@@ -1191,6 +1204,8 @@ async function downloadPropertyPack(){
 function updateWorkspaceGating(deal){
   const paid=currentPlan==='paid';
 
+  document.getElementById('workspace-refurb-gated').style.display=paid?'block':'none';
+  document.getElementById('workspace-refurb-lock').style.display=paid?'none':'block';
   document.getElementById('workspace-notes-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-notes-lock').style.display=paid?'none':'block';
   document.getElementById('workspace-offers-gated').style.display=paid?'block':'none';
@@ -1207,9 +1222,85 @@ function updateWorkspaceGating(deal){
   setDDValue('offer-outcome', 'Pending', 'Pending');
   document.getElementById('offer-msg').textContent='';document.getElementById('offer-msg').className='save-msg';
 
+  loadRefurbSection(deal);
   loadNotes(workspaceDealId);
   loadOffers(workspaceDealId);
   renderWorkspaceStageControl(deal);
+}
+
+// ---------------------------------------------------------------------
+// Refurb section (Deal Workspace) — READ ONLY. Linking now only happens
+// from refurb.html's own "Add to deal" flow; this section just reflects
+// whatever that set, plus Unlink (the one write this section still owns —
+// it's a removal, not a new link, so it doesn't need the estimator's own
+// context). refurb_estimates rows never store a computed total (see
+// refurb.html), so computeTotals() (refurb-totals.js, shared rather than
+// duplicated) runs here too, against the linked estimate's raw line_items.
+// Linking never rewrites deal_data — if the estimate's total differs from
+// the figure this deal was actually analysed with, both are shown, plus a
+// button to re-run the calculator with the new figure (buildRerunFields/
+// goToRerun, shared via rerun-prefill.js) rather than silently trusting a
+// stale ROI/max-bid.
+// ---------------------------------------------------------------------
+async function loadRefurbSection(deal){
+  const bodyEl=document.getElementById('workspace-refurb-body');
+  bodyEl.innerHTML='<p class="hint">Loading…</p>';
+
+  const dealRef=Math.round((deal.deal_data&&deal.deal_data.ref)||0);
+
+  if(!deal.refurb_estimate_id){
+    bodyEl.innerHTML=`<p class="hint">No refurb estimate linked. This deal's own refurb figure (${fmt(dealRef)}) is what it was analysed with. Link one from the Refurb Estimator's "Add to deal" button.</p>`;
+    return;
+  }
+
+  try{
+    const res=await fetch('/api/refurb-estimates',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not load your saved estimates.');
+    const est=d.estimates.find(e=>e.id===deal.refurb_estimate_id);
+    if(!est){
+      // Linked id set but the estimate itself isn't in this user's list —
+      // shouldn't happen given on delete set null, but fail to the
+      // unlinked view rather than show a broken reference.
+      bodyEl.innerHTML=`<p class="hint">No refurb estimate linked. This deal's own refurb figure (${fmt(dealRef)}) is what it was analysed with. Link one from the Refurb Estimator's "Add to deal" button.</p>`;
+      return;
+    }
+    const totals=computeTotals(est.mode,est.line_items,est.contingency_enabled,est.contingency_pct,est.vat_rate);
+    const grand=Math.round(totals.grandTotal);
+    const matches=grand===dealRef;
+    bodyEl.innerHTML=`<p>Linked: <strong>${escapeHtml(est.name)}</strong> — grand total ${fmt(grand)} · <a href="refurb.html?estimate=${encodeURIComponent(est.id)}">Open</a></p>`+
+      (matches?'':`<p class="value-warning" style="display:block">This deal was analysed with a refurb cost of ${fmt(dealRef)}. Re-run to use the estimate's ${fmt(grand)} instead — linking never changes this deal's saved figures on its own.</p>`)+
+      `<div class="modal-form-row">`+
+      (matches?'':`<button class="btn-primary" onclick="reRunWithRefurb(${grand})">Re-run with this refurb cost</button>`)+
+      `<button class="mini-btn danger" onclick="unlinkRefurbEstimate()">Unlink</button>
+      </div>`;
+  }catch(e){
+    bodyEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+async function unlinkRefurbEstimate(){
+  if(!confirm('Unlink this refurb estimate from the deal? The estimate itself is not deleted.'))return;
+  const bodyEl=document.getElementById('workspace-refurb-body');
+  try{
+    const res=await fetch('/api/deals/'+workspaceDealId+'/refurb-estimate',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({refurb_estimate_id:null})
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not update the refurb link.');
+    await loadSavedDeals();
+    const refreshed=savedDealsCache.find(x=>x.id===workspaceDealId);
+    if(refreshed)loadRefurbSection(refreshed);
+  }catch(e){
+    bodyEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+function reRunWithRefurb(newRef){
+  const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
+  if(deal)goToRerun(deal,newRef);
 }
 
 async function loadNotes(dealId){
@@ -1632,6 +1723,11 @@ async function init(){
     restoreScrollPosition('saved-deals');
     attachScrollSaver('saved-deals');
     Tutorial.resumeIfActive(currentSession.access_token);
+    // ?openDeal=<id> — refurb.html's "Back to the deal" link after
+    // attaching a new estimate (see the Refurb section below). Silently
+    // does nothing if the id doesn't match a deal in this user's own list.
+    const openDealId=new URLSearchParams(location.search).get('openDeal');
+    if(openDealId)openDealWorkspace(openDealId);
   });
 
   sbClient.auth.onAuthStateChange((_event, session)=>{

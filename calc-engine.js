@@ -320,7 +320,12 @@ function cHMO(){
     bbROI:+hbROI.toFixed(2),bbMLI:Math.round(hbMLI),bbPB:+Math.abs(hbPB).toFixed(2),
     brrrLtv:+(hbRefiLtv*100).toFixed(1),brrrType:hbRefiType,
     brrrLoan:Math.round(hbRefiLoan),brrrPayment:Math.round(hbRefiPay),
-    meetsROIBRRR:hbROI>=troi};
+    meetsROIBRRR:hbROI>=troi,
+    // Additive only — lets a saved HMO deal be re-run later with its real
+    // room mix restored, instead of only the aggregated totalRent. Doesn't
+    // feed into any calculation above; totalRent (already computed from
+    // these same four pairs) remains the only figure anything else reads.
+    roomBreakdown:rooms.map(([price,num])=>({price:Math.round(price),count:num}))};
 }
 
 function cSA(){

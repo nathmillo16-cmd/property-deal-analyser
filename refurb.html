@@ -14,6 +14,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <script src="/draft-state.js"></script>
+<script src="/refurb-totals.js"></script>
+<script src="/rerun-prefill.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
@@ -159,6 +161,19 @@ body.theme-light .saved-item.active{border-color:var(--accent)}
 .rf-summary-line .rsl-v{font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
 
 .rf-delete-row{display:flex;justify-content:flex-end;margin-top:.75rem}
+
+/* ---- Add to deal picker (modal) — same shell pattern as the modals on
+   saved-deals.html/pipeline.html, duplicated here per this app's own
+   convention (page-specific modal CSS, not shared). ---- */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-card{max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem}
+.modal-header h2{font-size:18px;margin:0;word-break:break-word}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
+.modal-close:hover{color:var(--ink)}
+.add-to-deal-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.add-to-deal-btn:hover{background:rgba(75,69,178,.08)}
 </style>
 </head>
 <body class="theme-light">
@@ -256,146 +271,41 @@ body.theme-light .saved-item.active{border-color:var(--accent)}
   </div>
 </div>
 
-<script>
-// ---------------------------------------------------------------------
-// Data: every line item from the owner's costing structure, verbatim.
-// guideRate is shown as a vanishing placeholder only — never a value.
-// ---------------------------------------------------------------------
-const REFURB_SECTIONS = [
-  { id:'demolition', name:'Demolition & Alterations', items:[
-    { id:'strip-out', label:'Strip out', rate:null },
-    { id:'skip-8yd', label:'Skip 8yd (without permit)', rate:null },
-    { id:'skip-12yd', label:'Skip 12yd (without permit)', rate:null },
-    { id:'skip-permit', label:'Skip permit', rate:null },
-  ]},
-  { id:'masonry', name:'Masonry & Groundworks', items:[
-    { id:'extension-m2', label:'Extension per m²', rate:null },
-    { id:'repointing-m2', label:'Repointing per m²', rate:null, note:'Incl. materials/travel/time; add extra for raking out mortar' },
-    { id:'underpinning-m2', label:'Underpinning per m²', rate:null },
-    { id:'large-lintel', label:'Large lintel incl. fit', rate:null },
-    { id:'small-lintel', label:'Small lintel incl. fit', rate:null },
-    { id:'beams', label:'Beams incl. fit', rate:null },
-    { id:'rendering-m2', label:'Rendering per m²', rate:null },
-    { id:'dpc-metre', label:'DPC per metre', rate:null },
-    { id:'brick-big-window', label:'Brick up big window', rate:null, note:'2 days incl. materials' },
-    { id:'brick-small-window', label:'Brick up small window', rate:null, note:'1 day incl. materials' },
-    { id:'structural-engineer', label:'Structural engineer', rate:null },
-  ]},
-  { id:'roofing', name:'Roofing & Scaffolding', items:[
-    { id:'new-roof-m2', label:'New roof per m²', rate:null },
-    { id:'new-roof-full', label:'New roof (full)', rate:null },
-    { id:'scaffolding', label:'Scaffolding', rate:null },
-    { id:'chimney-flashing', label:'Chimney flashing', rate:null },
-  ]},
-  { id:'plastering', name:'Plastering', items:[
-    { id:'skimming-room', label:'Skimming per room', rate:null },
-    { id:'skimming-m2', label:'Skimming per m²', rate:null },
-    { id:'boarding-m2', label:'Boarding per m²', rate:null },
-    { id:'boarding-ceiling', label:'Boarding ceiling', rate:null },
-  ]},
-  { id:'joinery', name:'Joinery', items:[
-    { id:'skirting-m2', label:'Skirting per m²', rate:null },
-    { id:'fire-door-fit', label:'Fire door fit only', rate:null },
-    { id:'fire-door-supply', label:'Fire door supply only', rate:null },
-    { id:'standard-door-supply', label:'Standard door supply only', rate:null },
-    { id:'standard-door-fit', label:'Standard door fit only', rate:null },
-    { id:'ironmongery', label:'Ironmongery', rate:null },
-    { id:'stud-walls', label:'Stud walls', rate:null },
-    { id:'roof-rafters', label:'Roof rafters', rate:null },
-    { id:'stairs-internal', label:'Stairs internal', rate:null },
-  ]},
-  { id:'windows-doors', name:'Windows & Doors', items:[
-    { id:'small-window', label:'Small window', rate:null },
-    { id:'large-window', label:'Large window', rate:null },
-    { id:'bifold-doors', label:'Bi-folding doors', rate:null },
-    { id:'upvc-door', label:'uPVC door', rate:null },
-    { id:'french-door', label:'French door', rate:null },
-    { id:'sash-window', label:'Sash window', rate:null },
-  ]},
-  { id:'electrics', name:'Electrics', items:[
-    { id:'full-rewire', label:'Full rewire', rate:null, note:'Includes materials' },
-    { id:'consumer-unit', label:'New consumer unit', rate:null },
-    { id:'emergency-lighting', label:'Emergency lighting', rate:null },
-    { id:'automatic-lighting', label:'Automatic lighting', rate:null },
-    { id:'wired-fire-alarm', label:'Wired fire alarm', rate:null },
-    { id:'battery-fire-alarm', label:'Battery fire alarm', rate:null },
-    { id:'plug-socket', label:'Plug socket', rate:null },
-    { id:'light-switch', label:'Light switch', rate:null },
-    { id:'ip-rated-pendant', label:'IP rated pendant', rate:null },
-    { id:'fire-alarm-system', label:'Fire alarm system', rate:null },
-    { id:'cctv-cameras', label:'CCTV cameras', rate:null },
-    { id:'eicr-test', label:'EICR test', rate:null },
-  ]},
-  { id:'plumbing', name:'Plumbing', items:[
-    { id:'full-replumb', label:'Full replumb', rate:null },
-    { id:'plumber-hourly', label:'Hourly rate for plumber', rate:null },
-    { id:'boiler-supply-fit', label:'Boiler supply & fit', rate:null },
-    { id:'guttering', label:'Guttering', rate:null },
-    { id:'manhole-installation', label:'New manhole installation', rate:null },
-    { id:'kitchen-fit', label:'Plumbing day rate', rate:null },
-    { id:'gas-safety-cert', label:'Gas safety cert', rate:null },
-    { id:'radiators', label:'Radiators', rate:null },
-    { id:'boiler-relocation', label:'Boiler relocation', rate:null },
-  ]},
-  { id:'flooring', name:'Flooring & Tiling', items:[
-    { id:'laminate-m2', label:'Laminate per m²', rate:null },
-    { id:'vinyl-m2', label:'Vinyl per m²', rate:null },
-    { id:'grouting-m2', label:'Grouting per m²', rate:null },
-    { id:'herringbone-m2', label:'Herringbone flooring per m²', rate:null },
-    { id:'aqua-panels', label:'Aqua panels', rate:null },
-    { id:'tiling-m2', label:'Tiling per m²', rate:null, note:'Tiles incl.' },
-    { id:'carpet-m2', label:'Carpet per m²', rate:null },
-  ]},
-  { id:'bathroom-kitchen-supply', name:'Bathroom & Kitchen', items:[
-    { id:'shower-tray', label:'Shower tray', rate:null },
-    { id:'shower-enclosure', label:'Shower enclosure', rate:null },
-    { id:'toilet', label:'Toilet', rate:null },
-    { id:'sink-basin', label:'Sink basin', rate:null },
-    { id:'basin-taps', label:'Basin taps', rate:null },
-    { id:'bathroom-fit', label:'Bathroom fit', rate:null },
-    { id:'bathroom-supply-only', label:'Bathroom supply only', rate:null },
-    { id:'kitchen-fit-only', label:'Kitchen fit', rate:null },
-    { id:'kitchen-supply-only', label:'Kitchen supply only', rate:null },
-    { id:'grouting-m2', label:'Grouting per m²', rate:null },
-    { id:'tiling-m2', label:'Tiling per m²', rate:null },
-  ]},
-  { id:'painting', name:'Painting & Decorating', items:[
-    { id:'mist-coat-room', label:'Mist coat per room', rate:null },
-    { id:'paint-standard-m2', label:'Paint (standard white) per m²', rate:null, note:'2 coat mist + 1 coat paint' },
-    { id:'full-room-paint', label:'Full room paint per room (standard white)', rate:null },
-    { id:'wallpaper-m2', label:'Wallpaper per m²', rate:null },
-    { id:'feature-wall', label:'Feature wall', rate:null },
-    { id:'sanding-patching-m2', label:'Sanding & patching per m²', rate:null },
-  ]},
-  { id:'garden', name:'Garden & Landscaping', items:[
-    { id:'garden-clear', label:'Garden clear', rate:null },
-    { id:'new-lawn-m2', label:'New lawn per m²', rate:null },
-    { id:'slabbing-paving-m2', label:'Slabbing/paving per m²', rate:null },
-    { id:'patio-m2', label:'Patio per m²', rate:null },
-    { id:'decking-m2', label:'Decking per m²', rate:null },
-  ]},
-];
+<div class="modal-overlay" id="atd-modal-overlay" onclick="handleAtdOverlayClick(event)">
+  <div class="card modal-card">
+    <div class="modal-header">
+      <h2>Add to deal</h2>
+      <button class="modal-close" onclick="closeAddToDealPicker()" aria-label="Close">×</button>
+    </div>
+    <p class="hint" style="margin-bottom:1rem">Pick a saved deal to link this estimate to. This replaces any estimate already linked to that deal.</p>
+    <div id="atd-list"><p class="hint">Loading…</p></div>
+  </div>
+</div>
 
-const QUICK_TRADES = [
-  { id:'electrics', label:'Electrics' },
-  { id:'plumbing', label:'Plumbing' },
-  { id:'bathroom', label:'Bathroom' },
-  { id:'kitchen', label:'Kitchen' },
-  { id:'plastering', label:'Plastering' },
-  { id:'painting', label:'Painting & decorating' },
-  { id:'flooring', label:'Flooring & tiling' },
-  { id:'roofing', label:'Roofing' },
-  { id:'windows-doors', label:'Windows & doors' },
-  { id:'masonry', label:'Masonry/structural' },
-  { id:'garden', label:'Garden & landscaping' },
-  { id:'demolition', label:'Demolition/strip-out' },
-];
+<script>
+// REFURB_SECTIONS, QUICK_TRADES, computeDetailedSubtotal/computeQuickSubtotal/
+// computeTotals now live in refurb-totals.js (shared with saved-deals.html's
+// Deal Workspace Refurb section) — loaded above, not redefined here.
 
 let sbClient=null, currentSession=null, currentPlan=null;
+// Set via ?estimate=<id> — a deep link from the Deal Workspace's Refurb
+// section ("Open" next to a linked estimate). Just opens that one estimate
+// once the saved-estimates list has loaded; no other behaviour change.
+const openEstimateId=new URLSearchParams(location.search).get('estimate')||null;
 let currentMode='detailed', currentVatRate=20;
 let savedEstimates=[], editingId=null;
+let savedDeals=null; // cached on first "Add to deal" open, per page load
 
 function fmtGBP(v){ return '£'+Math.round(v||0).toLocaleString(); }
+function fallbackName(d){
+  const label=d.deal_type.toUpperCase();
+  const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const pp=d.deal_data&&d.deal_data.pp?fmtGBP(d.deal_data.pp):null;
+  return pp?`${label} · ${pp} · ${date}`:`${label} · ${date}`;
+}
+function dealDisplayName(d){
+  return (d.deal_data&&d.deal_data.name)?d.deal_data.name:fallbackName(d);
+}
 function fmtGuidePrice(rate){
   if(rate==null)return '';
   const hasDecimal = rate % 1 !== 0;
@@ -542,40 +452,10 @@ function onContingencyToggle(){
   recalcSummary();
 }
 
-// ---------------------------------------------------------------------
-// Pure arithmetic — takes plain data, never touches the DOM. Used both for
-// the live form (fed from readDetailedLineItems/readQuickLineItems) and
-// for showing a grand total against each saved estimate in the list.
-// ---------------------------------------------------------------------
-function computeDetailedSubtotal(lineItems){
-  let total=0; const sectionTotals={};
-  REFURB_SECTIONS.forEach(s=>{
-    let sTotal=0;
-    s.items.forEach(it=>{
-      const li=lineItems[`${s.id}.${it.id}`];
-      const rate=li&&li.rate!=null?li.rate:0;
-      const qty=li&&li.qty!=null?li.qty:0;
-      sTotal += rate*qty;
-    });
-    sectionTotals[s.id]=sTotal;
-    total+=sTotal;
-  });
-  return { total, sectionTotals };
-}
-
-function computeQuickSubtotal(lineItems){
-  let total=0;
-  QUICK_TRADES.forEach(t=>{ total += (lineItems[t.id]||0); });
-  return total;
-}
-
-function computeTotals(mode, lineItems, contingencyEnabled, contingencyPct, vatRate){
-  const subtotal = mode==='quick' ? computeQuickSubtotal(lineItems) : computeDetailedSubtotal(lineItems).total;
-  const contingencyAmt = contingencyEnabled ? subtotal*(contingencyPct/100) : 0;
-  const vatAmt = (subtotal+contingencyAmt)*(vatRate/100);
-  const grandTotal = subtotal+contingencyAmt+vatAmt;
-  return { subtotal, contingencyAmt, vatAmt, grandTotal };
-}
+// computeDetailedSubtotal/computeQuickSubtotal/computeTotals — pure
+// arithmetic, takes plain data, never touches the DOM — now live in
+// refurb-totals.js (loaded above), shared with saved-deals.html's Deal
+// Workspace Refurb section rather than duplicated.
 
 function readDetailedLineItems(){
   const items={};
@@ -787,6 +667,7 @@ function renderSavedList(){
         <span class="saved-name">${escapeHtml(e.name)}<span class="mode-badge">${e.mode==='quick'?'Quick':'Detailed'}</span></span>
         <span class="saved-detail">Grand total ${fmtGBP(totals.grandTotal)} · ${fmtDate(e.created_at)}</span>
       </div>
+      <button type="button" class="add-to-deal-btn" onclick="event.stopPropagation();openAddToDealPicker('${e.id}')">Add to deal</button>
       <span class="saved-chevron">›</span>
     </div>`;
   }).join('');
@@ -827,6 +708,7 @@ async function saveEstimate(){
     msg.textContent='Estimate saved.';msg.className='save-msg success';
     document.getElementById('rf-delete-btn').style.display='';
     document.getElementById('rf-save-btn').textContent='Update estimate';
+
     await loadEstimates();
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';
@@ -848,6 +730,82 @@ async function deleteEstimate(){
     await loadEstimates();
   }catch(e){
     alert('Could not delete estimate: '+e.message);
+  }
+}
+
+// ---------------------------------------------------------------------
+// Add to deal — the estimator is now the entry point for linking an
+// estimate to a saved deal (deals.refurb_estimate_id, PUT /api/deals/:id/
+// refurb-estimate — unchanged endpoint, just called from here instead of
+// from the Deal Workspace). Picking a deal replaces any estimate already
+// linked to it, since the column only ever holds one id. After linking,
+// offers to immediately re-run the calculator with this estimate's grand
+// total (buildRerunFields/goToRerun, shared with the Deal Workspace via
+// rerun-prefill.js) — saying no just leaves the link in place.
+// ---------------------------------------------------------------------
+let atdEstimateId=null;
+
+async function openAddToDealPicker(estimateId){
+  atdEstimateId=estimateId;
+  const listEl=document.getElementById('atd-list');
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  document.getElementById('atd-modal-overlay').classList.add('open');
+  try{
+    if(!savedDeals){
+      const res=await fetch('/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+      const d=await res.json();
+      if(!res.ok)throw new Error(d.error||'Could not load your saved deals.');
+      savedDeals=Array.isArray(d)?d:[];
+    }
+    if(savedDeals.length===0){
+      listEl.innerHTML='<p class="hint">No saved deals yet. Save a deal from the Calculator first.</p>';
+      return;
+    }
+    listEl.innerHTML=savedDeals.map(deal=>`<div class="saved-item" onclick="linkEstimateToDeal('${deal.id}')">
+      <div class="saved-info">
+        <span class="saved-name">${escapeHtml(dealDisplayName(deal))}</span>
+        <span class="saved-detail">${deal.deal_type.toUpperCase()}${deal.refurb_estimate_id?' · already has a linked estimate':''}</span>
+      </div>
+      <span class="saved-chevron">›</span>
+    </div>`).join('');
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+function closeAddToDealPicker(){
+  document.getElementById('atd-modal-overlay').classList.remove('open');
+  atdEstimateId=null;
+}
+
+function handleAtdOverlayClick(e){
+  if(e.target.id==='atd-modal-overlay')closeAddToDealPicker();
+}
+
+async function linkEstimateToDeal(dealId){
+  const listEl=document.getElementById('atd-list');
+  try{
+    const res=await fetch('/api/deals/'+dealId+'/refurb-estimate',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({refurb_estimate_id:atdEstimateId})
+    });
+    const updatedDeal=await res.json();
+    if(!res.ok)throw new Error(updatedDeal.error||'Could not link this estimate to the deal.');
+
+    savedDeals=null; // stale refurb_estimate_id on every deal now; refetch next open
+    const est=savedEstimates.find(e=>e.id===atdEstimateId);
+    closeAddToDealPicker();
+
+    const msg=document.getElementById('rf-msg');
+    if(est&&confirm("Update this deal's numbers with the new refurb cost?")){
+      const totals=computeTotals(est.mode,est.line_items,est.contingency_enabled,est.contingency_pct,est.vat_rate);
+      goToRerun(updatedDeal,Math.round(totals.grandTotal));
+    }else{
+      msg.textContent='Linked to deal.';msg.className='save-msg success';
+    }
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
   }
 }
 
@@ -881,7 +839,14 @@ async function init(){
   // Scroll restore waits for the saved-estimates strip to finish loading
   // (it sits above the form and affects page height) so it lands on
   // content that's actually there, not a still-loading placeholder.
-  loadEstimates().finally(function(){ restoreScrollPosition('refurb'); attachScrollSaver('refurb'); });
+  loadEstimates().finally(function(){
+    if(openEstimateId&&savedEstimates.some(e=>e.id===openEstimateId)){
+      loadEstimate(openEstimateId);
+    }else{
+      restoreScrollPosition('refurb');
+    }
+    attachScrollSaver('refurb');
+  });
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;

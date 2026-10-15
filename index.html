@@ -268,6 +268,14 @@ body.theme-light .stale-note{background:rgba(75,69,178,.08)}
   display:none;font-size:12px;border-radius:var(--radius-sm);padding:.6rem .85rem;margin-bottom:1.1rem;
 }
 body.theme-light .value-warning{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn)}
+/* Success/error variants — used only by the re-run-and-save banner
+   (#rerun-note) to report the outcome of autoSaveRerun(), reusing the same
+   semantic tokens settings.html/support.js already use elsewhere. Base
+   .value-warning rule above still supplies layout/display; these just
+   override colour. */
+body.theme-light .value-warning.success{background:var(--success-bg);color:var(--success-ink);border:1px solid var(--success)}
+body.theme-light .value-warning.error{background:var(--danger-bg);color:var(--danger-ink);border:1px solid var(--danger)}
+.value-warning a{color:inherit;font-weight:600;text-decoration:underline}
 
 .save-btn{
   width:100%;padding:11px;background:transparent;color:var(--accent);
@@ -359,6 +367,8 @@ body.theme-light .dd-trigger::after{
   <p class="page-title">Calculator</p>
   <p class="page-sub">Analyse a deal across BTL, HMO, SA, or Flip, or pull live comps for a postcode.</p>
   <p class="hint" id="upgrade-notice" style="display:none"></p>
+  <p class="value-warning" id="rerun-note" style="display:none">Re-running a saved deal. Figures may differ from the original due to calculator updates.</p>
+  <p class="value-warning" id="rerun-room-note" style="display:none">Room breakdown wasn't saved for this deal, so the total rent is being used as a single room.</p>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('btl')">BTL</button>
     <button class="tab" onclick="switchTab('hmo')">HMO</button>
@@ -1289,6 +1299,143 @@ function checkValueWarningBTL(){checkValueWarning('b-pp','b-emv','b-value-warnin
 function checkValueWarningHMO(){checkValueWarning('h-pp','h-emv','h-value-warning');}
 function checkValueWarningSA(){checkValueWarning('sa-pp','sa-emv','sa-value-warning');}
 function checkValueWarningFlip(){checkValueWarning('fl-pp','fl-sv','fl-value-warning');}
+
+// ---------------------------------------------------------------------
+// "Re-run with this refurb cost" handoff from the Deal Workspace
+// (saved-deals.html) — a one-shot sessionStorage payload, not the regular
+// localStorage draft (which is a different, long-lived thing). Read and
+// cleared immediately on load so a later plain visit to this page never
+// re-applies it. Takes priority over the normal draft restore — this is a
+// deliberate "load this specific deal" action, not "continue where I left
+// off". `fields` is a flat {inputId: value} map already built by the
+// caller (deal_data mapped onto this strategy's input ids, with the
+// refurb figure already overridden) — plain inputs get .value=, and a key
+// prefixed "__dd_" (e.g. "__dd_bb-refi-type") targets a custom dd
+// component via setDDValue instead, since those aren't plain .value
+// inputs (same convention already used for the refi-type dd restore).
+// Set by applyRerunPayload() when the payload carries a dealId (every
+// payload built by rerun-prefill.js's buildRerunFields() does) — read once
+// initAuth() has fully settled (see autoSaveRerun() below and its call
+// site), since only then is currentSession guaranteed ready and
+// loadDefaults() has already run. null means either no rerun is in
+// progress, or autoSaveRerun() has already consumed it.
+let pendingRerun=null;
+
+function applyRerunPayload(){
+  let payload;
+  try{
+    const raw=sessionStorage.getItem('dny-rerun');
+    if(!raw)return false;
+    sessionStorage.removeItem('dny-rerun');
+    payload=JSON.parse(raw);
+  }catch(e){ return false; }
+  if(!payload||typeof payload!=='object'||!payload.strategy||!payload.fields)return false;
+
+  try{
+    Object.keys(payload.fields).forEach(key=>{
+      const val=payload.fields[key];
+      if(val==null)return;
+      if(key.indexOf('__dd_')===0){
+        const ddId=key.slice('__dd_'.length);
+        setDDValue(ddId,val,REFI_TYPE_LABELS[val]||val);
+      }else{
+        const el=document.getElementById(key);
+        if(el)el.value=val;
+      }
+    });
+    switchTab(payload.strategy);
+  }catch(e){ /* a bad payload shouldn't block the page loading normally */ }
+
+  const note=document.getElementById('rerun-note');
+  if(note){
+    note.className='value-warning';
+    if(payload.dealId){
+      note.textContent='Re-running this deal with its updated refurb cost. Saving automatically.';
+      pendingRerun=payload;
+    }else{
+      // Defensive fallback only — every payload rerun-prefill.js builds now
+      // carries a dealId. Covers a payload written by an old cached tab
+      // before this change, where there's nothing to auto-save over.
+      note.textContent='Re-running a saved deal. Figures may differ from the original due to calculator updates.';
+    }
+    note.style.display='block';
+  }
+  if(payload.roomsFellBack){
+    const roomNote=document.getElementById('rerun-room-note');
+    if(roomNote)roomNote.style.display='block';
+  }
+  return true;
+}
+
+// Completes the re-run started by applyRerunPayload(): recalculates (via
+// the strategy's own, untouched calc-engine.js function) and saves the
+// result back over the SAME deal (POST /api/deals/:id/refresh-figures,
+// which only ever overwrites deal_data — id, pipeline_stage, address,
+// viewing_date, comps_snapshot, refurb_estimate_id, notes and offers are
+// all untouched). Re-applies pendingRerun.fields immediately before
+// recalculating, even though applyRerunPayload() already applied them once
+// on load — loadDefaults() (called from initAuth(), which this runs after)
+// can overwrite several of the same fields (target yield/ROI, mortgage
+// rate, standard fees, deposit %, term) with the user's own saved defaults,
+// and this re-run must save the deal's actual original figures, never a
+// silently-substituted default. Called only after initAuth() has fully
+// settled, so currentSession and loadDefaults() are both guaranteed done.
+async function autoSaveRerun(){
+  if(!pendingRerun)return;
+  const{dealId,strategy,fields}=pendingRerun;
+  pendingRerun=null;
+  const note=document.getElementById('rerun-note');
+
+  try{
+    Object.keys(fields).forEach(key=>{
+      const val=fields[key];
+      if(val==null)return;
+      if(key.indexOf('__dd_')===0){
+        const ddId=key.slice('__dd_'.length);
+        setDDValue(ddId,val,REFI_TYPE_LABELS[val]||val);
+      }else{
+        const el=document.getElementById(key);
+        if(el)el.value=val;
+      }
+    });
+    switchTab(strategy);
+
+    const calcFn={btl:cBTL,hmo:cHMO,sa:cSA,flip:cFlip}[strategy];
+    if(!calcFn)throw new Error('Unknown strategy.');
+    calcFn();
+
+    if(!currentSession)throw new Error('Log in to save this deal.');
+
+    const dealData=strategy==='btl'?btlData:(strategy==='hmo'?hmoData:(strategy==='sa'?saData:flipData));
+    const res=await fetch('/api/deals/'+dealId+'/refresh-figures',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({deal_type:strategy, deal_data:dealData})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not save this deal.');
+
+    if(note){
+      const refFieldId={btl:'b-ref',hmo:'h-ref',sa:'sa-ref',flip:'fl-ref'}[strategy];
+      const refVal=+fields[refFieldId]||0;
+      note.innerHTML='Deal re-run with refurb cost '+fmt(refVal)+' and saved. Figures updated. '+
+        '<a href="saved-deals.html?openDeal='+encodeURIComponent(dealId)+'">Back to the deal</a>';
+      note.className='value-warning success';
+      note.style.display='block';
+    }
+  }catch(e){
+    if(note){
+      // Strip any trailing period from e.message before appending our own
+      // sentence — server-returned errors (e.g. "Deal not found.") already
+      // end with one, and without this a server-sourced message would read
+      // "...not found.. Nothing was changed." (double stop).
+      const reason=(e.message||'Something went wrong').replace(/\.+$/,'');
+      note.textContent='Could not re-run and save this deal: '+reason+'. Nothing was changed.';
+      note.className='value-warning error';
+      note.style.display='block';
+    }
+  }
+}
 
 function currentIndexDraftState(){
   const fields={};
@@ -2461,7 +2608,7 @@ async function loadDefaults(){
   }
 }
 
-restoreIndexDraft();
+if(!applyRerunPayload())restoreIndexDraft();
 cBTL();cHMO();cSA();cFlip();
 initMoneyFields();
 checkValueWarningBTL();checkValueWarningHMO();checkValueWarningSA();checkValueWarningFlip();
@@ -2473,6 +2620,7 @@ initAuth().finally(function(){
   restoreScrollPosition('index');
   attachScrollSaver('index');
   if(currentSession)Tutorial.resumeIfActive(currentSession.access_token);
+  autoSaveRerun();
 });
 </script>
 </body>
