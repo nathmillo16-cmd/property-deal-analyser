@@ -126,6 +126,7 @@
       '.nr-when{font-size:13px;color:var(--muted)}' +
       '.nr-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 .9rem}' +
       '.nr-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.9rem}' +
+      '@media(max-width:600px){.nr-grid{grid-template-columns:1fr}}' +
       '.nr-grid .field{margin:0}';
     document.head.appendChild(st);
   }

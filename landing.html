@@ -165,11 +165,15 @@ body.theme-light .value-warning{background:var(--warn-bg);color:var(--warn-ink);
    7 cards now visually identical, a centred lone closer reads fine,
    nothing about it looks accidental. */
 .benefit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem}
+/* Centring the lone 7th card only applies on the 3-column layout. It used
+   to sit after the phone rule and override it, which forced a phantom
+   second column on phones and squashed every card into two columns. */
+@media(min-width:701px){
+  .benefit-grid .benefit-card:last-child{grid-column:2}
+}
 @media(max-width:700px){
   .benefit-grid{grid-template-columns:1fr}
-  .benefit-grid .benefit-card:last-child{grid-column:auto}
 }
-.benefit-grid .benefit-card:last-child{grid-column:2}
 .benefit-card{
   background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.5rem;
   transition:transform .15s ease, box-shadow .15s ease;
@@ -277,7 +281,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   <!-- HERO -->
   <section class="hero reveal">
     <h1>Know your maximum bid before you offer.</h1>
-    <p class="lp-lead">Full deal analysis across BTL, HMO, serviced accommodation and flip, real sold-price comparables, crime and planning risk, and a written verdict, so you always know the ceiling before you negotiate.</p>
+    <p class="lp-lead">Full deal analysis across BTL, BRRR, HMO, serviced accommodation and flip, real sold-price comparables, crime and planning risk, and a written verdict, so you always know the ceiling before you negotiate.</p>
     <div class="hero-cta">
       <a class="btn-primary" href="#calculator">Start analysing</a>
       <a class="link-secondary" href="/login.html?mode=signup">or sign up free</a>
@@ -313,7 +317,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
           <line x1="2" y1="20" x2="22" y2="20"/>
         </svg></div>
         <h3>Deal analysis</h3>
-        <p>BTL, HMO, serviced accommodation and flip, side by side.</p>
+        <p>BTL, BRRR, HMO, serviced accommodation and flip, side by side.</p>
       </div>
       <div class="benefit-card reveal">
         <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -802,7 +806,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
       </div>
       <div class="journey-step reveal">
         <span class="journey-num">2</span>
-        <div><h3>Analyse it</h3><p>Max bid plus BTL, HMO, SA and Flip verdicts, instantly.</p></div>
+        <div><h3>Analyse it</h3><p>Max bid plus BTL, BRRR, HMO, SA and Flip figures, instantly.</p></div>
       </div>
       <div class="journey-step reveal">
         <span class="journey-num">3</span>

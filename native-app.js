@@ -41,6 +41,13 @@
     'html.native-app #nav-root .nav-links,html.native-app #nav-root .auth-bar{display:none!important}' +
     'html.native-app #nav-root .topbar{margin-bottom:1.25rem;padding-bottom:.75rem}' +
     'html.native-app body.nt-has-tabbar{padding-bottom:calc(64px + env(safe-area-inset-bottom, 0px))}' +
+    // Solid cream band behind the iPhone status bar (time, battery), so page
+    // content scrolling up never shows through it. Height is exactly the
+    // status bar area. Sits under modals (z-index 400+) so they still dim it.
+    'html.native-app body::before{content:"";position:fixed;top:0;left:0;right:0;' +
+      'height:env(safe-area-inset-top, 0px);background:var(--bg,#F2EFE7);z-index:390;pointer-events:none}' +
+    // Refurb's sticky summary must stick below that band, not under it.
+    'html.native-app .rf-summary{top:calc(1.5rem + env(safe-area-inset-top, 0px))}' +
     '.nt-tabbar{position:fixed;left:0;right:0;bottom:0;z-index:350;display:flex;' +
       'background:var(--surface,#fff);border-top:1px solid var(--hairline,#e5e5e5);' +
       'padding:0 env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);' +

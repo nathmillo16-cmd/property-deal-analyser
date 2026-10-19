@@ -188,6 +188,7 @@ body.theme-light .dd-trigger::after{
 .field textarea:focus{outline:none;border-color:var(--input-accent)}
 
 .seller-position-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1rem}
+@media(max-width:600px){.seller-position-grid{grid-template-columns:1fr}}
 
 .chip-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
 .chip{font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink);background:var(--surface-2);border:1.5px solid var(--hairline);border-radius:999px;padding:7px 14px;cursor:pointer;white-space:nowrap}

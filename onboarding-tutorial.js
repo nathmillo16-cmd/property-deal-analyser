@@ -49,11 +49,9 @@ var TUTORIAL_STEPS = [
     page: 'home.html',
     selectors: ['.header-row .btn-primary'],
     title: 'Start a new deal',
-    // PLACEHOLDER — please review: the brief listed "BTL/BRRR/HMO/SA" as
-    // the entry-point strategies, but this app's calculator only has BTL,
-    // HMO, Serviced Accommodation and Flip (no BRRR strategy exists) — Flip
-    // is named here instead. Flagging for your review per the brief.
-    body: 'Click here to analyse a property. Choose Buy-to-Let, HMO, Serviced Accommodation or Flip, depending on your strategy.'
+    // BRRR is a financing tab inside BTL/HMO/SA results, not its own
+    // strategy tab, so it's named separately rather than as a tab to choose.
+    body: 'Click here to analyse a property. Choose Buy-to-Let, HMO, Serviced Accommodation or Flip, depending on your strategy. For BRRR, use the BRRR tab in the results.'
   },
   {
     id: 'results-panel',
