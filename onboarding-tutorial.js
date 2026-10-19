@@ -76,7 +76,9 @@ var TUTORIAL_STEPS = [
     // disabled — confirmed by reading index.html/server.js directly, not
     // guessed. Naming it here so a free user isn't left wondering what it
     // is when they notice it right next to what's being spotlighted.
-    body: "Happy with the numbers? Save the deal here. Every deal you save is kept on your Saved Deals page so you can come back to it anytime. (The \"Get the Full Analysis\" button below runs an AI verdict on the deal, part of the paid plan.)"
+    body: "Happy with the numbers? Save the deal here. Every deal you save is kept on your Saved Deals page so you can come back to it anytime. (The \"Get the Full Analysis\" button below runs an AI verdict on the deal, part of the paid plan.)",
+    // iOS app wording: no mention of the paid plan (App Store rules).
+    nativeBody: "Happy with the numbers? Save the deal here. Every deal you save is kept on your Saved Deals page so you can come back to it anytime."
   },
   {
     id: 'compare-deals',
@@ -111,7 +113,9 @@ var TUTORIAL_STEPS = [
     // PLACEHOLDER — please review: there's no dedicated help/support page
     // in the app yet, so this only covers Settings/Replay as requested.
     // Swap in a real contact method once one exists.
-    body: 'Your account, subscription and defaults all live in Settings. You can replay this tutorial from here anytime you want a refresher.'
+    body: 'Your account, subscription and defaults all live in Settings. You can replay this tutorial from here anytime you want a refresher.',
+    // iOS app: Settings lives under the More tab, and no subscription wording.
+    nativeBody: 'Your account and defaults live in Settings, under the More tab. You can replay this tutorial from here anytime you want a refresher.'
   }
 ];
 
@@ -264,7 +268,9 @@ var TUTORIAL_STEPS = [
         '</div>' +
       '</div>';
     el.querySelector('.tut-title').textContent = step.title;
-    el.querySelector('.tut-body').textContent = step.body;
+    // nativeBody (optional) is the iOS app's wording for a step.
+    var useNative = typeof IS_NATIVE_APP !== 'undefined' && IS_NATIVE_APP && step.nativeBody;
+    el.querySelector('.tut-body').textContent = useNative ? step.nativeBody : step.body;
     el.querySelector('.tut-skip').onclick = finish;
     el.querySelector('.tut-next').onclick = function () { activateStep(index + 1); };
     var backBtn = el.querySelector('.tut-back');

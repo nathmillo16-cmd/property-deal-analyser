@@ -150,7 +150,7 @@
   <script src="/nav.js"></script>
   <script src="/crm-nav.js"></script>
 
-  <div class="ds-nudge" id="ds-nudge-banner">
+  <div class="ds-nudge web-only" id="ds-nudge-banner">
     <p>Done-for-you deal sourcing is coming soon. <a href="/deal-sourcing/apply" target="_blank" rel="noopener">Join the waitlist →</a></p>
     <button type="button" class="ds-nudge-close" id="ds-nudge-dismiss" aria-label="Dismiss">&times;</button>
   </div>
@@ -377,8 +377,9 @@ function render(){
   const boardEl=document.getElementById('board-preview');
   if(pipelineLocked){
     barEl.innerHTML='';
-    pipeEl.innerHTML='<p class="hint">Upgrade to unlock the Pipeline and track deals through analysing → viewing → offered → agreed → completed.</p>';
-    boardEl.innerHTML='<p class="hint">Upgrade to unlock the Pipeline.</p>';
+    // In the iOS app, no upgrade wording (App Store rules): neutral line instead.
+    pipeEl.innerHTML=IS_NATIVE_APP?'<p class="hint">'+NATIVE_LOCK_MSG+'</p>':'<p class="hint">Upgrade to unlock the Pipeline and track deals through analysing → viewing → offered → agreed → completed.</p>';
+    boardEl.innerHTML=IS_NATIVE_APP?'<p class="hint">'+NATIVE_LOCK_MSG+'</p>':'<p class="hint">Upgrade to unlock the Pipeline.</p>';
   }else if(pipelineDeals.length===0){
     barEl.innerHTML='';
     pipeEl.innerHTML='<p class="hint">Nothing in your pipeline yet. Add a saved deal to start tracking it.</p>';

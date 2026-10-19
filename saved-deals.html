@@ -1937,7 +1937,7 @@ async function confirmMoveToPortfolio(){
     });
     const body=await res.json();
     if(res.status===403){
-      msg.innerHTML=escapeHtml(body.error||'Upgrade to unlock the portfolio.')+' <a href="/portfolio.html">Upgrade →</a>';
+      msg.innerHTML=IS_NATIVE_APP?escapeHtml(NATIVE_LOCK_MSG):escapeHtml(body.error||'Upgrade to unlock the portfolio.')+' <a href="/portfolio.html">Upgrade →</a>'; // no upgrade link in the iOS app
       msg.className='save-msg error';
       btn.disabled=false;btn.textContent='Add to portfolio';
       return;

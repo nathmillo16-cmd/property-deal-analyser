@@ -19,3 +19,10 @@ var API_BASE = IS_NATIVE_APP ? BACKEND_URL : '';
 if (IS_NATIVE_APP && window.location.pathname === '/') {
   window.location.replace('/landing.html');
 }
+
+// App-only behaviour (bottom tab bar, no purchasing UI) lives in native-app.js.
+// Only the app loads it, so the website never downloads it. document.write
+// keeps it loading in order, before the page's own scripts run.
+if (IS_NATIVE_APP) {
+  document.write('<script src="/native-app.js"><\/script>');
+}

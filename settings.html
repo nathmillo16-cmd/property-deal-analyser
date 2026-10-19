@@ -147,7 +147,7 @@
       </div>
 
       <!-- DEAL SOURCING -->
-      <div class="card settings-card">
+      <div class="card settings-card web-only">
         <h2>Deal Sourcing</h2>
         <p class="hint" style="margin-bottom:1rem">Done-for-you BRRR deal sourcing is coming soon, starting with Mansfield in the East Midlands. Join the waitlist and we'll email you when it opens.</p>
         <a class="btn-secondary" href="/deal-sourcing/apply" target="_blank" rel="noopener">Join the waitlist</a>
@@ -155,24 +155,24 @@
 
       <!-- SUBSCRIPTION -->
       <div class="card settings-card">
-        <h2>Subscription</h2>
+        <h2 data-native-text="Plan">Subscription</h2>
 
         <div class="field">
           <label>Current plan</label>
           <p class="settings-static-value"><span class="plan-badge" id="set-plan-badge">—</span></p>
         </div>
-        <div id="set-plan-free-cta" style="display:none">
+        <div id="set-plan-free-cta" class="web-only" style="display:none">
           <button class="btn-primary" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
           <p class="save-msg" id="upgrade-msg"></p>
         </div>
 
-        <div class="settings-divider"></div>
+        <div class="settings-divider web-only"></div>
 
-        <div class="field">
+        <div class="field web-only">
           <label>Manage billing</label>
           <p class="hint">Subscription management is coming soon. You'll be able to update payment details and cancel from here once live billing is switched on.</p>
         </div>
-        <button class="btn-secondary" disabled>Manage subscription</button>
+        <button class="btn-secondary web-only" disabled>Manage subscription</button>
       </div>
 
       <!-- INVESTMENT DEFAULTS -->
@@ -274,7 +274,7 @@ async function loadProfile(){
 
     const badge=document.getElementById('set-plan-badge');
     const isPaid=d.plan==='paid';
-    badge.textContent=isPaid?'Paid (£29/mo)':'Free';
+    badge.textContent=isPaid?(IS_NATIVE_APP?'Paid':'Paid (£29/mo)'):'Free'; // no price shown in the iOS app
     badge.className='plan-badge '+(isPaid?'paid':'free');
     document.getElementById('set-plan-free-cta').style.display=isPaid?'none':'block';
 
