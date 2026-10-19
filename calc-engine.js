@@ -141,7 +141,7 @@ function cBTL(){
   s('br-roi',fP(rROI),cl(rROI,15,8));s('br-ti',fmt(mTI));
   s('br-mli',fmt(mMLI),mMLI<=0?'good':'');s('br-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
   s('br-loan',fmt(loan));s('br-rate',fP(mr));s('br-deposit',fmt(dep));s('br-mpay',fmt(rmm));s('br-term',term);
-  document.getElementById('b-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
+  document.getElementById('b-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' ('+sd.detail.join(' · ')+')';
   document.getElementById('b-oy').textContent=fmt(oY);
   document.getElementById('b-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
   document.getElementById('b-or').textContent=oR>0&&oR<1900000?fmt(oR):'Cannot achieve at these inputs';
@@ -258,7 +258,7 @@ function cHMO(){
   s('hr-roi',fP(rROI),cl(rROI,15,8));s('hr-ti',fmt(mTI));
   s('hr-mli',fmt(mTI));s('hr-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
   s('hr-loan',fmt(loan));s('hr-rate',fP(mr));s('hr-deposit',fmt(dep));s('hr-mpay',fmt(rmm));s('hr-term',term);
-  document.getElementById('h-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
+  document.getElementById('h-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' ('+sd.detail.join(' · ')+')';
   document.getElementById('h-oy').textContent=oY>0?fmt(oY):'Enter rooms first';
   if(oY>0){document.getElementById('h-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';}
 
@@ -474,7 +474,7 @@ function cSA(){
   s('sar-cfy',fmt(rCFy),cl(rCFy,3600,0));
   s('sar-loan',fmt(loan));s('sar-rate',fP(mr));s('sar-deposit',fmt(dep));s('sar-mpay',fmt(rmm));s('sar-term',term);
 
-  document.getElementById('sa-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' — '+sd.detail.join(' · ');
+  document.getElementById('sa-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' ('+sd.detail.join(' · ')+')';
 
   document.getElementById('sa-oy').textContent=oY>0?fmt(oY):'Cannot achieve at these inputs';
   if(oY>0)document.getElementById('sa-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
