@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Support · PROPulsion</title>
+<meta name="description" content="Contact Propulsion Property, reset your password, delete your account, and common questions.">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<style>
+/* Public info page (privacy.html / support.html share this block, duplicated
+   per page per this app's convention). Same topbar/footer/hero treatment as
+   pricing.html; colours/fonts come from styles.css (body.theme-light). */
+.hero-panel{
+  background:linear-gradient(135deg, var(--accent), #37317f);border:none;border-radius:16px;
+  box-shadow:0 4px 20px rgba(75,69,178,.28);color:#fff;padding:var(--space-6);margin:var(--space-6) 0;
+}
+.hero-label{font-family:var(--font-body);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72);margin:0 0 var(--space-2)}
+.hero-title{font-family:var(--font-head);font-size:clamp(26px,5vw,36px);font-weight:700;color:#fff;margin:0 0 var(--space-2)}
+.hero-sub{font-size:14px;color:rgba(255,255,255,.8);margin:0;max-width:640px;line-height:1.55}
+.hero-email{display:inline-block;margin-top:1rem;background:#fff;color:var(--accent);font-weight:700;font-size:14px;text-decoration:none;border-radius:999px;padding:9px 18px}
+.doc{max-width:780px;margin:0 auto}
+.doc-card{background:var(--surface);border:1px solid rgba(0,0,0,.09);border-radius:14px;padding:1.5rem 1.75rem;margin-bottom:1.25rem;box-shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.02)}
+.doc-card h2{font-size:19px;margin:0 0 .85rem}
+.doc-card p,.doc-card li{font-size:14.5px;line-height:1.65;color:var(--ink)}
+.doc-card p{margin:0 0 .85rem}
+.doc-card p:last-child{margin-bottom:0}
+.doc-card ol,.doc-card ul{margin:0 0 .85rem;padding-left:1.35rem}
+.doc-card li{margin-bottom:.4rem}
+.doc-card a{color:var(--accent)}
+.check{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn);border-radius:6px;padding:0 5px;font-size:12px;font-weight:700;white-space:nowrap}
+.faq details{border-top:1px solid var(--hairline);padding:.85rem 0}
+.faq details:first-of-type{border-top:none;padding-top:0}
+.faq summary{cursor:pointer;font-weight:600;font-size:14.5px;color:var(--ink);list-style:none;display:flex;justify-content:space-between;gap:1rem;min-height:28px;align-items:center}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:'+';color:var(--accent);font-size:20px;font-weight:600;line-height:1}
+.faq details[open] summary::after{content:'\2212'}
+.faq details p{margin:.6rem 0 0;color:var(--muted)}
+@media(max-width:600px){.doc-card{padding:1.25rem}}
+.back-link{font-size:14px;font-weight:600;color:var(--accent);text-decoration:none}
+.auth-bar a.btn-primary,.auth-bar a.btn-primary:hover{color:#fff}
+footer{padding:2.5rem 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;border-top:1px solid var(--hairline);margin-top:2rem}
+footer .fw{font-family:var(--font-head);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.02em}
+footer .flinks{display:flex;gap:1.5rem;flex-wrap:wrap}
+footer .flinks a{font-size:12px;color:var(--muted);text-decoration:none}
+footer .flinks a:hover{color:var(--ink)}
+footer .fcopy{font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body class="theme-light">
+
+<div class="shell">
+  <div class="topbar">
+    <a class="wordmark" href="/"><img src="/assets/propulsion-logo.png" alt="PROPulsion" class="wordmark-logo"></a>
+    <div class="nav-links">
+      <a href="/#what-it-does">What it does</a>
+      <a href="/pricing.html" class="web-only">Pricing</a>
+      <a href="/support.html" class="active">Support</a>
+      <a href="/privacy.html">Privacy</a>
+    </div>
+    <div class="auth-bar" id="public-auth-bar">
+      <a href="/login.html">Log in</a>
+      <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+    </div>
+  </div>
+
+  <div class="doc">
+    <div class="hero-panel">
+      <p class="hero-label">Support</p>
+      <h1 class="hero-title">How can we help?</h1>
+      <p class="hero-sub">Get in touch, sort out your login, or manage your account. Most answers are below.</p>
+      <a class="hero-email" href="mailto:cameron@propulsionproperty.co.uk">cameron@propulsionproperty.co.uk</a>
+    </div>
+
+    <div class="doc-card" id="contact">
+      <h2>Contact us</h2>
+      <p>Email <a href="mailto:cameron@propulsionproperty.co.uk">cameron@propulsionproperty.co.uk</a> any time. We aim to reply within 2 working days. <span class="check">[CHECK]</span> confirm the response time you want to promise.</p>
+      <p>If you're logged in, you can also use the <strong>Contact us</strong> form. On the website it's at the top of every page, next to your account menu. In the iPhone app, tap <strong>More</strong>, then <strong>Contact us</strong>. The form lets you pick a category (bug, question, feature idea or billing), describe what happened and attach a screenshot, which helps us fix problems faster.</p>
+    </div>
+
+    <div class="doc-card" id="reset-password">
+      <h2>Reset your password</h2>
+      <p><strong>If you've forgotten it:</strong></p>
+      <ol>
+        <li>Go to the <a href="/login.html">Log in</a> page and tap <strong>Forgot password?</strong></li>
+        <li>Enter the email address you signed up with and tap <strong>Send reset email</strong>.</li>
+        <li>Open the email and tap the link. Check your spam folder if it hasn't arrived after a few minutes.</li>
+        <li>Choose a new password. You'll be logged straight in.</li>
+      </ol>
+      <p><strong>If you're logged in and want to change it:</strong> go to <strong>Settings</strong> (in the app: More, then Account &amp; settings), find <strong>Account</strong>, enter your current password and your new one, and save.</p>
+    </div>
+
+    <div class="doc-card" id="delete-account">
+      <h2>Delete your account</h2>
+      <ol>
+        <li>Log in and open <strong>Settings</strong>. In the app, tap More, then Account &amp; settings.</li>
+        <li>Scroll to the <strong>Danger zone</strong> section at the bottom and tap <strong>Delete my account</strong>.</li>
+        <li>Type your account's email address to confirm, then tap <strong>Permanently delete my account</strong>.</li>
+      </ol>
+      <p>This is permanent and can't be undone. It removes your login and everything tied to it: saved deals, pipeline data, notes, offers, portfolio, refurb estimates and support requests. <span class="web-only">If you have a paid plan, it is cancelled first.</span></p>
+      <p>Can't log in? Email us from the address on your account and we'll delete it for you. See our <a href="/privacy.html">privacy policy</a> for what we keep and why.</p>
+    </div>
+
+    <div class="doc-card faq" id="faq">
+      <h2>Frequently asked questions</h2>
+
+      <details>
+        <summary>I didn't get my confirmation email</summary>
+        <p>Check your spam or junk folder first. If it's not there, try logging in with your email and password. If your email isn't confirmed yet, a "Resend confirmation email" option will appear.</p>
+      </details>
+
+      <details>
+        <summary>Is the analysis financial advice?</summary>
+        <p>No. Every figure is an estimate based on the numbers and assumptions you enter. Always check a deal with a broker, surveyor or accountant before acting on it.</p>
+      </details>
+
+      <details>
+        <summary>Where do the comparable sales come from?</summary>
+        <p>Sold prices come from HM Land Registry's Price Paid Data, within half a mile of the postcode you search. Floor areas come from the government's EPC register. Crime, planning and employment figures come from Police UK, planning.data.gov.uk and the ONS.</p>
+      </details>
+
+      <details>
+        <summary>Why does the Article 4 row say to check with the council?</summary>
+        <p>The government's Article 4 dataset doesn't cover every council yet, so "none recorded" doesn't guarantee there isn't one. If you're planning an HMO, always confirm with the local council.</p>
+      </details>
+
+      <details>
+        <summary>Can I use PROPulsion on my phone?</summary>
+        <p>Yes. The website works in your phone's browser, and there's also an iPhone app. Your saved deals are the same everywhere you log in.</p>
+      </details>
+
+      <details>
+        <summary>My deal reminders aren't showing (iPhone app)</summary>
+        <p>Reminders need notifications turned on. Open your iPhone's Settings, tap Notifications, find Propulsion Property and allow notifications. Reminders are stored on your phone only, so they won't appear on another device.</p>
+      </details>
+
+      <details class="web-only">
+        <summary>How do I cancel my paid plan?</summary>
+        <p>Email us at <a href="mailto:cameron@propulsionproperty.co.uk">cameron@propulsionproperty.co.uk</a> and we'll cancel it for you. Deleting your account also cancels it automatically. <span class="check">[CHECK]</span> update this once self-serve billing management is live.</p>
+      </details>
+
+      <details>
+        <summary>How do I come off the deal sourcing waitlist?</summary>
+        <p>Email us and we'll remove you straight away.</p>
+      </details>
+
+      <details>
+        <summary>Is my data shared or sold?</summary>
+        <p>We never sell your data. We only share it with the services we need to run the app. Our <a href="/privacy.html">privacy policy</a> lists exactly what we collect and where it goes.</p>
+      </details>
+    </div>
+  </div>
+
+  <footer>
+    <span class="fw">PROPulsion</span>
+    <div class="flinks">
+      <a href="/#calculator">Calculator</a>
+      <a href="/pricing.html" class="web-only">Pricing</a>
+      <a href="/support.html">Support</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/login.html">Log in</a>
+    </div>
+    <span class="fcopy">© 2026 Propulsion Property</span>
+  </footer>
+</div>
+
+<script>
+// In the iOS app this page is opened from the More menu by a logged-in user,
+// so swap the Log in / Sign up buttons for a Back link.
+if (typeof IS_NATIVE_APP !== 'undefined' && IS_NATIVE_APP) {
+  var bar = document.getElementById('public-auth-bar');
+  bar.innerHTML = '<a href="/home.html" class="back-link" id="back-link">&larr; Back</a>';
+  document.getElementById('back-link').addEventListener('click', function (e) {
+    if (history.length > 1) { e.preventDefault(); history.back(); }
+  });
+}
+</script>
+</body>
+</html>

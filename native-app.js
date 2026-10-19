@@ -194,6 +194,8 @@
         '<a class="nt-item' + (active === 'settings' ? ' active' : '') + '" href="/settings.html">Account &amp; settings</a>' +
         '<button type="button" class="nt-item" id="nt-tutorial">Tutorial</button>' +
         '<button type="button" class="nt-item" id="nt-contact">Contact us</button>' +
+        '<a class="nt-item" href="/support.html">Help &amp; support</a>' +
+        '<a class="nt-item" href="/privacy.html">Privacy policy</a>' +
       '</div>' +
       '<div class="nt-group">' +
         '<button type="button" class="nt-item nt-danger" id="nt-logout">Log out</button>' +

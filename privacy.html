@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Privacy Policy · PROPulsion</title>
+<meta name="description" content="How Propulsion Property collects, uses and protects your personal data.">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<style>
+/* Public info page (privacy.html / support.html share this block, duplicated
+   per page per this app's convention). Same topbar/footer/hero treatment as
+   pricing.html; colours/fonts come from styles.css (body.theme-light). */
+.hero-panel{
+  background:linear-gradient(135deg, var(--accent), #37317f);border:none;border-radius:16px;
+  box-shadow:0 4px 20px rgba(75,69,178,.28);color:#fff;padding:var(--space-6);margin:var(--space-6) 0;
+}
+.hero-label{font-family:var(--font-body);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72);margin:0 0 var(--space-2)}
+.hero-title{font-family:var(--font-head);font-size:clamp(26px,5vw,36px);font-weight:700;color:#fff;margin:0 0 var(--space-2)}
+.hero-sub{font-size:14px;color:rgba(255,255,255,.8);margin:0;max-width:640px;line-height:1.55}
+.doc{max-width:780px;margin:0 auto}
+.doc-card{background:var(--surface);border:1px solid rgba(0,0,0,.09);border-radius:14px;padding:1.5rem 1.75rem;margin-bottom:1.25rem;box-shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.02)}
+.doc-card h2{font-size:19px;margin:0 0 .85rem}
+.doc-card h3{font-size:15px;margin:1.25rem 0 .5rem}
+.doc-card p,.doc-card li{font-size:14.5px;line-height:1.65;color:var(--ink)}
+.doc-card p{margin:0 0 .85rem}
+.doc-card p:last-child{margin-bottom:0}
+.doc-card ul{margin:0 0 .85rem;padding-left:1.25rem}
+.doc-card li{margin-bottom:.4rem}
+.doc-card a{color:var(--accent)}
+.doc-meta{font-size:13px;color:var(--muted);margin:0 0 1.25rem}
+.check{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn);border-radius:6px;padding:0 5px;font-size:12px;font-weight:700;white-space:nowrap}
+.toc{columns:2;column-gap:2rem;padding-left:1.25rem}
+@media(max-width:600px){.toc{columns:1}.doc-card{padding:1.25rem}}
+.back-link{font-size:14px;font-weight:600;color:var(--accent);text-decoration:none}
+.auth-bar a.btn-primary,.auth-bar a.btn-primary:hover{color:#fff}
+footer{padding:2.5rem 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;border-top:1px solid var(--hairline);margin-top:2rem}
+footer .fw{font-family:var(--font-head);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.02em}
+footer .flinks{display:flex;gap:1.5rem;flex-wrap:wrap}
+footer .flinks a{font-size:12px;color:var(--muted);text-decoration:none}
+footer .flinks a:hover{color:var(--ink)}
+footer .fcopy{font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body class="theme-light">
+
+<div class="shell">
+  <div class="topbar">
+    <a class="wordmark" href="/"><img src="/assets/propulsion-logo.png" alt="PROPulsion" class="wordmark-logo"></a>
+    <div class="nav-links">
+      <a href="/#what-it-does">What it does</a>
+      <a href="/pricing.html" class="web-only">Pricing</a>
+      <a href="/support.html">Support</a>
+      <a href="/privacy.html" class="active">Privacy</a>
+    </div>
+    <div class="auth-bar" id="public-auth-bar">
+      <a href="/login.html">Log in</a>
+      <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+    </div>
+  </div>
+
+  <div class="doc">
+    <div class="hero-panel">
+      <p class="hero-label">Privacy policy</p>
+      <h1 class="hero-title">How we handle your data</h1>
+      <p class="hero-sub">Plain English, based on what the app actually does. If anything here is unclear, email us and we'll explain.</p>
+    </div>
+
+    <p class="doc-meta">Last updated: 19 October 2026</p>
+
+    <div class="doc-card">
+      <h2>Contents</h2>
+      <ul class="toc">
+        <li><a href="#who">Who we are</a></li>
+        <li><a href="#collect">What we collect</a></li>
+        <li><a href="#why">Why we use it</a></li>
+        <li><a href="#share">Who we share it with</a></li>
+        <li><a href="#device">What stays on your device</a></li>
+        <li><a href="#cookies">Cookies and analytics</a></li>
+        <li><a href="#transfers">Data outside the UK</a></li>
+        <li><a href="#retention">How long we keep it</a></li>
+        <li><a href="#security">Keeping it safe</a></li>
+        <li><a href="#rights">Your rights</a></li>
+        <li><a href="#children">Children</a></li>
+        <li><a href="#changes">Changes to this policy</a></li>
+      </ul>
+    </div>
+
+    <div class="doc-card" id="who">
+      <h2>Who we are</h2>
+      <p>PROPulsion is run by <strong>Cameron Hearne, trading as Propulsion Property</strong>. We are the data controller for the personal data described here, which means we decide how and why it is used.</p>
+      <p>Contact: <a href="mailto:cameron@propulsionproperty.co.uk">cameron@propulsionproperty.co.uk</a></p>
+      <p>Postal address: <span class="check">[CHECK]</span> add a business postal address if you want one listed.</p>
+      <p>ICO registration number: <span class="check">[CHECK]</span> most businesses that handle personal data need to pay the ICO data protection fee. Add the registration number here once registered.</p>
+    </div>
+
+    <div class="doc-card" id="collect">
+      <h2>What we collect</h2>
+
+      <h3>Your account</h3>
+      <ul>
+        <li>Your email address and password. Your password is stored by our login provider (Supabase) in scrambled (hashed) form. We never see it.</li>
+        <li>Your name, if you add one in Settings.</li>
+        <li>When you signed up, when you last logged in, and whether you have confirmed your email.</li>
+        <li>Your plan (free or paid) and account settings, such as your default target yield, target ROI, mortgage rate and standard fees.</li>
+        <li>Small housekeeping flags, such as whether you have finished the tutorial and when we last showed you a banner.</li>
+      </ul>
+
+      <h3>The deals and properties you enter</h3>
+      <ul>
+        <li>Saved deals: the figures you enter, the results we calculate, and the name you give the deal (often a property address).</li>
+        <li>Comparable sales and area information you looked up when you saved a deal.</li>
+        <li>Pipeline stages, viewing dates, notes, call and viewing logs, offers (amount, date, outcome, conditions and agent feedback) and the seller's position (chain status, motivation, timescale and your notes).</li>
+        <li>Portfolio properties: address, price paid, property type, rent, running costs and mortgage payment.</li>
+        <li>Refurbishment estimates.</li>
+        <li>A history of pipeline stage changes and refurb estimate links for each deal.</li>
+      </ul>
+      <p>Some of this can include information about other people, such as a seller's circumstances or an agent's feedback. Please only record what you need, and keep it factual.</p>
+
+      <h3>When you contact us</h3>
+      <ul>
+        <li>Through the Contact us form: your email address, the category you pick, what you tell us, the page you were on, and a screenshot if you attach one.</li>
+        <li>By email: whatever you send us.</li>
+      </ul>
+
+      <h3>Deal sourcing waitlist</h3>
+      <ul>
+        <li>Your email address, if you join the waitlist.</li>
+        <li>An earlier version of this page took fuller applications. We still hold those records. <span class="check">[CHECK]</span> confirm exactly which fields those applications held and whether to keep them.</li>
+      </ul>
+
+      <h3>Payments</h3>
+      <ul>
+        <li>If you have a paid plan, payment is handled by Stripe. We never see or store your card details. We store the reference numbers Stripe gives us for your customer record and subscription, so we can link your payment to your account.</li>
+      </ul>
+
+      <h3>Usage and technical information</h3>
+      <ul>
+        <li>How many AI analyses you have run this month, so we can apply the monthly limit.</li>
+        <li>Your IP address. Our hosting provider (Render) records it in server logs <span class="check">[CHECK]</span> confirm Render's log retention period. We also use it briefly, in memory only, to stop the waitlist form being spammed. We don't store it in our database.</li>
+      </ul>
+
+      <h3>Customer relationships</h3>
+      <ul>
+        <li>Our team keeps simple internal records of customer relationships (for example, people interested in deal sourcing, or business partners), which can be linked to your account. Our admin pages show sign-up and last login dates so we can spot accounts that may need help. A weekly internal summary email to our team lists new sign-ups.</li>
+      </ul>
+
+      <h3>What we don't collect</h3>
+      <ul>
+        <li>We don't use analytics, advertising or tracking tools.</li>
+        <li>We don't collect your location. Postcodes you search are about properties, not you.</li>
+        <li>We don't sell your data, and we don't use it for advertising.</li>
+      </ul>
+    </div>
+
+    <div class="doc-card" id="why">
+      <h2>Why we use it (and our legal basis)</h2>
+      <p>UK data protection law (the UK GDPR and the Data Protection Act 2018) requires a legal reason for each use of your data.</p>
+      <ul>
+        <li><strong>To provide the service you signed up for</strong> (your account, saving deals, pipeline, portfolio, refurb estimates, AI analysis, comparable sales, payments). Legal basis: <em>contract</em>.</li>
+        <li><strong>To answer your questions and fix problems</strong> you report. Legal basis: <em>legitimate interests</em> (helping our users).</li>
+        <li><strong>To keep the service secure and working</strong> (login security, spam protection, usage limits, server logs). Legal basis: <em>legitimate interests</em>.</li>
+        <li><strong>To look after customer relationships</strong> (internal records, spotting inactive accounts that may need help). Legal basis: <em>legitimate interests</em>.</li>
+        <li><strong>To email you about deal sourcing</strong> if you joined the waitlist. Legal basis: <em>consent</em>, which you can withdraw at any time.</li>
+        <li><strong>To keep payment records</strong> for tax and accounting. Legal basis: <em>legal obligation</em>.</li>
+      </ul>
+      <p>The AI analysis gives an opinion on a deal you entered. It is information only. It doesn't make any decision about you that has legal or similar effects.</p>
+    </div>
+
+    <div class="doc-card" id="share">
+      <h2>Who we share it with</h2>
+      <p>We use a small number of service providers to run the app. They only use your data to provide their service to us.</p>
+      <ul>
+        <li><strong>Supabase</strong>: our database, login system and file storage (support screenshots). Holds your account and everything you save. Region: <span class="check">[CHECK]</span> confirm the Supabase project region.</li>
+        <li><strong>Render</strong>: hosts our website and server. Region: <span class="check">[CHECK]</span> confirm the Render service region.</li>
+        <li><strong>Anthropic</strong>: powers the AI analysis. When you press the analysis button we send the deal's figures and calculated results (prices, rents, costs, yields, ROI, targets). We don't send your name, email or the deal's name. <span class="check">[CHECK]</span> confirm Anthropic's current API data retention terms.</li>
+        <li><strong>Stripe</strong>: processes payments for paid plans, under its own privacy policy.</li>
+        <li><strong>Resend</strong>: sends our weekly internal summary email to our team, which includes new sign-ups' email addresses. <span class="check">[CHECK]</span> confirm whether login emails (confirmation, password reset) are sent by Supabase's own email service or by Resend.</li>
+        <li><strong>Google Fonts</strong>: our pages load fonts from Google, so your device connects to Google, which sees your IP address.</li>
+        <li><strong>jsDelivr</strong>: a content delivery network that serves the login and PDF libraries our pages use. Your device connects to it, so it sees your IP address.</li>
+      </ul>
+      <p><strong>Property data lookups.</strong> When you search comparable sales, our server (not your device) sends the postcode you entered, or details derived from it, to these public services:</p>
+      <ul>
+        <li>postcodes.io (to find the location and council area)</li>
+        <li>planning.data.gov.uk (planning constraints at that location)</li>
+        <li>ONS Nomis (employment figures for the council area)</li>
+        <li>The government's EPC register (floor areas of nearby sold properties)</li>
+      </ul>
+      <p>None of these lookups include your name, email or account details.</p>
+      <p>We may also share data if the law requires it, or to protect our rights or someone's safety.</p>
+    </div>
+
+    <div class="doc-card" id="device">
+      <h2>What stays on your device</h2>
+      <ul>
+        <li>Your login session, so you stay signed in.</li>
+        <li>Unsaved drafts of the calculator, refurb estimator, letter templates and portfolio form, so a refresh doesn't lose your work.</li>
+        <li>Your scroll position and tutorial progress.</li>
+        <li>Letter templates: the names and addresses you type into a letter stay on your device. We don't receive them.</li>
+        <li>In the iPhone app, deal reminders are scheduled on your phone only. They aren't sent to us, and deleting the app removes them.</li>
+      </ul>
+      <p>You can clear these at any time by logging out, clearing your browser's site data, or deleting the app.</p>
+    </div>
+
+    <div class="doc-card" id="cookies">
+      <h2>Cookies and analytics</h2>
+      <p>We don't use advertising, analytics or tracking cookies. We store the items listed above in your browser's local storage because the app needs them to work, or because you are using a feature that needs them (like drafts). Payment pages run by Stripe set their own cookies. <span class="check">[CHECK]</span> confirm no cookies are set on our own domain if the hosting setup changes.</p>
+    </div>
+
+    <div class="doc-card" id="transfers">
+      <h2>Data outside the UK</h2>
+      <p>Some of our providers (including Anthropic, Stripe, Resend, Google and jsDelivr) may process data in the United States or elsewhere outside the UK. Where they do, we rely on the protections UK law allows, such as the UK Extension to the EU-US Data Privacy Framework or the UK's International Data Transfer Agreement and Addendum. <span class="check">[CHECK]</span> confirm the transfer safeguard each provider uses.</p>
+    </div>
+
+    <div class="doc-card" id="retention">
+      <h2>How long we keep it</h2>
+      <ul>
+        <li><strong>Your account and everything you've saved</strong>: until you delete your account. Deleting it permanently removes your login, profile, saved deals (with their notes, offers and history), portfolio, refurb estimates and support requests.</li>
+        <li><strong>Support screenshots</strong>: <span class="check">[CHECK]</span> screenshot files in storage may not be removed automatically when an account is deleted. Confirm and set a retention period.</li>
+        <li><strong>Waitlist emails</strong>: until you ask us to remove you, or the waitlist closes. <span class="check">[CHECK]</span> set a retention period.</li>
+        <li><strong>Internal customer records</strong>: <span class="check">[CHECK]</span> these are kept (unlinked from the account) after an account is deleted. Decide how long to keep them.</li>
+        <li><strong>AI usage counts</strong>: <span class="check">[CHECK]</span> confirm these are removed when an account is deleted.</li>
+        <li><strong>Payment records</strong>: kept for 6 years after the end of the tax year they relate to, as UK tax law requires. Stripe also keeps its own records.</li>
+        <li><strong>Backups</strong>: deleted data can remain in our database provider's backups for a limited time before it is overwritten. <span class="check">[CHECK]</span> confirm the Supabase backup retention period.</li>
+      </ul>
+    </div>
+
+    <div class="doc-card" id="security">
+      <h2>Keeping it safe</h2>
+      <ul>
+        <li>All connections use HTTPS encryption.</li>
+        <li>Database rules mean each account can only read and change its own data. A small number of our team's admin accounts can see account details and support requests, to run the service and help you.</li>
+        <li>Passwords are hashed by our login provider, and secret keys stay on our server, never in your browser or the app.</li>
+        <li>Support screenshots are kept in private storage and can only be viewed by our team through short-lived links.</li>
+      </ul>
+      <p>No system is perfectly secure. If a breach puts your rights at risk, we'll tell you and the ICO as the law requires.</p>
+    </div>
+
+    <div class="doc-card" id="rights">
+      <h2>Your rights</h2>
+      <p>You have the right to:</p>
+      <ul>
+        <li>get a copy of the personal data we hold about you</li>
+        <li>have inaccurate data corrected</li>
+        <li>have your data deleted (you can delete your account yourself in Settings)</li>
+        <li>restrict or object to how we use your data</li>
+        <li>receive your data in a portable format</li>
+        <li>withdraw consent at any time, where we rely on consent</li>
+      </ul>
+      <p>To use any of these rights, email <a href="mailto:cameron@propulsionproperty.co.uk">cameron@propulsionproperty.co.uk</a>. We'll reply within one month. It's free in most cases.</p>
+      <p>If you're unhappy with how we've handled your data, please tell us first so we can put it right. You can also complain to the Information Commissioner's Office (ICO) at <a href="https://ico.org.uk/make-a-complaint/" target="_blank" rel="noopener">ico.org.uk</a> or on 0303 123 1113.</p>
+    </div>
+
+    <div class="doc-card" id="children">
+      <h2>Children</h2>
+      <p>PROPulsion is a tool for property professionals and investors. It isn't intended for anyone under 18, and we don't knowingly collect data from children. <span class="check">[CHECK]</span> confirm the minimum age you want to state.</p>
+    </div>
+
+    <div class="doc-card" id="changes">
+      <h2>Changes to this policy</h2>
+      <p>We'll update this page if the way we handle data changes, and change the date at the top. If a change is significant, we'll let you know by email or in the app.</p>
+    </div>
+  </div>
+
+  <footer>
+    <span class="fw">PROPulsion</span>
+    <div class="flinks">
+      <a href="/#calculator">Calculator</a>
+      <a href="/pricing.html" class="web-only">Pricing</a>
+      <a href="/support.html">Support</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/login.html">Log in</a>
+    </div>
+    <span class="fcopy">© 2026 Propulsion Property</span>
+  </footer>
+</div>
+
+<script>
+// In the iOS app this page is opened from the More menu by a logged-in user,
+// so swap the Log in / Sign up buttons for a Back link.
+if (typeof IS_NATIVE_APP !== 'undefined' && IS_NATIVE_APP) {
+  var bar = document.getElementById('public-auth-bar');
+  bar.innerHTML = '<a href="/home.html" class="back-link" id="back-link">&larr; Back</a>';
+  document.getElementById('back-link').addEventListener('click', function (e) {
+    if (history.length > 1) { e.preventDefault(); history.back(); }
+  });
+}
+</script>
+</body>
+</html>
