@@ -25,4 +25,5 @@ if (IS_NATIVE_APP && window.location.pathname === '/') {
 // keeps it loading in order, before the page's own scripts run.
 if (IS_NATIVE_APP) {
   document.write('<script src="/native-app.js"><\/script>');
+  document.write('<script src="/native-reminders.js"><\/script>'); // deal reminders (local notifications)
 }

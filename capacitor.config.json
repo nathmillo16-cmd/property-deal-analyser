@@ -13,6 +13,13 @@
       "launchAutoHide": true,
       "backgroundColor": "#F2EFE7",
       "showSpinner": false
+    },
+    "LocalNotifications": {
+      "presentationOptions": [
+        "banner",
+        "list",
+        "sound"
+      ]
     }
   }
 }

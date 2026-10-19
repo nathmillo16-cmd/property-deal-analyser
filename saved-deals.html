@@ -425,6 +425,9 @@ body.theme-light .dd-trigger::after{
       </div>
     </div>
 
+    <!-- Reminders: iOS app only. Stays hidden on the website; native-reminders.js fills and shows it. -->
+    <div class="modal-section" id="workspace-reminders" hidden></div>
+
     <div class="modal-actions">
       <button class="mini-btn danger" onclick="deleteFromWorkspace()">Delete</button>
       <button class="mini-btn" onclick="moveToPortfolioFromWorkspace()">Move to portfolio</button>
@@ -868,6 +871,7 @@ function openDealWorkspace(dealId){
   renderWorkspaceAnalysis(deal);
   renderWorkspaceComps(deal);
   updateWorkspaceGating(deal);
+  if(window.NativeReminders)NativeReminders.render(deal, dealDisplayName(deal)); // iOS app only
 
   document.getElementById('workspace-modal-overlay').classList.add('open');
 }
