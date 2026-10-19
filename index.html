@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1414,7 +1415,7 @@ async function autoSaveRerun(){
     if(!currentSession)throw new Error('Log in to save this deal.');
 
     const dealData=strategy==='btl'?btlData:(strategy==='hmo'?hmoData:(strategy==='sa'?saData:flipData));
-    const res=await fetch('/api/deals/'+dealId+'/refresh-figures',{
+    const res=await fetch(API_BASE+'/api/deals/'+dealId+'/refresh-figures',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({deal_type:strategy, deal_data:dealData})
@@ -1696,7 +1697,7 @@ function toggleCrimeBreakdown(){
 // neutral reset state rather than showing a second, duplicate error.
 async function fetchCrimeRate(postcode){
   try{
-    const res=await fetch('/api/crime?postcode='+encodeURIComponent(postcode),{
+    const res=await fetch(API_BASE+'/api/crime?postcode='+encodeURIComponent(postcode),{
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
     const d=await res.json();
@@ -1777,7 +1778,7 @@ function renderPlanningResult(d){
 // renderPlanningResult(null), never breaking comps.
 async function fetchPlanningConstraints(postcode){
   try{
-    const res=await fetch('/api/planning-constraints?postcode='+encodeURIComponent(postcode),{
+    const res=await fetch(API_BASE+'/api/planning-constraints?postcode='+encodeURIComponent(postcode),{
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
     const d=await res.json();
@@ -1854,7 +1855,7 @@ function renderEmploymentResult(d){
 // "Employment data unavailable", never breaking comps.
 async function fetchEmployment(postcode){
   try{
-    const res=await fetch('/api/employment?postcode='+encodeURIComponent(postcode),{
+    const res=await fetch(API_BASE+'/api/employment?postcode='+encodeURIComponent(postcode),{
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
     const d=await res.json();
@@ -1915,7 +1916,7 @@ async function runComps(){
   btn.disabled=true;btn.textContent='Searching…';
 
   try{
-    const res=await fetch('/api/comps',{
+    const res=await fetch(API_BASE+'/api/comps',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({postcode,propertyType})
@@ -2034,7 +2035,7 @@ async function analyse(type){
   const prompt=type==='btl'?buildBTLPrompt(d):(type==='hmo'?buildHMOPrompt(d):(type==='sa'?buildSAPrompt(d):buildFlipPrompt(d)));
 
   try{
-    const res=await fetch('/analyse',{
+    const res=await fetch(API_BASE+'/analyse',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:prompt}]})
@@ -2243,7 +2244,7 @@ async function subscribeNow(){
   const original=link.textContent;
   link.textContent='Redirecting…';
   try{
-    const res=await fetch('/api/create-checkout-session',{
+    const res=await fetch(API_BASE+'/api/create-checkout-session',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
     });
@@ -2428,7 +2429,7 @@ async function confirmSaveDeal(){
   modalMsg.className='save-msg';modalMsg.textContent='';
 
   try{
-    let res=await fetch('/api/deals',{
+    let res=await fetch(API_BASE+'/api/deals',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({deal_type:type, deal_data:dealData, comps_snapshot:compsSnapshot})
@@ -2442,7 +2443,7 @@ async function confirmSaveDeal(){
         confirmBtn.disabled=false;confirmBtn.textContent='Save deal';
         return;
       }
-      res=await fetch('/api/deals',{
+      res=await fetch(API_BASE+'/api/deals',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
         body:JSON.stringify({deal_type:type, deal_data:dealData, comps_snapshot:compsSnapshot, force:true})
@@ -2497,7 +2498,7 @@ async function saveDefaults(type){
   msg.className='save-msg';msg.textContent='';
 
   try{
-    const res=await fetch('/api/profile',{
+    const res=await fetch(API_BASE+'/api/profile',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify(payload)
@@ -2514,7 +2515,7 @@ async function saveDefaults(type){
 
 async function loadDefaults(){
   try{
-    const res=await fetch('/api/profile',{
+    const res=await fetch(API_BASE+'/api/profile',{
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
     if(!res.ok)return;

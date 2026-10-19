@@ -24,7 +24,7 @@
 
   function getSupportClient(){
     if (!supportClientPromise) {
-      supportClientPromise = fetch('/api/config')
+      supportClientPromise = fetch(API_BASE+'/api/config')
         .then(function(r){ return r.json(); })
         .then(function(cfg){ return supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey); })
         .catch(function(err){
@@ -185,7 +185,7 @@
       };
       if (file) payload.screenshot = { type: file.type, data: await readFileAsBase64(file) };
 
-      var res = await fetch('/api/support-requests', {
+      var res = await fetch(API_BASE+'/api/support-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
         body: JSON.stringify(payload)

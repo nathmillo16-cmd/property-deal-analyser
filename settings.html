@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -265,7 +266,7 @@ async function logout(){
 
 async function loadProfile(){
   try{
-    const res=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not load your profile.');
 
@@ -331,7 +332,7 @@ async function saveInvestmentDefaults(){
   btn.disabled=true;btn.textContent='Saving…';
   msg.textContent='';msg.className='save-msg';
   try{
-    const res=await fetch('/api/profile/investment-defaults',{
+    const res=await fetch(API_BASE+'/api/profile/investment-defaults',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify(payload)
@@ -361,7 +362,7 @@ async function saveName(){
   btn.disabled=true;btn.textContent='Saving…';
   msg.textContent='';msg.className='save-msg';
   try{
-    const res=await fetch('/api/profile/name',{
+    const res=await fetch(API_BASE+'/api/profile/name',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({name})
@@ -492,7 +493,7 @@ async function upgradeNow(){
   const msg=document.getElementById('upgrade-msg');
   msg.textContent='Redirecting…';msg.className='save-msg';
   try{
-    const res=await fetch('/api/create-checkout-session',{
+    const res=await fetch(API_BASE+'/api/create-checkout-session',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
     });
@@ -534,7 +535,7 @@ async function confirmDeleteAccount(){
   msg.textContent='';msg.className='save-msg';
 
   try{
-    const res=await fetch('/api/account/delete',{
+    const res=await fetch(API_BASE+'/api/account/delete',{
       method:'POST',
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });

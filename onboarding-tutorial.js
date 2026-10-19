@@ -195,7 +195,7 @@ var TUTORIAL_STEPS = [
     clearState();
     state = { active: false, stepIndex: 0, startedAt: 0 };
     if (authToken) {
-      fetch('/api/profile/tutorial-complete', {
+      fetch(API_BASE+'/api/profile/tutorial-complete', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + authToken }
       }).catch(function () {});

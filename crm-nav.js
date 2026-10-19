@@ -43,13 +43,13 @@
     if (!authBar) return; // no placeholder on this page — nothing to do
 
     try {
-      var cfgRes = await fetch('/api/config');
+      var cfgRes = await fetch(API_BASE+'/api/config');
       var cfg = await cfgRes.json();
       var client = supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
       var { data: { session } } = await client.auth.getSession();
       if (!session) return;
 
-      var profRes = await fetch('/api/profile', {
+      var profRes = await fetch(API_BASE+'/api/profile', {
         headers: { 'Authorization': 'Bearer ' + session.access_token }
       });
       var prof = await profRes.json();

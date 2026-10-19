@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -441,7 +442,7 @@ async function upgradeNow(){
   const original=btn.textContent;
   btn.disabled=true;btn.textContent='Redirecting…';
   try{
-    const res=await fetch('/api/create-checkout-session',{
+    const res=await fetch(API_BASE+'/api/create-checkout-session',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
     });
@@ -494,7 +495,7 @@ async function init(){
   currentSession=auth.session;
 
   try{
-    const profRes=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const profRes=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const prof=await profRes.json();
     currentPlan=prof.plan==='paid'?'paid':'free';
   }catch(e){
@@ -529,7 +530,7 @@ async function init(){
 
 async function loadPipeline(){
   try{
-    const res=await fetch('/api/pipeline',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+'/api/pipeline',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'Could not load pipeline.');
     pipelineDeals=data;
@@ -945,7 +946,7 @@ async function changeStage(dealId, stage){
   const fromStage=priorDeal?priorDeal.pipeline_stage:null;
   let succeeded=false;
   try{
-    const res=await fetch(`/api/pipeline/${dealId}/stage`,{
+    const res=await fetch(API_BASE+`/api/pipeline/${dealId}/stage`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({stage})
@@ -1071,7 +1072,7 @@ async function loadNotes(dealId){
   const listEl=document.getElementById('notes-list');
   listEl.innerHTML='<p class="hint">Loading…</p>';
   try{
-    const res=await fetch(`/api/deals/${dealId}/notes`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/notes`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const notes=await res.json();
     if(!res.ok)throw new Error(notes.error||'Could not load notes.');
 
@@ -1098,7 +1099,7 @@ async function addNote(){
 
   msg.className='save-msg';msg.textContent='';
   try{
-    const res=await fetch(`/api/deals/${detailsDealId}/notes`,{
+    const res=await fetch(API_BASE+`/api/deals/${detailsDealId}/notes`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({note_text:text})
@@ -1116,7 +1117,7 @@ async function deleteNote(noteId){
   if(!detailsDealId)return;
   if(!confirm('Delete this note?'))return;
   try{
-    const res=await fetch(`/api/notes/${noteId}`,{
+    const res=await fetch(API_BASE+`/api/notes/${noteId}`,{
       method:'DELETE',
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
@@ -1132,7 +1133,7 @@ async function loadOffers(dealId){
   const listEl=document.getElementById('offers-list');
   listEl.innerHTML='<p class="hint">Loading…</p>';
   try{
-    const res=await fetch(`/api/deals/${dealId}/offers`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/offers`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const offers=await res.json();
     if(!res.ok)throw new Error(offers.error||'Could not load offers.');
 
@@ -1177,7 +1178,7 @@ async function addOffer(){
 
   msg.className='save-msg';msg.textContent='';
   try{
-    const res=await fetch(`/api/deals/${detailsDealId}/offers`,{
+    const res=await fetch(API_BASE+`/api/deals/${detailsDealId}/offers`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify(payload)
@@ -1196,7 +1197,7 @@ async function addOffer(){
 async function updateOfferOutcome(offerId, outcome){
   if(!detailsDealId)return;
   try{
-    const res=await fetch(`/api/offers/${offerId}`,{
+    const res=await fetch(API_BASE+`/api/offers/${offerId}`,{
       method:'PUT',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({outcome})
@@ -1213,7 +1214,7 @@ async function deleteOffer(offerId){
   if(!detailsDealId)return;
   if(!confirm('Delete this offer?'))return;
   try{
-    const res=await fetch(`/api/offers/${offerId}`,{
+    const res=await fetch(API_BASE+`/api/offers/${offerId}`,{
       method:'DELETE',
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });

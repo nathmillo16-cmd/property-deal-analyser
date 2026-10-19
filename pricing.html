@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -199,7 +200,7 @@ if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
 // A returning logged-in user hitting the pricing page gets sent straight
 // to their home portal instead of seeing the pitch again.
 (async function(){
-  const res=await fetch('/api/config');
+  const res=await fetch(API_BASE+'/api/config');
   const cfg=await res.json();
   const client=supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
   const { data:{ session } }=await client.auth.getSession();

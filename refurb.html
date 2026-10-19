@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -339,7 +340,7 @@ async function upgradeNow(){
   const original=btn.textContent;
   btn.disabled=true;btn.textContent='Redirecting…';
   try{
-    const res=await fetch('/api/create-checkout-session',{
+    const res=await fetch(API_BASE+'/api/create-checkout-session',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
     });
@@ -651,7 +652,7 @@ function loadEstimate(id){
 async function loadEstimates(){
   const listEl=document.getElementById('rf-saved-list');
   try{
-    const res=await fetch('/api/refurb-estimates',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+'/api/refurb-estimates',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not load your saved estimates.');
     savedEstimates=d.estimates;
@@ -703,7 +704,7 @@ async function saveEstimate(){
   const isUpdate=!!editingId;
   btn.disabled=true;btn.textContent=isUpdate?'Saving...':'Saving...';
   try{
-    const res=await fetch(isUpdate?('/api/refurb-estimates/'+editingId):'/api/refurb-estimates',{
+    const res=await fetch(API_BASE+(isUpdate?('/api/refurb-estimates/'+editingId):'/api/refurb-estimates'),{
       method: isUpdate?'PUT':'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify(payload)
@@ -727,7 +728,7 @@ async function deleteEstimate(){
   if(!editingId)return;
   if(!confirm('Delete this saved estimate?'))return;
   try{
-    const res=await fetch('/api/refurb-estimates/'+editingId,{
+    const res=await fetch(API_BASE+'/api/refurb-estimates/'+editingId,{
       method:'DELETE',
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
@@ -759,7 +760,7 @@ async function openAddToDealPicker(estimateId){
   document.getElementById('atd-modal-overlay').classList.add('open');
   try{
     if(!savedDeals){
-      const res=await fetch('/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+      const res=await fetch(API_BASE+'/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
       const d=await res.json();
       if(!res.ok)throw new Error(d.error||'Could not load your saved deals.');
       savedDeals=Array.isArray(d)?d:[];
@@ -792,7 +793,7 @@ function handleAtdOverlayClick(e){
 async function linkEstimateToDeal(dealId){
   const listEl=document.getElementById('atd-list');
   try{
-    const res=await fetch('/api/deals/'+dealId+'/refurb-estimate',{
+    const res=await fetch(API_BASE+'/api/deals/'+dealId+'/refurb-estimate',{
       method:'PUT',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({refurb_estimate_id:atdEstimateId})
@@ -823,7 +824,7 @@ async function init(){
   currentSession=auth.session;
 
   try{
-    const profRes=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const profRes=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const prof=await profRes.json();
     currentPlan=prof.plan==='paid'?'paid':'free';
   }catch(e){

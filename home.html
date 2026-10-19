@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -282,7 +283,7 @@ async function loadDashboard(){
   const headers={'Authorization':'Bearer '+currentSession.access_token};
 
   try{
-    const res=await fetch('/api/deals',{headers});
+    const res=await fetch(API_BASE+'/api/deals',{headers});
     const body=await res.json();
     savedDeals=(res.ok&&Array.isArray(body))?body:[];
   }catch(e){
@@ -290,7 +291,7 @@ async function loadDashboard(){
   }
 
   try{
-    const res=await fetch('/api/pipeline',{headers});
+    const res=await fetch(API_BASE+'/api/pipeline',{headers});
     const body=await res.json();
     if(res.ok&&Array.isArray(body)){
       pipelineDeals=body; pipelineLocked=false;
@@ -304,7 +305,7 @@ async function loadDashboard(){
   }
 
   try{
-    const res=await fetch('/api/portfolio',{headers});
+    const res=await fetch(API_BASE+'/api/portfolio',{headers});
     const body=await res.json();
     if(res.ok&&body&&Array.isArray(body.properties)){
       portfolioCount=body.properties.length;
@@ -324,7 +325,7 @@ async function loadDashboard(){
   // them regardless) — whether the card SHOWS at all is decided in render()
   // by reusing pipelineLocked, not by a 403 from this call.
   try{
-    const res=await fetch('/api/needs-attention',{headers});
+    const res=await fetch(API_BASE+'/api/needs-attention',{headers});
     const body=await res.json();
     needsAttention=(res.ok&&Array.isArray(body))?body:[];
   }catch(e){
@@ -336,7 +337,7 @@ async function loadDashboard(){
   // call. Same "fetch just to check one flag" precedent as saved-deals.html
   // fetching /api/profile purely for currentPlan.
   try{
-    const res=await fetch('/api/profile',{headers});
+    const res=await fetch(API_BASE+'/api/profile',{headers});
     const body=await res.json();
     hasCompletedTutorial=res.ok?!!body.has_completed_tutorial:true;
   }catch(e){
@@ -514,11 +515,11 @@ async function init(){
 async function checkDealSourcingNudge(){
   try{
     const headers={'Authorization':'Bearer '+currentSession.access_token};
-    const res=await fetch('/api/deal-sourcing-nudge',{headers});
+    const res=await fetch(API_BASE+'/api/deal-sourcing-nudge',{headers});
     const body=await res.json();
     if(res.ok && body.eligible){
       document.getElementById('ds-nudge-banner').style.display='flex';
-      fetch('/api/deal-sourcing-nudge/shown',{method:'POST',headers}).catch(function(){});
+      fetch(API_BASE+'/api/deal-sourcing-nudge/shown',{method:'POST',headers}).catch(function(){});
     }
   }catch(e){}
 }

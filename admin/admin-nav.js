@@ -61,11 +61,11 @@ function setAdminSupportCount(n){
 (async function loadAdminSupportCount(){
   if (!document.getElementById('admin-nav-support')) return;
   try {
-    var cfg = await (await fetch('/api/config')).json();
+    var cfg = await (await fetch(API_BASE+'/api/config')).json();
     var client = supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
     var session = (await client.auth.getSession()).data.session;
     if (!session) return;
-    var res = await fetch('/api/admin/support-requests/open-count', {
+    var res = await fetch(API_BASE+'/api/admin/support-requests/open-count', {
       headers: { 'Authorization': 'Bearer ' + session.access_token }
     });
     if (!res.ok) return;

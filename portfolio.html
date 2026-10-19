@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -420,7 +421,7 @@ async function upgradeNow(){
   const original=btn.textContent;
   btn.disabled=true;btn.textContent='Redirecting…';
   try{
-    const res=await fetch('/api/create-checkout-session',{
+    const res=await fetch(API_BASE+'/api/create-checkout-session',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
     });
@@ -526,7 +527,7 @@ async function init(){
   currentSession=auth.session;
 
   try{
-    const profRes=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const profRes=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const prof=await profRes.json();
     currentPlan=prof.plan==='paid'?'paid':'free';
   }catch(e){
@@ -570,7 +571,7 @@ async function loadPortfolio(){
   summaryEl.style.display='none';
 
   try{
-    const res=await fetch('/api/portfolio',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+'/api/portfolio',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not load your portfolio.');
 
@@ -634,7 +635,7 @@ async function addProperty(){
 
   btn.disabled=true;btn.textContent='Adding...';
   try{
-    const res=await fetch('/api/portfolio',{
+    const res=await fetch(API_BASE+'/api/portfolio',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify(payload)
@@ -704,7 +705,7 @@ async function savePropertyChanges(){
 
   btn.disabled=true;btn.textContent='Saving...';
   try{
-    const res=await fetch('/api/portfolio/'+editingId,{
+    const res=await fetch(API_BASE+'/api/portfolio/'+editingId,{
       method:'PUT',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify(payload)
@@ -723,7 +724,7 @@ async function deleteFromDetail(){
   if(!editingId)return;
   if(!confirm('Delete this property from your portfolio?'))return;
   try{
-    const res=await fetch('/api/portfolio/'+editingId,{
+    const res=await fetch(API_BASE+'/api/portfolio/'+editingId,{
       method:'DELETE',
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });

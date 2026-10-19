@@ -18,7 +18,7 @@ async function requireSuperuser() {
   if (!auth) return null; // requireAuth() already redirected
 
   try {
-    const res = await fetch('/api/profile', {
+    const res = await fetch(API_BASE+'/api/profile', {
       headers: { 'Authorization': 'Bearer ' + auth.session.access_token }
     });
     const prof = await res.json();

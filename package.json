@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build:www": "node scripts/build-www.js",
+    "ios:sync": "node scripts/build-www.js && cap sync ios",
+    "ios:open": "cap open ios"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.105.0",
@@ -15,5 +18,12 @@
     "node-fetch": "^2.6.9",
     "stripe": "^22.3.1",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/splash-screen": "^8.0.2"
   }
 }

@@ -9,7 +9,7 @@
 // auth.client is the Supabase client; auth.session is the current session.
 async function requireAuth() {
   try {
-    const res = await fetch('/api/config');
+    const res = await fetch(API_BASE+'/api/config');
     const cfg = await res.json();
     const client = supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
     const { data: { session } } = await client.auth.getSession();

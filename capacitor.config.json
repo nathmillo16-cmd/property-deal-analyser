@@ -1,0 +1,18 @@
+{
+  "appId": "uk.co.propulsionproperty.app",
+  "appName": "Propulsion Property",
+  "webDir": "www",
+  "backgroundColor": "#F2EFE7",
+  "ios": {
+    "backgroundColor": "#F2EFE7",
+    "contentInset": "never"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#F2EFE7",
+      "showSpinner": false
+    }
+  }
+}

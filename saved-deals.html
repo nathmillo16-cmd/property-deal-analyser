@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -586,7 +587,7 @@ async function loadSavedDeals(){
   const listEl=document.getElementById('saved-list');
   listEl.innerHTML='<p class="hint">Loading…</p>';
   try{
-    const res=await fetch('/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+'/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const deals=await res.json();
     if(!res.ok)throw new Error(deals.error||'Could not load saved deals.');
     savedDealsCache=Array.isArray(deals)?deals:[];
@@ -702,7 +703,7 @@ async function deleteSelected(){
 
   try{
     const results=await Promise.all(ids.map(id=>
-      fetch(`/api/deals/${id}/delete`,{method:'POST',headers:{'Authorization':'Bearer '+currentSession.access_token}})
+      fetch(API_BASE+`/api/deals/${id}/delete`,{method:'POST',headers:{'Authorization':'Bearer '+currentSession.access_token}})
         .then(r=>r.json().then(body=>({ok:r.ok,body})))
         .catch(e=>({ok:false,body:{error:e.message}}))
     ));
@@ -726,7 +727,7 @@ async function renameDeal(dealId){
   const newName=prompt('Rename this deal:', currentName);
   if(newName===null)return;
   try{
-    const res=await fetch(`/api/deals/${dealId}/name`,{
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/name`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({name:newName.trim()})
@@ -751,7 +752,7 @@ async function deleteDeal(dealId){
     :'Delete this saved deal?';
   if(!confirm(msg))return false;
   try{
-    const res=await fetch(`/api/deals/${dealId}/delete`,{
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/delete`,{
       method:'POST',
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
@@ -1358,7 +1359,7 @@ async function loadRefurbSection(deal){
   }
 
   try{
-    const res=await fetch('/api/refurb-estimates',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+'/api/refurb-estimates',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not load your saved estimates.');
     const est=d.estimates.find(e=>e.id===deal.refurb_estimate_id);
@@ -1387,7 +1388,7 @@ async function unlinkRefurbEstimate(){
   if(!confirm('Unlink this refurb estimate from the deal? The estimate itself is not deleted.'))return;
   const bodyEl=document.getElementById('workspace-refurb-body');
   try{
-    const res=await fetch('/api/deals/'+workspaceDealId+'/refurb-estimate',{
+    const res=await fetch(API_BASE+'/api/deals/'+workspaceDealId+'/refurb-estimate',{
       method:'PUT',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({refurb_estimate_id:null})
@@ -1438,7 +1439,7 @@ async function saveSellerPosition(){
   };
   msg.className='save-msg';msg.textContent='';
   try{
-    const res=await fetch(`/api/deals/${workspaceDealId}/seller-position`,{
+    const res=await fetch(API_BASE+`/api/deals/${workspaceDealId}/seller-position`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({seller_position})
@@ -1519,7 +1520,7 @@ async function submitQuickNote(){
 
   msg.className='save-msg';msg.textContent='';
   try{
-    const res=await fetch(`/api/deals/${workspaceDealId}/notes`,{
+    const res=await fetch(API_BASE+`/api/deals/${workspaceDealId}/notes`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({note_text:text, note_type:currentQuickAddType})
@@ -1548,7 +1549,7 @@ async function submitQuickOffer(){
 
   msg.className='save-msg';msg.textContent='';
   try{
-    const res=await fetch(`/api/deals/${workspaceDealId}/offers`,{
+    const res=await fetch(API_BASE+`/api/deals/${workspaceDealId}/offers`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify(payload)
@@ -1567,7 +1568,7 @@ async function deleteNoteFromActivity(noteId){
   if(!workspaceDealId)return;
   if(!confirm('Delete this entry?'))return;
   try{
-    const res=await fetch(`/api/notes/${noteId}`,{
+    const res=await fetch(API_BASE+`/api/notes/${noteId}`,{
       method:'DELETE',
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
@@ -1590,7 +1591,7 @@ function handleActivityOfferOutcomeChange(id, value){
 async function updateOfferOutcomeFromActivity(offerId, outcome){
   if(!workspaceDealId)return;
   try{
-    const res=await fetch(`/api/offers/${offerId}`,{
+    const res=await fetch(API_BASE+`/api/offers/${offerId}`,{
       method:'PUT',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({outcome})
@@ -1607,7 +1608,7 @@ async function deleteOfferFromActivity(offerId){
   if(!workspaceDealId)return;
   if(!confirm('Delete this offer?'))return;
   try{
-    const res=await fetch(`/api/offers/${offerId}`,{
+    const res=await fetch(API_BASE+`/api/offers/${offerId}`,{
       method:'DELETE',
       headers:{'Authorization':'Bearer '+currentSession.access_token}
     });
@@ -1715,7 +1716,7 @@ async function loadActivity(dealId){
   const feedEl=document.getElementById('activity-feed');
   feedEl.innerHTML='<p class="hint">Loading…</p>';
   try{
-    const res=await fetch(`/api/deals/${dealId}/activity`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/activity`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const entries=await res.json();
     if(!res.ok)throw new Error(entries.error||'Could not load activity.');
 
@@ -1776,7 +1777,7 @@ async function saveViewingDateFromWorkspace(){
   const msg=document.getElementById('workspace-stage-msg');
   const value=input.value;
   try{
-    const res=await fetch(`/api/deals/${workspaceDealId}/viewing-date`,{
+    const res=await fetch(API_BASE+`/api/deals/${workspaceDealId}/viewing-date`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({viewing_date:value||null})
@@ -1799,7 +1800,7 @@ async function changeWorkspaceStage(stage){
   if(!workspaceDealId)return;
   const msg=document.getElementById('workspace-stage-msg');
   try{
-    const res=await fetch(`/api/pipeline/${workspaceDealId}/stage`,{
+    const res=await fetch(API_BASE+`/api/pipeline/${workspaceDealId}/stage`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({stage})
@@ -1821,7 +1822,7 @@ async function addToPipelineFromWorkspace(){
   if(!workspaceDealId)return;
   const msg=document.getElementById('workspace-stage-msg');
   try{
-    const res=await fetch('/api/pipeline',{
+    const res=await fetch(API_BASE+'/api/pipeline',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify({deal_id:workspaceDealId})
@@ -1848,7 +1849,7 @@ async function upgradeNowFromWorkspace(btn){
   const original=btn.textContent;
   btn.disabled=true;btn.textContent='Redirecting…';
   try{
-    const res=await fetch('/api/create-checkout-session',{
+    const res=await fetch(API_BASE+'/api/create-checkout-session',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
     });
@@ -1929,7 +1930,7 @@ async function confirmMoveToPortfolio(){
 
   btn.disabled=true;btn.textContent='Adding...';
   try{
-    const res=await fetch('/api/portfolio',{
+    const res=await fetch(API_BASE+'/api/portfolio',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify(payload)
@@ -1963,7 +1964,7 @@ async function init(){
   // to decide what those three sections render. Same fetch pipeline.html
   // and the other paid pages already make.
   try{
-    const profRes=await fetch('/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const profRes=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const prof=await profRes.json();
     currentPlan=prof.plan==='paid'?'paid':'free';
   }catch(e){
