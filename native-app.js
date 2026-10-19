@@ -27,7 +27,7 @@
 
   // The pricing page has no place in the app.
   if (/\/pricing\.html$/.test(window.location.pathname)) {
-    window.location.replace('/landing.html');
+    window.location.replace('/welcome.html');
     return;
   }
 
@@ -39,7 +39,10 @@
     '.native-lock-msg{margin:0;color:var(--muted);font-size:14px;line-height:1.5}' +
     // Top bar: keep the logo, drop the link row and account bar (now in the tab bar / More).
     'html.native-app #nav-root .nav-links,html.native-app #nav-root .auth-bar{display:none!important}' +
-    'html.native-app #nav-root .topbar{margin-bottom:1.25rem;padding-bottom:.75rem}' +
+    // Compact header on logged-in pages: smaller logo, less padding above and below.
+    'html.native-app #nav-root .topbar{margin-bottom:1rem;padding-bottom:.6rem}' +
+    'html.native-app #nav-root .wordmark-logo{height:32px}' +
+    'html.native-app body:has(#nav-root) .shell{padding-top:.75rem}' + // :has applies before the tab bar JS runs, so no jump
     'html.native-app body.nt-has-tabbar{padding-bottom:calc(64px + env(safe-area-inset-bottom, 0px))}' +
     // Solid cream band behind the iPhone status bar (time, battery), so page
     // content scrolling up never shows through it. Height is exactly the

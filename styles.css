@@ -191,6 +191,11 @@ p{margin:0}
   padding:9.5px 18px;cursor:pointer;
 }
 .btn-secondary:hover{background:rgba(224,164,88,.08)}
+/* Links styled as buttons: never underlined, and the primary button keeps
+   its white-on-indigo text even inside .auth-bar, whose link rule would
+   otherwise turn it grey (the "Sign up free" contrast bug). */
+a.btn-primary,a.btn-secondary,a.mini-btn{text-decoration:none}
+a.btn-primary,a.btn-primary:hover,.auth-bar a.btn-primary,.auth-bar a.btn-primary:hover{color:var(--accent-ink)}
 
 /* ---------- cards ---------- */
 .card{

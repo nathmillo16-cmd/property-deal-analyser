@@ -36,6 +36,28 @@ html{scroll-behavior:smooth}
 
 /* ---- hero ---- */
 .hero{padding:clamp(3rem,8vw,5.5rem) 0 0;text-align:center}
+/* iOS app: the landing page is only reached from the welcome screen's "Try
+   the calculator", so it shows just the free calculator plus the topbar's
+   Log in / Sign up and the footer. The full marketing page is website-only. */
+html.native-app .hero,
+html.native-app .topbar .nav-links,
+html.native-app body > .shell:not(:has(.topbar)):not(:has(#calculator)):not(:has(footer)),
+html.native-app #about-us-root{display:none}
+html.native-app #calculator{border-top:none;padding-top:1rem}
+html.native-app #calc-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+html.native-app #calc-tabs .tab-btn{text-align:center;padding-left:2px;padding-right:2px}
+.app-back-link{font-size:14px!important;font-weight:600!important;text-transform:none!important;letter-spacing:0!important;color:var(--accent)!important}
+/* Phones: one consistent, tighter gap between sections. Each section sits in
+   its own .shell, and that wrapper's padding used to stack on top of the
+   section's own (about 170px of blank space per gap). The shells now add no
+   vertical padding except at the very top (topbar) and bottom (footer). */
+@media(max-width:600px){
+  body > .shell{padding-top:0;padding-bottom:0}
+  body > .shell:has(> .topbar){padding-top:1.5rem}
+  body > .shell:has(> footer){padding-bottom:1.5rem}
+  .hero{padding-top:2rem}
+  .lp-section,body .about-us-section{padding:2.25rem 0}
+}
 .hero h1{font-size:clamp(2.4rem,5.6vw,4.2rem);line-height:1.05;max-width:19ch;margin:0 auto 1.5rem}
 .hero .lp-lead{margin:0 auto 2.25rem;text-align:center;font-size:16px;max-width:52ch}
 .hero-cta{display:flex;justify-content:center;align-items:center;gap:1.5rem;flex-wrap:wrap}
@@ -1016,6 +1038,13 @@ initMoneyFields();
 
 // Subtle scroll-reveal: fades .reveal elements in as they enter view.
 // Purely presentational, skipped entirely under prefers-reduced-motion.
+// iOS app: this page is just the free calculator, opened from the welcome
+// screen, so the topbar's Log in / Sign up become a Back link to it.
+if(IS_NATIVE_APP){
+  const bar=document.querySelector('.topbar .auth-bar');
+  if(bar)bar.innerHTML='<a href="/welcome.html" class="app-back-link">&larr; Back</a>';
+}
+
 if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
   const revealObserver=new IntersectionObserver((entries)=>{
     entries.forEach(entry=>{

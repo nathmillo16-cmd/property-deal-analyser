@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Welcome · PROPulsion</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script>
+// iOS app only. The website keeps the full landing page as its front door.
+if (!IS_NATIVE_APP) window.location.replace('/');
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* App welcome screen: what a logged-out user sees when the app opens.
+   Colours/fonts come from styles.css (body.theme-light). */
+.welcome{
+  /* body already pads for the notch and home bar (styles.css), so fill the rest exactly */
+  min-height:calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  box-sizing:border-box;display:flex;flex-direction:column;
+  padding:2rem 1.5rem 1.5rem;
+  max-width:440px;margin:0 auto;
+}
+.welcome-main{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+.welcome-logo{height:64px;width:auto;display:block;margin:0 0 1.75rem}
+.welcome-line{font-family:var(--font-head);font-size:clamp(24px,7vw,30px);font-weight:700;line-height:1.25;color:var(--ink);margin:0;max-width:16ch}
+.welcome-actions{display:flex;flex-direction:column;gap:12px;width:100%;margin-top:2.5rem}
+.welcome-actions a{
+  display:flex;align-items:center;justify-content:center;min-height:52px;box-sizing:border-box;
+  font-size:16px;font-weight:700;border-radius:14px;text-decoration:none;
+}
+.welcome-actions .btn-primary{font-size:16px}
+.welcome-actions .btn-secondary{font-size:16px;background:var(--surface)}
+.welcome-try{color:var(--accent);font-weight:600!important;min-height:44px!important}
+.welcome-legal{text-align:center;font-size:12px;color:var(--muted);margin:1.5rem 0 0}
+.welcome-legal a{color:var(--muted)}
+</style>
+</head>
+<body class="theme-light">
+  <div class="welcome">
+    <div class="welcome-main">
+      <img src="/assets/propulsion-logo.png" alt="PROPulsion" class="welcome-logo">
+      <h1 class="welcome-line">Know your maximum bid before you offer.</h1>
+      <div class="welcome-actions">
+        <a class="btn-primary" href="/login.html?mode=signup">Sign up free</a>
+        <a class="btn-secondary" href="/login.html">Log in</a>
+        <a class="welcome-try" href="/landing.html#calculator">Try the calculator</a>
+      </div>
+    </div>
+    <p class="welcome-legal"><a href="/support.html">Support</a> &middot; <a href="/privacy.html">Privacy</a></p>
+  </div>
+
+<script>
+// Already logged in? Go straight to Home, same as the landing page does.
+(async function(){
+  try{
+    const res=await fetch(API_BASE+'/api/config');
+    const cfg=await res.json();
+    const client=supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+    const { data:{ session } }=await client.auth.getSession();
+    if(session)window.location.replace('/home.html');
+  }catch(e){ /* offline or config failed: stay on the welcome screen */ }
+})();
+</script>
+</body>
+</html>

@@ -62,6 +62,14 @@
 }
 .fin-tab:hover{color:var(--ink)}
 .fin-tab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+/* iOS app: tabs as even grids so none is ever left alone on a second row.
+   Strategy tabs: one row of five equal buttons. Results tabs: four equal
+   columns, or an even 2x2 on phones, so BRRR is the same size as the rest. */
+html.native-app .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+html.native-app .tab{padding:9px 2px;text-align:center}
+html.native-app .fin-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+html.native-app .fin-tab{padding:9px 4px;text-align:center}
+@media(max-width:600px){html.native-app .fin-tabs{grid-template-columns:repeat(2,1fr)}}
 .fin-panel{display:none}
 .fin-panel.active{display:block}
 

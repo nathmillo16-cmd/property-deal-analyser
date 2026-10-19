@@ -252,5 +252,16 @@
     }
   }
 
-  window.NativeReminders = { render: render };
+  // Called after a deal is deleted, so its reminders never fire for a deal
+  // that no longer exists. Safe to call when there are none.
+  async function cancelForDeal(dealId) {
+    try {
+      var items = await remindersFor(dealId);
+      if (items.length) {
+        await LN.cancel({ notifications: items.map(function (n) { return { id: n.id }; }) });
+      }
+    } catch (e) {}
+  }
+
+  window.NativeReminders = { render: render, cancelForDeal: cancelForDeal };
 })();

@@ -13,11 +13,12 @@ var IS_NATIVE_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && 
 var API_BASE = IS_NATIVE_APP ? BACKEND_URL : '';
 
 // Express serves landing.html at '/', but the app's bundled files serve
-// index.html (the calculator) there. Send the app's bare root to the landing
-// page instead, matching the website, so the "no session, go to /" redirects
-// don't bounce off the calculator's own login check in a loop.
+// index.html (the calculator) there. In the app, the bare root goes to the
+// simple welcome screen (welcome.html) instead of the marketing landing page,
+// so every "no session, go to /" redirect (logout, expired login) lands
+// there. The website is unaffected.
 if (IS_NATIVE_APP && window.location.pathname === '/') {
-  window.location.replace('/landing.html');
+  window.location.replace('/welcome.html');
 }
 
 // App-only behaviour (bottom tab bar, no purchasing UI) lives in native-app.js.

@@ -110,6 +110,10 @@
   border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3);
 }
 
+/* iOS app: the Board card repeated the Pipeline card's data, so only the
+   Pipeline card is kept and the hero panel spans the full width. */
+html.native-app .hero-stats-col{display:none}
+html.native-app .hero-row{grid-template-columns:1fr}
 .content-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
 @media(max-width:760px){.content-grid{grid-template-columns:1fr}}
 .content-grid .card h2{font-size:14px;font-weight:600;margin:0 0 var(--space-4)}
@@ -259,12 +263,21 @@ function keyFigure(d){
   return {label:f.label, value:f.type==='c'?fmtC(v):fmtP(v)};
 }
 
-function friendlyFirstName(email){
-  const local=(email||'').split('@')[0];
-  const parts=local.split(/[^a-zA-Z]+/).filter(Boolean);
-  if(parts.length===0)return email||'';
-  const first=parts[0];
-  return first.charAt(0).toUpperCase()+first.slice(1).toLowerCase();
+// Greeting: "Good morning" over the user's first name when their profile
+// has one (Settings > Account > Name), otherwise just "Good morning" on its
+// own. Never derived from the email address.
+function setGreeting(fullName){
+  const first=(fullName||'').trim().split(/\s+/)[0]||'';
+  const eyebrow=document.getElementById('greeting-eyebrow');
+  const heading=document.getElementById('welcome-name');
+  if(first){
+    eyebrow.textContent=greetingForHour();
+    eyebrow.style.display='';
+    heading.textContent=first;
+  }else{
+    eyebrow.style.display='none';
+    heading.textContent=greetingForHour();
+  }
 }
 
 function greetingForHour(){
@@ -340,6 +353,7 @@ async function loadDashboard(){
     const res=await fetch(API_BASE+'/api/profile',{headers});
     const body=await res.json();
     hasCompletedTutorial=res.ok?!!body.has_completed_tutorial:true;
+    if(res.ok)setGreeting(body.name);
   }catch(e){
     hasCompletedTutorial=true;
   }
@@ -479,8 +493,7 @@ async function init(){
   sbClient=auth.client;
   currentSession=auth.session;
 
-  document.getElementById('greeting-eyebrow').textContent=greetingForHour();
-  document.getElementById('welcome-name').textContent=friendlyFirstName(currentSession.user.email);
+  setGreeting(''); // plain greeting until the profile (and its name) loads
   document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
   const menuEmail=document.getElementById('user-menu-email');
   const itemEmail=document.getElementById('user-menu-item-email');
