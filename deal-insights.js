@@ -168,7 +168,6 @@
     return o;
   }
 
-  var stressOn = { btl: false, hmo: false, sa: false };
   var lastSummary = {};
 
   function verdictHtml(v, mode) {
@@ -188,7 +187,7 @@
     var box = document.getElementById(PREFIX[st] + '-insights');
     if (!box) return;
     var d = dataOf(st) || {};
-    if (!(d.pp > 0)) { box.innerHTML = ''; clearStress(st); lastSummary[st] = null; scheduleSticky(); return; }
+    if (!(d.pp > 0)) { box.innerHTML = ''; clearStress(st); lastSummary[st] = null; if (window.DealPlanning) DealPlanning.clear(st); scheduleSticky(); return; }
 
     if (st === 'flip') {
       var fv = flipVerdict(d);
@@ -218,48 +217,45 @@
       : [{ l: 'Cashflow /mo', v: money(m.cf) }, { l: 'ROI', v: pct(m.roi) }, { l: 'Yield', v: pct(m.gy) }] };
 
     renderStress(st, mode, d, m);
+    if (window.DealPlanning) DealPlanning.render(st);
     scheduleSticky();
   }
 
   function clearStress(st) {
     var el = document.getElementById(PREFIX[st] + '-stress');
     if (el) el.innerHTML = '';
+    var sum = document.getElementById(PREFIX[st] + '-sec-stress-sum');
+    if (sum) sum.textContent = '';
   }
 
+  // Stress test lives in its own collapsed section below the Full breakdown
+  // (#PREFIX-sec-stress in index.html). The figures are always worked out,
+  // so the one-line summary shows even while the section is closed.
   function renderStress(st, mode, d, m) {
     var el = document.getElementById(PREFIX[st] + '-stress');
     if (!el) return;
-    var on = stressOn[st];
-    var html = '<div class="di-stress' + (on ? ' on' : '') + '">' +
-      '<button type="button" class="di-toggle" role="switch" aria-checked="' + on + '" onclick="DealInsights.toggleStress(\'' + st + '\')">' +
-      '<span class="di-switch" aria-hidden="true"></span><span>Stress test</span></button>' +
-      '<span class="di-stress-note">' + STRESS_NOTE + '</span>';
-    if (on) {
-      var sd = runEngine(st, stressOverrides(st, d));
-      var sm = metrics(st, mode, sd);
-      var pass = sm.cf > 0;
-      var cashLabel = mode === 'brrr' ? 'Money left in' : 'Cash in';
-      var rows = [
-        ['Monthly cashflow', money(m.cf), money(sm.cf)],
-        ['ROI', roiText(m), roiText(sm)],
-        ['Gross yield', pct(m.gy), pct(sm.gy)],
-        [cashLabel, mode === 'brrr' && m.cashIn <= 0 ? '£0' : money(m.cashIn), mode === 'brrr' && sm.cashIn <= 0 ? '£0' : money(sm.cashIn)]
-      ];
-      html += '<p class="di-stress-result ' + (pass ? 'di-pass' : 'di-fail') + '">' +
-        (pass ? 'Still cashflow positive' : 'Goes negative under stress') +
-        '<span>' + money(sm.cf) + ' a month when stressed, on ' + modeText(mode) + '</span></p>' +
-        '<div class="di-table-wrap"><table class="di-table"><thead><tr><th scope="col"></th><th scope="col">Normal</th><th scope="col">Stressed</th></tr></thead><tbody>' +
-        rows.map(function (r) { return '<tr><th scope="row">' + r[0] + '</th><td>' + r[1] + '</td><td>' + r[2] + '</td></tr>'; }).join('') +
-        '</tbody></table></div>';
-    }
-    el.innerHTML = html + '</div>';
-  }
-
-  function toggleStress(st) {
-    stressOn[st] = !stressOn[st];
-    render(st);
-    var btn = document.querySelector('#' + PREFIX[st] + '-stress .di-toggle');
-    if (btn) btn.focus();
+    var sd = runEngine(st, stressOverrides(st, d));
+    var sm = metrics(st, mode, sd);
+    var pass = sm.cf > 0;
+    var cashLabel = mode === 'brrr' ? 'Money left in' : 'Cash in';
+    var rows = [
+      ['Monthly cashflow', money(m.cf), money(sm.cf)],
+      ['ROI', roiText(m), roiText(sm)],
+      ['Gross yield', pct(m.gy), pct(sm.gy)],
+      [cashLabel, mode === 'brrr' && m.cashIn <= 0 ? '£0' : money(m.cashIn), mode === 'brrr' && sm.cashIn <= 0 ? '£0' : money(sm.cashIn)]
+    ];
+    var sum = document.getElementById(PREFIX[st] + '-sec-stress-sum');
+    if (sum) sum.textContent = pass
+      ? 'still ' + money(sm.cf) + ' a month positive'
+      : 'goes negative, ' + money(sm.cf) + ' a month';
+    el.innerHTML = '<div class="di-stress">' +
+      '<span class="di-stress-note">' + STRESS_NOTE + '</span>' +
+      '<p class="di-stress-result ' + (pass ? 'di-pass' : 'di-fail') + '">' +
+      (pass ? 'Still cashflow positive' : 'Goes negative under stress') +
+      '<span>' + money(sm.cf) + ' a month when stressed, on ' + modeText(mode) + '</span></p>' +
+      '<div class="di-table-wrap"><table class="di-table"><thead><tr><th scope="col"></th><th scope="col">Normal</th><th scope="col">Stressed</th></tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr><th scope="row">' + r[0] + '</th><td>' + r[1] + '</td><td>' + r[2] + '</td></tr>'; }).join('') +
+      '</tbody></table></div></div>';
   }
 
   // ---------- sticky summary (phones and the iOS app) ----------
@@ -348,14 +344,9 @@
     '.di-bid-v{margin:0;font-weight:700;font-size:24px;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.2}' +
     '.di-bid-v.di-bid-msg{font-size:13px;font-weight:600;line-height:1.4;color:var(--ink)}' +
     '.di-bid-n{margin:3px 0 0;font-size:11.5px;color:var(--muted)}' +
-    '.deal-stress{margin:0 0 1.1rem}' +
-    '.di-stress{border:1px solid var(--hairline);border-radius:12px;padding:.7rem .9rem;background:var(--surface)}' +
-    '.di-toggle{display:inline-flex;align-items:center;gap:.55rem;background:none;border:0;padding:4px 0;cursor:pointer;font:700 13.5px var(--font-body);color:var(--ink);margin-right:.6rem}' +
-    '.di-switch{position:relative;width:34px;height:20px;border-radius:999px;background:var(--hairline-strong,#c9c9d3);transition:background .15s ease;flex-shrink:0}' +
-    '.di-switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .15s ease}' +
-    '.di-stress.on .di-switch{background:var(--accent)}' +
-    '.di-stress.on .di-switch::after{transform:translateX(14px)}' +
-    '.di-stress-note{display:block;font-size:12px;color:var(--muted);margin-top:2px}' +
+    
+    '.di-stress{padding:0}' +
+    '.di-stress-note{display:block;font-size:12.5px;color:var(--muted)}' +
     '.di-stress-result{margin:.7rem 0 .55rem;font-weight:700;font-size:14px;border-radius:8px;padding:.5rem .7rem}' +
     '.di-stress-result span{display:block;font-weight:500;font-size:12.5px;margin-top:2px}' +
     '.di-pass{background:var(--success-bg);color:var(--success-ink)}' +
@@ -392,7 +383,15 @@
   window.DealInsights = {
     render: render,
     renderAll: function () { ['btl', 'hmo', 'sa', 'flip'].forEach(render); },
-    toggleStress: toggleStress,
+    // Shared with deal-planning.js so its verdicts and figures match these.
+    metrics: metrics,
+    rentalVerdict: rentalVerdict,
+    activeMode: activeMode,
+    dataOf: dataOf,
+    money: money,
+    pct: pct,
+    esc: esc,
+    MODE_LABEL: MODE_LABEL,
     updateSticky: scheduleSticky,
     runEngine: runEngine,
     brrrMoneyOutBid: function (st) { return brrrMoneyOutBid(st, dataOf(st)); },

@@ -25,6 +25,8 @@
 <script src="/onboarding-tutorial.js"></script>
 <script src="/calc-engine.js"></script>
 <script src="/deal-insights.js"></script>
+<script src="/deal-assumptions.js"></script>
+<script src="/deal-planning.js"></script>
 <script src="/results-disclaimer.js"></script>
 <style>
 /* Page-specific layout only — colours/fonts/radius all come from styles.css (Underwriter). */
@@ -507,6 +509,7 @@ body.theme-light .dd-trigger::after{
               </ul>
             </div>
           </div>
+          <div class="f brrr-only"><label>Months until refinance</label><input type="number" id="bb-refi-months" oninput="markStaleBTL()"/><p class="field-note" id="bb-refi-months-note" hidden></p></div>
         </div>
         <p class="hint brrr-only" style="margin:-.5rem 0 1rem">BRRR here means buy with cash, refurbish, then refinance at the LTV above. The refinance uses the mortgage rate and term under Advanced.</p>
         <details class="adv">
@@ -525,6 +528,24 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
+        <p class="sl section-gap">Lender check</p>
+        <div class="g2">
+          <div class="f"><label>Ownership type</label>
+            <div class="dd" id="b-lc-own" data-value="ltd" data-onchange="onLenderOwnershipChange">
+              <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'b-lc-own')" onkeydown="ddKeydown(event,'b-lc-own')">
+                <span>Limited company</span>
+              </button>
+              <ul class="dd-list" role="listbox">
+                <li class="dd-opt selected" role="option" aria-selected="true" data-value="ltd" onclick="selectDDOption(event,'b-lc-own','ltd','Limited company')">Limited company</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="basic" onclick="selectDDOption(event,'b-lc-own','basic','Personal, basic rate')">Personal, basic rate</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="higher" onclick="selectDDOption(event,'b-lc-own','higher','Personal, higher rate')">Personal, higher rate</li>
+              </ul>
+            </div>
+          </div>
+          <div class="f"><label>Stress rate %</label><input type="number" id="b-lc-stress" step="0.1" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Rent cover required %</label><input type="number" id="b-lc-cover" step="1" oninput="markStaleBTL()"/></div>
+        </div>
+        <p class="hint">Used for the lender check in the results. Rent cover resets when you change ownership type.</p>
         </details>
         <button class="save-btn" onclick="saveDefaults('btl')" id="btn-save-defaults-btl">Save as my defaults</button>
         <p class="save-msg" id="btl-defaults-msg"></p>
@@ -538,7 +559,7 @@ body.theme-light .dd-trigger::after{
           <div class="bh"><p class="bh-l">Cash pulled out at refinance</p><p class="bh-v" id="bh-out">—</p></div>
           <div class="bh"><p class="bh-l">Monthly cashflow</p><p class="bh-v" id="bh-cf">—</p></div>
         </div>
-        <div class="deal-stress" id="b-stress"></div>
+        <div class="rs-alerts" id="b-alerts"></div>
         <details class="breakdown" id="b-breakdown">
         <summary>Full breakdown</summary>
         <div class="fin-tabs" role="tablist">
@@ -620,6 +641,19 @@ body.theme-light .dd-trigger::after{
         <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (interest-only mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
         </details>
+        <div class="rsecs">
+          <details class="rsec" id="b-sec-stress"><summary><span class="rsec-t">Stress test</span><span class="rsec-s" id="b-sec-stress-sum"></span></summary><div class="rsec-body"><div class="deal-stress" id="b-stress"></div></div></details>
+          <details class="rsec" id="b-sec-lender"><summary><span class="rsec-t">Lender check</span><span class="rsec-s" id="b-sec-lender-sum"></span></summary><div class="rsec-body" id="b-lender"></div></details>
+          <details class="rsec" id="b-sec-compare"><summary><span class="rsec-t">Compare strategies</span><span class="rsec-s" id="b-sec-compare-sum"></span></summary><div class="rsec-body" id="b-compare"></div></details>
+          <details class="rsec" id="b-sec-proj"><summary><span class="rsec-t">10-year projection</span><span class="rsec-s" id="b-sec-proj-sum"></span></summary><div class="rsec-body">
+            <div class="pj-inputs">
+              <div class="f"><label for="b-pj-cg">Capital growth % a year</label><input type="number" id="b-pj-cg" step="0.1" oninput="DealPlanning.onProjInput('btl')"/></div>
+              <div class="f"><label for="b-pj-rg">Rent growth % a year</label><input type="number" id="b-pj-rg" step="0.1" oninput="DealPlanning.onProjInput('btl')"/></div>
+              <button type="button" class="pj-switch" id="b-pj-costs" role="switch" aria-checked="true" onclick="DealPlanning.toggleCosts('btl')"><span class="sw" aria-hidden="true"></span><span>Costs rise with rent</span></button>
+            </div>
+            <div id="b-proj"></div>
+          </div></details>
+        </div>
         <p class="results-disclaimer"></p>
         <div class="result-actions">
         <button class="save-btn" onclick="saveDeal('btl')" id="btn-save-btl">Save deal</button>
@@ -684,7 +718,6 @@ body.theme-light .dd-trigger::after{
         <p class="sl">Results</p>
         <div class="results-hold" id="h-hold" hidden></div>
         <div class="deal-insights" id="h-insights"></div>
-        <div class="deal-stress" id="h-stress"></div>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('hmo','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('hmo','r')">Repayment</button>
@@ -778,6 +811,18 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="h-ly">10</span>% gross yield</p><p class="ov" id="h-oy">—</p><p class="on" id="h-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (interest-only mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
+        <div class="rsecs">
+          <details class="rsec" id="h-sec-stress"><summary><span class="rsec-t">Stress test</span><span class="rsec-s" id="h-sec-stress-sum"></span></summary><div class="rsec-body"><div class="deal-stress" id="h-stress"></div></div></details>
+          <details class="rsec" id="h-sec-compare"><summary><span class="rsec-t">Compare strategies</span><span class="rsec-s" id="h-sec-compare-sum"></span></summary><div class="rsec-body" id="h-compare"></div></details>
+          <details class="rsec" id="h-sec-proj"><summary><span class="rsec-t">10-year projection</span><span class="rsec-s" id="h-sec-proj-sum"></span></summary><div class="rsec-body">
+            <div class="pj-inputs">
+              <div class="f"><label for="h-pj-cg">Capital growth % a year</label><input type="number" id="h-pj-cg" step="0.1" oninput="DealPlanning.onProjInput('hmo')"/></div>
+              <div class="f"><label for="h-pj-rg">Rent growth % a year</label><input type="number" id="h-pj-rg" step="0.1" oninput="DealPlanning.onProjInput('hmo')"/></div>
+              <button type="button" class="pj-switch" id="h-pj-costs" role="switch" aria-checked="true" onclick="DealPlanning.toggleCosts('hmo')"><span class="sw" aria-hidden="true"></span><span>Costs rise with rent</span></button>
+            </div>
+            <div id="h-proj"></div>
+          </div></details>
+        </div>
         <p class="results-disclaimer"></p>
         <div class="result-actions">
         <button class="save-btn" onclick="saveDeal('hmo')" id="btn-save-hmo">Save deal</button>
@@ -846,7 +891,6 @@ body.theme-light .dd-trigger::after{
         <p class="sl">Results</p>
         <div class="results-hold" id="sa-hold" hidden></div>
         <div class="deal-insights" id="sa-insights"></div>
-        <div class="deal-stress" id="sa-stress"></div>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('sa','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('sa','r')">Repayment</button>
@@ -944,6 +988,18 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="sa-ly">12</span>% gross yield</p><p class="ov" id="sa-oy">—</p><p class="on" id="sa-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="sa-lr">20</span>% ROI (interest-only mortgage)</p><p class="ov" id="sa-or">—</p><p class="on" id="sa-orn"></p></div>
+        <div class="rsecs">
+          <details class="rsec" id="sa-sec-stress"><summary><span class="rsec-t">Stress test</span><span class="rsec-s" id="sa-sec-stress-sum"></span></summary><div class="rsec-body"><div class="deal-stress" id="sa-stress"></div></div></details>
+          <details class="rsec" id="sa-sec-compare"><summary><span class="rsec-t">Compare strategies</span><span class="rsec-s" id="sa-sec-compare-sum"></span></summary><div class="rsec-body" id="sa-compare"></div></details>
+          <details class="rsec" id="sa-sec-proj"><summary><span class="rsec-t">10-year projection</span><span class="rsec-s" id="sa-sec-proj-sum"></span></summary><div class="rsec-body">
+            <div class="pj-inputs">
+              <div class="f"><label for="sa-pj-cg">Capital growth % a year</label><input type="number" id="sa-pj-cg" step="0.1" oninput="DealPlanning.onProjInput('sa')"/></div>
+              <div class="f"><label for="sa-pj-rg">Rent growth % a year</label><input type="number" id="sa-pj-rg" step="0.1" oninput="DealPlanning.onProjInput('sa')"/></div>
+              <button type="button" class="pj-switch" id="sa-pj-costs" role="switch" aria-checked="true" onclick="DealPlanning.toggleCosts('sa')"><span class="sw" aria-hidden="true"></span><span>Costs rise with rent</span></button>
+            </div>
+            <div id="sa-proj"></div>
+          </div></details>
+        </div>
         <p class="results-disclaimer"></p>
         <div class="result-actions">
         <button class="save-btn" onclick="saveDeal('sa')" id="btn-save-sa">Save deal</button>
@@ -1324,7 +1380,7 @@ function switchFinTab(strategy,mode){
 // it. Never a substitute for Save deal / saved defaults.
 // ---------------------------------------------------------------------
 const DRAFT_FIELD_IDS={
-  btl:['b-pp','b-emv','b-rent','b-mr','b-term','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr','bb-refi-ltv'],
+  btl:['b-pp','b-emv','b-rent','b-mr','b-term','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr','bb-refi-ltv','bb-refi-months','b-lc-stress','b-lc-cover'],
   hmo:['h-pp','h-emv','h-mr','h-term','h-dp','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-maint','h-mgmt','h-r1p','h-r1n','h-r2p','h-r2n','h-r3p','h-r3n','h-r4p','h-r4n','h-ty','h-troi','hb-refi-ltv'],
   sa:['sa-rate','sa-occ','sa-pp','sa-emv','sa-mr','sa-term','sa-dp','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-mgmt','sa-util','sa-maint','sa-clean','sa-ins','sa-ct','sa-ty','sa-troi','sab-refi-ltv'],
   flip:['fl-pp','fl-bf','fl-ref','fl-sv','fl-agent','fl-cont','fl-troi'],
@@ -1491,6 +1547,9 @@ const RANGE_RULES=(function(){
   add(['fl-agent'],{min:0,max:20,msg:'Estate agent fee must be between 0 and 20%.'});
   add(['b-ty','h-ty','sa-ty'],{min:0,minExclusive:true,max:100,msg:'Target yield must be more than 0% and no more than 100%.'});
   add(['b-tr','h-troi','sa-troi','fl-troi'],{min:0,max:200,msg:'Target ROI must be between 0 and 200%.'});
+  add(['b-lc-stress'],{min:0,minExclusive:true,max:20,msg:'Stress rate must be more than 0% and no more than 20%.'});
+  add(['b-lc-cover'],{min:100,max:300,msg:'Rent cover must be between 100% and 300%.'});
+  add(['bb-refi-months'],{min:0,max:60,integer:true,msg:'Enter a whole number of months, 0 to 60.'});
   add(['h-r1n','h-r2n','h-r3n','h-r4n'],{min:0,max:50,integer:true,msg:'Enter a whole number of rooms, 0 to 50.'});
   return r;
 })();
@@ -1777,6 +1836,10 @@ const FIELD_HELP={
   'b-dp':'Deposit: the share of the price you pay yourself. The lender covers the rest. Typical: 25%.',
   'bb-refi-ltv':'Refinance LTV: how much the lender will lend against the new value. Typical: 75%.',
   'bb-refi-type':'Refinance type: interest-only keeps payments low, repayment pays the loan off over the term. Typical: interest-only.',
+  'bb-refi-months':'Months until refinance: how long after buying you plan to refinance at the new value. Typical: 6 months.',
+  'b-lc-own':'Ownership type: who buys the property. Lenders ask higher rate taxpayers for more rent cover. Typical: limited company.',
+  'b-lc-stress':'Stress rate: the interest rate a lender tests the rent against, usually higher than your actual rate. Typical: 5.5%.',
+  'b-lc-cover':'Rent cover: how much the rent must exceed the stressed mortgage payment. Typical: 125%, or 145% for a higher rate taxpayer.',
   'b-mr':'Mortgage rate: the yearly interest rate on the loan. Typical: 4% to 6%.',
   'b-term':'Mortgage term: how many years the loan runs for. Typical: 25 years.',
   'b-sol':'Solicitor fees: legal costs for the purchase. Typical: £1,200 to £2,000.',
@@ -2082,6 +2145,7 @@ function currentIndexDraftState(){
     lastStrategyTab,
     fields,
     refi,
+    planning: window.DealPlanning?DealPlanning.getState():null,
     comps:{
       postcode: postcodeEl?postcodeEl.value:'',
       propertyType: getDDValue('cp-type'),
@@ -2133,6 +2197,8 @@ function restoreIndexDraft(){
       });
     }
   }catch(e){ /* refi restore failed — leave those fields at their defaults */ }
+
+  try{ if(d.planning&&window.DealPlanning)DealPlanning.setState(d.planning); }catch(e){ /* keep the defaults */ }
 
   try{
     const c=d.comps;
@@ -2187,6 +2253,7 @@ function flashCalcActionsMsg(text){
 }
 function resetCalcExtras(){
   Object.values(REFI_TYPE_IDS).forEach(id=>setDDValue(id,'io',REFI_TYPE_LABELS.io));
+  if(window.DealPlanning)DealPlanning.reset();
   Object.values(ackedWarnings).forEach(set=>set.clear());
   ALL_CALC_INPUT_IDS.forEach(id=>showFieldError(id,null));
   closeFieldHelp();
