@@ -23,6 +23,8 @@
 <script src="/auth-guard.js"></script>
 <script src="/draft-state.js"></script>
 <script src="/onboarding-tutorial.js"></script>
+<script src="/calc-engine.js"></script>
+<script src="/home-widgets.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css
    (theme-light tokens on this page, since <body> carries that class). */
@@ -132,6 +134,126 @@
 .stage-name{color:var(--ink);flex:1}
 .stage-count{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
 .pipeline-stage-empty{margin-top:4px}
+
+/* ===================== Home widgets (home-widgets.js) ===================== */
+.header-row h1{margin-top:0}
+.motto{font-family:var(--font-body);font-style:italic;font-size:15px;color:var(--muted);margin:.4rem 0 0;max-width:46ch}
+
+/* hero: figures left, portfolio street right; stacked on phones */
+.hero-panel{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:var(--space-6);align-items:center}
+@media(max-width:760px){.hero-panel{grid-template-columns:1fr;gap:var(--space-5)}}
+.hero-add{display:inline-block;font-size:13px;font-weight:600;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.45);border-radius:999px;padding:3px 12px;margin-top:2px}
+.hero-add:hover{background:rgba(255,255,255,.12)}
+
+.street{display:flex;flex-direction:column;align-items:center;min-width:0}
+.street-row{display:flex;align-items:flex-end;justify-content:center;gap:6px;flex-wrap:nowrap;width:100%}
+.house{width:clamp(32px,6vw,58px);height:auto;flex:0 1 auto;fill:none;stroke:rgba(255,255,255,.4);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+  opacity:0;transform:translateY(10px);animation:house-rise .5s ease forwards;animation-delay:calc(var(--i) * 70ms + 150ms)}
+.house:not(.owned){stroke-dasharray:3 3}
+.house.owned{stroke:#fff}
+.house .house-fill{fill:rgba(255,255,255,.18);stroke:none}
+.street-row.still .house{animation:none;opacity:1;transform:none}
+@keyframes house-rise{to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.house{animation:none;opacity:1;transform:none}}
+.street-more{font-size:13px;font-weight:600;color:rgba(255,255,255,.8);align-self:center;padding-left:4px}
+.street-ground{width:100%;height:1px;background:rgba(255,255,255,.28);margin-top:2px}
+.street-caption{font-size:12px;color:rgba(255,255,255,.72);margin:var(--space-2) 0 0;letter-spacing:.02em}
+
+/* your next move */
+.next-move{display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap}
+.next-move-icon{width:40px;height:40px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:rgba(75,69,178,.09);color:var(--accent)}
+.next-move.positive .next-move-icon{background:var(--success-bg);color:var(--success-ink)}
+.next-move-icon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.next-move-text{flex:1;min-width:200px}
+.next-move-title{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 2px}
+.next-move-body{font-size:13px;color:var(--muted);margin:0;line-height:1.5}
+.next-move-cta{text-decoration:none;border-radius:10px;white-space:nowrap}
+@media(max-width:520px){.next-move-cta{width:100%;text-align:center}}
+
+/* goals + quick analyse row */
+.duo-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-bottom:var(--space-4)}
+.duo-grid.single{grid-template-columns:1fr}
+@media(max-width:760px){.duo-grid{grid-template-columns:1fr}}
+.duo-grid .card h2,.milestones-card h2,.growth-card h2,#needs-attention-card h2{font-size:14px;font-weight:600;margin:0 0 var(--space-4)}
+.goals-head{display:flex;justify-content:space-between;align-items:baseline}
+.goals-edit{font-size:12px;font-weight:500;color:var(--accent);text-decoration:none}
+.goals-empty{font-size:13.5px;color:var(--muted);line-height:1.55;margin:0 0 var(--space-4)}
+.goals-card .btn-primary{text-decoration:none;display:inline-block;border-radius:10px}
+.goal-ring{display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4)}
+.ring-wrap{position:relative;width:84px;height:84px;flex-shrink:0}
+.ring{width:84px;height:84px;transform:rotate(-90deg)}
+.ring-track{fill:none;stroke:var(--surface-2);stroke-width:9}
+.ring-fill{fill:none;stroke:var(--accent);stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset .8s ease}
+.ring-fill[style]{animation:ring-in 1s ease both}
+@keyframes ring-in{from{stroke-dashoffset:var(--c)}}
+@media(prefers-reduced-motion:reduce){.ring-fill{animation:none!important;transition:none}}
+.ring-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.goal-big{font-size:20px;font-weight:700;color:var(--ink);margin:0;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.goal-big span{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:0}
+.goal-label{font-size:12px;color:var(--muted);margin:2px 0 0}
+.goal-count{margin-bottom:var(--space-3)}
+.goal-bar{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-top:8px}
+.goal-bar div{height:100%;background:var(--accent);border-radius:999px}
+.goal-date{font-size:12.5px;font-weight:600;color:var(--accent);margin:var(--space-3) 0 0}
+
+.qa-sub{font-size:13px;color:var(--muted);margin:-.6rem 0 var(--space-4)}
+.qa-inputs{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
+@media(max-width:400px){.qa-inputs{grid-template-columns:1fr}}
+.qa-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.qa-field span{font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--input-muted,var(--muted))}
+.qa-field input{border:1.5px solid var(--input-hairline,var(--hairline));border-radius:var(--radius-sm);padding:10px 12px;font-size:15px;font-family:var(--font-body);background:var(--input-surface,#fff);color:var(--ink);width:100%;min-width:0}
+.qa-field input:focus{outline:none;border-color:var(--accent)}
+.qa-results{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin:var(--space-4) 0 var(--space-2)}
+.qa-res{background:var(--surface-2);border-radius:12px;padding:.8rem .9rem;min-width:0}
+.qa-res-l{display:block;font-size:11px;color:var(--muted);letter-spacing:.02em;margin-bottom:2px}
+.qa-res-v{display:block;font-size:20px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.qa-res-v.good{color:var(--success-ink)}
+.qa-res-v.warn{color:var(--warn-ink)}
+.qa-note{font-size:12px;color:var(--muted);margin:0 0 var(--space-3);min-height:1.2em}
+.qa-full{width:100%;border-radius:10px}
+
+/* milestones */
+.milestones-card,.growth-card{margin-bottom:var(--space-4)}
+.milestones{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.ms{display:flex;align-items:center;gap:.55rem;padding:.45rem .85rem .45rem .45rem;border-radius:999px;border:1px solid var(--hairline);background:var(--surface)}
+.ms-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ms-icon svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ms.earned .ms-icon{background:linear-gradient(135deg,var(--accent),#37317f);color:#fff}
+.ms.earned .ms-label{color:var(--ink)}
+.ms.next{border-style:dashed;background:transparent}
+.ms.next .ms-icon{background:var(--surface-2);color:var(--muted)}
+.ms-text{display:flex;flex-direction:column;line-height:1.2}
+.ms-kicker{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ms-label{font-size:12.5px;font-weight:600;color:var(--muted)}
+.ms-hint{font-size:12.5px;color:var(--muted);margin:0;align-self:center}
+@media(max-width:520px){.milestones{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.ms{padding:.4rem .6rem .4rem .4rem;border-radius:14px}.ms-label{font-size:12px}.ms-hint{grid-column:1/-1}}
+.ms.just-earned{animation:ms-pop 1.2s ease}
+@keyframes ms-pop{0%{transform:scale(.85);box-shadow:0 0 0 0 rgba(75,69,178,.35)}40%{transform:scale(1.05);box-shadow:0 0 0 8px rgba(75,69,178,0)}100%{transform:none}}
+.ms-toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;z-index:500;
+  background:var(--ink,#1a1a2e);color:#fff;border-radius:14px;padding:.7rem 1.1rem;display:flex;flex-direction:column;align-items:center;gap:1px;
+  font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.2);transition:opacity .3s ease,transform .3s ease;pointer-events:none;text-align:center}
+.ms-toast.show{opacity:1;transform:translate(-50%,0)}
+.ms-toast-kicker{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#c7c4ea}
+@media(min-width:761px){.ms-toast{bottom:2rem}}
+@media(prefers-reduced-motion:reduce){.ms-toast{transition:none}}
+
+/* equity growth chart */
+.growth-note{display:flex;align-items:center;gap:.6rem;font-size:13px;color:var(--muted);margin:0}
+.growth-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(75,69,178,.15);flex-shrink:0}
+.g-wrap{position:relative;width:100%;overflow:hidden}
+.g-svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.g-grid{stroke:var(--hairline);stroke-width:1}
+.g-tick{font-family:var(--font-body);font-size:11px;fill:var(--muted)}
+.g-line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.g-area{fill:rgba(75,69,178,.08);stroke:none}
+.g-end,.g-hover{fill:var(--accent);stroke:var(--surface,#fff);stroke-width:2}
+.g-cross{stroke:var(--hairline-strong,#ccc);stroke-width:1}
+.g-hit{fill:transparent;cursor:crosshair}
+.g-tip{position:absolute;pointer-events:none;background:var(--surface,#fff);border:1px solid var(--hairline);border-radius:10px;padding:.55rem .7rem;box-shadow:0 6px 20px rgba(0,0,0,.08);font-size:12px;color:var(--ink);white-space:nowrap}
+.g-tip p{margin:0;display:flex;justify-content:space-between;gap:1rem;font-variant-numeric:tabular-nums}
+.g-tip p span{color:var(--muted)}
+.g-tip .g-tip-m{font-weight:600;margin-bottom:3px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>
 </head>
 <body class="theme-light">
@@ -148,28 +270,60 @@
 
   <div class="header-row">
     <div>
-      <p class="eyebrow" id="greeting-eyebrow">—</p>
-      <h1 id="welcome-name">—</h1>
+      <h1 id="welcome-name">Good morning</h1>
+      <p class="motto" id="motto" hidden></p>
     </div>
     <a class="btn-primary" href="/index.html">Analyse a new deal</a>
   </div>
 
   <div class="hero-row">
     <div class="card hero-panel">
-      <p class="hero-label">Monthly cashflow</p>
-      <p class="hero-number" id="hero-cashflow">—</p>
-      <div class="hero-figures">
-        <div class="hero-fig"><span class="hero-fig-label">Total equity</span><span class="hero-fig-value" id="hero-equity">—</span></div>
-        <div class="hero-fig"><span class="hero-fig-label">Portfolio value</span><span class="hero-fig-value" id="hero-value">—</span></div>
-        <div class="hero-fig"><span class="hero-fig-label">Properties</span><span class="hero-fig-value" id="hero-properties">—</span></div>
+      <div class="hero-main">
+        <p class="hero-label">Monthly cashflow</p>
+        <p class="hero-number" id="hero-cashflow">—</p>
+        <div class="hero-figures">
+          <div class="hero-fig"><span class="hero-fig-label">Total equity</span><span class="hero-fig-value" id="hero-equity">—</span></div>
+          <div class="hero-fig"><span class="hero-fig-label">Portfolio value</span><span class="hero-fig-value" id="hero-value">—</span></div>
+          <div class="hero-fig"><span class="hero-fig-label">Properties</span><span class="hero-fig-value" id="hero-properties">—</span></div>
+        </div>
+        <p class="hero-note" id="hero-note" hidden></p>
       </div>
-      <p class="hero-note" id="hero-note" hidden></p>
+      <div class="street" id="street" role="img" aria-label="Your portfolio street"></div>
     </div>
   </div>
 
-  <div class="card" id="needs-attention-card" style="display:none;margin-bottom:var(--space-4)">
-    <h2>Needs attention</h2>
-    <div id="needs-attention-list"></div>
+  <div class="card" id="needs-attention-card" style="margin-bottom:var(--space-4)">
+    <h2 id="needs-attention-title">Your next move</h2>
+    <div id="needs-attention-list"><p class="hint">Loading…</p></div>
+  </div>
+
+  <div class="duo-grid">
+    <div class="card goals-card" id="goals-card" hidden></div>
+    <div class="card qa-card" id="qa-card">
+      <h2>Quick analyse</h2>
+      <p class="qa-sub">Two numbers, instant answer.</p>
+      <div class="qa-inputs">
+        <label class="qa-field"><span>Purchase price (£)</span><input type="text" inputmode="decimal" id="qa-price" placeholder="e.g. 150,000" autocomplete="off"/></label>
+        <label class="qa-field"><span>Monthly rent (£)</span><input type="text" inputmode="decimal" id="qa-rent" placeholder="e.g. 900" autocomplete="off"/></label>
+      </div>
+      <div class="qa-results" id="qa-results" aria-live="polite">
+        <div class="qa-res"><span class="qa-res-l">Gross yield</span><span class="qa-res-v" id="qa-yield">—</span></div>
+        <div class="qa-res"><span class="qa-res-l" id="qa-bid-label">Max bid at 7% yield</span><span class="qa-res-v" id="qa-bid">—</span></div>
+      </div>
+      <p class="qa-note" id="qa-note">Yield on purchase price. Add end value and costs in the full analysis.</p>
+      <button type="button" class="btn-secondary qa-full" id="qa-full">Full analysis</button>
+      <div hidden id="qa-engine" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <div class="card milestones-card" id="milestones-card">
+    <h2>Milestones</h2>
+    <div class="milestones" id="milestones"></div>
+  </div>
+
+  <div class="card growth-card" id="growth-card" hidden>
+    <h2 id="growth-title">Equity growth</h2>
+    <div id="growth-body"></div>
   </div>
 
   <div id="empty-state" style="display:none">
@@ -200,7 +354,8 @@
 <script>
 let sbClient=null, currentSession=null;
 let savedDeals=[], pipelineDeals=[], pipelineLocked=false;
-let portfolioCount=0, portfolioTotals=null, portfolioLocked=false;
+let portfolioCount=0, portfolioTotals=null, portfolioLocked=false, portfolioProperties=[];
+let profileData={}, snapshots=[], snapshotsAvailable=false;
 let needsAttention=[];
 let hasCompletedTutorial=true; // fails closed (assume "already seen") if the profile fetch below doesn't come back
 
@@ -247,12 +402,11 @@ function keyFigure(d){
 }
 
 // Greeting: "Good morning, Cameron" using the first name from the profile
-// (Settings > Account > First name), or the one given at signup. Falls back
-// to "there". Never derived from the email address.
+// (Settings > Account > First name), or the one given at signup. With no
+// name it's just "Good morning". Never derived from the email address.
 function setGreeting(fullName){
-  const first=(fullName||'').trim().split(/\s+/)[0]||'there';
-  document.getElementById('greeting-eyebrow').style.display='none';
-  document.getElementById('welcome-name').textContent=greetingForHour()+', '+first;
+  const first=(fullName||'').trim().split(/\s+/)[0]||'';
+  document.getElementById('welcome-name').textContent=first?greetingForHour()+', '+first:greetingForHour();
 }
 
 function greetingForHour(){
@@ -297,6 +451,7 @@ async function loadDashboard(){
     const body=await res.json();
     if(res.ok&&body&&Array.isArray(body.properties)){
       portfolioCount=body.properties.length;
+      portfolioProperties=body.properties;
       portfolioTotals=body.totals;
       portfolioLocked=false;
     }else if(res.status===403){
@@ -328,6 +483,7 @@ async function loadDashboard(){
     const res=await fetch(API_BASE+'/api/profile',{headers});
     const body=await res.json();
     hasCompletedTutorial=res.ok?!!body.has_completed_tutorial:true;
+    if(res.ok)profileData=body||{};
     const meta=(currentSession.user&&currentSession.user.user_metadata)||{};
     const signupName=typeof meta.first_name==='string'?meta.first_name.trim():'';
     if(res.ok)setGreeting(body.name||signupName);
@@ -338,6 +494,17 @@ async function loadDashboard(){
     }
   }catch(e){
     hasCompletedTutorial=true;
+  }
+
+  // Monthly snapshots for the equity chart (db/043). Only paid users with
+  // properties have any; anything else just leaves the chart hidden.
+  if(!portfolioLocked&&portfolioCount>0){
+    try{
+      const res=await fetch(API_BASE+'/api/portfolio/snapshots',{headers});
+      const body=await res.json();
+      snapshots=(res.ok&&body&&Array.isArray(body.snapshots))?body.snapshots:[];
+      snapshotsAvailable=!!(res.ok&&body&&body.available);
+    }catch(e){ snapshots=[]; snapshotsAvailable=false; }
   }
 
   render();
@@ -353,7 +520,10 @@ function render(){
   const hasPortfolio=!portfolioLocked&&portfolioCount>0&&portfolioTotals;
   const t=portfolioTotals||{};
   document.getElementById('hero-cashflow').textContent=hasPortfolio?fmtC(t.total_monthly_cashflow):'—';
-  document.getElementById('hero-equity').textContent=hasPortfolio&&t.total_equity!=null?fmtC(t.total_equity):'—';
+  const equityEl=document.getElementById('hero-equity');
+  if(hasPortfolio&&t.total_equity!=null)equityEl.textContent=fmtC(t.total_equity);
+  else if(!portfolioLocked)equityEl.innerHTML='<a class="hero-add" href="/portfolio.html">Add value</a>';
+  else equityEl.textContent='—';
   document.getElementById('hero-value').textContent=hasPortfolio&&t.portfolio_value!=null?fmtC(t.portfolio_value):'—';
   document.getElementById('hero-properties').textContent=hasPortfolio?portfolioCount:(portfolioLocked?'—':'0');
   const heroNote=document.getElementById('hero-note');
@@ -403,35 +573,20 @@ function render(){
 
   }
 
-  // Needs Attention — populated unconditionally too, same reasoning as
-  // above. Silently absent for a free/pipeline-locked user (no locked-panel
-  // nudge here, unlike Pipeline/Board — this card is entirely about
-  // pipelined deals, which a free user can never have any of, so there's
-  // nothing to gently upsell around). needsAttention is always [] for a
-  // free user anyway (they can't have any pipelined deals), so this is a
-  // display decision, not a data one.
-  const naCard=document.getElementById('needs-attention-card');
-  const naList=document.getElementById('needs-attention-list');
-  if(pipelineLocked){
-    naCard.style.display='none';
-  }else{
-    naCard.style.display='block';
-    if(needsAttention.length===0){
-      naList.innerHTML='<p class="hint na-caught-up">You\'re all caught up. Nothing needs attention.</p>';
-    }else{
-      const REASON_LABEL={chase:'Chase',update:'Update',review:'Review',refinance:'Refinance'};
-      naList.innerHTML=needsAttention.map(n=>`<a class="na-row" href="${n.reason==='refinance'?'/portfolio.html':(n.deal_id?'/saved-deals.html?openDeal='+encodeURIComponent(n.deal_id):'/saved-deals.html')}">
-        <span class="na-info">
-          <span class="na-name">${escapeHtml(n.deal_name||'Untitled deal')}</span>
-          <span class="na-detail">${escapeHtml(n.detail)}</span>
-        </span>
-        <span class="na-tag ${escapeHtml(n.reason)}">${escapeHtml(REASON_LABEL[n.reason]||n.reason)}</span>
-      </a>`).join('');
-    }
-  }
+  // Portfolio street, goals, next move (urgent items or one suggestion),
+  // milestones, quick analyse and equity chart: home-widgets.js.
+  HomeWidgets.renderMotto(profileData.motto);
+  HomeWidgets.render({
+    userId: currentSession&&currentSession.user?currentSession.user.id:null,
+    savedDeals, pipelineDeals, pipelineLocked,
+    properties: portfolioProperties, portfolioTotals, portfolioLocked,
+    needsAttention, profile: profileData, snapshots, snapshotsAvailable
+  });
 
   if(savedDeals.length===0){
-    document.getElementById('empty-state').style.display='block';
+    // "Your next move" already says "Analyse your first deal" for a new
+    // user, so the old Get started card would only repeat it.
+    document.getElementById('empty-state').style.display='none';
     document.getElementById('dashboard-content').style.display='none';
     return;
   }

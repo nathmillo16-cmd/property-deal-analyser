@@ -1455,7 +1455,56 @@ app.get('/api/portfolio', async (req, res) => {
   if (error) return res.status(400).json({ error: error.message });
 
   const properties = data.map((p) => ({ ...p, ...computePropertyFigures(p) }));
-  res.json({ properties, totals: computePortfolioTotals(data) });
+  const totals = computePortfolioTotals(data);
+  await recordPortfolioSnapshot(supabase, data.length, totals);
+  res.json({ properties, totals });
+});
+
+// Monthly snapshot for the equity growth chart (db/043). At most one row
+// per user per calendar month: the unique (user_id, month) key plus
+// ignoreDuplicates means only the first portfolio load of the month is
+// kept. Skipped when the user owns nothing. Never blocks or fails the
+// portfolio response: before db/043 is run the insert simply errors and is
+// ignored.
+async function recordPortfolioSnapshot(supabase, propertyCount, totals) {
+  if (!propertyCount) return;
+  try {
+    const now = new Date();
+    const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData || !userData.user) return;
+    const { error } = await supabase.from('portfolio_snapshots').upsert({
+      user_id: userData.user.id,
+      month,
+      portfolio_value: Math.round(totals.portfolio_value),
+      total_equity: totals.total_equity == null ? null : Math.round(totals.total_equity),
+      monthly_cashflow: Math.round(totals.total_monthly_cashflow),
+      property_count: propertyCount,
+    }, { onConflict: 'user_id,month', ignoreDuplicates: true });
+    if (error && !/does not exist|schema cache/i.test(error.message)) console.error('Portfolio snapshot failed:', error.message);
+  } catch (e) {}
+}
+
+// Snapshots for the Home equity chart, oldest first. Paid-gated like the
+// rest of the portfolio. Before db/043 is run this returns
+// { snapshots: [], available: false } instead of an error.
+app.get('/api/portfolio/snapshots', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the portfolio.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the portfolio.' });
+  }
+
+  const { data, error } = await supabase
+    .from('portfolio_snapshots')
+    .select('month, portfolio_value, total_equity, monthly_cashflow, property_count')
+    .order('month', { ascending: true })
+    .limit(120);
+
+  if (error) return res.json({ snapshots: [], available: false });
+  res.json({ snapshots: data || [], available: true });
 });
 
 app.delete('/api/portfolio/:id', async (req, res) => {
@@ -1986,7 +2035,77 @@ app.get('/api/profile', async (req, res) => {
     if (!tutorialError && tutorialRow) hasCompletedTutorial = !!tutorialRow.has_completed_tutorial;
   } catch (e) {}
 
-  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial });
+  // Goals and motto (db/042): same decoupled, failure-tolerant query as
+  // the fields above. goals_available tells the page whether the columns
+  // exist yet, so it can hide the goals UI instead of erroring before the
+  // migration has been run.
+  let goals = { goal_monthly_cashflow: null, goal_property_count: null, goal_target_date: null, motto: null, goals_available: false };
+  try {
+    const { data: goalsRow, error: goalsError } = await supabase
+      .from('profiles')
+      .select('goal_monthly_cashflow, goal_property_count, goal_target_date, motto')
+      .eq('user_id', userId)
+      .single();
+    if (!goalsError && goalsRow) goals = { ...goalsRow, goals_available: true };
+  } catch (e) {}
+
+  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals });
+});
+
+// Goals and motto (Settings > Goals, db/042). A narrow update of just these
+// four columns, same reason as /api/profile/name: the full POST /api/profile
+// upsert would overwrite saved calculator defaults. Not plan-gated: goals
+// are part of the free Home page. Blank means "not set" (null).
+app.post('/api/profile/goals', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to save your goals.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: 'Log in to save your goals.' });
+  }
+
+  const body = req.body || {};
+  const blank = (v) => v === null || v === undefined || v === '';
+  const update = {};
+
+  if (blank(body.goal_monthly_cashflow)) update.goal_monthly_cashflow = null;
+  else {
+    const n = Number(body.goal_monthly_cashflow);
+    if (!Number.isFinite(n) || n <= 0 || n > 10000000) return res.status(400).json({ error: 'Target monthly cashflow must be a positive number, or blank.' });
+    update.goal_monthly_cashflow = Math.round(n);
+  }
+
+  if (blank(body.goal_property_count)) update.goal_property_count = null;
+  else {
+    const n = Number(body.goal_property_count);
+    if (!Number.isInteger(n) || n < 1 || n > 1000) return res.status(400).json({ error: 'Target properties must be a whole number from 1 to 1000, or blank.' });
+    update.goal_property_count = n;
+  }
+
+  if (blank(body.goal_target_date)) update.goal_target_date = null;
+  else if (typeof body.goal_target_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.goal_target_date) && !Number.isNaN(Date.parse(body.goal_target_date))) {
+    update.goal_target_date = body.goal_target_date;
+  } else return res.status(400).json({ error: 'Target date must be a valid date, or blank.' });
+
+  const motto = typeof body.motto === 'string' ? body.motto.trim() : '';
+  if (motto.length > 80) return res.status(400).json({ error: 'Your motto can be up to 80 characters.' });
+  update.motto = motto || null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(update)
+    .eq('user_id', userData.user.id)
+    .select('goal_monthly_cashflow, goal_property_count, goal_target_date, motto')
+    .single();
+
+  if (error) {
+    // Most likely cause before db/042 is run: the columns don't exist yet.
+    console.error('Goals save failed:', error.message);
+    return res.status(400).json({ error: 'Goals could not be saved right now. Please try again later.' });
+  }
+  res.json(data);
 });
 
 // Marks the onboarding tutorial complete — called when a user finishes OR

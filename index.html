@@ -1469,6 +1469,9 @@ function applyRerunPayload(){
     if(payload.dealId){
       note.textContent='Re-running this deal with its updated refurb cost. Saving automatically.';
       pendingRerun=payload;
+    }else if(typeof payload.note==='string'&&payload.note){
+      // e.g. Quick analyse on Home: its own short explanation.
+      note.textContent=payload.note;
     }else{
       // Defensive fallback only — every payload rerun-prefill.js builds now
       // carries a dealId. Covers a payload written by an old cached tab
@@ -1694,16 +1697,20 @@ function renderBRRRHeadline(){
 const _cBTLEngine=cBTL;
 cBTL=function(){ _cBTLEngine(); renderBRRRHeadline(); };
 
-function runBTL(){ cBTL(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; saveIndexDraft(); }
+// Remembers (this device only) when a deal was last analysed, for Home's
+// "First deal analysed" milestone and "Analyse your next deal" nudge.
+function noteAnalysed(){ try{ localStorage.setItem('dny-analysed-at', String(Date.now())); }catch(e){} }
+
+function runBTL(){ cBTL(); noteAnalysed(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; saveIndexDraft(); }
 function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; checkValueWarningBTL(); saveIndexDraft(); }
 
-function runHMO(){ cHMO(); hmoAnalysed=true; document.getElementById('hmo-stale').style.display='none'; saveIndexDraft(); }
+function runHMO(){ cHMO(); noteAnalysed(); hmoAnalysed=true; document.getElementById('hmo-stale').style.display='none'; saveIndexDraft(); }
 function markStaleHMO(){ if(hmoAnalysed) document.getElementById('hmo-stale').style.display='block'; checkValueWarningHMO(); saveIndexDraft(); }
 
-function runSA(){ cSA(); saAnalysed=true; document.getElementById('sa-stale').style.display='none'; saveIndexDraft(); }
+function runSA(){ cSA(); noteAnalysed(); saAnalysed=true; document.getElementById('sa-stale').style.display='none'; saveIndexDraft(); }
 function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style.display='block'; checkValueWarningSA(); saveIndexDraft(); }
 
-function runFlip(){ cFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; saveIndexDraft(); }
+function runFlip(){ cFlip(); noteAnalysed(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; saveIndexDraft(); }
 function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; checkValueWarningFlip(); saveIndexDraft(); }
 
 let lastCompsResult=null, lastCrimeResult=null, lastPlanningResult=null, lastEmploymentResult=null;

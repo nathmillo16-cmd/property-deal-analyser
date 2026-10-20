@@ -140,6 +140,24 @@
         <p class="save-msg" id="password-msg"></p>
       </div>
 
+      <!-- GOALS -->
+      <div class="card settings-card" id="goals">
+        <h2>Goals</h2>
+        <p class="hint" style="margin-bottom:1rem">Shown on Home as your progress. Everything here is optional.</p>
+        <div class="investment-defaults-grid">
+          <div class="field"><label>Target monthly cashflow (£)</label><input type="number" id="goal-cashflow" min="1" step="50" inputmode="numeric" placeholder="e.g. 1500"/></div>
+          <div class="field"><label>Target number of properties</label><input type="number" id="goal-properties" min="1" step="1" inputmode="numeric" placeholder="e.g. 5"/></div>
+          <div class="field"><label>Target date (optional)</label><input type="date" id="goal-date"/></div>
+        </div>
+        <div class="field">
+          <label>Personal motto (optional)</label>
+          <input type="text" id="goal-motto" maxlength="80" placeholder="e.g. 30 before 30" oninput="updateMottoCount()"/>
+          <p class="hint" id="goal-motto-count" style="margin:4px 0 0">0 of 80 characters</p>
+        </div>
+        <button class="btn-primary" id="btn-save-goals" onclick="saveGoals()">Save goals</button>
+        <p class="save-msg" id="goals-msg"></p>
+      </div>
+
       <!-- HELP -->
       <div class="card settings-card">
         <h2>Help</h2>
@@ -245,7 +263,14 @@ async function init(){
   document.getElementById('set-email').textContent=email||'—';
 
   showState('content');
-  loadProfile();
+  // Home's "Set your goals" links here with #goals; jump there once the
+  // profile has filled the fields in.
+  loadProfile().finally(function(){
+    if(location.hash==='#goals'){
+      const g=document.getElementById('goals');
+      if(g){g.scrollIntoView({block:'start'});const f=document.getElementById('goal-cashflow');if(f)f.focus({preventScroll:true});}
+    }
+  });
   Tutorial.resumeIfActive(currentSession.access_token);
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
@@ -275,6 +300,15 @@ async function loadProfile(){
     // user's metadata) until one is saved to the profile.
     const meta=(currentSession.user&&currentSession.user.user_metadata)||{};
     document.getElementById('set-name').value=d.name||meta.first_name||'';
+
+    // Goals (db/042). Before that migration is run, goals_available is
+    // false: the fields stay blank and saving explains it isn't ready.
+    goalsAvailable=!!d.goals_available;
+    document.getElementById('goal-cashflow').value=d.goal_monthly_cashflow!=null?d.goal_monthly_cashflow:'';
+    document.getElementById('goal-properties').value=d.goal_property_count!=null?d.goal_property_count:'';
+    document.getElementById('goal-date').value=d.goal_target_date||'';
+    document.getElementById('goal-motto').value=d.motto||'';
+    updateMottoCount();
 
     const badge=document.getElementById('set-plan-badge');
     const isPaid=d.plan==='paid';
@@ -355,6 +389,42 @@ async function saveInvestmentDefaults(){
 // deliberately NOT the existing POST /api/profile (that one upserts the
 // full calculator-defaults payload and would null out target_yield etc.
 // if reused here for a name-only save).
+let goalsAvailable=false;
+
+function updateMottoCount(){
+  const n=document.getElementById('goal-motto').value.length;
+  document.getElementById('goal-motto-count').textContent=n+' of 80 characters';
+}
+
+async function saveGoals(){
+  const btn=document.getElementById('btn-save-goals');
+  const msg=document.getElementById('goals-msg');
+  msg.textContent='';msg.className='save-msg';
+  if(!goalsAvailable){
+    msg.textContent='Goals are not available yet. Please try again later.';msg.className='save-msg error';
+    return;
+  }
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    const res=await fetch(API_BASE+'/api/profile/goals',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({
+        goal_monthly_cashflow:document.getElementById('goal-cashflow').value,
+        goal_property_count:document.getElementById('goal-properties').value,
+        goal_target_date:document.getElementById('goal-date').value,
+        motto:document.getElementById('goal-motto').value
+      })
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not save your goals.');
+    msg.textContent='Saved. Your progress shows on Home.';msg.className='save-msg success';
+  }catch(e){
+    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;btn.textContent='Save goals';
+}
+
 async function saveName(){
   const btn=document.getElementById('btn-save-name');
   const msg=document.getElementById('name-msg');
