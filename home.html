@@ -124,6 +124,7 @@
 .na-tag.chase,.na-tag.update{background:var(--warn-bg);color:var(--warn-ink)}
 .na-tag.review{background:var(--surface-2);color:var(--muted)}
 .na-tag.refinance{background:var(--success-bg);color:var(--success-ink)}
+.na-tag.reminder{background:rgba(75,69,178,.10);color:var(--accent)}
 .na-caught-up{margin:0}
 
 /* ---- pipeline: distribution bar + compact stage list ---- */
@@ -432,9 +433,9 @@ let profileData={}, snapshots=[], snapshotsAvailable=false;
 let needsAttention=[];
 let hasCompletedTutorial=true; // fails closed (assume "already seen") if the profile fetch below doesn't come back
 
-const STAGES=['analysing','viewing','offered','agreed','completed'];
-const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
-const STAGE_COLORS={analysing:'#c7c4ea',viewing:'#a49ee0',offered:'#7a72d4',agreed:'#4b45b2',completed:'#0f7a5a'};
+const STAGES=['analysing','viewing','offered','agreed','completed','lost'];
+const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed',lost:'Lost'};
+const STAGE_COLORS={analysing:'#c7c4ea',viewing:'#a49ee0',offered:'#7a72d4',agreed:'#4b45b2',completed:'#0f7a5a',lost:'#b9b6ae'};
 const KEY_FIGURE={
   brrr:{label:'Money left in',key:'bbMLI',type:'c'},
   btl:{label:'Gross yield',key:'gy',type:'p'},

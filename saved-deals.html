@@ -23,6 +23,9 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
+<script src="/deal-verdict.js"></script>
+<script src="/deal-cards.js"></script>
+<script src="/deal-stage-prompts.js"></script>
 <script src="/results-disclaimer.js"></script>
 <script src="/draft-state.js"></script>
 <script src="/refurb-totals.js"></script>
@@ -52,14 +55,26 @@ body.theme-light .empty-card{
   box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
 }
 
-.saved-panel-inner{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.75rem;max-width:760px}
+.saved-panel-inner{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1.5rem}
+@media(max-width:520px){.saved-panel-inner{padding:1rem}}
 /* Light-theme card treatment — matches home/portfolio's card style. */
 body.theme-light .saved-panel-inner{
   border:1px solid rgba(0,0,0,.09);
   border-radius:14px;
   box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
 }
-.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap}
+/* List rows: checkbox | smart card (deal-cards.js) filling the rest. */
+.saved-item{display:flex;align-items:flex-start;padding:.9rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:.85rem}
+.saved-item .saved-body{flex:1;min-width:0}
+.saved-item:hover{border-color:var(--hairline-strong)}
+.saved-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(min-width:760px){
+  .saved-item .saved-body{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1.2fr) minmax(130px,auto);grid-template-areas:"head figs foot" "sub figs foot";align-items:center;column-gap:1.5rem}
+  .saved-item .dc-head{grid-area:head}
+  .saved-item .dc-sub{grid-area:sub}
+  .saved-item .dc-figs{grid-area:figs;margin:0}
+  .saved-item .dc-foot{grid-area:foot;margin:0;flex-direction:column;align-items:flex-end;gap:4px}
+}
 body.theme-light .saved-item{
   border:1px solid rgba(0,0,0,.09);
   border-radius:14px;
@@ -105,7 +120,7 @@ body.theme-light .pipeline-badge{
 .list-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem}
 .bulk-bar{display:flex;align-items:center;gap:1.25rem}
 .select-all-label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);font-weight:600;cursor:pointer;font-family:var(--font-body)}
-.saved-select{display:flex;align-items:center}
+.saved-select{display:flex;align-items:center;padding-top:2px}
 
 /* ---- comparison (compare-deals.js is shared with pipeline.html, but this
    CSS is not — it's page-scoped inside saved-deals.html's own <style>
@@ -217,6 +232,55 @@ body.theme-light .dd-trigger::after{
 .activity-feedback{font-size:12.5px;color:var(--muted);margin-top:4px;font-style:italic}
 .activity-conditions{font-size:11.5px;color:var(--muted);margin-top:4px}
 .activity-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+
+/* Pipeline stats card — same hero panel as pipeline.html/home.html,
+   duplicated per page as this app does. Content comes from deal-cards.js. */
+.hero-panel{
+  background:linear-gradient(135deg, var(--accent), #37317f);
+  border:none;border-radius:16px;box-shadow:0 4px 20px rgba(75,69,178,.28);
+  color:#ffffff;padding:var(--space-6);margin-bottom:var(--space-5);
+}
+@media(max-width:520px){.hero-panel{padding:var(--space-5)}}
+.hero-label{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72);margin:0 0 var(--space-2)}
+.hero-number{font-family:var(--font-body);font-weight:700;font-size:36px;letter-spacing:-.02em;color:#ffffff;margin:0 0 var(--space-5);font-variant-numeric:tabular-nums}
+.hero-figures{display:flex;gap:var(--space-6);flex-wrap:wrap}
+.hero-fig{display:flex;flex-direction:column;gap:2px}
+.hero-fig-label{font-size:11px;color:rgba(255,255,255,.65);letter-spacing:.02em}
+.hero-fig-value{font-family:var(--font-body);font-weight:600;font-size:18px;color:#ffffff;font-variant-numeric:tabular-nums}
+
+/* Deal page additions (details, photos, checklist, reminders, listing reader). */
+.modal-card.workspace-card{max-width:680px}
+.ws-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 12px}
+.ws-link{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);margin:-.35rem 0 .85rem;overflow-wrap:anywhere}
+.ws-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:.25rem}
+.ws-note{font-size:12px;color:var(--muted);margin:.5rem 0 0}
+.ws-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:.75rem 0 0}
+.ws-photo{position:relative;aspect-ratio:1/1;border-radius:8px;overflow:hidden;background:var(--surface-2);border:1px solid var(--hairline)}
+.ws-photo img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
+.ws-photo-del{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:15px;line-height:24px;cursor:pointer;padding:0}
+.ws-file{font-size:13px;max-width:100%}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:460;display:flex;align-items:center;justify-content:center;padding:1rem;cursor:zoom-out}
+.lightbox img{max-width:100%;max-height:100%;border-radius:6px}
+.check-row{border-top:1px solid var(--hairline);padding:.65rem 0}
+.check-row:first-child{border-top:none}
+.check-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.check-label{font-size:13.5px;font-weight:600;color:var(--ink)}
+.check-pills{display:flex;gap:6px}
+.check-pill{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--muted);background:var(--surface);border:1.5px solid var(--hairline);border-radius:999px;padding:4px 11px;cursor:pointer}
+.check-pill.good.active{color:var(--success-ink);background:var(--success-bg);border-color:var(--success)}
+.check-pill.concern.active{color:var(--warn-ink);background:var(--warn-bg);border-color:var(--warn)}
+.check-row input[type=text]{width:100%}
+.reminder-item{display:flex;align-items:flex-start;gap:10px;padding:.6rem .8rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);background:var(--surface-2);margin-bottom:8px}
+.reminder-item.due{border-color:var(--warn);background:var(--warn-bg)}
+.reminder-item.done .reminder-note{text-decoration:line-through;color:var(--muted)}
+.reminder-main{flex:1;min-width:0}
+.reminder-date{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.reminder-note{font-size:13px;color:var(--ink);margin-top:2px;overflow-wrap:anywhere}
+.extract-result{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.75rem .9rem;margin-top:.75rem}
+.stage-extra{font-size:12.5px;color:var(--muted);margin:.25rem 0 .5rem}
+.counter-inline{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:6px}
+.counter-inline .field{margin:0;flex:1 1 140px}
+.activity-counter{font-size:12.5px;color:var(--warn-ink);margin-top:3px;font-weight:600}
 </style>
 </head>
 <body class="theme-light">
@@ -227,14 +291,26 @@ body.theme-light .dd-trigger::after{
   <script src="/crm-nav.js"></script>
 
   <div class="deals-head">
-    <p class="page-title">Deals</p>
-    <div class="view-switch" role="tablist" aria-label="Deals view">
-      <a href="/saved-deals.html" role="tab" aria-selected="true" class="active">List</a>
-      <a href="/pipeline.html" role="tab" aria-selected="false">Board</a>
+    <div>
+      <p class="page-title">Deals</p>
+      <p class="deals-intro">Track every deal from first look to completion.</p>
+    </div>
+    <div class="view-switch-wrap">
+      <div class="view-switch" role="tablist" aria-label="Deals view">
+        <a href="/saved-deals.html" role="tab" aria-selected="true" class="active">List</a>
+        <a href="/pipeline.html" role="tab" aria-selected="false">Board</a>
+      </div>
+      <p class="view-switch-help">List: all deals. Board: your buying pipeline.</p>
     </div>
   </div>
 
+  <!-- Pipeline stats (deal-cards.js). Only shown once something is in the
+       pipeline, so an empty account sees one empty state, not a card of
+       zeros as well. -->
+  <div class="hero-panel dc-stats" id="deals-stats" hidden></div>
+
   <div class="saved-panel-inner">
+    <div class="dc-toolbar" id="deals-toolbar" hidden></div>
     <div class="list-toolbar">
       <div class="bulk-bar" id="bulk-bar" style="display:none">
         <label class="select-all-label"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"/> Select all</label>
@@ -285,10 +361,52 @@ body.theme-light .dd-trigger::after{
 </div>
 
 <div class="modal-overlay" id="workspace-modal-overlay" onclick="handleWorkspaceOverlayClick(event)">
-  <div class="card modal-card">
+  <div class="card modal-card workspace-card">
     <div class="modal-header">
       <h2 id="workspace-modal-title">—</h2>
       <button class="modal-close" onclick="closeDealWorkspace()" aria-label="Close">×</button>
+    </div>
+
+    <!-- Property details: free. Saved via POST /api/deals/:id/details (db/045). -->
+    <div class="modal-section">
+      <p class="subhead">Property</p>
+      <div class="field"><label for="ws-listing-url">Listing link</label><input type="url" id="ws-listing-url" placeholder="https://"/></div>
+      <a class="ws-link" id="ws-listing-open" href="#" target="_blank" rel="noopener noreferrer" hidden>Open listing ↗</a>
+      <div class="ws-grid">
+        <div class="field"><label for="ws-address">Address</label><input type="text" id="ws-address" autocomplete="off"/></div>
+        <div class="field"><label for="ws-postcode">Postcode</label><input type="text" id="ws-postcode" autocomplete="off" autocapitalize="characters"/></div>
+      </div>
+      <p class="subhead" style="margin-top:.75rem">Agent</p>
+      <div class="ws-grid">
+        <div class="field"><label for="ws-agent-name">Name</label><input type="text" id="ws-agent-name"/></div>
+        <div class="field"><label for="ws-agent-agency">Agency</label><input type="text" id="ws-agent-agency"/></div>
+        <div class="field"><label for="ws-agent-phone">Phone</label><input type="tel" id="ws-agent-phone"/></div>
+        <div class="field"><label for="ws-agent-email">Email</label><input type="email" id="ws-agent-email"/></div>
+      </div>
+      <div class="ws-actions">
+        <button class="btn-primary" onclick="saveDealDetails()">Save details</button>
+        <button class="mini-btn" id="ws-email-agent" onclick="emailAgent()">Email agent</button>
+        <button class="mini-btn" id="ws-run-comps" onclick="toggleWorkspaceComps()" hidden>Run comps and crime</button>
+      </div>
+      <p class="save-msg" id="ws-details-msg"></p>
+      <div id="ws-comps-run" hidden>
+        <div class="modal-form-row">
+          <div class="field"><label>Property type</label>
+            <div class="dd" id="ws-comps-type" data-value="T">
+              <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'ws-comps-type')" onkeydown="ddKeydown(event,'ws-comps-type')"><span>Terraced</span></button>
+              <ul class="dd-list" role="listbox">
+                <li class="dd-opt" role="option" aria-selected="false" data-value="D" onclick="selectDDOption(event,'ws-comps-type','D','Detached')">Detached</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="S" onclick="selectDDOption(event,'ws-comps-type','S','Semi-detached')">Semi-detached</li>
+                <li class="dd-opt selected" role="option" aria-selected="true" data-value="T" onclick="selectDDOption(event,'ws-comps-type','T','Terraced')">Terraced</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="F" onclick="selectDDOption(event,'ws-comps-type','F','Flat')">Flat</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="O" onclick="selectDDOption(event,'ws-comps-type','O','Other')">Other</li>
+              </ul>
+            </div>
+          </div>
+          <button class="btn-primary" id="ws-comps-go" onclick="runWorkspaceComps()">Run</button>
+        </div>
+        <div id="ws-comps-result"></div>
+      </div>
     </div>
 
     <div class="modal-section">
@@ -300,6 +418,42 @@ body.theme-light .dd-trigger::after{
     <div class="modal-section">
       <p class="subhead" id="workspace-comps-heading">Comps</p>
       <div id="workspace-comps-body"></div>
+    </div>
+
+    <!-- Listing reader, photos, viewing checklist and reminders: paid,
+         behind one lock (db/045 for photos/checklist/reminders). -->
+    <div class="modal-section">
+      <div id="workspace-extras-gated">
+        <p class="subhead">Paste listing details</p>
+        <p class="hint" style="margin-bottom:.5rem">Paste the text from a listing. We pull out the price, address, bedrooms, property type and rent if it's mentioned. Nothing is fetched from any website.</p>
+        <div class="field"><textarea id="ws-paste-text" rows="4" placeholder="Paste the listing description here"></textarea></div>
+        <button class="mini-btn" id="ws-paste-go" onclick="extractListing()">Read listing</button>
+        <p class="save-msg" id="ws-paste-msg"></p>
+        <div id="ws-paste-result"></div>
+
+        <p class="subhead" style="margin-top:1.75rem">Photos</p>
+        <input type="file" id="ws-photo-input" class="ws-file" accept="image/*" multiple onchange="uploadDealPhotos(this.files)"/>
+        <p class="save-msg" id="ws-photo-msg"></p>
+        <div class="ws-photos" id="ws-photos"></div>
+
+        <p class="subhead" style="margin-top:1.75rem">Viewing checklist</p>
+        <div id="ws-checklist"></div>
+        <button class="btn-primary" onclick="saveChecklist()">Save checklist</button>
+        <p class="save-msg" id="ws-checklist-msg"></p>
+
+        <p class="subhead" style="margin-top:1.75rem">Reminders</p>
+        <div class="modal-form-row">
+          <div class="field"><label for="ws-reminder-date">Remind me on</label><input type="date" id="ws-reminder-date"/></div>
+          <div class="field" style="flex:2 1 180px"><label for="ws-reminder-note">Note</label><input type="text" id="ws-reminder-note" maxlength="500" placeholder="e.g. Chase the agent for feedback"/></div>
+          <button class="btn-primary" onclick="addReminder()">Remind me</button>
+        </div>
+        <p class="save-msg" id="ws-reminder-msg"></p>
+        <div id="ws-reminders"></div>
+      </div>
+      <div class="workspace-lock" id="workspace-extras-lock" style="display:none">
+        <p>The listing reader, photos, viewing checklist and reminders are a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
+      </div>
     </div>
 
     <div class="modal-section">
@@ -389,7 +543,7 @@ body.theme-light .dd-trigger::after{
             <div class="field"><label>Amount (£)</label><input type="number" id="offer-amount"/></div>
             <div class="field"><label>Date</label><input type="date" id="offer-date"/></div>
             <div class="field"><label>Outcome</label>
-              <div class="dd" id="offer-outcome" data-value="Pending">
+              <div class="dd" id="offer-outcome" data-value="Pending" data-onchange="handleNewOfferOutcomeChange">
                 <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'offer-outcome')" onkeydown="ddKeydown(event,'offer-outcome')">
                   <span>Pending</span>
                 </button>
@@ -403,6 +557,7 @@ body.theme-light .dd-trigger::after{
               </div>
             </div>
           </div>
+          <div class="field" id="offer-counter-field" hidden><label for="offer-counter">Their counter offer (£)</label><input type="text" inputmode="decimal" id="offer-counter" placeholder="e.g. 152,000"/></div>
           <div class="field"><label>Conditions</label>
             <div class="condition-pills" id="offer-conditions-pills">
               <button type="button" class="condition-pill" data-condition="subject to survey" onclick="toggleConditionPill(this)">Subject to survey</button>
@@ -429,6 +584,7 @@ body.theme-light .dd-trigger::after{
       <p class="subhead">Stage</p>
       <div id="workspace-stage-gated">
         <div id="workspace-stage-control"></div>
+        <div class="sp-inline" id="workspace-stage-prompt" hidden></div>
       </div>
       <div class="workspace-lock" id="workspace-stage-lock" style="display:none">
         <p>Pipeline stages are a paid feature.</p>
@@ -610,59 +766,72 @@ async function loadSavedDeals(){
     const stillPresent=new Set(savedDealsCache.map(d=>d.id));
     selectedForDelete.forEach(id=>{ if(!stillPresent.has(id)) selectedForDelete.delete(id); });
 
-    document.getElementById('bulk-bar').style.display=savedDealsCache.length>0?'flex':'none';
-    document.getElementById('compare-bar').style.display=savedDealsCache.length>0?'flex':'none';
-
-    if(savedDealsCache.length===0){
-      listEl.innerHTML=`<div class="card empty-card">
-        <h2>No saved deals yet</h2>
-        <p>Deals you save from the calculator show up here.</p>
-        <a class="btn-primary" href="/index.html">Analyse a deal</a>
-      </div>`;
-      document.getElementById('compare-panel').innerHTML='';
-      updateBulkBar();
-      return;
-    }
-    listEl.innerHTML=savedDealsCache.map(d=>{
-      const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-      const label=dealStrategy(d).toUpperCase();
-      const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):'';
-      // Row title only: short "Untitled deal" for unnamed deals instead of
-      // dealDisplayName()'s long fallbackName() string — that long string
-      // duplicated the .saved-detail meta line right below it and was wide
-      // enough to trip .saved-item's flex-wrap, pushing the action buttons
-      // to a second row (unnamed cards looked structurally different from
-      // named ones, even though the markup is identical either way).
-      // dealDisplayName()/fallbackName() themselves are untouched — every
-      // other use in this file (compare headers, delete confirmations,
-      // rename prompt pre-fill) still gets the full descriptive string,
-      // since those need it to tell deals apart.
-      const name=(d.deal_data&&d.deal_data.name)?d.deal_data.name:'Untitled deal';
-      // Rename/Move to portfolio/Delete/Add to pipeline all moved into the
-      // Deal Workspace footer (see the workspace-modal markup and
-      // renameFromWorkspace/moveToPortfolioFromWorkspace/deleteFromWorkspace
-      // below) — the row itself is now purely informational plus a click
-      // target: checkbox, name/meta, and the pipeline badge (when
-      // pipelined). No row-level actions or add-to-pipeline button remain.
-      const badge=d.pipeline_stage?`<div class="saved-controls"><span class="pipeline-badge">In pipeline · ${d.pipeline_stage}</span></div>`:'';
-      const checked=selectedForDelete.has(d.id)?'checked':'';
-      // Row click opens the Deal Workspace; the checkbox stops propagation
-      // so bulk-select keeps working without also triggering the open.
-      return `<div class="saved-item" onclick="openDealWorkspace('${d.id}')" style="cursor:pointer">
-        <label class="saved-select" onclick="event.stopPropagation()"><input type="checkbox" data-deal-id="${d.id}" ${checked} onchange="toggleSelect('${d.id}', this.checked)"/></label>
-        <div class="saved-info">
-          <span class="saved-name">${escapeHtml(name)}</span>
-          <span class="saved-detail">${label}${pp?' · '+pp:''} · ${date}</span>
-        </div>
-        ${badge}
-      </div>`;
-    }).join('');
-    updateBulkBar();
-    document.getElementById('select-all').checked=savedDealsCache.every(d=>selectedForDelete.has(d.id));
+    renderSavedList();
   }catch(e){
     listEl.innerHTML='<p class="hint">Could not load saved deals.</p>';
   }
 }
+
+// Renders the list from savedDealsCache through the shared filters and
+// smart cards (deal-cards.js). Called on load and whenever a filter
+// changes, so filtering never re-fetches.
+function renderSavedList(){
+  const listEl=document.getElementById('saved-list');
+  const has=savedDealsCache.length>0;
+  document.getElementById('bulk-bar').style.display=has?'flex':'none';
+  document.getElementById('compare-bar').style.display=has?'flex':'none';
+  const toolbar=document.getElementById('deals-toolbar');
+  toolbar.hidden=!has;
+  if(has)DealCards.renderToolbar(toolbar,{onChange:renderSavedList});
+  renderListStats();
+
+  if(!has){
+    listEl.innerHTML=`<div class="card empty-card">
+      <h2>No saved deals yet</h2>
+      <p>Analyse a deal in the calculator and save it. It shows up here, ready to track from first look to completion.</p>
+      <a class="btn-primary" href="/index.html">Analyse a deal</a>
+    </div>`;
+    document.getElementById('compare-panel').innerHTML='';
+    updateBulkBar();
+    return;
+  }
+  const shown=DealCards.apply(savedDealsCache);
+  if(shown.length===0){
+    listEl.innerHTML='<p class="hint" style="padding:1rem 0">No deals match these filters.</p>';
+    updateBulkBar();
+    return;
+  }
+  // Row click (or Enter) opens the Deal Workspace; the checkbox stops
+  // propagation so bulk-select keeps working without also opening it.
+  // The row body is the shared smart card: verdict dot, name, strategy,
+  // price, yield, cashflow, money left in (BRRR), stage, days in stage.
+  listEl.innerHTML=(shown.length<savedDealsCache.length?`<p class="hint" style="margin:0 0 .6rem">Showing ${shown.length} of ${savedDealsCache.length} deals.</p>`:'')+shown.map(d=>{
+    const checked=selectedForDelete.has(d.id)?'checked':'';
+    return `<div class="saved-item" role="button" tabindex="0" onclick="openDealWorkspace('${d.id}')" onkeydown="if(event.key==='Enter'&&event.target===this)openDealWorkspace('${d.id}')" style="cursor:pointer">
+      <label class="saved-select" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${escapeHtml(dealDisplayName(d))}" data-deal-id="${d.id}" ${checked} onchange="toggleSelect('${d.id}', this.checked)"/></label>
+      <div class="saved-body">${DealCards.cardBody(d,{showStage:true})}</div>
+    </div>`;
+  }).join('');
+  updateBulkBar();
+  document.getElementById('select-all').checked=savedDealsCache.every(d=>selectedForDelete.has(d.id));
+}
+
+// Stats card: only once a deal is in the pipeline (a free account never
+// has one, since stages are paid). The server figures load once per page
+// visit and refresh after a stage change.
+let dealsStats=null, dealsStatsLoaded=false;
+function renderListStats(){
+  const el=document.getElementById('deals-stats');
+  const pipelined=savedDealsCache.filter(d=>d.pipeline_stage);
+  el.hidden=!(currentPlan==='paid'&&pipelined.length>0);
+  if(el.hidden)return;
+  DealCards.renderStats(el, savedDealsCache, dealsStats);
+  if(!dealsStatsLoaded){
+    dealsStatsLoaded=true;
+    DealCards.loadStats(currentSession.access_token).then(function(st){ dealsStats=st; renderListStats(); });
+  }
+}
+function refreshListStats(){ dealsStatsLoaded=false; renderListStats(); }
 
 function toggleSelect(dealId, checked){
   if(checked)selectedForDelete.add(dealId); else selectedForDelete.delete(dealId);
@@ -863,8 +1032,8 @@ document.addEventListener('keydown', function(e){
 // the same way movingDealId does for Move to portfolio, above.
 let workspaceDealId=null;
 
-const WORKSPACE_STAGES=['analysing','viewing','offered','agreed','completed'];
-const WORKSPACE_STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
+const WORKSPACE_STAGES=DealCards.STAGES;
+const WORKSPACE_STAGE_LABELS=DealCards.STAGE_LABELS;
 
 // Timezone-safe date-only formatter, copied from pipeline.html: constructs
 // the Date from the Y/M/D parts directly rather than new Date('YYYY-MM-DD')
@@ -886,6 +1055,7 @@ function openDealWorkspace(dealId){
   workspaceDealId=dealId;
 
   document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
+  renderWorkspaceDetails(deal);
   renderWorkspaceAnalysis(deal);
   renderWorkspaceComps(deal);
   updateWorkspaceGating(deal);
@@ -1342,8 +1512,15 @@ function updateWorkspaceGating(deal){
   document.getElementById('workspace-activity-lock').style.display=paid?'none':'block';
   document.getElementById('workspace-stage-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-stage-lock').style.display=paid?'none':'block';
+  document.getElementById('workspace-extras-gated').style.display=paid?'block':'none';
+  document.getElementById('workspace-extras-lock').style.display=paid?'none':'block';
 
   if(!paid)return;
+
+  resetExtras();
+  loadDealPhotos(deal.id);
+  renderChecklist(deal);
+  loadReminders(deal.id);
 
   closeAllQuickAdd();
   resetOfferForm();
@@ -1353,6 +1530,418 @@ function updateWorkspaceGating(deal){
   loadSellerPosition(deal);
   loadActivity(workspaceDealId);
   renderWorkspaceStageControl(deal);
+}
+
+
+// ---------------------------------------------------------------------
+// Deal page additions (db/045). Property details are free; everything in
+// the "extras" block (listing reader, photos, checklist, reminders) is
+// paid. Each one fails gently before db/045 is run: the server answers
+// 409 { needs_migration } and the section says so instead of breaking.
+// ---------------------------------------------------------------------
+const NEEDS_DB_MSG='This needs a quick database update before it can be saved. Your other deal details are unaffected.';
+let currentProfileName='';
+let lastActivityEntries=[];
+
+function authHeaders(json){
+  const h={'Authorization':'Bearer '+currentSession.access_token};
+  if(json)h['Content-Type']='application/json';
+  return h;
+}
+function setMsg(id, text, kind){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.textContent=text||'';
+  el.className='save-msg'+(kind?' '+kind:'');
+}
+function mergeDealIntoCache(row){
+  const idx=savedDealsCache.findIndex(d=>d.id===row.id);
+  if(idx>-1)savedDealsCache[idx]=Object.assign({},savedDealsCache[idx],row);
+  return idx>-1?savedDealsCache[idx]:row;
+}
+function currentDeal(){ return savedDealsCache.find(d=>d.id===workspaceDealId)||null; }
+function safeHttpUrl(u){
+  try{ const p=new URL(u); return (p.protocol==='https:'||p.protocol==='http:')?p.href:null; }catch(e){ return null; }
+}
+function moneyInput(v){ const n=Number(String(v||'').replace(/[£,\s]/g,'')); return isFinite(n)&&n>0?n:null; }
+
+// ---------- property details ----------
+function renderWorkspaceDetails(deal){
+  const a=deal.agent||{};
+  document.getElementById('ws-listing-url').value=deal.listing_url||'';
+  document.getElementById('ws-address').value=deal.address||'';
+  document.getElementById('ws-postcode').value=deal.postcode||'';
+  document.getElementById('ws-agent-name').value=a.name||'';
+  document.getElementById('ws-agent-agency').value=a.agency||'';
+  document.getElementById('ws-agent-phone').value=a.phone||'';
+  document.getElementById('ws-agent-email').value=a.email||'';
+  setMsg('ws-details-msg','');
+  updateDetailsLinks(deal);
+  document.getElementById('ws-comps-run').hidden=true;
+  document.getElementById('ws-comps-result').innerHTML='';
+}
+
+function updateDetailsLinks(deal){
+  const link=document.getElementById('ws-listing-open');
+  const url=safeHttpUrl(deal.listing_url||'');
+  link.hidden=!url;
+  if(url)link.href=url;
+  document.getElementById('ws-run-comps').hidden=!(deal.postcode);
+  const emailBtn=document.getElementById('ws-email-agent');
+  const hasEmail=!!(deal.agent&&deal.agent.email);
+  emailBtn.disabled=!hasEmail;
+  emailBtn.title=hasEmail?'Opens your email app with an offer letter filled in':'Add and save the agent\'s email first';
+}
+
+async function saveDealDetails(){
+  const deal=currentDeal(); if(!deal)return;
+  const body={
+    listing_url:document.getElementById('ws-listing-url').value.trim()||null,
+    address:document.getElementById('ws-address').value.trim()||null,
+    postcode:document.getElementById('ws-postcode').value.trim()||null,
+    agent:{
+      name:document.getElementById('ws-agent-name').value.trim(),
+      agency:document.getElementById('ws-agent-agency').value.trim(),
+      phone:document.getElementById('ws-agent-phone').value.trim(),
+      email:document.getElementById('ws-agent-email').value.trim(),
+    }
+  };
+  if(body.listing_url&&!safeHttpUrl(body.listing_url)){ setMsg('ws-details-msg','The listing link must be a full web address, starting https://','error'); return; }
+  setMsg('ws-details-msg','Saving…');
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${deal.id}/details`,{method:'POST',headers:authHeaders(true),body:JSON.stringify(body)});
+    const out=await res.json();
+    if(res.status===409&&out.needs_migration){ setMsg('ws-details-msg',NEEDS_DB_MSG,'error'); return; }
+    if(!res.ok)throw new Error(out.error||'Could not save.');
+    const merged=mergeDealIntoCache(out);
+    document.getElementById('ws-postcode').value=merged.postcode||'';
+    updateDetailsLinks(merged);
+    setMsg('ws-details-msg','Saved.','success');
+  }catch(e){ setMsg('ws-details-msg',e.message,'error'); }
+}
+
+// ---------- email agent ----------
+// Opens the user's own email app (mailto:) with the agent's address and
+// the "Direct offer in writing" letter from Letter Templates
+// (letter-templates.js) filled in. Nothing is sent from here.
+function latestOfferAmount(){
+  const offers=(lastActivityEntries||[]).filter(e=>e.type==='offer');
+  return offers.length?offers[0].amount:null;
+}
+function emailAgent(){
+  const deal=currentDeal(); if(!deal)return;
+  const a=deal.agent||{};
+  if(!a.email){ setMsg('ws-details-msg','Add and save the agent\'s email first.','error'); return; }
+  const property=[deal.address,deal.postcode].filter(Boolean).join(', ')||dealDisplayName(deal);
+  const amount=latestOfferAmount();
+  const myEmail=currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  const body=LETTER_TEMPLATES.offer({
+    ownerName:a.name||'Sir or Madam',
+    propertyAddress:property,
+    offerAmount:amount?fmt(amount):'[offer amount]',
+    yourName:currentProfileName||'[your name]',
+    yourArea:'',
+    yourPhone:'[your phone number]',
+    yourEmail:myEmail||'[your email]'
+  });
+  const subject='Offer for '+property;
+  window.location.href='mailto:'+encodeURIComponent(a.email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+}
+
+// ---------- comps and crime for this postcode ----------
+// Live, today: the same /api/comps and /api/crime the calculator's Comps
+// tab uses, summarised with the same rows as the saved comps snapshot.
+function toggleWorkspaceComps(){
+  const box=document.getElementById('ws-comps-run');
+  if(currentPlan!=='paid'){
+    box.hidden=false;
+    document.getElementById('ws-comps-result').innerHTML='<div class="workspace-lock"><p>Comps and crime data are a paid feature.</p><button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button></div>';
+    return;
+  }
+  box.hidden=!box.hidden;
+}
+async function runWorkspaceComps(){
+  const deal=currentDeal(); if(!deal||!deal.postcode)return;
+  const out=document.getElementById('ws-comps-result');
+  const btn=document.getElementById('ws-comps-go');
+  btn.disabled=true;
+  out.innerHTML='<p class="hint">Looking up '+escapeHtml(deal.postcode)+'…</p>';
+  const pc=deal.postcode;
+  const [compsR,crimeR]=await Promise.allSettled([
+    fetch(API_BASE+'/api/comps',{method:'POST',headers:authHeaders(true),body:JSON.stringify({postcode:pc,propertyType:getDDValue('ws-comps-type')||'T'})}).then(async r=>{const b=await r.json();if(!r.ok)throw new Error(b.error||'Comps unavailable');return b;}),
+    fetch(API_BASE+'/api/crime?postcode='+encodeURIComponent(pc),{headers:authHeaders()}).then(async r=>{const b=await r.json();if(!r.ok)throw new Error(b.error||'Crime unavailable');return b;})
+  ]);
+  btn.disabled=false;
+  if(compsR.status==='rejected'&&crimeR.status==='rejected'){
+    out.innerHTML='<p class="hint">'+escapeHtml(compsR.reason.message)+'</p>';
+    return;
+  }
+  const snap={comps:compsR.status==='fulfilled'?compsR.value:null,crime:crimeR.status==='fulfilled'?crimeR.value:null};
+  const rows=computeCompsSummaryRows(snap).filter(([l])=>!/^Planning|^Employment/.test(l));
+  const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  out.innerHTML=rows.map(([l,v])=>`<div class="analysis-row"><span class="analysis-label">${escapeHtml(l)}</span><span class="analysis-value">${escapeHtml(v)}</span></div>`).join('')+
+    `<p class="hint" style="margin-top:.6rem">Live for ${escapeHtml(pc)}, ${today}. ${compsR.status==='rejected'?'Comps: '+escapeHtml(compsR.reason.message)+'. ':''}For the full view and GDV, use the Comps tab in the calculator.</p>`;
+}
+
+// ---------- extras reset ----------
+function resetExtras(){
+  document.getElementById('ws-paste-text').value='';
+  document.getElementById('ws-paste-result').innerHTML='';
+  setMsg('ws-paste-msg','');
+  setMsg('ws-photo-msg','');
+  setMsg('ws-checklist-msg','');
+  setMsg('ws-reminder-msg','');
+  document.getElementById('ws-photo-input').value='';
+  document.getElementById('ws-reminder-date').value='';
+  document.getElementById('ws-reminder-note').value='';
+  document.getElementById('ws-photos').innerHTML='';
+  document.getElementById('ws-reminders').innerHTML='';
+}
+
+// ---------- paste listing details ----------
+// POST /api/listing-extract (Claude reads the pasted text only; no
+// website is ever fetched). Results are shown for the user to check, then
+// they choose what to use.
+let lastExtract=null;
+const PROPERTY_TYPE_LABELS={'detached':'Detached','semi-detached':'Semi-detached','terraced':'Terraced','end-terrace':'End of terrace','flat':'Flat','bungalow':'Bungalow','maisonette':'Maisonette','other':'Other'};
+function extractedMonthlyRent(f){
+  if(f.rent==null)return null;
+  return f.rent_period==='week'?f.rent*52/12:f.rent;
+}
+async function extractListing(){
+  const text=document.getElementById('ws-paste-text').value.trim();
+  const btn=document.getElementById('ws-paste-go');
+  const out=document.getElementById('ws-paste-result');
+  out.innerHTML='';
+  if(text.length<20){ setMsg('ws-paste-msg','Paste a bit more of the listing first.','error'); return; }
+  btn.disabled=true; setMsg('ws-paste-msg','Reading the listing…');
+  try{
+    const res=await fetch(API_BASE+'/api/listing-extract',{method:'POST',headers:authHeaders(true),body:JSON.stringify({text})});
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not read that listing.');
+    lastExtract=body.fields||{};
+    setMsg('ws-paste-msg','');
+    renderExtract();
+  }catch(e){ setMsg('ws-paste-msg',e.message,'error'); }
+  btn.disabled=false;
+}
+function renderExtract(){
+  const f=lastExtract||{};
+  const out=document.getElementById('ws-paste-result');
+  const rent=extractedMonthlyRent(f);
+  const rows=[
+    ['Price',f.price!=null?fmt(f.price):'Not mentioned'],
+    ['Address',f.address||'Not mentioned'],
+    ['Postcode',f.postcode||'Not mentioned'],
+    ['Bedrooms',f.bedrooms!=null?String(f.bedrooms):'Not mentioned'],
+    ['Property type',f.property_type?(PROPERTY_TYPE_LABELS[f.property_type]||f.property_type):'Not mentioned'],
+    ['Rent',f.rent!=null?(f.rent_period==='week'?fmt(f.rent)+' a week (about '+fmt(rent)+' a month)':fmt(f.rent)+' a month'):'Not mentioned'],
+  ];
+  const deal=currentDeal();
+  const canRent=!!(deal&&rent!=null&&deal.deal_type==='btl');
+  out.innerHTML=`<div class="extract-result">
+    <p class="hint" style="margin:0 0 .4rem">Check these against the listing before you use them.</p>
+    ${rows.map(([l,v])=>`<div class="analysis-row"><span class="analysis-label">${escapeHtml(l)}</span><span class="analysis-value">${escapeHtml(v)}</span></div>`).join('')}
+    <div class="ws-actions" style="margin-top:.75rem">
+      ${(f.address||f.postcode)?'<button class="mini-btn" onclick="useExtractDetails()">Use address and postcode</button>':''}
+      ${(f.price!=null||canRent)?'<button class="btn-primary" onclick="useExtractInCalculator()">Fill the calculator</button>':''}
+    </div>
+    <p class="ws-note">"Fill the calculator" opens this deal in the calculator with the ${f.price!=null?'price':''}${f.price!=null&&canRent?' and ':''}${canRent?'monthly rent':''} filled in. Check it and save it from there.</p>
+  </div>`;
+}
+function useExtractDetails(){
+  const f=lastExtract||{};
+  if(f.address)document.getElementById('ws-address').value=f.address;
+  if(f.postcode)document.getElementById('ws-postcode').value=f.postcode;
+  saveDealDetails();
+  document.getElementById('ws-address').scrollIntoView({behavior:'smooth',block:'center'});
+}
+// Reuses the "Open in calculator" handoff (rerun-prefill.js): this deal's
+// own saved inputs, with the price (and, for BTL/BRRR, the monthly rent)
+// swapped for the listing's. Nothing is saved until the user saves it.
+function useExtractInCalculator(){
+  const deal=currentDeal(); if(!deal)return;
+  const f=lastExtract||{};
+  const payload=buildRerunFields(deal,(deal.deal_data||{}).ref);
+  if(!payload)return;
+  delete payload.dealId;
+  const prefix={btl:'b',hmo:'h',sa:'sa',flip:'fl'}[deal.deal_type];
+  if(f.price!=null)payload.fields[prefix+'-pp']=f.price;
+  const rent=extractedMonthlyRent(f);
+  if(deal.deal_type==='btl'&&rent!=null)payload.fields['b-rent']=Math.round(rent);
+  try{ sessionStorage.setItem('dny-rerun',JSON.stringify(payload)); }catch(e){ return; }
+  window.location.href='/index.html';
+}
+
+// ---------- photos ----------
+// Compressed in the browser (longest side 1600px, JPEG) before upload,
+// then stored privately per user (deal-photos bucket, db/045).
+const PHOTO_MAX_SIDE=1600, PHOTO_QUALITY=0.82;
+function compressPhoto(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      const scale=Math.min(1,PHOTO_MAX_SIDE/Math.max(img.naturalWidth,img.naturalHeight));
+      const w=Math.max(1,Math.round(img.naturalWidth*scale)), h=Math.max(1,Math.round(img.naturalHeight*scale));
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      const data=c.toDataURL('image/jpeg',PHOTO_QUALITY);
+      resolve(data.slice(data.indexOf(',')+1));
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('That file could not be read as a photo.')); };
+    img.src=url;
+  });
+}
+async function uploadDealPhotos(files){
+  const deal=currentDeal(); if(!deal||!files||!files.length)return;
+  const list=[...files].filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|heic|heif|webp)$/i.test(f.name));
+  let done=0, failed=0, lastErr='';
+  for(const file of list){
+    setMsg('ws-photo-msg',`Uploading ${done+failed+1} of ${list.length}…`);
+    try{
+      const data=await compressPhoto(file);
+      const res=await fetch(API_BASE+`/api/deals/${deal.id}/photos`,{method:'POST',headers:authHeaders(true),body:JSON.stringify({type:'image/jpeg',data})});
+      const body=await res.json();
+      if(res.status===409&&body.needs_migration){ setMsg('ws-photo-msg',NEEDS_DB_MSG,'error'); document.getElementById('ws-photo-input').value=''; return; }
+      if(!res.ok)throw new Error(body.error||'Upload failed.');
+      done++;
+    }catch(e){ failed++; lastErr=e.message; }
+  }
+  document.getElementById('ws-photo-input').value='';
+  setMsg('ws-photo-msg',failed?`${done} uploaded, ${failed} failed. ${lastErr}`:`${done} photo${done===1?'':'s'} added.`,failed?'error':'success');
+  if(workspaceDealId===deal.id)loadDealPhotos(deal.id);
+}
+async function loadDealPhotos(dealId){
+  const grid=document.getElementById('ws-photos');
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/photos`,{headers:authHeaders()});
+    const body=await res.json();
+    if(workspaceDealId!==dealId)return;
+    if(res.status===409&&body.needs_migration){ grid.innerHTML='<p class="hint">Photos need a quick database update before they can be added.</p>'; return; }
+    if(!res.ok)throw new Error(body.error||'Could not load photos.');
+    grid.innerHTML=body.length?body.map(p=>`<div class="ws-photo">
+        ${p.url?`<img src="${escapeHtml(p.url)}" alt="Deal photo" loading="lazy" onclick="openLightbox(this.src)"/>`:''}
+        <button type="button" class="ws-photo-del" aria-label="Delete photo" onclick="deleteDealPhoto('${p.id}')">×</button>
+      </div>`).join(''):'<p class="hint">No photos yet. Add some from the viewing.</p>';
+  }catch(e){ grid.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>'; }
+}
+async function deleteDealPhoto(photoId){
+  if(!confirm('Delete this photo?'))return;
+  try{
+    const res=await fetch(API_BASE+`/api/photos/${photoId}`,{method:'DELETE',headers:authHeaders()});
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not delete photo.');
+    loadDealPhotos(workspaceDealId);
+  }catch(e){ setMsg('ws-photo-msg',e.message,'error'); }
+}
+function openLightbox(src){
+  const box=document.createElement('div');
+  box.className='lightbox';
+  box.innerHTML='<img alt="Deal photo"/>';
+  box.querySelector('img').src=src;
+  const close=()=>{ box.remove(); document.removeEventListener('keydown',onKey,true); };
+  const onKey=e=>{ if(e.key==='Escape'){ e.stopPropagation(); close(); } };
+  box.onclick=close;
+  document.addEventListener('keydown',onKey,true);
+  document.body.appendChild(box);
+}
+
+// ---------- viewing checklist ----------
+const CHECKLIST=[['condition','Condition'],['damp','Damp'],['roof','Roof'],['boiler','Boiler'],['epc','EPC'],['parking','Parking'],['neighbours','Neighbours'],['area','Area feel']];
+function renderChecklist(deal){
+  const c=deal.viewing_checklist||{};
+  document.getElementById('ws-checklist').innerHTML=CHECKLIST.map(([k,label])=>{
+    const item=c[k]||{};
+    return `<div class="check-row" data-key="${k}">
+      <div class="check-head"><span class="check-label" id="chk-${k}-l">${label}</span>
+        <span class="check-pills" role="group" aria-labelledby="chk-${k}-l">
+          <button type="button" class="check-pill good${item.status==='good'?' active':''}" aria-pressed="${item.status==='good'}" onclick="toggleCheckPill(this,'good')">Good</button>
+          <button type="button" class="check-pill concern${item.status==='concern'?' active':''}" aria-pressed="${item.status==='concern'}" onclick="toggleCheckPill(this,'concern')">Concern</button>
+        </span></div>
+      <input type="text" maxlength="1000" aria-label="${label} notes" placeholder="Notes" value="${escapeHtml(item.note||'')}"/>
+    </div>`;
+  }).join('');
+}
+function toggleCheckPill(btn,status){
+  const row=btn.closest('.check-row');
+  const was=btn.classList.contains('active');
+  row.querySelectorAll('.check-pill').forEach(p=>{p.classList.remove('active');p.setAttribute('aria-pressed','false');});
+  if(!was){btn.classList.add('active');btn.setAttribute('aria-pressed','true');}
+}
+async function saveChecklist(){
+  const deal=currentDeal(); if(!deal)return;
+  const out={};
+  document.querySelectorAll('#ws-checklist .check-row').forEach(row=>{
+    const active=row.querySelector('.check-pill.active');
+    out[row.dataset.key]={status:active?(active.classList.contains('good')?'good':'concern'):null,note:row.querySelector('input').value.trim()};
+  });
+  setMsg('ws-checklist-msg','Saving…');
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${deal.id}/details`,{method:'POST',headers:authHeaders(true),body:JSON.stringify({viewing_checklist:out})});
+    const body=await res.json();
+    if(res.status===409&&body.needs_migration){ setMsg('ws-checklist-msg',NEEDS_DB_MSG,'error'); return; }
+    if(!res.ok)throw new Error(body.error||'Could not save.');
+    mergeDealIntoCache(body);
+    setMsg('ws-checklist-msg','Saved.','success');
+  }catch(e){ setMsg('ws-checklist-msg',e.message,'error'); }
+}
+
+// ---------- reminders ----------
+function todayISO(){ const n=new Date(); const p=x=>(x<10?'0':'')+x; return n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate()); }
+async function loadReminders(dealId){
+  const el=document.getElementById('ws-reminders');
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/reminders`,{headers:authHeaders()});
+    const body=await res.json();
+    if(workspaceDealId!==dealId)return;
+    if(res.status===409&&body.needs_migration){ el.innerHTML='<p class="hint">Reminders need a quick database update before they can be set.</p>'; return; }
+    if(!res.ok)throw new Error(body.error||'Could not load reminders.');
+    const today=todayISO();
+    el.innerHTML=body.length?body.map(r=>{
+      const due=!r.done&&r.remind_on<=today;
+      return `<div class="reminder-item${due?' due':''}${r.done?' done':''}">
+        <input type="checkbox" ${r.done?'checked':''} aria-label="Done" onchange="setReminderDone('${r.id}',this.checked)"/>
+        <div class="reminder-main"><p class="reminder-date">${fmtDateOnly(r.remind_on)}${due?' · due':''}</p><p class="reminder-note">${escapeHtml(r.note)}</p></div>
+        <button class="mini-btn danger" onclick="deleteReminder('${r.id}')">Delete</button>
+      </div>`;
+    }).join(''):'<p class="hint">No reminders. Due ones also show on Home under "Your next move".</p>';
+  }catch(e){ el.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>'; }
+}
+async function addReminder(){
+  if(!workspaceDealId)return;
+  const remind_on=document.getElementById('ws-reminder-date').value;
+  const note=document.getElementById('ws-reminder-note').value.trim();
+  if(!remind_on){ setMsg('ws-reminder-msg','Pick a date.','error'); return; }
+  if(!note){ setMsg('ws-reminder-msg','Add a short note.','error'); return; }
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${workspaceDealId}/reminders`,{method:'POST',headers:authHeaders(true),body:JSON.stringify({remind_on,note})});
+    const body=await res.json();
+    if(res.status===409&&body.needs_migration){ setMsg('ws-reminder-msg',NEEDS_DB_MSG,'error'); return; }
+    if(!res.ok)throw new Error(body.error||'Could not add reminder.');
+    document.getElementById('ws-reminder-date').value='';
+    document.getElementById('ws-reminder-note').value='';
+    setMsg('ws-reminder-msg','Reminder set.','success');
+    loadReminders(workspaceDealId);
+  }catch(e){ setMsg('ws-reminder-msg',e.message,'error'); }
+}
+async function setReminderDone(id,done){
+  try{
+    const res=await fetch(API_BASE+`/api/reminders/${id}`,{method:'PUT',headers:authHeaders(true),body:JSON.stringify({done})});
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not update reminder.');
+  }catch(e){ setMsg('ws-reminder-msg',e.message,'error'); }
+  loadReminders(workspaceDealId);
+}
+async function deleteReminder(id){
+  if(!confirm('Delete this reminder?'))return;
+  try{
+    const res=await fetch(API_BASE+`/api/reminders/${id}`,{method:'DELETE',headers:authHeaders()});
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not delete reminder.');
+  }catch(e){ setMsg('ws-reminder-msg',e.message,'error'); }
+  loadReminders(workspaceDealId);
 }
 
 // ---------------------------------------------------------------------
@@ -1468,8 +2057,7 @@ async function saveSellerPosition(){
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not save seller position.');
-    const idx=savedDealsCache.findIndex(d=>d.id===workspaceDealId);
-    if(idx>-1)savedDealsCache[idx]=body;
+    mergeDealIntoCache(body);
     msg.textContent='Saved.';msg.className='save-msg success';
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';
@@ -1528,6 +2116,8 @@ function resetOfferForm(){
   setDDValue('offer-outcome', 'Pending', 'Pending');
   document.getElementById('offer-conditions-other').value='';
   document.getElementById('offer-feedback').value='';
+  document.getElementById('offer-counter').value='';
+  document.getElementById('offer-counter-field').hidden=true;
   document.querySelectorAll('#offer-conditions-pills .condition-pill').forEach(p=>p.classList.remove('active'));
   const msg=document.getElementById('quick-add-offer-msg');
   msg.textContent='';msg.className='save-msg';
@@ -1568,6 +2158,11 @@ async function submitQuickOffer(){
     conditions_other:document.getElementById('offer-conditions-other').value.trim()||null,
     agent_feedback:document.getElementById('offer-feedback').value.trim()||null,
   };
+  if(payload.outcome==='Countered'){
+    const c=moneyInput(document.getElementById('offer-counter').value);
+    if(c!=null)payload.counter_amount=c;
+  }
+  payload.amount=moneyInput(payload.amount)!=null?moneyInput(payload.amount):payload.amount;
 
   msg.className='save-msg';msg.textContent='';
   try{
@@ -1607,16 +2202,34 @@ async function deleteNoteFromActivity(noteId){
 // offer-outcome-<offerId>).
 function handleActivityOfferOutcomeChange(id, value){
   const offerId=id.replace('dd-activity-offer-outcome-','');
+  // Countered: ask for their counter amount right there, then save both.
+  if(value==='Countered'){
+    const box=document.getElementById('counter-inline-'+offerId);
+    if(box){ box.hidden=false; const inp=box.querySelector('input'); if(inp)inp.focus(); return; }
+  }
   updateOfferOutcomeFromActivity(offerId, value);
 }
 
-async function updateOfferOutcomeFromActivity(offerId, outcome){
+function handleNewOfferOutcomeChange(id, value){
+  document.getElementById('offer-counter-field').hidden=value!=='Countered';
+}
+
+function saveCounterFromActivity(offerId){
+  const box=document.getElementById('counter-inline-'+offerId);
+  const c=box?moneyInput(box.querySelector('input').value):null;
+  updateOfferOutcomeFromActivity(offerId,'Countered',c);
+}
+
+async function updateOfferOutcomeFromActivity(offerId, outcome, counterAmount){
   if(!workspaceDealId)return;
+  const body={outcome};
+  if(counterAmount!==undefined)body.counter_amount=counterAmount;
+  else if(outcome!=='Countered')body.counter_amount=null;
   try{
     const res=await fetch(API_BASE+`/api/offers/${offerId}`,{
       method:'PUT',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({outcome})
+      body:JSON.stringify(body)
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not update offer.');
@@ -1702,6 +2315,7 @@ function renderActivityEntry(e, deal){
         <span class="activity-date">${fmtDateOnly(e.offer_date)} · logged ${date}</span>
       </div>
       <p class="activity-offer-amount">${fmt(e.amount)}</p>
+      ${e.outcome==='Countered'&&e.counter_amount!=null?`<p class="activity-counter">They countered at ${fmt(e.counter_amount)}</p>`:''}
       ${deal?computeMaxBidLine(deal,e.amount):''}
       <div class="activity-controls">
         <div class="dd" id="${ddId}" data-value="${e.outcome}" data-onchange="handleActivityOfferOutcomeChange">
@@ -1711,6 +2325,10 @@ function renderActivityEntry(e, deal){
           <ul class="dd-list" role="listbox">${opts}</ul>
         </div>
         <button class="mini-btn danger" onclick="deleteOfferFromActivity('${e.id}')">Delete</button>
+      </div>
+      <div class="counter-inline" id="counter-inline-${e.id}" hidden>
+        <div class="field"><label for="counter-input-${e.id}">Their counter offer (£)</label><input type="text" inputmode="decimal" id="counter-input-${e.id}" value="${e.counter_amount!=null?Math.round(e.counter_amount):''}"/></div>
+        <button class="mini-btn" onclick="saveCounterFromActivity('${e.id}')">Save counter</button>
       </div>
       ${conditions.length?`<p class="activity-conditions">Conditions: ${conditions.join(', ')}</p>`:''}
       ${e.agent_feedback?`<p class="activity-feedback">"${escapeHtml(e.agent_feedback)}"</p>`:''}
@@ -1744,9 +2362,11 @@ async function loadActivity(dealId){
     if(!res.ok)throw new Error(entries.error||'Could not load activity.');
 
     if(entries.length===0){
+      lastActivityEntries=[];
       feedEl.innerHTML='<p class="hint">No activity yet. Use the chips above to add a note, call, viewing or offer.</p>';
       return;
     }
+    lastActivityEntries=entries;
     const deal=savedDealsCache.find(d=>d.id===dealId);
     feedEl.innerHTML=entries.map(e=>renderActivityEntry(e, deal)).join('');
   }catch(e){
@@ -1775,6 +2395,15 @@ function renderWorkspaceStageControl(deal){
       ? `<div class="field"><label>Viewing date</label><input type="date" id="workspace-viewing-date" value="${deal.viewing_date||''}"/></div>
       <button class="mini-btn" onclick="saveViewingDateFromWorkspace()">Save date</button>`
       : '';
+    // Agreed/Completed: solicitor and target completion date (asked for
+    // when the deal moved to Agreed). Lost: the reason.
+    let extraInfo='';
+    if((stage==='agreed'||stage==='completed')&&(deal.solicitor||deal.target_completion_date)){
+      extraInfo=`<p class="stage-extra">${deal.solicitor?'Solicitor: '+escapeHtml(deal.solicitor):''}${deal.solicitor&&deal.target_completion_date?' · ':''}${deal.target_completion_date?'Target completion '+fmtDateOnly(deal.target_completion_date):''}</p>`;
+    }
+    if(stage==='lost'&&deal.lost_reason){
+      extraInfo=`<p class="stage-extra">Lost: ${escapeHtml(DealCards.LOST_REASONS[deal.lost_reason]||deal.lost_reason)}${deal.lost_note?' · '+escapeHtml(deal.lost_note):''}</p>`;
+    }
     el.innerHTML=`<div class="field"><label>Pipeline stage</label>
         <div class="dd" id="workspace-stage-dd" data-value="${stage}" data-onchange="handleWorkspaceStageChange">
           <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'workspace-stage-dd')" onkeydown="ddKeydown(event,'workspace-stage-dd')">
@@ -1783,6 +2412,7 @@ function renderWorkspaceStageControl(deal){
           <ul class="dd-list" role="listbox">${opts}</ul>
         </div>
       </div>
+      ${extraInfo}
       ${viewingDateField}
       <p class="save-msg" id="workspace-stage-msg"></p>`;
   }else{
@@ -1821,23 +2451,44 @@ function handleWorkspaceStageChange(id, value){
 
 async function changeWorkspaceStage(stage){
   if(!workspaceDealId)return;
+  const dealId=workspaceDealId;
+  const prior=savedDealsCache.find(d=>d.id===dealId);
+  if(prior&&prior.pipeline_stage===stage)return;
+  // Stage prompt (deal-stage-prompts.js), shown inline under the stage
+  // control rather than as a second popup. Closing it cancels the move.
+  let extra={};
+  if(prior){
+    extra=await StagePrompts.ask({deal:prior,toStage:stage,token:currentSession.access_token,container:document.getElementById('workspace-stage-prompt')});
+    if(extra===null){ renderWorkspaceStageControl(prior); return; }
+  }
+  const note=extra._note; delete extra._note;
   const msg=document.getElementById('workspace-stage-msg');
   try{
-    const res=await fetch(API_BASE+`/api/pipeline/${workspaceDealId}/stage`,{
+    const res=await fetch(API_BASE+`/api/pipeline/${dealId}/stage`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({stage})
+      body:JSON.stringify(Object.assign({stage},extra))
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not update stage.');
     await loadSavedDeals();
-    const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
+    refreshListStats();
+    if(workspaceDealId!==dealId)return;
+    const deal=savedDealsCache.find(d=>d.id===dealId);
     if(deal){
       document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
       renderWorkspaceStageControl(deal);
+      loadActivity(dealId);
+      const m=document.getElementById('workspace-stage-msg');
+      if(note&&m){m.textContent=note;m.className='save-msg error';}
+      else if(stage==='lost'&&body.reason_saved===false&&m){m.textContent='Moved to Lost. The reason needs a database update to be saved.';m.className='save-msg error';}
+      if(stage==='completed'){
+        StagePrompts.offerPortfolio({name:null,container:document.getElementById('workspace-stage-prompt'),onMove:moveToPortfolioFromWorkspace});
+      }
     }
   }catch(e){
     if(msg){msg.textContent=e.message;msg.className='save-msg error';}
+    if(prior)renderWorkspaceStageControl(prior);
   }
 }
 
@@ -1853,6 +2504,7 @@ async function addToPipelineFromWorkspace(){
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not add to pipeline.');
     await loadSavedDeals();
+    refreshListStats();
     const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
     if(deal){
       document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
@@ -1887,6 +2539,8 @@ async function upgradeNowFromWorkspace(btn){
 
 function closeDealWorkspace(){
   document.getElementById('workspace-modal-overlay').classList.remove('open');
+  const sp=document.getElementById('workspace-stage-prompt');
+  if(sp){sp.innerHTML='';sp.hidden=true;}
   workspaceDealId=null;
 }
 
@@ -2004,6 +2658,7 @@ async function init(){
     const profRes=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const prof=await profRes.json();
     currentPlan=prof.plan==='paid'?'paid':'free';
+    currentProfileName=typeof prof.name==='string'?prof.name:'';
   }catch(e){
     currentPlan='free';
   }
@@ -2025,8 +2680,12 @@ async function init(){
     // ?openDeal=<id> — refurb.html's "Back to the deal" link after
     // attaching a new estimate (see the Refurb section below). Silently
     // does nothing if the id doesn't match a deal in this user's own list.
-    const openDealId=new URLSearchParams(location.search).get('openDeal');
-    if(openDealId)openDealWorkspace(openDealId);
+    // &moveToPortfolio=1 — the Board's "Move to portfolio" after a deal
+    // reaches Completed: open the Move to portfolio form straight away.
+    const params=new URLSearchParams(location.search);
+    const openDealId=params.get('openDeal');
+    if(openDealId&&params.get('moveToPortfolio')==='1'&&savedDealsCache.some(d=>d.id===openDealId))openMoveToPortfolio(openDealId);
+    else if(openDealId)openDealWorkspace(openDealId);
   });
 
   sbClient.auth.onAuthStateChange((_event, session)=>{

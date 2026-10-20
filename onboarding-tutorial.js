@@ -95,7 +95,7 @@ var TUTORIAL_STEPS = [
     page: 'pipeline.html',
     selectors: ['#kanban', '#state-locked .locked-panel'],
     title: 'Track deals on the Board',
-    body: 'The Board view of Deals. Saved deals sit in the first column; drag one into Analysing, then on through Viewing, Offered, Agreed and Completed.'
+    body: 'The Board view of Deals. Saved deals sit in the first column; drag one into Analysing, then on through Viewing, Offered, Agreed and Completed, or Lost if it falls through.'
   },
   {
     id: 'portfolio',

@@ -22,6 +22,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
+<script src="/deal-verdict.js"></script>
+<script src="/deal-cards.js"></script>
+<script src="/deal-stage-prompts.js"></script>
 <script src="/draft-state.js"></script>
 <script src="/onboarding-tutorial.js"></script>
 <style>
@@ -84,10 +87,12 @@ body.theme-light .empty-card{
 .kanban-wrap::-webkit-scrollbar-track{background:transparent}
 .kanban-wrap::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:999px}
 .kanban-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-.kanban{display:grid;grid-template-columns:repeat(6,minmax(165px,1fr));gap:.75rem}
-@media(max-width:1100px){.kanban{grid-template-columns:repeat(6,230px)}}
+.kanban{display:grid;grid-template-columns:repeat(var(--cols,7),minmax(215px,1fr));gap:.75rem}
+@media(max-width:1600px){.kanban{grid-template-columns:repeat(var(--cols,7),235px)}}
+.kanban-col[data-stage="lost"]{background:var(--surface-2)}
+body.theme-light .kanban-col[data-stage="lost"] .pipeline-card{opacity:.8}
 .kanban-col[data-stage="saved"]{border-style:dashed}
-.kanban-col{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1rem}
+.kanban-col{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:.85rem}
 body.theme-light .kanban-col{
   border:1px solid rgba(0,0,0,.09);
   border-radius:12px;
@@ -123,7 +128,9 @@ body.theme-light .pipeline-card{
   border-radius:10px;
   box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
 }
-.card-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:2px}
+.card-top{display:flex;align-items:center;gap:8px;margin:-.2rem -.2rem .35rem;min-height:20px}
+.card-top input[type=checkbox]{margin:0;flex-shrink:0}
+.card-body{margin-bottom:.6rem;min-width:0}
 .card-type{font-size:13px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
 /* card-meta wraps the same TYPE · date text plus the price-paid figure the
    card already showed inline (cardHtml(), script below) — price just moves
@@ -299,10 +306,16 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
   <script src="/crm-nav.js"></script>
 
   <div class="deals-head">
-    <p class="page-title">Deals</p>
-    <div class="view-switch" role="tablist" aria-label="Deals view">
-      <a href="/saved-deals.html" role="tab" aria-selected="false">List</a>
-      <a href="/pipeline.html" role="tab" aria-selected="true" class="active">Board</a>
+    <div>
+      <p class="page-title">Deals</p>
+      <p class="deals-intro">Track every deal from first look to completion.</p>
+    </div>
+    <div class="view-switch-wrap">
+      <div class="view-switch" role="tablist" aria-label="Deals view">
+        <a href="/saved-deals.html" role="tab" aria-selected="false">List</a>
+        <a href="/pipeline.html" role="tab" aria-selected="true" class="active">Board</a>
+      </div>
+      <p class="view-switch-help">List: all deals. Board: your buying pipeline.</p>
     </div>
   </div>
 
@@ -321,21 +334,19 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
   </div>
 
   <div id="state-board" style="display:none">
-    <div class="hero-panel">
-      <p class="hero-label">Deals in pipeline</p>
-      <p class="hero-number" id="ph-total">—</p>
-      <div class="hero-figures">
-        <div class="hero-fig"><span class="hero-fig-label">Value in play</span><span class="hero-fig-value" id="ph-value">—</span></div>
-        <div class="hero-fig"><span class="hero-fig-label">Active</span><span class="hero-fig-value" id="ph-active">—</span></div>
-        <div class="hero-fig"><span class="hero-fig-label">Completed</span><span class="hero-fig-value" id="ph-completed">—</span></div>
-      </div>
-    </div>
+    <!-- Pipeline stats (deal-cards.js). Hidden while nothing is in the
+         pipeline, so the one empty-state card below is the only "zero"
+         message on the page. -->
+    <div class="hero-panel dc-stats" id="deals-stats" hidden></div>
 
     <div class="card empty-card" id="pipeline-empty-state" style="display:none">
-      <h2>No deals in your pipeline yet</h2>
-      <p>Drag a deal from the Saved column into Analysing to start tracking it, stage by stage.</p>
+      <h2 id="pipeline-empty-title">No deals in your pipeline yet</h2>
+      <p id="pipeline-empty-text">Drag a deal from the Saved column into Analysing to start tracking it, stage by stage.</p>
       <a class="btn-primary" href="/index.html">Analyse a deal</a>
     </div>
+
+    <div class="dc-toolbar" id="deals-toolbar"></div>
+    <p class="hint" id="board-filter-note" hidden></p>
 
     <div class="kanban-wrap">
       <div class="kanban" id="kanban"></div>
@@ -401,11 +412,12 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
 </div>
 
 <script>
-const STAGES=['analysing','viewing','offered','agreed','completed'];
-const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
-// Column-header dot colour per stage — same palette as home.html's pipeline
-// distribution bar. Display-only, read by renderBoard() below.
-const STAGE_COLORS={analysing:'#c7c4ea',viewing:'#a49ee0',offered:'#7a72d4',agreed:'#4b45b2',completed:'#0f7a5a'};
+// Stages, labels and colours are shared with the List view (deal-cards.js).
+// Lost is the last column: deals that fell through, with a reason.
+const STAGES=DealCards.STAGES;
+const STAGE_LABELS=DealCards.STAGE_LABELS;
+const STAGE_COLORS=DealCards.STAGE_COLORS;
+let dealsStats=null;
 // "Saved" is the board's first column: saved deals not yet in the pipeline
 // (pipeline_stage null). Moving a card there removes it from the pipeline
 // (the deal itself is never deleted); moving one out adds it.
@@ -527,6 +539,7 @@ async function init(){
   }
 
   showState('board');
+  DealCards.renderToolbar(document.getElementById('deals-toolbar'),{onChange:renderBoard});
   // Scroll restore waits for the kanban board to finish loading and
   // render, since the board's height depends on how many deals are in it.
   loadPipeline().finally(function(){
@@ -560,6 +573,9 @@ async function loadPipeline(){
     selectedIds.forEach(id=>{ if(!stillPresent.has(id)) selectedIds.delete(id); });
     renderBoard();
     updateCompareBtn();
+    if(pipelineDeals.length){
+      DealCards.loadStats(currentSession.access_token).then(function(st){ dealsStats=st; updateHero(); });
+    }
   }catch(e){
     document.getElementById('kanban').innerHTML='<p class="hint">Could not load pipeline.</p>';
   }
@@ -569,15 +585,13 @@ async function loadPipeline(){
 // loadPipeline() — no new fetch, no new endpoint. "Value in play" sums the
 // same deal_data.pp (purchase price) field cardHtml() already displays as
 // each card's price pill.
+// Pipeline stats card (deal-cards.js): active deals and value in play from
+// pipelineDeals; offers this month, conversion and average discount from
+// GET /api/deals-stats (dealsStats, "-" until it loads).
 function updateHero(){
-  const total=pipelineDeals.length;
-  const completed=pipelineDeals.filter(d=>d.pipeline_stage==='completed').length;
-  const active=total-completed;
-  const value=pipelineDeals.reduce((sum,d)=>sum+(d.deal_data&&d.deal_data.pp?Number(d.deal_data.pp):0),0);
-  document.getElementById('ph-total').textContent=total;
-  document.getElementById('ph-value').textContent=fmtC(value);
-  document.getElementById('ph-active').textContent=active;
-  document.getElementById('ph-completed').textContent=completed;
+  const el=document.getElementById('deals-stats');
+  el.hidden=pipelineDeals.length===0;
+  if(!el.hidden)DealCards.renderStats(el, pipelineDeals, dealsStats);
 }
 
 function renderBoard(){
@@ -587,18 +601,39 @@ function renderBoard(){
   // stage), not per-column. The 5 kanban columns still render underneath
   // regardless, each with its own quiet "No deals" — this is the one
   // element that's meant to guide.
-  document.getElementById('pipeline-empty-state').style.display = pipelineDeals.length===0 ? 'block' : 'none';
+  document.getElementById('deals-toolbar').hidden=(pipelineDeals.length+savedOnlyDeals.length)===0;
+  const emptyEl=document.getElementById('pipeline-empty-state');
+  emptyEl.style.display = pipelineDeals.length===0 ? 'block' : 'none';
+  if(pipelineDeals.length===0){
+    const noDeals=savedOnlyDeals.length===0;
+    document.getElementById('pipeline-empty-title').textContent=noDeals?'No deals yet':'No deals in your pipeline yet';
+    document.getElementById('pipeline-empty-text').textContent=noDeals
+      ?'Analyse a deal in the calculator and save it. It appears in the Saved column, ready to move through your pipeline.'
+      :'Drag a deal from the Saved column into Analysing to start tracking it, stage by stage.';
+  }
+  // Filters (deal-cards.js): strategy and verdict filter the cards; the
+  // stage filter shows just that column.
+  const f=DealCards.filters();
+  const showCol=col=>f.stage==='all'||f.stage===col;
+  const filteredSaved=DealCards.apply(savedOnlyDeals,{ignoreStage:true});
+  const filteredPipe=DealCards.apply(pipelineDeals,{ignoreStage:true});
+  const hiddenCount=(savedOnlyDeals.length+pipelineDeals.length)-(filteredSaved.length+filteredPipe.length);
+  const note=document.getElementById('board-filter-note');
+  note.hidden=!(hiddenCount>0);
+  note.textContent=hiddenCount>0?`${hiddenCount} deal${hiddenCount===1?' is':'s are'} hidden by your filters.`:'';
   const kanban=document.getElementById('kanban');
-  const savedCards=savedOnlyDeals.length
-    ? savedOnlyDeals.map(cardHtml).join('')
-    : '<p class="col-empty">No other saved deals</p>';
-  const savedCol=`<div class="kanban-col" data-stage="${SAVED_COL}"
+  const cols=[SAVED_COL,...STAGES].filter(showCol);
+  kanban.style.setProperty('--cols', cols.length);
+  const savedCards=filteredSaved.length
+    ? filteredSaved.map(cardHtml).join('')
+    : `<p class="col-empty">${savedOnlyDeals.length?'No matching deals':'No other saved deals'}</p>`;
+  const savedCol=showCol(SAVED_COL)?`<div class="kanban-col" data-stage="${SAVED_COL}"
       ondragover="onColumnDragOver(event)" ondragleave="onColumnDragLeave(event)" ondrop="onColumnDrop(event,'${SAVED_COL}')">
-      <p class="col-title"><span class="stage-dot" style="background:var(--hairline-strong)"></span>Saved<span class="col-count">${savedOnlyDeals.length}</span></p>
+      <p class="col-title"><span class="stage-dot" style="background:var(--hairline-strong)"></span>Saved<span class="col-count">${filteredSaved.length}</span></p>
       <div class="col-cards">${savedCards}</div>
-    </div>`;
-  kanban.innerHTML=savedCol+STAGES.map(stage=>{
-    const dealsInStage=pipelineDeals.filter(d=>d.pipeline_stage===stage);
+    </div>`:'';
+  kanban.innerHTML=savedCol+STAGES.filter(showCol).map(stage=>{
+    const dealsInStage=filteredPipe.filter(d=>d.pipeline_stage===stage);
     const cards=dealsInStage.length
       ? dealsInStage.map(cardHtml).join('')
       : '<p class="col-empty">No deals</p>';
@@ -830,10 +865,6 @@ function handleOfferOutcomeChange(id, value){
 }
 
 function cardHtml(d){
-  const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-  const label=dealStrategy(d).toUpperCase();
-  const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):'';
-  const name=dealDisplayName(d);
   const checked=selectedIds.has(d.id)?'checked':'';
   const isSaved=!d.pipeline_stage;
   const current=isSaved?SAVED_COL:d.pipeline_stage;
@@ -844,18 +875,17 @@ function cardHtml(d){
   // gesture can only ever start by grabbing the handle. The checkbox, stage
   // dropdown, and remove button below are never draggable and never compete
   // with a drag for the same click/touch.
+  // Card body (verdict dot, name, strategy, price, yield, cashflow, money
+  // left in for BRRR, days in this stage) is the shared smart card from
+  // deal-cards.js, the same one the List view shows.
   return `<div class="pipeline-card" data-deal-id="${d.id}">
     <div class="card-top">
-      ${isSaved?'':`<input type="checkbox" ${checked} onchange="toggleCompare('${d.id}', this.checked)"/>`}
-      <span class="card-type">${escapeHtml(name)}</span>
-      <span class="drag-handle" draggable="true" title="Drag to move"
+      ${isSaved?'':`<input type="checkbox" ${checked} aria-label="Select to compare" onchange="toggleCompare('${d.id}', this.checked)"/>`}
+      <span class="drag-handle" draggable="true" title="Drag to move" aria-label="Drag to move"
         ondragstart="onHandleDragStart(event,'${d.id}')" ondragend="onHandleDragEnd(event)"
         ontouchstart="onHandleTouchStart(event,'${d.id}')">⠿⠿</span>
     </div>
-    <div class="card-meta">
-      <span class="card-date">${label} · ${date}</span>
-      ${pp?`<span class="card-price-pill">${pp}</span>`:''}
-    </div>
+    <div class="card-body">${DealCards.cardBody(d,{showStage:false})}</div>
     <div class="stage-dd" data-deal-id="${d.id}">
       <button type="button" class="stage-dd-trigger" aria-haspopup="listbox" aria-expanded="false"
         onclick="toggleStageDD(event,'${d.id}')" onkeydown="stageDDKeydown(event,'${d.id}')">
@@ -864,6 +894,7 @@ function cardHtml(d){
       <ul class="stage-dd-list" role="listbox">${options}</ul>
     </div>
     ${isSaved?`<div class="card-actions"><a class="mini-btn" href="/saved-deals.html?openDeal=${encodeURIComponent(d.id)}">Open deal</a></div>`:`<div class="card-actions">
+      <a class="mini-btn" href="/saved-deals.html?openDeal=${encodeURIComponent(d.id)}">Open deal</a>
       <button class="mini-btn" onclick="openDealDetails('${d.id}')">Notes &amp; offers</button>
       <button class="remove-btn" onclick="removeFromPipeline('${d.id}')">Remove</button>
     </div>`}
@@ -976,25 +1007,39 @@ function onTouchEnd(e){
 async function changeStage(dealId, stage){
   // Captured before the request so we know what stage the deal is moving
   // FROM — used only to decide which celebration (if any) to play below.
-  // The persistence call itself (fetch/POST/error-handling/loadPipeline) is
-  // otherwise byte-for-byte what it was before.
   const priorDeal=boardDeal(dealId);
   const fromStage=priorDeal?priorDeal.pipeline_stage:null;
+  // Stage prompt first (deal-stage-prompts.js): viewing date, offer
+  // amount, solicitor and completion date, or the Lost reason. Closing the
+  // prompt cancels the move.
+  let extra={};
+  if(priorDeal&&stage){
+    extra=await StagePrompts.ask({deal:priorDeal,toStage:stage,token:currentSession.access_token,name:dealDisplayName(priorDeal)});
+    if(extra===null)return;
+  }
+  const note=extra._note; delete extra._note;
   let succeeded=false;
   try{
     const res=await fetch(API_BASE+`/api/pipeline/${dealId}/stage`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({stage})
+      body:JSON.stringify(Object.assign({stage},extra))
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not update stage.');
     succeeded=true;
+    if(stage==='lost'&&body.reason_saved===false)showCelebrateToast('Moved to Lost. The reason needs a database update to be saved.');
   }catch(e){
     alert('Could not update stage: '+e.message);
   }
   await loadPipeline();
+  if(note)showCelebrateToast(note);
   if(succeeded)celebrateStageChange(dealId, fromStage, stage);
+  if(succeeded&&stage==='completed'&&priorDeal){
+    StagePrompts.offerPortfolio({name:dealDisplayName(priorDeal),onMove:function(){
+      window.location.href='/saved-deals.html?openDeal='+encodeURIComponent(dealId)+'&moveToPortfolio=1';
+    }});
+  }
 }
 
 // Celebration is purely a visual side-effect layered on top of a confirmed,
@@ -1003,6 +1048,7 @@ async function changeStage(dealId, stage){
 // whether the change came from a drag-drop or the dropdown, since both
 // funnel through changeStage() above.
 function celebrateStageChange(dealId, fromStage, toStage){
+  if(toStage==='lost'||fromStage==='lost')return; // nothing to celebrate about Lost
   const fromIdx=STAGES.indexOf(fromStage);
   const toIdx=STAGES.indexOf(toStage);
   if(toIdx<=fromIdx)return; // only genuine forward progress celebrates; backward/removal (-1) doesn't

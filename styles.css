@@ -223,6 +223,10 @@ p{margin:0}
 .view-switch a{font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;padding:7px 18px;border-radius:999px}
 .view-switch a:hover{color:var(--ink)}
 .view-switch a.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.deals-intro{font-size:13.5px;color:var(--muted);margin:4px 0 0}
+.view-switch-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.view-switch-help{font-size:11.5px;color:var(--muted);margin:0;text-align:right}
+@media(max-width:520px){.view-switch-wrap{align-items:flex-start}.view-switch-help{text-align:left}}
 
 /* ---------- bottom tab bar (nav.js) ----------
    Same four items as the top nav. Shown on phone widths and always in the

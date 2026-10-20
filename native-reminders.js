@@ -142,7 +142,7 @@
     }).join('');
 
     el.innerHTML =
-      '<p class="subhead">Reminders</p>' +
+      '<p class="subhead">Phone reminders</p>' +
       '<div class="nr-list" id="nr-list"><p class="hint">Loading…</p></div>' +
       '<div class="quick-add-form">' +
         '<div class="nr-chips">' + chips + '</div>' +

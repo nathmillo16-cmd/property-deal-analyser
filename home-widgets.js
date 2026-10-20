@@ -297,7 +297,7 @@ var HomeWidgets = (function () {
     }
     if (!st.pipelineLocked) {
       var now = Date.now();
-      var stale = (st.pipelineDeals || []).filter(function (d) { return d.pipeline_stage && d.pipeline_stage !== 'completed' && d.updated_at && now - new Date(d.updated_at).getTime() >= NEXT_MOVE_PIPELINE_DAYS * DAY; });
+      var stale = (st.pipelineDeals || []).filter(function (d) { return d.pipeline_stage && d.pipeline_stage !== 'completed' && d.pipeline_stage !== 'lost' && d.updated_at && now - new Date(d.updated_at).getTime() >= NEXT_MOVE_PIPELINE_DAYS * DAY; });
       if (stale.length) {
         var days = Math.floor((now - new Date(stale[0].updated_at).getTime()) / DAY);
         var nm = (stale[0].deal_data && stale[0].deal_data.name) || 'A deal';
@@ -321,7 +321,7 @@ var HomeWidgets = (function () {
     var urgent = st.pipelineLocked ? [] : (st.needsAttention || []);
     if (urgent.length) {
       title.textContent = 'Needs attention';
-      var LABEL = { chase: 'Chase', update: 'Update', review: 'Review', refinance: 'Refinance' };
+      var LABEL = { chase: 'Chase', update: 'Update', review: 'Review', refinance: 'Refinance', reminder: 'Reminder' };
       list.innerHTML = urgent.map(function (n) {
         var href = n.reason === 'refinance' ? '/portfolio.html' : (n.deal_id ? '/saved-deals.html?openDeal=' + encodeURIComponent(n.deal_id) : '/saved-deals.html');
         return '<a class="na-row" href="' + href + '"><span class="na-info"><span class="na-name">' + esc(n.deal_name || 'Untitled deal') + '</span>' +
