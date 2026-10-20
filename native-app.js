@@ -9,10 +9,11 @@
 //      the server's "Upgrade to unlock..." error messages are rewritten to the
 //      same neutral line. Paid users are unaffected: the server still decides
 //      access exactly as before.
-//   2. Replaces the top nav links with a fixed bottom tab bar
-//      (Home, Calculator, Saved, Pipeline, More) on every page that has the
-//      shared nav (#nav-root). More opens a sheet with the remaining pages,
-//      the tutorial, Contact us, Settings and Log out.
+//   2. The bottom tab bar itself (Home, Analyse, Deals, Portfolio) comes
+//      from nav.js, same as on phone-width websites. In the app the top
+//      link row and account bar are hidden, and a "Menu" button in the
+//      header opens a sheet with Tools (Refurb, Letters), Settings, the
+//      tutorial, Contact us, help pages and Log out.
 //
 // Elements can also carry data-native-text="..." to show different wording
 // in the app (e.g. "Subscription" becomes "Plan").
@@ -43,7 +44,6 @@
     'html.native-app #nav-root .topbar{margin-bottom:1rem;padding-bottom:.6rem}' +
     'html.native-app #nav-root .wordmark-logo{height:32px}' +
     'html.native-app body:has(#nav-root) .shell{padding-top:.75rem}' + // :has applies before the tab bar JS runs, so no jump
-    'html.native-app body.nt-has-tabbar{padding-bottom:calc(64px + env(safe-area-inset-bottom, 0px))}' +
     // Solid cream band behind the iPhone status bar (time, battery), so page
     // content scrolling up never shows through it. Height is exactly the
     // status bar area. Sits under modals (z-index 400+) so they still dim it.
@@ -51,17 +51,12 @@
       'height:env(safe-area-inset-top, 0px);background:var(--bg,#F2EFE7);z-index:390;pointer-events:none}' +
     // Refurb's sticky summary must stick below that band, not under it.
     'html.native-app .rf-summary{top:calc(1.5rem + env(safe-area-inset-top, 0px))}' +
-    '.nt-tabbar{position:fixed;left:0;right:0;bottom:0;z-index:350;display:flex;' +
-      'background:var(--surface,#fff);border-top:1px solid var(--hairline,#e5e5e5);' +
-      'padding:0 env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);' +
-      'box-shadow:0 -4px 16px rgba(20,20,40,.05)}' +
-    '.nt-tab{flex:1;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;' +
-      'background:none;border:0;padding:6px 2px;margin:0;color:var(--muted,#767a92);text-decoration:none;' +
-      'font-family:var(--font-body,inherit);font-size:10.5px;line-height:1.2;font-weight:600;letter-spacing:.01em;cursor:pointer;' +
-      '-webkit-tap-highlight-color:transparent}' +
-    '.nt-tab svg{display:block;width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}' +
-    '.nt-tab.active{color:#4b45b2}' +
-    'body.nt-kb .nt-tabbar{display:none}' +
+    // Header "Menu" button (opens the sheet below), right of the logo.
+    'html.native-app #nav-root .topbar{flex-wrap:nowrap;justify-content:space-between}' +
+    '.nt-menu-btn{display:flex;align-items:center;gap:6px;background:none;border:0;padding:8px 4px;margin:0;cursor:pointer;' +
+      'color:var(--ink,#1a1a2e);font-family:var(--font-body,inherit);font-size:14px;font-weight:600;-webkit-tap-highlight-color:transparent}' +
+    '.nt-menu-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}' +
+    '.nt-label{font-size:11.5px;color:var(--muted,#767a92);margin:0 4px 6px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}' +
     '.nt-backdrop{position:fixed;inset:0;z-index:360;background:rgba(15,15,35,.45);opacity:0;pointer-events:none;transition:opacity .2s ease}' +
     '.nt-backdrop.open{opacity:1;pointer-events:auto}' +
     '.nt-sheet{position:fixed;left:0;right:0;bottom:0;z-index:361;background:var(--surface,#fff);' +
@@ -138,49 +133,29 @@
     buildTabBar();
   }
 
-  // ---------- bottom tab bar ----------
-  var ICONS = {
-    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
-    calc: '<rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M8.5 6.5h7"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01M8.5 18h.01M12 18h.01M15.5 18h.01"/>',
-    saved: '<path d="M6.5 3h11a1 1 0 0 1 1 1v17l-6.5-4.2L5.5 21V4a1 1 0 0 1 1-1z"/>',
-    pipeline: '<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="7" rx="1.5"/>',
-    more: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'
-  };
-
-  var TABS = [
-    { key: 'home', href: '/home.html', label: 'Home', icon: 'home' },
-    { key: 'index', href: '/index.html', label: 'Calculator', icon: 'calc' },
-    { key: 'saved-deals', href: '/saved-deals.html', label: 'Saved', icon: 'saved' },
-    { key: 'pipeline', href: '/pipeline.html', label: 'Pipeline', icon: 'pipeline' }
-  ];
-
+  // ---------- header menu + sheet ----------
+  // The bottom tab bar is rendered by nav.js. This adds the sheet for
+  // everything that isn't one of its four tabs.
   var MORE_PAGES = [
-    { key: 'portfolio', href: '/portfolio.html', label: 'Portfolio' },
     { key: 'refurb', href: '/refurb.html', label: 'Refurb Estimator' },
     { key: 'letters', href: '/letters.html', label: 'Letter Templates' }
   ];
 
-  function svg(name) {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[name] + '</svg>';
-  }
-
   function buildTabBar() {
     var navRoot = document.getElementById('nav-root');
-    if (!navRoot || document.getElementById('nt-tabbar')) return;
+    if (!navRoot || document.getElementById('nt-sheet')) return;
     var active = navRoot.dataset.active || '';
-    var inMore = !TABS.some(function (t) { return t.key === active; });
+    var topbar = navRoot.querySelector('.topbar');
+    if (!topbar) return;
 
-    var bar = document.createElement('nav');
-    bar.className = 'nt-tabbar';
-    bar.id = 'nt-tabbar';
-    bar.setAttribute('aria-label', 'Main');
-    bar.innerHTML = TABS.map(function (t) {
-      var on = t.key === active;
-      return '<a class="nt-tab' + (on ? ' active' : '') + '" href="' + t.href + '"' +
-        (on ? ' aria-current="page"' : '') + '>' + svg(t.icon) + '<span>' + t.label + '</span></a>';
-    }).join('') +
-      '<button type="button" class="nt-tab' + (inMore ? ' active' : '') + '" id="nt-more-btn" aria-haspopup="dialog" aria-expanded="false">' +
-      svg('more') + '<span>More</span></button>';
+    var moreBtn = document.createElement('button');
+    moreBtn.type = 'button';
+    moreBtn.className = 'nt-menu-btn';
+    moreBtn.id = 'nt-more-btn';
+    moreBtn.setAttribute('aria-haspopup', 'dialog');
+    moreBtn.setAttribute('aria-expanded', 'false');
+    moreBtn.innerHTML = '<span>Menu</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+    topbar.appendChild(moreBtn);
 
     var backdrop = document.createElement('div');
     backdrop.className = 'nt-backdrop';
@@ -195,6 +170,7 @@
     sheet.innerHTML =
       '<div class="nt-handle"></div>' +
       '<p class="nt-email" id="nt-email"></p>' +
+      '<p class="nt-label">Tools</p>' +
       '<div class="nt-group">' +
         MORE_PAGES.map(function (p) {
           return '<a class="nt-item' + (p.key === active ? ' active' : '') + '" href="' + p.href + '">' + p.label + '</a>';
@@ -213,10 +189,6 @@
 
     document.body.appendChild(backdrop);
     document.body.appendChild(sheet);
-    document.body.appendChild(bar);
-    document.body.classList.add('nt-has-tabbar');
-
-    var moreBtn = document.getElementById('nt-more-btn');
     function openSheet() {
       // The page's own JS puts the signed-in email into the (now hidden) user menu.
       var emailEl = document.getElementById('user-menu-item-email');
@@ -264,15 +236,6 @@
       if (authLink) authLink.click();
     });
 
-    // Hide the tab bar while typing, so it doesn't sit on top of the keyboard.
-    document.addEventListener('focusin', function (e) {
-      if (e.target && e.target.matches && e.target.matches('input, textarea, select, [contenteditable="true"]')) {
-        document.body.classList.add('nt-kb');
-      }
-    });
-    document.addEventListener('focusout', function () {
-      document.body.classList.remove('nt-kb');
-    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', onReady);

@@ -70,8 +70,7 @@
 }
 
 /* ---- hero row: indigo hero panel + a 2-card stat stack ---- */
-.hero-row{display:grid;grid-template-columns:1.5fr 1fr;gap:var(--space-4);margin-bottom:var(--space-6)}
-@media(max-width:760px){.hero-row{grid-template-columns:1fr}}
+.hero-row{display:grid;grid-template-columns:1fr;gap:var(--space-4);margin-bottom:var(--space-6)}
 
 .hero-panel{
   background:linear-gradient(135deg, var(--accent), #37317f);
@@ -90,17 +89,6 @@
 
 .hero-stats-col{display:flex;flex-direction:column;gap:var(--space-4)}
 
-/* ---- mini pipeline board preview (right column of the hero row) ---- */
-.board-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-4)}
-.board-card-head h2{font-size:14px;font-weight:600;margin:0}
-.board-card-head .go{font-size:12px;font-weight:500;color:var(--accent);text-decoration:none}
-
-.board-cols{display:flex;justify-content:space-between;gap:var(--space-2)}
-.board-col{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1}
-.board-count{font-family:var(--font-body);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
-.board-bar-track{display:flex;align-items:flex-end;height:40px}
-.board-bar-fill{width:14px;border-radius:4px;min-height:3px;transition:height .3s ease}
-.board-label{font-size:9.5px;color:var(--muted);text-align:center;letter-spacing:.02em}
 
 .empty-card{text-align:center;padding:var(--space-6) var(--space-4)}
 .empty-card h2{font-size:22px;font-weight:600;margin:0 0 var(--space-3)}
@@ -110,10 +98,8 @@
   border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3);
 }
 
-/* iOS app: the Board card repeated the Pipeline card's data, so only the
-   Pipeline card is kept and the hero panel spans the full width. */
-html.native-app .hero-stats-col{display:none}
-html.native-app .hero-row{grid-template-columns:1fr}
+.hero-note{font-size:12.5px;color:rgba(255,255,255,.75);margin:var(--space-4) 0 0}
+.hero-note a{color:#fff;font-weight:600}
 .content-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
 @media(max-width:760px){.content-grid{grid-template-columns:1fr}}
 .content-grid .card h2{font-size:14px;font-weight:600;margin:0 0 var(--space-4)}
@@ -135,6 +121,7 @@ html.native-app .hero-row{grid-template-columns:1fr}
 .na-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0}
 .na-tag.chase,.na-tag.update{background:var(--warn-bg);color:var(--warn-ink)}
 .na-tag.review{background:var(--surface-2);color:var(--muted)}
+.na-tag.refinance{background:var(--success-bg);color:var(--success-ink)}
 .na-caught-up{margin:0}
 
 /* ---- pipeline: distribution bar + compact stage list ---- */
@@ -169,26 +156,18 @@ html.native-app .hero-row{grid-template-columns:1fr}
 
   <div class="hero-row">
     <div class="card hero-panel">
-      <p class="hero-label">Deals analysed</p>
-      <p class="hero-number" id="hero-analysed">—</p>
+      <p class="hero-label">Monthly cashflow</p>
+      <p class="hero-number" id="hero-cashflow">—</p>
       <div class="hero-figures">
-        <div class="hero-fig"><span class="hero-fig-label">In pipeline</span><span class="hero-fig-value" id="hero-inpipeline">—</span></div>
-        <div class="hero-fig"><span class="hero-fig-label">Completed</span><span class="hero-fig-value" id="hero-completed">—</span></div>
-        <div class="hero-fig"><span class="hero-fig-label">Total invested</span><span class="hero-fig-value" id="hero-invested">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Total equity</span><span class="hero-fig-value" id="hero-equity">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Portfolio value</span><span class="hero-fig-value" id="hero-value">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Properties</span><span class="hero-fig-value" id="hero-properties">—</span></div>
       </div>
-    </div>
-    <div class="hero-stats-col">
-      <div class="card board-card">
-        <div class="board-card-head">
-          <h2>Board</h2>
-          <a class="go" href="/pipeline.html">Open →</a>
-        </div>
-        <div id="board-preview"><p class="hint">Loading…</p></div>
-      </div>
+      <p class="hero-note" id="hero-note" hidden></p>
     </div>
   </div>
 
-  <div class="card" id="needs-attention-card" style="display:none">
+  <div class="card" id="needs-attention-card" style="display:none;margin-bottom:var(--space-4)">
     <h2>Needs attention</h2>
     <div id="needs-attention-list"></div>
   </div>
@@ -206,13 +185,13 @@ html.native-app .hero-row{grid-template-columns:1fr}
       <div class="card">
         <h2>Recent saved deals</h2>
         <div id="recent-list"><p class="hint">Loading…</p></div>
-        <a class="go" href="/saved-deals.html">View all saved deals →</a>
+        <a class="go" href="/saved-deals.html">View all deals →</a>
       </div>
       <div class="card">
         <h2>Pipeline</h2>
         <div class="pipeline-bar" id="pipeline-bar"></div>
         <div id="pipeline-summary"><p class="hint">Loading…</p></div>
-        <a class="go" href="/pipeline.html">Open the pipeline →</a>
+        <a class="go" href="/pipeline.html">Open the board →</a>
       </div>
     </div>
   </div>
@@ -263,21 +242,13 @@ function keyFigure(d){
   return {label:f.label, value:f.type==='c'?fmtC(v):fmtP(v)};
 }
 
-// Greeting: "Good morning" over the user's first name when their profile
-// has one (Settings > Account > Name), otherwise just "Good morning" on its
-// own. Never derived from the email address.
+// Greeting: "Good morning, Cameron" using the first name from the profile
+// (Settings > Account > First name), or the one given at signup. Falls back
+// to "there". Never derived from the email address.
 function setGreeting(fullName){
-  const first=(fullName||'').trim().split(/\s+/)[0]||'';
-  const eyebrow=document.getElementById('greeting-eyebrow');
-  const heading=document.getElementById('welcome-name');
-  if(first){
-    eyebrow.textContent=greetingForHour();
-    eyebrow.style.display='';
-    heading.textContent=first;
-  }else{
-    eyebrow.style.display='none';
-    heading.textContent=greetingForHour();
-  }
+  const first=(fullName||'').trim().split(/\s+/)[0]||'there';
+  document.getElementById('greeting-eyebrow').style.display='none';
+  document.getElementById('welcome-name').textContent=greetingForHour()+', '+first;
 }
 
 function greetingForHour(){
@@ -353,7 +324,14 @@ async function loadDashboard(){
     const res=await fetch(API_BASE+'/api/profile',{headers});
     const body=await res.json();
     hasCompletedTutorial=res.ok?!!body.has_completed_tutorial:true;
-    if(res.ok)setGreeting(body.name);
+    const meta=(currentSession.user&&currentSession.user.user_metadata)||{};
+    const signupName=typeof meta.first_name==='string'?meta.first_name.trim():'';
+    if(res.ok)setGreeting(body.name||signupName);
+    // First login after signup: copy the signup first name onto the profile
+    // so Settings shows it and it follows the user everywhere.
+    if(res.ok&&!body.name&&signupName){
+      fetch(API_BASE+'/api/profile/name',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({name:signupName})}).catch(function(){});
+    }
   }catch(e){
     hasCompletedTutorial=true;
   }
@@ -367,37 +345,38 @@ function render(){
   // subset of saved deals (so it's naturally 0 when savedDeals is empty),
   // but portfolio ("Total invested") is a wholly separate table and must
   // still show even then, so nothing here can sit behind the early return.
-  const activeInPipeline=pipelineDeals.filter(d=>d.pipeline_stage!=='completed').length;
-  const completedCount=pipelineDeals.filter(d=>d.pipeline_stage==='completed').length;
-  const investedText=(portfolioLocked||portfolioCount===0||!portfolioTotals)?'—':fmtC(portfolioTotals.total_price_paid);
+  // Hero: portfolio figures, all server-computed (GET /api/portfolio).
+  const hasPortfolio=!portfolioLocked&&portfolioCount>0&&portfolioTotals;
+  const t=portfolioTotals||{};
+  document.getElementById('hero-cashflow').textContent=hasPortfolio?fmtC(t.total_monthly_cashflow):'—';
+  document.getElementById('hero-equity').textContent=hasPortfolio&&t.total_equity!=null?fmtC(t.total_equity):'—';
+  document.getElementById('hero-value').textContent=hasPortfolio&&t.portfolio_value!=null?fmtC(t.portfolio_value):'—';
+  document.getElementById('hero-properties').textContent=hasPortfolio?portfolioCount:(portfolioLocked?'—':'0');
+  const heroNote=document.getElementById('hero-note');
+  if(portfolioLocked){
+    heroNote.textContent=IS_NATIVE_APP?NATIVE_LOCK_MSG:'Portfolio tracking is part of the paid plan.';
+    heroNote.hidden=false;
+  }else if(portfolioCount===0){
+    heroNote.innerHTML='Add the properties you own to see your cashflow and equity here. <a href="/portfolio.html">Add a property →</a>';
+    heroNote.hidden=false;
+  }else if(t.equity_count!=null&&t.equity_count<portfolioCount){
+    heroNote.innerHTML='Equity covers '+t.equity_count+' of '+portfolioCount+' properties. <a href="/portfolio.html">Add current values →</a>';
+    heroNote.hidden=false;
+  }else{
+    heroNote.hidden=true;
+  }
 
-  document.getElementById('hero-analysed').textContent=savedDeals.length;
-  document.getElementById('hero-inpipeline').textContent=pipelineLocked?'—':activeInPipeline;
-  document.getElementById('hero-completed').textContent=pipelineLocked?'—':completedCount;
-  document.getElementById('hero-invested').textContent=investedText;
-
-  // #board-preview/#pipeline-bar/#pipeline-summary populated here too, still
-  // unconditionally — same reasoning as the hero figures above. #board-preview
-  // in particular sits in the always-visible hero-row (not inside
-  // #dashboard-content), so a zero-saved-deals user was previously left
-  // looking at its static HTML "Loading…" forever, since the code that used
-  // to replace it lived after the early return below and never ran. Moving
-  // it up here fixes that; #pipeline-bar/#pipeline-summary get the same
-  // correct content for free, even though (being inside #dashboard-content)
-  // they stay hidden by that container's own display:none in this exact
-  // zero-saved-deals case — see chat.
+  // #pipeline-bar/#pipeline-summary populated unconditionally too, same
+  // reasoning as the hero figures above.
   const barEl=document.getElementById('pipeline-bar');
   const pipeEl=document.getElementById('pipeline-summary');
-  const boardEl=document.getElementById('board-preview');
   if(pipelineLocked){
     barEl.innerHTML='';
     // In the iOS app, no upgrade wording (App Store rules): neutral line instead.
     pipeEl.innerHTML=IS_NATIVE_APP?'<p class="hint">'+NATIVE_LOCK_MSG+'</p>':'<p class="hint">Upgrade to unlock the Pipeline and track deals through analysing → viewing → offered → agreed → completed.</p>';
-    boardEl.innerHTML=IS_NATIVE_APP?'<p class="hint">'+NATIVE_LOCK_MSG+'</p>':'<p class="hint">Upgrade to unlock the Pipeline.</p>';
   }else if(pipelineDeals.length===0){
     barEl.innerHTML='';
     pipeEl.innerHTML='<p class="hint">Nothing in your pipeline yet. Add a saved deal to start tracking it.</p>';
-    boardEl.innerHTML='<p class="hint">Nothing in your pipeline yet.</p>';
   }else{
     const counts={};
     STAGES.forEach(s=>counts[s]=0);
@@ -418,23 +397,6 @@ function render(){
     }
     pipeEl.innerHTML=listHtml;
 
-    // Mini board preview — reuses the same `counts` computed above for the
-    // distribution bar, not recomputed. Bar heights scale relative to the
-    // tallest stage (max ~40px, floor of 4px for any nonzero count so a
-    // small-but-real value never renders as an invisible sliver); a
-    // zero-count stage gets a flat 3px stub at reduced opacity instead of
-    // disappearing, so all 5 stages stay visually present.
-    const maxCount=Math.max(...STAGES.map(s=>counts[s]));
-    boardEl.innerHTML='<div class="board-cols">'+STAGES.map(s=>{
-      const c=counts[s];
-      const height=c===0?3:Math.max(4,Math.round((c/maxCount)*40));
-      const dim=c===0?' style="opacity:.35"':'';
-      return `<div class="board-col"${dim}>
-        <span class="board-count" style="color:${STAGE_COLORS[s]}">${c}</span>
-        <div class="board-bar-track"><div class="board-bar-fill" style="height:${height}px;background:${STAGE_COLORS[s]}"></div></div>
-        <span class="board-label">${STAGE_LABELS[s]}</span>
-      </div>`;
-    }).join('')+'</div>';
   }
 
   // Needs Attention — populated unconditionally too, same reasoning as
@@ -453,8 +415,8 @@ function render(){
     if(needsAttention.length===0){
       naList.innerHTML='<p class="hint na-caught-up">You\'re all caught up. Nothing needs attention.</p>';
     }else{
-      const REASON_LABEL={chase:'Chase',update:'Update',review:'Review'};
-      naList.innerHTML=needsAttention.map(n=>`<a class="na-row" href="/saved-deals.html">
+      const REASON_LABEL={chase:'Chase',update:'Update',review:'Review',refinance:'Refinance'};
+      naList.innerHTML=needsAttention.map(n=>`<a class="na-row" href="${n.reason==='refinance'?'/portfolio.html':(n.deal_id?'/saved-deals.html?openDeal='+encodeURIComponent(n.deal_id):'/saved-deals.html')}">
         <span class="na-info">
           <span class="na-name">${escapeHtml(n.deal_name||'Untitled deal')}</span>
           <span class="na-detail">${escapeHtml(n.detail)}</span>
@@ -493,7 +455,7 @@ async function init(){
   sbClient=auth.client;
   currentSession=auth.session;
 
-  setGreeting(''); // plain greeting until the profile (and its name) loads
+  setGreeting(''); // "Good morning, there" until the profile (and its name) loads
   document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
   const menuEmail=document.getElementById('user-menu-email');
   const itemEmail=document.getElementById('user-menu-item-email');

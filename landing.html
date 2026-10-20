@@ -44,7 +44,7 @@ html.native-app .topbar .nav-links,
 html.native-app body > .shell:not(:has(.topbar)):not(:has(#calculator)):not(:has(footer)),
 html.native-app #about-us-root{display:none}
 html.native-app #calculator{border-top:none;padding-top:1rem}
-html.native-app #calc-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+html.native-app #calc-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 html.native-app #calc-tabs .tab-btn{text-align:center;padding-left:2px;padding-right:2px}
 .app-back-link{font-size:14px!important;font-weight:600!important;text-transform:none!important;letter-spacing:0!important;color:var(--accent)!important}
 /* Phones: one consistent, tighter gap between sections. Each section sits in
@@ -278,10 +278,38 @@ body.theme-light .showcase-card{
 /* ---- footer ---- */
 footer{padding:2.5rem 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;border-top:1px solid var(--hairline)}
 footer .fw{font-family:var(--font-head);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.02em}
-footer .flinks{display:flex;gap:1.5rem}
+footer .flinks{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem}
 footer .flinks a{font-size:12px;color:var(--muted);text-decoration:none}
 footer .flinks a:hover{color:var(--ink)}
 footer .fcopy{font-size:11.5px;color:var(--muted)}
+
+/* ---- Free calculator: BRRR tab, Advanced/Full breakdown sections, and
+   hidden-results-on-warning. Same behaviour as index.html. ---- */
+.brrr-only,#panel-btl:not(.brrr-mode) .brrr-only{display:none}
+#panel-btl.brrr-mode .field.brrr-only{display:flex}
+#panel-btl.brrr-mode p.brrr-only,#panel-btl.brrr-mode div.brrr-grid{display:block}
+#panel-btl.brrr-mode .brrr-headline{display:grid}
+#panel-btl.brrr-mode .btl-only{display:none}
+.brrr-headline{grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 1.25rem}
+@media(max-width:520px){.brrr-headline{grid-template-columns:1fr}}
+@media(min-width:861px) and (max-width:1100px){.brrr-headline{grid-template-columns:1fr}}
+.bh{background:linear-gradient(135deg,var(--accent),#37317f);color:#fff;border-radius:14px;padding:1rem 1.05rem;min-width:0;display:flex;flex-direction:column;justify-content:space-between}
+.bh-l{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.75);margin:0 0 .45rem}
+.bh-v{font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,2.1vw,1.85rem);letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin:0;white-space:nowrap;color:#fff}
+details.adv,details.breakdown{margin:0 0 1rem}
+details.adv>summary,details.breakdown>summary{
+  cursor:pointer;list-style:none;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+  font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);
+  padding:.75rem 0;border-top:1px solid var(--hairline);
+}
+details.adv>summary::-webkit-details-marker,details.breakdown>summary::-webkit-details-marker{display:none}
+details.adv>summary::before,details.breakdown>summary::before{content:"+";font-size:16px;line-height:1;width:1em}
+details.adv[open]>summary::before,details.breakdown[open]>summary::before{content:"\2212"}
+details.adv>summary span{font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted)}
+details.adv[open]>summary{margin-bottom:.75rem}
+details.breakdown>summary{margin-bottom:.5rem}
+#panel-btl:not(.brrr-mode) details.breakdown>summary{display:none}
+.data-block.warning-hold>*:not(.subhead):not(.value-warning){display:none!important}
 </style>
 </head>
 <body class="theme-light">
@@ -290,7 +318,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   <div class="topbar">
     <a class="wordmark" href="/"><img src="/assets/propulsion-logo.png" alt="PROPulsion" class="wordmark-logo"></a>
     <div class="nav-links">
-      <a href="#what-it-does">What it does</a>
+      <a href="#how-it-works">How it works</a>
       <a href="#calculator">Try it free</a>
       <a href="/pricing.html" class="web-only">Pricing</a>
     </div>
@@ -303,7 +331,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   <!-- HERO -->
   <section class="hero reveal">
     <h1>Know your maximum bid before you offer.</h1>
-    <p class="lp-lead">Full deal analysis across BTL, BRRR, HMO, serviced accommodation and flip, real sold-price comparables, crime and planning risk, and a written verdict, so you always know the ceiling before you negotiate.</p>
+    <p class="lp-lead">See your max bid and how much money stays in the deal, in seconds.</p>
     <div class="hero-cta">
       <a class="btn-primary" href="#calculator">Start analysing</a>
       <a class="link-secondary" href="/login.html?mode=signup">or sign up free</a>
@@ -315,83 +343,12 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
       <p class="hero-bid-figure">£162,900</p>
       <p class="hero-bid-note">Asking £175,000 · Rent £950/mo · £950 × 12 ÷ 7% = £162,857</p>
       <div class="hero-verdicts">
+        <div class="hero-verdict"><span class="hv-label">BRRR</span><span class="hv-figure">£27,500</span><span class="hv-sub">left in deal</span></div>
         <div class="hero-verdict"><span class="hv-label">BTL</span><span class="hv-figure">7.0%</span><span class="hv-sub">gross yield</span></div>
         <div class="hero-verdict"><span class="hv-label">HMO</span><span class="hv-figure">10.6%</span><span class="hv-sub">gross yield</span></div>
         <div class="hero-verdict"><span class="hv-label">SA</span><span class="hv-figure">12.8%</span><span class="hv-sub">gross yield</span></div>
       </div>
-      <p class="hero-assumptions">All three at the same £162,900 price. BTL at £950/mo rent; HMO assumes 3 room lets at £475/mo each; SA assumes a short-let at £95/night, 60% occupancy.</p>
-    </div>
-  </section>
-</div>
-
-<!-- WHAT IT DOES -->
-<div class="shell">
-  <section class="lp-section reveal" id="what-it-does">
-    <p class="lp-kicker">Capabilities</p>
-    <h2>What it does</h2>
-    <p class="lp-lead">Every part of the app works from the same numbers, so nothing gets re-entered or re-checked by hand.</p>
-    <div class="benefit-grid">
-      <div class="benefit-card reveal">
-        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="4" y1="20" x2="4" y2="12"/>
-          <line x1="12" y1="20" x2="12" y2="6"/>
-          <line x1="20" y1="20" x2="20" y2="15"/>
-          <line x1="2" y1="20" x2="22" y2="20"/>
-        </svg></div>
-        <h3>Deal analysis</h3>
-        <p>BTL, BRRR, HMO, serviced accommodation and flip, side by side.</p>
-      </div>
-      <div class="benefit-card reveal">
-        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 11 L11 3 L20 3 L20 12 L12 20 Z"/>
-          <circle cx="15" cy="8" r="1.3" fill="currentColor" stroke="none"/>
-        </svg></div>
-        <h3>Comparables &amp; end value</h3>
-        <p>Real sold-price comparables and a GDV estimate for every deal.</p>
-      </div>
-      <div class="benefit-card reveal">
-        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2 L20 5 V11 C20 16 16.5 20 12 22 C7.5 20 4 16 4 11 V5 Z"/>
-          <line x1="12" y1="8" x2="12" y2="13"/>
-          <circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none"/>
-        </svg></div>
-        <h3>Crime &amp; planning constraints</h3>
-        <p>Per-1,000 crime rate and area percentile, plus Article 4, conservation area, listed building, flood risk, green belt and tree preservation flags.</p>
-      </div>
-      <div class="benefit-card reveal">
-        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2z"/>
-        </svg></div>
-        <h3>Refurb estimator</h3>
-        <p>Cost a refurb line by line, or as a quick trade-by-trade total, with contingency and VAT.</p>
-      </div>
-      <div class="benefit-card reveal">
-        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="5" width="18" height="14" rx="1.5"/>
-          <path d="M3 6 L12 13 L21 6"/>
-        </svg></div>
-        <h3>Letter templates</h3>
-        <p>Ready-made outreach letters for empty, derelict and inherited properties, with a live preview.</p>
-      </div>
-      <div class="benefit-card reveal">
-        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="4" width="5" height="16" rx="1"/>
-          <rect x="9.5" y="4" width="5" height="10" rx="1"/>
-          <rect x="16" y="4" width="5" height="13" rx="1"/>
-        </svg></div>
-        <h3>Pipeline tracking</h3>
-        <p>Every deal from first look to completion, stage by stage.</p>
-      </div>
-      <div class="benefit-card reveal">
-        <div class="benefit-icon-wrap"><svg class="benefit-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="8" height="8" rx="1"/>
-          <rect x="13" y="3" width="8" height="8" rx="1"/>
-          <rect x="3" y="13" width="8" height="8" rx="1"/>
-          <rect x="13" y="13" width="8" height="8" rx="1"/>
-        </svg></div>
-        <h3>Portfolio management</h3>
-        <p>One view across everything you own or are chasing.</p>
-      </div>
+      <p class="hero-assumptions">All at the same £162,900 price. BRRR assumes a £20,000 refurb, £210,000 end value and a 75% refinance; BTL at £950/mo rent; HMO assumes 3 room lets at £475/mo each; SA assumes a short-let at £95/night, 60% occupancy.</p>
     </div>
   </section>
 </div>
@@ -403,18 +360,19 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
       <p class="lp-kicker">Run a real deal now<span class="free-badge">Free, no login</span></p>
       <h2 style="margin-left:auto;margin-right:auto">Know if a Deal Meets Your Yield.</h2>
       <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">Enter your numbers, get the full picture.</p>
-      <p class="calc-hint" style="text-align:center">Same calculation engine as the paid app: BTL, HMO, serviced accommodation and flip. Nothing is saved unless you sign up.</p>
+      <p class="calc-hint" style="text-align:center">Same calculation engine as the app: BRRR, BTL, HMO, serviced accommodation and flip. Filled in with an example deal. Change any number. Nothing is saved unless you sign up.</p>
     </div>
 
     <div class="tabs" style="justify-content:center;margin-bottom:1.75rem" id="calc-tabs">
-      <button class="tab-btn active" onclick="switchTab('btl')">BTL</button>
+      <button class="tab-btn active" onclick="switchTab('brrr')">BRRR</button>
+      <button class="tab-btn" onclick="switchTab('btl')">BTL</button>
       <button class="tab-btn" onclick="switchTab('hmo')">HMO</button>
       <button class="tab-btn" onclick="switchTab('sa')">SA</button>
       <button class="tab-btn" onclick="switchTab('flip')">Flip</button>
     </div>
 
     <!-- BTL -->
-    <div class="calc-panel active" id="panel-btl">
+    <div class="calc-panel active brrr-mode" id="panel-btl">
       <div class="calc-split">
         <div class="input-zone">
           <p class="subhead">Property details</p>
@@ -422,9 +380,15 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
             <div class="field"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="b-pp" value="140000" oninput="markStaleBTL()"/></div>
             <div class="field"><label>End market value (£)</label><input type="text" inputmode="decimal" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
             <div class="field"><label>Monthly rent (£)</label><input type="text" inputmode="decimal" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Deposit % (of purchase price)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
             <div class="field"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
+            <div class="field btl-only"><label>Deposit % (of purchase price)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
+            <div class="field brrr-only"><label>Refinance LTV % (of end value)</label><input type="number" id="bb-refi-ltv" value="75" oninput="markStaleBTL()"/></div>
+          </div>
+          <p class="calc-hint brrr-only">Buy with cash, refurbish, then refinance at the LTV above (interest-only, at the mortgage rate under Advanced).</p>
+          <details class="adv">
+            <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
+          <div class="field-grid">
+            <div class="field"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
             <div class="field"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
             <div class="field"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="b-mf" value="300" oninput="markStaleBTL()"/></div>
             <div class="field"><label>Searches (£)</label><input type="text" inputmode="decimal" id="b-srch" value="0" oninput="markStaleBTL()"/></div>
@@ -436,9 +400,10 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
           <p class="subhead" style="margin-top:1.5rem">Targets</p>
           <div class="target-row"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
           <div class="target-row"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
+          </details>
           <button class="btn-primary run-btn" onclick="runBTL()" id="btn-run-btl">Analyse deal</button>
 
-          <div class="glance-card">
+          <div class="glance-card btl-only">
             <p class="glance-empty" id="b-glance-empty">Enter a deal above to see your results here.</p>
             <div class="glance-results" id="b-glance-results" style="display:none">
               <p class="glance-label">Max bid to hit target yield</p>
@@ -458,8 +423,35 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
         <div class="data-block">
           <p class="subhead">Results</p>
           <p class="stale-note" id="btl-stale">Inputs changed. Press Analyse deal to update these results.</p>
-          <p class="value-warning" id="b-value-warning">End market value is much lower than purchase price. Check for a missing zero.</p>
-          <div class="results-split">
+          <p class="value-warning" id="b-value-warning">End market value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
+          <div class="brrr-headline brrr-only">
+            <div class="bh"><p class="bh-l">Money left in deal</p><p class="bh-v" id="bh-mli">—</p></div>
+            <div class="bh"><p class="bh-l">Cash pulled out at refinance</p><p class="bh-v" id="bh-out">—</p></div>
+            <div class="bh"><p class="bh-l">Monthly cashflow</p><p class="bh-v" id="bh-cf">—</p></div>
+          </div>
+          <details class="breakdown" id="b-breakdown">
+          <summary>Full breakdown</summary>
+          <div class="brrr-only brrr-grid">
+            <div class="metric-grid">
+              <div class="metric"><p class="ml">Monthly rental net</p><p class="mv" id="bb-nm">—</p></div>
+              <div class="metric"><p class="ml">Annual rental net</p><p class="mv" id="bb-ny">—</p></div>
+              <div class="metric"><p class="ml">Gross yield</p><p class="mv" id="bb-gy">—</p></div>
+              <div class="metric"><p class="ml">Net yield</p><p class="mv" id="bb-ny2">—</p></div>
+              <div class="metric"><p class="ml">ROI</p><p class="mv" id="bb-roi">—</p></div>
+              <div class="metric"><p class="ml">Total investment</p><p class="mv" id="bb-ti">—</p></div>
+              <div class="metric"><p class="ml">Money left in deal</p><p class="mv" id="bb-mli">—</p></div>
+              <div class="metric"><p class="ml">Payback (years)</p><p class="mv" id="bb-pb">—</p></div>
+            </div>
+            <p class="subhead" style="margin-top:1.25rem">Refinance</p>
+            <div class="metric-grid">
+              <div class="metric"><p class="ml">Refinance loan amount</p><p class="mv" id="bb-refi-loan">—</p></div>
+              <div class="metric"><p class="ml">Refinance LTV</p><p class="mv" id="bb-refi-ltv-out">—</p></div>
+              <div class="metric"><p class="ml">Interest rate</p><p class="mv" id="bb-refi-rate">—</p></div>
+              <div class="metric"><p class="ml">Monthly payment</p><p class="mv" id="bb-refi-mpay">—</p></div>
+            </div>
+            <p class="calc-hint">Shows the position after refinancing. The refurb period itself is not modelled.</p>
+          </div>
+          <div class="results-split btl-only">
             <div>
               <p class="subhead">Mortgage purchase</p>
               <div class="metric-grid">
@@ -498,6 +490,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
           <p class="subhead">Recommended offer prices</p>
           <div class="offer-box"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
           <div class="offer-box"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
+          </details>
         </div>
       </div>
     </div>
@@ -510,9 +503,20 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
           <div class="field-grid">
             <div class="field"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
             <div class="field"><label>End market value (£)</label><input type="text" inputmode="decimal" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
             <div class="field"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
+            <div class="field"><label>Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
+          </div>
+          <p class="subhead" style="margin-top:1.5rem">Room breakdown</p>
+          <div class="room-grid"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
+          <div class="room-grid"><span>Single</span><input type="text" inputmode="decimal" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r1t">£0</span></div>
+          <div class="room-grid"><span>Double</span><input type="text" inputmode="decimal" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="room-total" id="h-r2t">£0</span></div>
+          <div class="room-grid"><span>Single en suite</span><input type="text" inputmode="decimal" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r3t">£0</span></div>
+          <div class="room-grid"><span>Double en suite</span><input type="text" inputmode="decimal" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r4t">£0</span></div>
+          <div class="rent-total-row">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
+          <details class="adv">
+            <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
+          <div class="field-grid">
+            <div class="field"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
             <div class="field"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
             <div class="field"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="h-mf" value="300" oninput="markStaleHMO()"/></div>
             <div class="field"><label>Licensing fee (£)</label><input type="text" inputmode="decimal" id="h-lic" value="650" oninput="markStaleHMO()"/></div>
@@ -524,16 +528,10 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
             <div class="field"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="markStaleHMO()"/></div>
           </div>
           <p class="calc-hint">Bills automatically calculated as 10% of total rent. Stamp duty automatically calculated. Council tax entered annually.</p>
-          <p class="subhead" style="margin-top:1.5rem">Room breakdown</p>
-          <div class="room-grid"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
-          <div class="room-grid"><span>Single</span><input type="text" inputmode="decimal" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r1t">£0</span></div>
-          <div class="room-grid"><span>Double</span><input type="text" inputmode="decimal" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="room-total" id="h-r2t">£0</span></div>
-          <div class="room-grid"><span>Single en suite</span><input type="text" inputmode="decimal" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r3t">£0</span></div>
-          <div class="room-grid"><span>Double en suite</span><input type="text" inputmode="decimal" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="room-total" id="h-r4t">£0</span></div>
-          <div class="rent-total-row">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
           <p class="subhead">Targets</p>
           <div class="target-row"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
           <div class="target-row"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
+          </details>
           <button class="btn-primary run-btn" onclick="runHMO()" id="btn-run-hmo">Analyse deal</button>
 
           <div class="glance-card">
@@ -556,7 +554,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
         <div class="data-block">
           <p class="subhead">Results</p>
           <p class="stale-note" id="hmo-stale">Inputs changed. Press Analyse deal to update these results.</p>
-          <p class="value-warning" id="h-value-warning">End market value is much lower than purchase price. Check for a missing zero.</p>
+          <p class="value-warning" id="h-value-warning">End market value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
           <div class="results-split">
             <div>
               <p class="subhead">Mortgage purchase</p>
@@ -610,15 +608,17 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
             <div class="field"><label>Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="markStaleSA()"/></div>
             <div class="field"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
             <div class="field"><label>End market value (£)</label><input type="text" inputmode="decimal" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
+            <div class="field"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
             <div class="field"><label>Deposit % (of purchase price)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
           </div>
-          <p class="subhead" style="margin-top:1.5rem">Upfront costs</p>
+          <details class="adv">
+            <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
+          <p class="subhead">Mortgage and upfront costs</p>
           <div class="field-grid">
+            <div class="field"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
             <div class="field"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="sa-sol" value="1800" oninput="markStaleSA()"/></div>
             <div class="field"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="sa-mf" value="300" oninput="markStaleSA()"/></div>
             <div class="field"><label>Searches (£)</label><input type="text" inputmode="decimal" id="sa-srch" value="0" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
             <div class="field"><label>Furnishings (£)</label><input type="text" inputmode="decimal" id="sa-furn" value="8000" oninput="markStaleSA()"/></div>
             <div class="field"><label>White goods (£)</label><input type="text" inputmode="decimal" id="sa-wg" value="2000" oninput="markStaleSA()"/></div>
           </div>
@@ -635,6 +635,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
           <p class="subhead" style="margin-top:1.5rem">Targets</p>
           <div class="target-row"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
           <div class="target-row"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
+          </details>
           <button class="btn-primary run-btn" onclick="runSA()" id="btn-run-sa">Analyse deal</button>
 
           <div class="glance-card">
@@ -657,7 +658,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
         <div class="data-block">
           <p class="subhead">Results</p>
           <p class="stale-note" id="sa-stale">Inputs changed. Press Analyse deal to update these results.</p>
-          <p class="value-warning" id="sa-value-warning">End market value is much lower than purchase price. Check for a missing zero.</p>
+          <p class="value-warning" id="sa-value-warning">End market value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
           <div class="results-split">
             <div>
               <p class="subhead">Mortgage purchase</p>
@@ -706,15 +707,20 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
           <p class="subhead">Property details</p>
           <div class="field-grid">
             <div class="field"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="fl-pp" value="150000" oninput="markStaleFlip()"/></div>
-            <div class="field"><label>Buying fees (£)</label><input type="text" inputmode="decimal" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
-            <div class="field"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
             <div class="field"><label>Sale value (£)</label><input type="text" inputmode="decimal" id="fl-sv" value="220000" oninput="markStaleFlip()"/></div>
+            <div class="field"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
+          </div>
+          <details class="adv">
+            <summary>Advanced <span>fees, contingency and target</span></summary>
+          <div class="field-grid">
+            <div class="field"><label>Buying fees (£)</label><input type="text" inputmode="decimal" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
             <div class="field"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
             <div class="field"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
           </div>
           <p class="calc-hint">Stamp duty automatically calculated with BTL surcharge on purchase price. Contingency is optional: leave blank to treat as £0. Cash only strategy, no mortgage version.</p>
           <p class="subhead" style="margin-top:1.5rem">Target</p>
           <div class="target-row"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
+          </details>
           <button class="btn-primary run-btn" onclick="runFlip()" id="btn-run-flip">Analyse deal</button>
 
           <div class="glance-card">
@@ -737,7 +743,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
         <div class="data-block">
           <p class="subhead">Results</p>
           <p class="stale-note" id="flip-stale">Inputs changed. Press Analyse deal to update these results.</p>
-          <p class="value-warning" id="fl-value-warning">Sale value is much lower than purchase price. Check for a missing zero.</p>
+          <p class="value-warning" id="fl-value-warning">Sale value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
           <div class="metric-grid">
             <div class="metric"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
             <div class="metric"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
@@ -774,47 +780,6 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   </section>
 </div>
 
-<!-- FEATURE SHOWCASES -->
-<div class="shell">
-  <section class="lp-section reveal" id="screenshots">
-    <p class="lp-kicker">Inside the app</p>
-    <h2>See it in place</h2>
-    <div class="showcase-grid">
-      <div class="showcase-card reveal">
-        <p class="showcase-title">Deal analysis</p>
-        <div class="showcase-mock">
-          <div class="sm-row"><span class="sm-label">Gross yield</span><span class="sm-value good">7.0%</span></div>
-          <div class="sm-row"><span class="sm-label">ROI</span><span class="sm-value good">14.2%</span></div>
-          <div class="sm-row sm-total"><span class="sm-label">Max bid (yield)</span><span class="sm-value">£162,900</span></div>
-        </div>
-      </div>
-      <div class="showcase-card reveal">
-        <p class="showcase-title">Comparables &amp; planning</p>
-        <div class="showcase-mock">
-          <div class="sm-row"><span class="sm-label">Median sold price</span><span class="sm-value">£158,000</span></div>
-          <div class="sm-row"><span class="sm-label">Crime rate</span><span class="sm-value">42nd percentile</span></div>
-          <div class="sm-row"><span class="sm-label">Article 4</span><span class="sm-value warn">Active</span></div>
-        </div>
-      </div>
-      <div class="showcase-card reveal">
-        <p class="showcase-title">Refurb estimator</p>
-        <div class="showcase-mock">
-          <div class="sm-row"><span class="sm-label">Kitchen fit</span><span class="sm-value">£750</span></div>
-          <div class="sm-row"><span class="sm-label">Full rewire</span><span class="sm-value">£3,200</span></div>
-          <div class="sm-row sm-total"><span class="sm-label">Grand total</span><span class="sm-value">£11,480</span></div>
-        </div>
-      </div>
-      <div class="showcase-card reveal">
-        <p class="showcase-title">Letter templates</p>
-        <div class="showcase-mock">
-          <p class="sm-letter">"I noticed the property at [address] has been empty for a while, and wanted to reach out directly in case you'd ever consider selling…"</p>
-          <div class="sm-letter-actions"><span class="sm-chip">Copy</span><span class="sm-chip primary">Download</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-</div>
-
 <!-- HOW IT WORKS -->
 <div class="shell">
   <section class="lp-section reveal" id="how-it-works">
@@ -824,27 +789,19 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
     <div class="journey-grid">
       <div class="journey-step reveal">
         <span class="journey-num">1</span>
-        <div><h3>Find a deal</h3><p>Enter the numbers on any property.</p></div>
+        <div><h3>Enter the numbers</h3><p>Price, end value, rent and refurb from any listing.</p></div>
       </div>
       <div class="journey-step reveal">
         <span class="journey-num">2</span>
-        <div><h3>Analyse it</h3><p>Max bid plus BTL, BRRR, HMO, SA and Flip figures, instantly.</p></div>
+        <div><h3>Get your max bid</h3><p>Money left in, cashflow and max bid across BRRR, BTL, HMO, SA and Flip.</p></div>
       </div>
       <div class="journey-step reveal">
         <span class="journey-num">3</span>
-        <div><h3>See the data</h3><p>Sold-price comparables, crime rate, and planning constraints.</p></div>
+        <div><h3>Check the area</h3><p>Sold-price comparables, crime rate and planning constraints.</p></div>
       </div>
       <div class="journey-step reveal">
         <span class="journey-num">4</span>
-        <div><h3>Add to pipeline</h3><p>Track it through analysing → viewing → offered → agreed → completed.</p></div>
-      </div>
-      <div class="journey-step reveal">
-        <span class="journey-num">5</span>
-        <div><h3>Make notes &amp; progress</h3><p>Offer history and notes, logged stage by stage.</p></div>
-      </div>
-      <div class="journey-step reveal">
-        <span class="journey-num">6</span>
-        <div><h3>Track your portfolio</h3><p>Owned properties, total invested, and blended yield.</p></div>
+        <div><h3>Track it to completion</h3><p>Move the deal through your pipeline, then into your portfolio.</p></div>
       </div>
     </div>
   </section>
@@ -859,7 +816,7 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
   </section>
 </div>
 
-<div id="about-us-root"></div>
+<div id="about-us-root" data-variant="short"></div>
 <script src="/about-us-section.js"></script>
 
 <div class="shell">
@@ -878,9 +835,29 @@ footer .fcopy{font-size:11.5px;color:var(--muted)}
 </div>
 
 <script>
+// BRRR shares the BTL panel and cBTL()'s BRRR scenario, shown in
+// "brrr-mode" (same approach as index.html).
+let currentTab='brrr';
 function switchTab(t){
-  document.querySelectorAll('#calc-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip'][i]===t));
-  document.querySelectorAll('.calc-panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip'][i]==='panel-'+t));
+  const tabs=['brrr','btl','hmo','sa','flip'];
+  const panelFor=t==='brrr'?'btl':t;
+  const wasBrrr=currentTab==='brrr';
+  currentTab=t;
+  document.querySelectorAll('#calc-tabs .tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));
+  document.querySelectorAll('.calc-panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip'][i]==='panel-'+panelFor));
+  document.getElementById('panel-btl').classList.toggle('brrr-mode',t==='brrr');
+  const breakdown=document.getElementById('b-breakdown');
+  if(t==='btl')breakdown.open=true;
+  else if(t==='brrr'&&!wasBrrr)breakdown.open=false;
+}
+
+// BRRR headline: display only, reads what cBTL() already computed.
+function renderBRRRHeadline(){
+  const d=btlData||{};
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=(v==null||!isFinite(v))?'—':(v<0?'−':'')+'£'+Math.abs(Math.round(v)).toLocaleString();};
+  set('bh-mli',d.bbMLI);
+  set('bh-out',d.brrrLoan);
+  set('bh-cf',d.bbNm);
 }
 
 // These just copy already-computed, already-formatted text that cBTL()/cHMO()/cSA()/cFlip()
@@ -1015,14 +992,19 @@ function initMoneyFields(){
 function checkValueWarning(ppId,endId,warningId){
   const pp=moneyVal(ppId), end=moneyVal(endId);
   const el=document.getElementById(warningId);
-  if(el)el.style.display=(pp>0&&end>0&&end<pp*0.5)?'block':'none';
+  if(!el)return;
+  const fires=pp>0&&end>0&&end<pp*0.5;
+  el.style.display=fires?'block':'none';
+  // Hide the results themselves while the warning is showing.
+  const col=el.closest('.data-block');
+  if(col)col.classList.toggle('warning-hold',fires);
 }
 function checkValueWarningBTL(){checkValueWarning('b-pp','b-emv','b-value-warning');}
 function checkValueWarningHMO(){checkValueWarning('h-pp','h-emv','h-value-warning');}
 function checkValueWarningSA(){checkValueWarning('sa-pp','sa-emv','sa-value-warning');}
 function checkValueWarningFlip(){checkValueWarning('fl-pp','fl-sv','fl-value-warning');}
 
-function runBTL(){ cBTL(); updateGlanceBTL(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; }
+function runBTL(){ cBTL(); renderBRRRHeadline(); updateGlanceBTL(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; }
 function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; checkValueWarningBTL(); }
 
 function runHMO(){ cHMO(); updateGlanceHMO(); hmoAnalysed=true; document.getElementById('hmo-stale').style.display='none'; }
@@ -1034,7 +1016,10 @@ function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style
 function runFlip(){ cFlip(); updateGlanceFlip(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; }
 function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; checkValueWarningFlip(); }
 
+// Prefilled with an example deal, so results show straight away.
+runBTL(); runHMO(); runSA(); runFlip();
 initMoneyFields();
+checkValueWarningBTL();checkValueWarningHMO();checkValueWarningSA();checkValueWarningFlip();
 
 // Subtle scroll-reveal: fades .reveal elements in as they enter view.
 // Purely presentational, skipped entirely under prefers-reduced-motion.

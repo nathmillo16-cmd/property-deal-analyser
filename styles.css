@@ -176,6 +176,62 @@ p{margin:0}
   color:var(--ink);text-decoration:none;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;
 }
 .user-menu-item:hover{background:var(--surface-2);color:var(--accent)}
+.user-menu-item.active{color:var(--accent)}
+
+/* ---------- Tools dropdown (nav.js) ---------- */
+.nav-tools{position:relative}
+.nav-tools-trigger{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--font-body);font-size:12.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;
+  color:var(--muted);background:transparent;border:none;cursor:pointer;padding:4px 0;
+}
+.nav-tools-trigger:hover,.nav-tools-trigger.active{color:var(--accent)}
+.nav-tools.open .nav-tools-list{display:block}
+.nav-tools.open .user-menu-caret{transform:rotate(180deg)}
+.nav-tools-list{left:auto;right:0}
+
+/* ---------- Deals page List / Board switch ----------
+   saved-deals.html (List) and pipeline.html (Board) are the two views of
+   the one Deals page; this header sits at the top of both. */
+.deals-head{display:flex;justify-content:space-between;align-items:center;gap:var(--space-4,1rem);flex-wrap:wrap;margin:0 0 var(--space-6,1.5rem)}
+.deals-head .page-title{margin:0}
+.view-switch{display:inline-flex;background:var(--surface-2);border:1px solid var(--hairline);border-radius:999px;padding:3px}
+.view-switch a{font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;padding:7px 18px;border-radius:999px}
+.view-switch a:hover{color:var(--ink)}
+.view-switch a.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* ---------- bottom tab bar (nav.js) ----------
+   Same four items as the top nav. Shown on phone widths and always in the
+   iOS app; the top link row hides at the same point so they never both
+   show. Sits above the iPhone home indicator via safe-area insets. */
+.tabbar{display:none}
+@media(max-width:760px){
+  .tabbar{display:flex}
+  #nav-root .nav-links{display:none}
+  body.has-tabbar{padding-bottom:calc(64px + env(safe-area-inset-bottom, 0px))}
+  #nav-root .wordmark-logo{height:40px}
+  #nav-root .topbar{margin-bottom:1.5rem;padding-bottom:1rem;flex-wrap:nowrap}
+  #nav-root .auth-bar{gap:1rem;min-width:0}
+  #nav-root #subscribe-link{display:none!important}
+  #nav-root .user-menu-email{max-width:9.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+html.native-app .tabbar{display:flex}
+html.native-app body.has-tabbar{padding-bottom:calc(64px + env(safe-area-inset-bottom, 0px))}
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:350;
+  background:var(--surface,#fff);border-top:1px solid var(--hairline,#e5e5e5);
+  padding:0 env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);
+  box-shadow:0 -4px 16px rgba(20,20,40,.05);
+}
+.tabbar-tab{
+  flex:1;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  padding:6px 2px;color:var(--muted,#767a92);text-decoration:none;
+  font-family:var(--font-body,inherit);font-size:10.5px;line-height:1.2;font-weight:600;letter-spacing:.01em;
+  -webkit-tap-highlight-color:transparent;
+}
+.tabbar-tab svg{display:block;width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabbar-tab.active{color:var(--accent,#4b45b2)}
+body.tabbar-kb .tabbar{display:none}
 
 /* ---------- buttons ---------- */
 .btn-primary{

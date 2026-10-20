@@ -180,10 +180,13 @@ body.theme-light .dd-trigger::after{
 .modal-header h2{font-size:18px;margin:0;word-break:break-word}
 .modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
 .modal-close:hover{color:var(--ink)}
-.modal-figures{display:flex;gap:1.75rem;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--hairline)}
+.modal-figures{display:flex;flex-wrap:wrap;gap:1rem 1.75rem;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--hairline)}
 .modal-figure .ml{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
 .modal-figure .mv{font-family:var(--font-body);font-weight:700;font-size:17px;color:var(--ink);margin:0;font-variant-numeric:tabular-nums}
 .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:1rem}
+.pf-subhead{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin:1.25rem 0 .75rem;padding-top:1rem;border-top:1px solid var(--hairline)}
+.pf-subhead span{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)}
+.hero-note{font-size:12px;color:rgba(255,255,255,.7);margin:var(--space-4) 0 0}
 </style>
 </head>
 <body class="theme-light">
@@ -211,18 +214,20 @@ body.theme-light .dd-trigger::after{
 
   <div id="state-board" style="display:none">
     <div class="hero-panel" id="pf-summary-grid" style="display:none">
-      <p class="hero-label">Total invested</p>
-      <p class="hero-number" id="pf-total-invested">—</p>
+      <p class="hero-label">Portfolio value · <span id="pf-count">—</span></p>
+      <p class="hero-number" id="pf-portfolio-value">—</p>
       <div class="hero-figures">
-        <div class="hero-fig"><span class="hero-fig-label">Properties</span><span class="hero-fig-value" id="pf-count">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Total equity</span><span class="hero-fig-value" id="pf-total-equity">—</span></div>
+        <div class="hero-fig"><span class="hero-fig-label">Cash invested</span><span class="hero-fig-value" id="pf-total-cash">—</span></div>
         <div class="hero-fig"><span class="hero-fig-label">Monthly cashflow</span><span class="mv" id="pf-total-cashflow">—</span></div>
         <div class="hero-fig"><span class="hero-fig-label">Blended yield</span><span class="hero-fig-value" id="pf-blended-yield">—</span></div>
       </div>
+      <p class="hero-note" id="pf-partial-note" hidden></p>
     </div>
 
     <div class="card empty-card" id="pf-empty-state" style="display:none">
       <h2>No properties yet</h2>
-      <p>Track properties you own to see invested total, equity and blended yield.</p>
+      <p>Track properties you own to see portfolio value, equity and blended yield.</p>
       <button type="button" class="btn-primary" onclick="focusAddPropertyForm()">Add your first property</button>
     </div>
 
@@ -247,7 +252,12 @@ body.theme-light .dd-trigger::after{
         <div class="field"><label>Monthly rent (£)</label><input type="number" id="pf-rent" oninput="savePortfolioDraft()"/></div>
         <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pf-costs" oninput="savePortfolioDraft()"/></div>
         <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pf-mortgage" placeholder="Leave blank if no mortgage" oninput="savePortfolioDraft()"/></div>
-        <p class="hint" style="margin-bottom:1rem">Running costs = management, insurance, maintenance, not mortgage. Yield excludes mortgage; cashflow includes it.</p>
+        <p class="pf-subhead">Value and equity <span>(optional)</span></p>
+        <div class="field"><label>Cash invested (£)</label><input type="number" id="pf-cash" oninput="savePortfolioDraft()"/></div>
+        <div class="field"><label>Current value (£)</label><input type="number" id="pf-value" oninput="savePortfolioDraft()"/></div>
+        <div class="field"><label>Mortgage balance (£)</label><input type="number" id="pf-balance" placeholder="Leave blank if no mortgage" oninput="savePortfolioDraft()"/></div>
+        <div class="field"><label>Refinance date</label><input type="date" id="pf-refi" oninput="savePortfolioDraft()"/></div>
+        <p class="hint" style="margin-bottom:1rem">Running costs = management, insurance, maintenance, not mortgage. Yield excludes mortgage; cashflow includes it. Equity is current value minus mortgage balance. We'll flag the refinance date on Home 60 days before.</p>
         <button class="btn-primary" onclick="addProperty()" id="btn-add-property">Add property</button>
         <a href="#" class="hint" onclick="clearPortfolioDraft();return false;" style="display:inline-block;margin-top:.5rem">Clear</a>
         <p class="save-msg" id="pf-msg"></p>
@@ -269,6 +279,7 @@ body.theme-light .dd-trigger::after{
     <div class="modal-figures">
       <div class="modal-figure"><p class="ml">Yield</p><p class="mv" id="pf-modal-yield">—</p></div>
       <div class="modal-figure"><p class="ml">Monthly cashflow</p><p class="mv" id="pf-modal-cashflow">—</p></div>
+      <div class="modal-figure"><p class="ml">Equity</p><p class="mv" id="pf-modal-equity">—</p></div>
     </div>
     <div class="field"><label>Address</label><input type="text" id="pfm-address"/></div>
     <div class="field"><label>Price paid (£)</label><input type="number" id="pfm-price"/></div>
@@ -288,6 +299,11 @@ body.theme-light .dd-trigger::after{
     <div class="field"><label>Monthly rent (£)</label><input type="number" id="pfm-rent"/></div>
     <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pfm-costs"/></div>
     <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pfm-mortgage" placeholder="Leave blank if no mortgage"/></div>
+        <p class="pf-subhead">Value and equity <span>(optional)</span></p>
+        <div class="field"><label>Cash invested (£)</label><input type="number" id="pfm-cash"/></div>
+        <div class="field"><label>Current value (£)</label><input type="number" id="pfm-value"/></div>
+        <div class="field"><label>Mortgage balance (£)</label><input type="number" id="pfm-balance" placeholder="Leave blank if no mortgage"/></div>
+        <div class="field"><label>Refinance date</label><input type="date" id="pfm-refi"/></div>
     <p class="save-msg" id="pf-modal-msg"></p>
     <div class="modal-actions">
       <button class="mini-btn danger" onclick="deleteFromDetail()">Delete</button>
@@ -403,6 +419,7 @@ let portfolioProperties=[], editingId=null;
 
 function fmtGBP(v){ return v!=null ? '£'+Math.round(v).toLocaleString() : '—'; }
 function fmtPct(v){ return v!=null ? v.toFixed(1)+'%' : '—'; }
+function fmtDate(d){ const [y,m,day]=String(d).split('-').map(Number); return new Date(y,m-1,day).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
 
 function escapeHtml(s){
   const div=document.createElement('div');
@@ -474,7 +491,7 @@ function showState(state){
 // pre-filled from already-saved data each time it opens, and isn't open by
 // default on load, so there's nothing mid-flight to restore there.
 // ---------------------------------------------------------------------
-const PORTFOLIO_FIELD_IDS=['pf-address','pf-price','pf-rent','pf-costs','pf-mortgage'];
+const PORTFOLIO_FIELD_IDS=['pf-address','pf-price','pf-rent','pf-costs','pf-mortgage','pf-cash','pf-value','pf-balance','pf-refi'];
 
 function savePortfolioDraft(){
   const fields={};
@@ -584,13 +601,26 @@ async function loadPortfolio(){
     }
 
     summaryEl.style.display='';
-    document.getElementById('pf-count').textContent=portfolioProperties.length;
+    const n=portfolioProperties.length;
+    document.getElementById('pf-count').textContent=n+(n===1?' property':' properties');
     const cashflowEl=document.getElementById('pf-total-cashflow');
     const cf=d.totals.total_monthly_cashflow;
     cashflowEl.textContent=fmtGBP(cf);
     cashflowEl.className='mv'+(cf>0?' positive':(cf<0?' negative':''));
     document.getElementById('pf-blended-yield').textContent=fmtPct(d.totals.blended_yield);
-    document.getElementById('pf-total-invested').textContent=fmtGBP(d.totals.total_price_paid);
+    const t=d.totals;
+    document.getElementById('pf-portfolio-value').textContent=fmtGBP(t.portfolio_value);
+    document.getElementById('pf-total-equity').textContent=fmtGBP(t.total_equity);
+    document.getElementById('pf-total-cash').textContent=fmtGBP(t.total_cash_invested);
+    // Older properties won't have the optional value/equity fields yet, so
+    // say plainly when a total only covers some of them.
+    const notes=[];
+    if(t.equity_count<n)notes.push(`Equity covers ${t.equity_count} of ${n} properties. Portfolio value uses price paid where no current value is entered.`);
+    if(t.cash_invested_count<n)notes.push(`Cash invested covers ${t.cash_invested_count} of ${n}.`);
+    if(notes.length)notes.push('Open a property to add the missing figures.');
+    const noteEl=document.getElementById('pf-partial-note');
+    noteEl.textContent=notes.join(' ');
+    noteEl.hidden=!notes.length;
 
     // Yield and cashflow move to a right-aligned figure group (styled
     // above); price paid stays in the left meta line rather than being
@@ -603,12 +633,13 @@ async function loadPortfolio(){
       return `<div class="saved-item" onclick="openPropertyDetail('${p.id}')">
       <div class="saved-info">
         <span class="saved-name">${escapeHtml(p.address)} <span class="hint">(${escapeHtml(p.property_type)})</span></span>
-        <span class="saved-detail">Paid ${fmtGBP(p.price_paid)}</span>
+        <span class="saved-detail">Paid ${fmtGBP(p.price_paid)}${p.current_value!=null?' · Value '+fmtGBP(p.current_value):''}${p.refinance_date?' · Refinance '+fmtDate(p.refinance_date):''}</span>
       </div>
       <div class="saved-right">
         <div class="saved-figures">
           <div class="saved-figure"><span class="sf-value sf-success">${fmtPct(p.yield)}</span><span class="sf-label">Yield</span></div>
           <div class="saved-figure"><span class="sf-value ${cfClass}">${fmtGBP(p.monthly_cashflow)}</span><span class="sf-label">Cashflow</span></div>
+          <div class="saved-figure"><span class="sf-value">${fmtGBP(p.equity)}</span><span class="sf-label">Equity</span></div>
         </div>
         <span class="saved-chevron">›</span>
       </div>
@@ -630,7 +661,11 @@ async function addProperty(){
     property_type:getDDValue('pf-type'),
     monthly_rent:document.getElementById('pf-rent').value,
     monthly_running_costs:document.getElementById('pf-costs').value,
-    monthly_mortgage:document.getElementById('pf-mortgage').value
+    monthly_mortgage:document.getElementById('pf-mortgage').value,
+    cash_invested:document.getElementById('pf-cash').value,
+    current_value:document.getElementById('pf-value').value,
+    mortgage_balance:document.getElementById('pf-balance').value,
+    refinance_date:document.getElementById('pf-refi').value
   };
 
   btn.disabled=true;btn.textContent='Adding...';
@@ -643,7 +678,7 @@ async function addProperty(){
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not add property.');
 
-    ['pf-address','pf-price','pf-rent','pf-costs','pf-mortgage'].forEach(id=>document.getElementById(id).value='');
+    PORTFOLIO_FIELD_IDS.forEach(id=>document.getElementById(id).value='');
     clearDraft('portfolio');
     msg.textContent='Property added.';msg.className='save-msg success';
     await loadPortfolio();
@@ -668,6 +703,11 @@ function openPropertyDetail(id){
   document.getElementById('pfm-rent').value=p.monthly_rent;
   document.getElementById('pfm-costs').value=p.monthly_running_costs;
   document.getElementById('pfm-mortgage').value=p.monthly_mortgage!=null?p.monthly_mortgage:'';
+  document.getElementById('pfm-cash').value=p.cash_invested!=null?p.cash_invested:'';
+  document.getElementById('pfm-value').value=p.current_value!=null?p.current_value:'';
+  document.getElementById('pfm-balance').value=p.mortgage_balance!=null?p.mortgage_balance:'';
+  document.getElementById('pfm-refi').value=p.refinance_date||'';
+  document.getElementById('pf-modal-equity').textContent=fmtGBP(p.equity);
 
   const msg=document.getElementById('pf-modal-msg');
   msg.textContent='';msg.className='save-msg';
@@ -700,7 +740,11 @@ async function savePropertyChanges(){
     property_type:getDDValue('pfm-type'),
     monthly_rent:document.getElementById('pfm-rent').value,
     monthly_running_costs:document.getElementById('pfm-costs').value,
-    monthly_mortgage:document.getElementById('pfm-mortgage').value
+    monthly_mortgage:document.getElementById('pfm-mortgage').value,
+    cash_invested:document.getElementById('pfm-cash').value,
+    current_value:document.getElementById('pfm-value').value,
+    mortgage_balance:document.getElementById('pfm-balance').value,
+    refinance_date:document.getElementById('pfm-refi').value
   };
 
   btn.disabled=true;btn.textContent='Saving...';

@@ -475,7 +475,17 @@ function computePropertyFigures(p) {
   return {
     yield: p.price_paid > 0 ? (annualNet / p.price_paid) * 100 : null,
     monthly_cashflow: p.monthly_rent - p.monthly_running_costs - mortgage,
+    // Equity = current value minus mortgage balance (db/041). Only known
+    // once a current value is entered; a blank mortgage balance counts as 0
+    // (owned outright). null for older properties with no current value.
+    equity: p.current_value != null ? Number(p.current_value) - Number(p.mortgage_balance || 0) : null,
   };
+}
+
+// A property's value for the "Portfolio value" total: its current value
+// when entered (db/041), otherwise what was paid for it.
+function propertyValue(p) {
+  return p.current_value != null ? Number(p.current_value) : Number(p.price_paid);
 }
 
 // £-weighted blend (sum of net income over sum of price paid), not an
@@ -485,10 +495,20 @@ function computePortfolioTotals(properties) {
   const totalCashflow = properties.reduce((sum, p) => sum + computePropertyFigures(p).monthly_cashflow, 0);
   const totalPricePaid = properties.reduce((sum, p) => sum + p.price_paid, 0);
   const totalAnnualNet = properties.reduce((sum, p) => sum + (p.monthly_rent * 12) - (p.monthly_running_costs * 12), 0);
+  // Portfolio value / equity / cash invested (db/041). Equity and cash
+  // invested only sum the properties that have those figures entered;
+  // *_count says how many did, so the page can say when a total is partial.
+  const withEquity = properties.filter((p) => p.current_value != null);
+  const withCash = properties.filter((p) => p.cash_invested != null);
   return {
     total_monthly_cashflow: totalCashflow,
     blended_yield: totalPricePaid > 0 ? (totalAnnualNet / totalPricePaid) * 100 : null,
     total_price_paid: totalPricePaid,
+    portfolio_value: properties.reduce((sum, p) => sum + propertyValue(p), 0),
+    total_equity: withEquity.length ? withEquity.reduce((sum, p) => sum + computePropertyFigures(p).equity, 0) : null,
+    equity_count: withEquity.length,
+    total_cash_invested: withCash.length ? withCash.reduce((sum, p) => sum + Number(p.cash_invested), 0) : null,
+    cash_invested_count: withCash.length,
   };
 }
 
@@ -514,16 +534,35 @@ function validatePortfolioInput(body) {
     if (!Number.isFinite(mortgage) || mortgage < 0) return { error: 'Monthly mortgage must be a number ≥ 0, or blank if bought cash.' };
   }
 
-  return {
-    value: {
-      address: address.trim(),
-      price_paid: pricePaid,
-      property_type,
-      monthly_rent: rent,
-      monthly_running_costs: runningCosts,
-      monthly_mortgage: mortgage,
-    },
+  const value = {
+    address: address.trim(),
+    price_paid: pricePaid,
+    property_type,
+    monthly_rent: rent,
+    monthly_running_costs: runningCosts,
+    monthly_mortgage: mortgage,
   };
+
+  // Optional equity fields (db/041). Only written when the request carries
+  // them, so an older client that doesn't know about them never sends
+  // columns it can't see. Blank means "not entered" (null).
+  const OPTIONAL_MONEY = { cash_invested: 'Cash invested', current_value: 'Current value', mortgage_balance: 'Mortgage balance' };
+  for (const [key, label] of Object.entries(OPTIONAL_MONEY)) {
+    if (!(key in body)) continue;
+    const raw = body[key];
+    if (raw === null || raw === undefined || raw === '') { value[key] = null; continue; }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return { error: `${label} must be a number ≥ 0, or blank.` };
+    value[key] = n;
+  }
+  if ('refinance_date' in body) {
+    const d = body.refinance_date;
+    if (d === null || d === undefined || d === '') value.refinance_date = null;
+    else if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d))) value.refinance_date = d;
+    else return { error: 'Refinance date must be a valid date, or blank.' };
+  }
+
+  return { value };
 }
 
 // Fail-closed: a missing profile row, or any error looking it up, is always
@@ -679,7 +718,8 @@ app.get('/api/deals', async (req, res) => {
 });
 
 const NEEDS_ATTENTION_CHASE_DAYS = 3;
-const NEEDS_ATTENTION_REVIEW_DAYS = 7;
+const NEEDS_ATTENTION_REVIEW_DAYS = 14;
+const NEEDS_ATTENTION_REFINANCE_DAYS = 60;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // viewing_date is a plain date column (no time) — parsed as a UTC midnight
@@ -699,7 +739,10 @@ function parseDateOnlyUTCms(dateStr) {
 //                    back on the sourcer either way.
 //   (ii)  "update" — a Viewing-stage deal whose viewing_date has passed
 //                    with no note logged on or after that date.
-//   (iii) "review" — an Analysing-stage deal whose updated_at is >7 days old.
+//   (iii) "review" — any deal still in the pipeline (any stage except
+//                    Completed) whose updated_at is 14+ days old.
+//   (iv)  "refinance" — a portfolio property whose refinance_date (db/041)
+//                    is today or within the next 60 days.
 // Three queries total (deals, pending/countered offers, notes), not one
 // per deal — grouped/joined in JS below rather than looping fetches per
 // deal. Deduped to ONE reason per deal, in priority order chase > update >
@@ -713,10 +756,13 @@ app.get('/api/needs-attention', async (req, res) => {
     return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
   }
 
-  const [dealsRes, offersRes, notesRes] = await Promise.all([
+  const [dealsRes, offersRes, notesRes, refiRes] = await Promise.all([
     supabase.from('deals').select('id, deal_data, pipeline_stage, updated_at, viewing_date'),
     supabase.from('deal_offers').select('id, deal_id, created_at, outcome').in('outcome', ['Pending', 'Countered']),
     supabase.from('deal_notes').select('deal_id, created_at'),
+    // Failure-tolerant on purpose: refinance_date only exists once db/041
+    // has been run, and a missing column must not break the other alerts.
+    supabase.from('portfolio_properties').select('id, address, refinance_date').not('refinance_date', 'is', null),
   ]);
 
   if (dealsRes.error) return res.status(400).json({ error: dealsRes.error.message });
@@ -785,12 +831,12 @@ app.get('/api/needs-attention', async (req, res) => {
     flaggedDealIds.add(deal.id);
   }
 
-  // (iii) review — Analysing stage, untouched >7 days.
+  // (iii) review — in the pipeline (not Completed), untouched 14+ days.
   for (const deal of deals) {
     if (flaggedDealIds.has(deal.id)) continue;
-    if (deal.pipeline_stage !== 'analysing') continue;
+    if (!deal.pipeline_stage || deal.pipeline_stage === 'completed') continue;
     const ageMs = nowMs - new Date(deal.updated_at).getTime();
-    if (ageMs <= NEEDS_ATTENTION_REVIEW_DAYS * MS_PER_DAY) continue;
+    if (ageMs < NEEDS_ATTENTION_REVIEW_DAYS * MS_PER_DAY) continue;
     const days = Math.floor(ageMs / MS_PER_DAY);
     results.push({
       deal_id: deal.id,
@@ -801,7 +847,26 @@ app.get('/api/needs-attention', async (req, res) => {
     flaggedDealIds.add(deal.id);
   }
 
-  res.json(results);
+  // (iv) refinance — portfolio property, refinance window opens within 60
+  // days (or opened today). Soonest first. A date already past isn't
+  // flagged: the window is open, there's nothing new coming up.
+  const refiRows = refiRes.error ? [] : (refiRes.data || []);
+  const refiResults = [];
+  for (const p of refiRows) {
+    const refiMs = parseDateOnlyUTCms(p.refinance_date);
+    const days = Math.round((refiMs - todayUTCms) / MS_PER_DAY);
+    if (days < 0 || days > NEEDS_ATTENTION_REFINANCE_DAYS) continue;
+    refiResults.push({
+      property_id: p.id,
+      deal_name: p.address,
+      reason: 'refinance',
+      days,
+      detail: days === 0 ? 'Refinance window opens today' : `Refinance window opens in ${days} day${days === 1 ? '' : 's'}`,
+    });
+  }
+  refiResults.sort((a, b) => a.days - b.days);
+
+  res.json([...refiResults, ...results]);
 });
 
 app.post('/api/deals/:id/name', async (req, res) => {

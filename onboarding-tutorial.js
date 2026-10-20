@@ -49,21 +49,22 @@ var TUTORIAL_STEPS = [
     page: 'home.html',
     selectors: ['.header-row .btn-primary'],
     title: 'Start a new deal',
-    // BRRR is a financing tab inside BTL/HMO/SA results, not its own
-    // strategy tab, so it's named separately rather than as a tab to choose.
-    body: 'Click here to analyse a property. Choose Buy-to-Let, HMO, Serviced Accommodation or Flip, depending on your strategy. For BRRR, use the BRRR tab in the results.'
+    body: 'Click here to analyse a property. The calculator opens on BRRR. BTL, HMO, Serviced Accommodation and Flip are one tab away.'
   },
   {
     id: 'results-panel',
     page: 'index.html',
     selectors: ['.panel.active .results-col'],
     title: 'Reading your results',
-    body: "Gross yield is the rent as a percentage of the property's value; ROI is the return on the cash you've actually put in. Use the tabs above the numbers to compare Cash, Interest-only and Repayment."
+    body: "For BRRR, the three big figures are what matter: money left in the deal, cash pulled out at refinance, and monthly cashflow. Open Full breakdown for yields, ROI and max bid. Extra inputs like fees and mortgage rate sit under Advanced."
   },
   {
     id: 'save-deal',
     page: 'index.html',
-    selectors: ['.panel.active .results-col .save-btn'],
+    // Spotlights both buttons: Save, and the paid "Get the Full Analysis"
+    // just below it. Falls back to Save alone where the analysis button is
+    // hidden (free plan in the iOS app).
+    selectors: ['.panel.active .results-col .result-actions', '.panel.active .results-col .save-btn'],
     title: 'Save the deal',
     // The "Get the Full Analysis" button just below Save is real and
     // always clickable (it's not disabled in the app) — it's the paid
@@ -74,9 +75,9 @@ var TUTORIAL_STEPS = [
     // disabled — confirmed by reading index.html/server.js directly, not
     // guessed. Naming it here so a free user isn't left wondering what it
     // is when they notice it right next to what's being spotlighted.
-    body: "Happy with the numbers? Save the deal here. Every deal you save is kept on your Saved Deals page so you can come back to it anytime. (The \"Get the Full Analysis\" button below runs an AI verdict on the deal, part of the paid plan.)",
+    body: "Happy with the numbers? Save the deal here. Every deal you save is kept under Deals so you can come back to it anytime. \"Get the Full Analysis\" runs an AI verdict on the deal, part of the paid plan.",
     // iOS app wording: no mention of the paid plan (App Store rules).
-    nativeBody: "Happy with the numbers? Save the deal here. Every deal you save is kept on your Saved Deals page so you can come back to it anytime."
+    nativeBody: "Happy with the numbers? Save the deal here. Every deal you save is kept under Deals so you can come back to it anytime."
   },
   {
     id: 'compare-deals',
@@ -87,21 +88,21 @@ var TUTORIAL_STEPS = [
     // (deals already saved) or its empty-state fallback below (a brand new
     // account, which is the common case right after signup) — verified
     // against both during testing.
-    body: "Once you've saved a couple of deals, tick their checkboxes here to line the numbers up side by side and see which one comes out on top."
+    body: "This is the List view of your Deals. Once you've saved a couple, tick their checkboxes to line the numbers up side by side and see which one comes out on top."
   },
   {
     id: 'pipeline',
     page: 'pipeline.html',
     selectors: ['#kanban', '#state-locked .locked-panel'],
-    title: 'Track deals through your pipeline',
-    body: 'A deal you’re pursuing moves through five stages here: Analysing, Viewing, Offered, Agreed, and Completed.'
+    title: 'Track deals on the Board',
+    body: 'The Board view of Deals. Saved deals sit in the first column; drag one into Analysing, then on through Viewing, Offered, Agreed and Completed.'
   },
   {
     id: 'portfolio',
     page: 'portfolio.html',
     selectors: ['#pf-summary-grid', '#pf-empty-state', '#state-locked .locked-panel'],
     title: 'Your portfolio',
-    body: 'Once you actually complete on a property, add it here to track its rent, running costs and cashflow alongside everything else you own.'
+    body: 'Once you complete on a property, add it here to track cashflow, equity and portfolio value. Add a refinance date and Home will flag it 60 days ahead.'
   },
   {
     id: 'settings-help',
@@ -113,7 +114,7 @@ var TUTORIAL_STEPS = [
     // Swap in a real contact method once one exists.
     body: 'Your account, subscription and defaults all live in Settings. You can replay this tutorial from here anytime you want a refresher.',
     // iOS app: Settings lives under the More tab, and no subscription wording.
-    nativeBody: 'Your account and defaults live in Settings, under the More tab. You can replay this tutorial from here anytime you want a refresher.'
+    nativeBody: 'Your account and defaults live in Settings, under Menu at the top of the screen. You can replay this tutorial from here anytime you want a refresher.'
   }
 ];
 

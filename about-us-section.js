@@ -75,6 +75,21 @@ var ABOUT_US_FOUNDERS = [
     '</div>';
   }).join('');
 
+  // data-variant="short" (landing page): a 2-sentence version that keeps
+  // the "our own money, same numbers" line. Other pages get the full one.
+  if (root.dataset.variant === 'short') {
+    root.innerHTML =
+      '<section class="about-us-section" id="about-us">' +
+        '<div class="about-us-inner">' +
+          '<p class="about-us-kicker">About us</p>' +
+          '<h2>Built by two people with skin in the deals</h2>' +
+          '<p>PROPulsion was built by <strong>Cameron Hearne</strong>, who invests his own money in property, and <strong>Nathan Millington</strong>, who spent five years sourcing deals and managing refurbs for investors. ' +
+          'We invest in the same markets we analyse, using the same numbers we\'d put our own money against.</p>' +
+        '</div>' +
+      '</section>';
+    return;
+  }
+
   root.innerHTML =
     '<section class="about-us-section" id="about-us">' +
       '<div class="about-us-inner">' +

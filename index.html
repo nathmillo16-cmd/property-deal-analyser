@@ -49,6 +49,7 @@
 }
 .tab:hover{color:var(--ink)}
 .tab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+@media(max-width:600px){.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.tab{padding:9px 4px;text-align:center}}
 
 .panel{display:none}
 .panel.active{display:block}
@@ -65,13 +66,55 @@
 /* iOS app: tabs as even grids so none is ever left alone on a second row.
    Strategy tabs: one row of five equal buttons. Results tabs: four equal
    columns, or an even 2x2 on phones, so BRRR is the same size as the rest. */
-html.native-app .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+html.native-app .tabs{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
 html.native-app .tab{padding:9px 2px;text-align:center}
 html.native-app .fin-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 html.native-app .fin-tab{padding:9px 4px;text-align:center}
 @media(max-width:600px){html.native-app .fin-tabs{grid-template-columns:repeat(2,1fr)}}
 .fin-panel{display:none}
 .fin-panel.active{display:block}
+
+/* ---- BRRR tab ----
+   BRRR is a top-level strategy tab but shares the BTL panel and its
+   calculation (cBTL's BRRR scenario), shown in "brrr-mode": refinance
+   inputs and the headline figures appear, the deposit field and the
+   Interest-only/Repayment/Cash tabs hide, and only the BRRR figures show
+   inside the Full breakdown. */
+.brrr-only,#panel-btl:not(.brrr-mode) .brrr-only{display:none}
+#panel-btl.brrr-mode .f.brrr-only{display:flex}
+#panel-btl.brrr-mode p.brrr-only{display:block}
+#panel-btl.brrr-mode .brrr-headline{display:grid}
+#panel-btl.brrr-mode .btl-only{display:none}
+#panel-btl.brrr-mode .fin-tabs{display:none}
+#panel-btl.brrr-mode .fin-panel{display:none}
+#panel-btl.brrr-mode .fin-panel[data-mode="brrr"]{display:block}
+.brrr-headline{grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 1.25rem}
+@media(max-width:520px){.brrr-headline{grid-template-columns:1fr}}
+.bh{background:linear-gradient(135deg,var(--accent),#37317f);color:#fff;border-radius:14px;padding:1rem 1.05rem;min-width:0;display:flex;flex-direction:column;justify-content:space-between}
+.bh-l{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.75);margin:0 0 .45rem}
+.bh-v{font-family:var(--font-body);font-weight:700;font-size:clamp(1.3rem,2.1vw,1.85rem);letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin:0;white-space:nowrap}
+@media(min-width:861px) and (max-width:1100px){.brrr-headline{grid-template-columns:1fr}}
+
+/* Collapsible sections: "Advanced" inputs on every strategy, and the
+   "Full breakdown" of results. The breakdown only collapses on the BRRR
+   tab; on BTL it is always open and its toggle is hidden. */
+details.adv,details.breakdown{margin:0 0 1rem}
+details.adv>summary,details.breakdown>summary{
+  cursor:pointer;list-style:none;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+  font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);
+  padding:.75rem 0;border-top:1px solid var(--input-hairline);
+}
+details.adv>summary::-webkit-details-marker,details.breakdown>summary::-webkit-details-marker{display:none}
+details.adv>summary::before,details.breakdown>summary::before{content:"+";font-size:16px;line-height:1;width:1em}
+details.adv[open]>summary::before,details.breakdown[open]>summary::before{content:"\2212"}
+details.adv>summary span{font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted)}
+details.adv[open]>summary{margin-bottom:.75rem}
+details.breakdown>summary{border-top-color:var(--hairline);margin-bottom:.5rem}
+#panel-btl:not(.brrr-mode) details.breakdown>summary{display:none}
+
+/* Sanity warning (e.g. end value far below purchase price): results stay
+   hidden until the input is fixed, rather than showing beside the warning. */
+.results-col.warning-hold>*:not(.sl):not(.value-warning){display:none!important}
 
 .split-panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 @media(max-width:860px){.split-panel{grid-template-columns:1fr}}
@@ -380,13 +423,14 @@ body.theme-light .dd-trigger::after{
   <script src="/nav.js"></script>
   <script src="/crm-nav.js"></script>
 
-  <p class="page-title">Calculator</p>
-  <p class="page-sub">Analyse a deal across BTL, BRRR, HMO, SA, or Flip, or pull live comps for a postcode.</p>
+  <p class="page-title">Analyse a deal</p>
+  <p class="page-sub">Analyse a deal as BRRR, BTL, HMO, SA or Flip, or pull live comps for a postcode.</p>
   <p class="hint" id="upgrade-notice" style="display:none"></p>
   <p class="value-warning" id="rerun-note" style="display:none">Re-running a saved deal. Figures may differ from the original due to calculator updates.</p>
   <p class="value-warning" id="rerun-room-note" style="display:none">Room breakdown wasn't saved for this deal, so the total rent is being used as a single room.</p>
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('btl')">BTL</button>
+    <button class="tab active" onclick="switchTab('brrr')">BRRR</button>
+    <button class="tab" onclick="switchTab('btl')">BTL</button>
     <button class="tab" onclick="switchTab('hmo')">HMO</button>
     <button class="tab" onclick="switchTab('sa')">SA</button>
     <button class="tab" onclick="switchTab('flip')">Flip</button>
@@ -395,7 +439,7 @@ body.theme-light .dd-trigger::after{
   <p class="hint" style="margin:-1.35rem 0 1.75rem;text-align:right"><a href="#" onclick="clearIndexDraft();return false;">Clear draft</a></p>
 
   <!-- BTL -->
-  <div class="panel active" id="panel-btl">
+  <div class="panel active brrr-mode" id="panel-btl">
     <div class="split-panel">
       <div class="input-col">
         <p class="sl">Property details</p>
@@ -403,10 +447,27 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="b-pp" value="140000" oninput="markStaleBTL()"/></div>
           <div class="f"><label>End market value (£)</label><input type="text" inputmode="decimal" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Monthly rent (£)</label><input type="text" inputmode="decimal" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
+          <div class="f btl-only"><label>Deposit % (of purchase price)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
+          <div class="f brrr-only"><label>Refinance LTV % (of EMV)</label><input type="number" id="bb-refi-ltv" value="75" oninput="markStaleBTL()"/></div>
+          <div class="f brrr-only"><label>Refinance type</label>
+            <div class="dd" id="bb-refi-type" data-value="io" data-onchange="markStaleBTL">
+              <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'bb-refi-type')" onkeydown="ddKeydown(event,'bb-refi-type')">
+                <span>Interest-only</span>
+              </button>
+              <ul class="dd-list" role="listbox">
+                <li class="dd-opt selected" role="option" aria-selected="true" data-value="io" onclick="selectDDOption(event,'bb-refi-type','io','Interest-only')">Interest-only</li>
+                <li class="dd-opt" role="option" aria-selected="false" data-value="repay" onclick="selectDDOption(event,'bb-refi-type','repay','Repayment')">Repayment</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <p class="hint brrr-only" style="margin:-.5rem 0 1rem">BRRR here means buy with cash, refurbish, then refinance at the LTV above. The refinance uses the mortgage rate and term under Advanced.</p>
+        <details class="adv">
+          <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
+        <div class="g2">
           <div class="f"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Mortgage term (years)</label><input type="number" id="b-term" value="25" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="b-mf" value="300" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Searches (£)</label><input type="text" inputmode="decimal" id="b-srch" value="0" oninput="markStaleBTL()"/></div>
@@ -418,6 +479,7 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
+        </details>
         <button class="run-btn" onclick="runBTL()" id="btn-run-btl">Analyse deal</button>
         <button class="save-btn" onclick="saveDefaults('btl')" id="btn-save-defaults-btl">Save as my defaults</button>
         <p class="save-msg" id="btl-defaults-msg"></p>
@@ -425,12 +487,18 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="btl-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <p class="value-warning" id="b-value-warning">End market value is much lower than purchase price. Check for a missing zero.</p>
+        <p class="value-warning" id="b-value-warning">End market value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
+        <div class="brrr-headline brrr-only">
+          <div class="bh"><p class="bh-l">Money left in deal</p><p class="bh-v" id="bh-mli">—</p></div>
+          <div class="bh"><p class="bh-l">Cash pulled out at refinance</p><p class="bh-v" id="bh-out">—</p></div>
+          <div class="bh"><p class="bh-l">Monthly cashflow</p><p class="bh-v" id="bh-cf">—</p></div>
+        </div>
+        <details class="breakdown" id="b-breakdown">
+        <summary>Full breakdown</summary>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('btl','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('btl','r')">Repayment</button>
           <button type="button" class="fin-tab" data-mode="c" onclick="switchFinTab('btl','c')">Cash</button>
-          <button type="button" class="fin-tab" data-mode="brrr" onclick="switchFinTab('btl','brrr')">BRRR</button>
         </div>
         <div class="fin-panel active" data-mode="m">
           <div class="metric-grid">
@@ -481,20 +549,6 @@ body.theme-light .dd-trigger::after{
           </div>
         </div>
         <div class="fin-panel" data-mode="brrr">
-          <div class="g2" style="margin-bottom:1rem">
-            <div class="f"><label>Refinance LTV % (of EMV)</label><input type="number" id="bb-refi-ltv" value="75" oninput="markStaleBTL()"/></div>
-            <div class="f"><label>Refinance type</label>
-              <div class="dd" id="bb-refi-type" data-value="io" data-onchange="markStaleBTL">
-                <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'bb-refi-type')" onkeydown="ddKeydown(event,'bb-refi-type')">
-                  <span>Interest-only</span>
-                </button>
-                <ul class="dd-list" role="listbox">
-                  <li class="dd-opt selected" role="option" aria-selected="true" data-value="io" onclick="selectDDOption(event,'bb-refi-type','io','Interest-only')">Interest-only</li>
-                  <li class="dd-opt" role="option" aria-selected="false" data-value="repay" onclick="selectDDOption(event,'bb-refi-type','repay','Repayment')">Repayment</li>
-                </ul>
-              </div>
-            </div>
-          </div>
           <div class="metric-grid">
             <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bb-nm">—</p></div>
             <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bb-ny">—</p></div>
@@ -512,16 +566,19 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Interest rate</p><p class="mv" id="bb-refi-rate">—</p></div>
             <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="bb-refi-mpay">—</p></div>
           </div>
-          <p class="hint">Refinance rate and term reuse the mortgage rate and term above. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
+          <p class="hint">Refinance rate and term reuse the mortgage rate and term under Advanced. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
         </div>
         <div id="b-sn" class="sn"></div>
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
+        </details>
         <p class="results-disclaimer"></p>
+        <div class="result-actions">
         <button class="save-btn" onclick="saveDeal('btl')" id="btn-save-btl">Save deal</button>
         <p class="save-msg" id="btl-save-msg"></p>
         <button class="analyse-btn" onclick="analyse('btl')" id="btn-btl" data-native-text="Run Full Analysis">Get the Full Analysis</button>
+        </div>
         <div id="ai-btl" style="display:none">
           <div class="ai-wrap">
             <div class="ai-header">
@@ -543,10 +600,21 @@ body.theme-light .dd-trigger::after{
         <div class="g2">
           <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
           <div class="f"><label>End market value (£)</label><input type="text" inputmode="decimal" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
+        </div>
+        <p class="sl section-gap">Room breakdown</p>
+        <div class="rg"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
+        <div class="rg"><span>Single</span><input type="text" inputmode="decimal" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r1t">£0</span></div>
+        <div class="rg"><span>Double</span><input type="text" inputmode="decimal" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="rt" id="h-r2t">£0</span></div>
+        <div class="rg"><span>Single en suite</span><input type="text" inputmode="decimal" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r3t">£0</span></div>
+        <div class="rg"><span>Double en suite</span><input type="text" inputmode="decimal" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r4t">£0</span></div>
+        <div class="trow">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
+        <details class="adv">
+          <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
+        <div class="g2">
           <div class="f"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Mortgage term (years)</label><input type="number" id="h-term" value="25" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="h-mf" value="300" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Licensing fee (£)</label><input type="text" inputmode="decimal" id="h-lic" value="650" oninput="markStaleHMO()"/></div>
@@ -558,16 +626,10 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="markStaleHMO()"/></div>
         </div>
         <p class="hint">Bills auto-calculated as 10% of total rent. Stamp duty auto-calculated. Council tax entered annually.</p>
-        <p class="sl section-gap">Room breakdown</p>
-        <div class="rg"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
-        <div class="rg"><span>Single</span><input type="text" inputmode="decimal" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r1t">£0</span></div>
-        <div class="rg"><span>Double</span><input type="text" inputmode="decimal" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="rt" id="h-r2t">£0</span></div>
-        <div class="rg"><span>Single en suite</span><input type="text" inputmode="decimal" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r3t">£0</span></div>
-        <div class="rg"><span>Double en suite</span><input type="text" inputmode="decimal" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r4t">£0</span></div>
-        <div class="trow">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
+        </details>
         <button class="run-btn" onclick="runHMO()" id="btn-run-hmo">Analyse deal</button>
         <button class="save-btn" onclick="saveDefaults('hmo')" id="btn-save-defaults-hmo">Save as my defaults</button>
         <p class="save-msg" id="hmo-defaults-msg"></p>
@@ -575,7 +637,7 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="hmo-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <p class="value-warning" id="h-value-warning">End market value is much lower than purchase price. Check for a missing zero.</p>
+        <p class="value-warning" id="h-value-warning">End market value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('hmo','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('hmo','r')">Repayment</button>
@@ -662,16 +724,18 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Interest rate</p><p class="mv" id="hb-refi-rate">—</p></div>
             <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="hb-refi-mpay">—</p></div>
           </div>
-          <p class="hint">Refinance rate and term reuse the mortgage rate and term above. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
+          <p class="hint">Refinance rate and term reuse the mortgage rate and term under Advanced. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
         </div>
         <div id="h-sn" class="sn"></div>
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="h-ly">10</span>% gross yield</p><p class="ov" id="h-oy">—</p><p class="on" id="h-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
         <p class="results-disclaimer"></p>
+        <div class="result-actions">
         <button class="save-btn" onclick="saveDeal('hmo')" id="btn-save-hmo">Save deal</button>
         <p class="save-msg" id="hmo-save-msg"></p>
         <button class="analyse-btn" onclick="analyse('hmo')" id="btn-hmo" data-native-text="Run Full Analysis">Get the Full Analysis</button>
+        </div>
         <div id="ai-hmo" style="display:none">
           <div class="ai-wrap">
             <div class="ai-header">
@@ -695,16 +759,21 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="markStaleSA()"/></div>
           <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
           <div class="f"><label>End market value (£)</label><input type="text" inputmode="decimal" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
+        </div>
+        <details class="adv">
+          <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
+        <p class="sl">Mortgage</p>
+        <div class="g2">
           <div class="f"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
           <div class="f"><label>Mortgage term (years)</label><input type="number" id="sa-term" value="25" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
         </div>
         <p class="sl section-gap">Upfront costs</p>
         <div class="g2">
           <div class="f"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="sa-sol" value="1800" oninput="markStaleSA()"/></div>
           <div class="f"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="sa-mf" value="300" oninput="markStaleSA()"/></div>
           <div class="f"><label>Searches (£)</label><input type="text" inputmode="decimal" id="sa-srch" value="0" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
           <div class="f"><label>Furnishings (£)</label><input type="text" inputmode="decimal" id="sa-furn" value="8000" oninput="markStaleSA()"/></div>
           <div class="f"><label>White goods (£)</label><input type="text" inputmode="decimal" id="sa-wg" value="2000" oninput="markStaleSA()"/></div>
         </div>
@@ -721,6 +790,7 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
+        </details>
         <button class="run-btn" onclick="runSA()" id="btn-run-sa">Analyse deal</button>
         <button class="save-btn" onclick="saveDefaults('sa')" id="btn-save-defaults-sa">Save as my defaults</button>
         <p class="save-msg" id="sa-defaults-msg"></p>
@@ -728,7 +798,7 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="sa-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <p class="value-warning" id="sa-value-warning">End market value is much lower than purchase price. Check for a missing zero.</p>
+        <p class="value-warning" id="sa-value-warning">End market value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('sa','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('sa','r')">Repayment</button>
@@ -819,16 +889,18 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Interest rate</p><p class="mv" id="sab-refi-rate">—</p></div>
             <div class="m"><p class="ml">Monthly payment</p><p class="mv" id="sab-refi-mpay">—</p></div>
           </div>
-          <p class="hint">Refinance rate and term reuse the mortgage rate and term above. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
+          <p class="hint">Refinance rate and term reuse the mortgage rate and term under Advanced. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
         </div>
         <div id="sa-sn" class="sn"></div>
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="sa-ly">12</span>% gross yield</p><p class="ov" id="sa-oy">—</p><p class="on" id="sa-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="sa-lr">20</span>% ROI (mortgage)</p><p class="ov" id="sa-or">—</p><p class="on" id="sa-orn"></p></div>
         <p class="results-disclaimer"></p>
+        <div class="result-actions">
         <button class="save-btn" onclick="saveDeal('sa')" id="btn-save-sa">Save deal</button>
         <p class="save-msg" id="sa-save-msg"></p>
         <button class="analyse-btn" onclick="analyse('sa')" id="btn-sa" data-native-text="Run Full Analysis">Get the Full Analysis</button>
+        </div>
         <div id="ai-sa" style="display:none">
           <div class="ai-wrap">
             <div class="ai-header">
@@ -849,21 +921,26 @@ body.theme-light .dd-trigger::after{
         <p class="sl">Property details</p>
         <div class="g2">
           <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="fl-pp" value="150000" oninput="markStaleFlip()"/></div>
-          <div class="f"><label>Buying fees (£)</label><input type="text" inputmode="decimal" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
-          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
           <div class="f"><label>Sale value (£)</label><input type="text" inputmode="decimal" id="fl-sv" value="220000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
+        </div>
+        <details class="adv">
+          <summary>Advanced <span>fees, contingency and target</span></summary>
+        <div class="g2">
+          <div class="f"><label>Buying fees (£)</label><input type="text" inputmode="decimal" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
           <div class="f"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
           <div class="f"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
         </div>
         <p class="hint">Stamp duty auto-calculated with BTL surcharge on purchase price. Contingency is optional; leave it blank to treat as £0. Cash-only strategy, no mortgage version.</p>
         <p class="sl section-gap">Target</p>
         <div class="tr"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
+        </details>
         <button class="run-btn" onclick="runFlip()" id="btn-run-flip">Analyse deal</button>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
         <p class="stale-note" id="flip-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <p class="value-warning" id="fl-value-warning">Sale value is much lower than purchase price. Check for a missing zero.</p>
+        <p class="value-warning" id="fl-value-warning">Sale value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
         <div class="metric-grid">
           <div class="m"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
           <div class="m"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
@@ -876,9 +953,11 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Recommended max bid</p>
         <div class="ob"><p class="ot">To achieve <span id="fl-lr">20</span>% ROI</p><p class="ov" id="fl-or">—</p><p class="on" id="fl-orn"></p></div>
         <p class="results-disclaimer"></p>
+        <div class="result-actions">
         <button class="save-btn" onclick="saveDeal('flip')" id="btn-save-flip">Save deal</button>
         <p class="save-msg" id="flip-save-msg"></p>
         <button class="analyse-btn" onclick="analyse('flip')" id="btn-flip" data-native-text="Run Full Analysis">Get the Full Analysis</button>
+        </div>
         <div id="ai-flip" style="display:none">
           <div class="ai-wrap">
             <div class="ai-header">
@@ -995,10 +1074,10 @@ body.theme-light .dd-trigger::after{
             <label>Apply to</label>
             <div class="dd" id="cp-apply-target" data-value="btl" data-onchange="saveIndexDraft">
               <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'cp-apply-target')" onkeydown="ddKeydown(event,'cp-apply-target')">
-                <span>BTL</span>
+                <span>BRRR / BTL</span>
               </button>
               <ul class="dd-list" role="listbox">
-                <li class="dd-opt selected" role="option" aria-selected="true" data-value="btl" onclick="selectDDOption(event,'cp-apply-target','btl','BTL')">BTL</li>
+                <li class="dd-opt selected" role="option" aria-selected="true" data-value="btl" onclick="selectDDOption(event,'cp-apply-target','btl','BRRR / BTL')">BRRR / BTL</li>
                 <li class="dd-opt" role="option" aria-selected="false" data-value="hmo" onclick="selectDDOption(event,'cp-apply-target','hmo','HMO')">HMO</li>
                 <li class="dd-opt" role="option" aria-selected="false" data-value="sa" onclick="selectDDOption(event,'cp-apply-target','sa','SA')">SA</li>
                 <li class="dd-opt" role="option" aria-selected="false" data-value="flip" onclick="selectDDOption(event,'cp-apply-target','flip','Flip')">Flip</li>
@@ -1135,12 +1214,29 @@ document.addEventListener('keydown', function(e){
   if(e.key==='Escape')closeSaveModal();
 });
 
-let currentTab='btl';
+let currentTab='brrr';
 
+// BRRR is its own tab but uses the BTL panel (same inputs, same cBTL()
+// calculation) in "brrr-mode". See the .brrr-mode CSS for what changes.
 function switchTab(t){
+  const tabs=['brrr','btl','hmo','sa','flip','comps'];
+  if(tabs.indexOf(t)===-1)t='brrr';
+  const panelFor=t==='brrr'?'btl':t;
+  const wasBrrr=currentTab==='brrr';
   currentTab=t;
-  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['btl','hmo','sa','flip','comps'][i]===t));
-  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-comps'][i]==='panel-'+t));
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-comps'][i]==='panel-'+panelFor));
+  const btlPanel=document.getElementById('panel-btl');
+  btlPanel.classList.toggle('brrr-mode',t==='brrr');
+  const breakdown=document.getElementById('b-breakdown');
+  if(t==='btl'){
+    breakdown.open=true;
+    // BRRR has no fin-tab of its own on BTL any more; fall back to Interest-only.
+    const activeFin=btlPanel.querySelector('.fin-panel.active');
+    if(!activeFin||activeFin.dataset.mode==='brrr')switchFinTab('btl','m');
+  }else if(t==='brrr'&&!wasBrrr){
+    breakdown.open=false;
+  }
   saveIndexDraft();
 }
 
@@ -1309,7 +1405,12 @@ function initMoneyFields(){
 function checkValueWarning(ppId,endId,warningId){
   const pp=moneyVal(ppId), end=moneyVal(endId);
   const el=document.getElementById(warningId);
-  if(el)el.style.display=(pp>0&&end>0&&end<pp*0.5)?'block':'none';
+  if(!el)return;
+  const fires=pp>0&&end>0&&end<pp*0.5;
+  el.style.display=fires?'block':'none';
+  // Hide the results themselves while the warning is showing.
+  const col=el.closest('.results-col');
+  if(col)col.classList.toggle('warning-hold',fires);
 }
 function checkValueWarningBTL(){checkValueWarning('b-pp','b-emv','b-value-warning');}
 function checkValueWarningHMO(){checkValueWarning('h-pp','h-emv','h-value-warning');}
@@ -1575,6 +1676,21 @@ function clearIndexDraft(){
 // (unchanged, in calc-engine.js) run, and toggle the "stale results" notice — no maths here.
 let btlAnalysed=false, hmoAnalysed=false, saAnalysed=false, flipAnalysed=false;
 
+// BRRR headline figures. Display only: reads the values cBTL() (calc-
+// engine.js, unchanged) already computed for its BRRR scenario. Money left
+// in = bbMLI, cash pulled out at refinance = the refinance loan
+// (brrrLoan), monthly cashflow = bbNm. cBTL is wrapped here so the headline
+// refreshes on every run, wherever cBTL() is called from.
+function renderBRRRHeadline(){
+  const d=btlData||{};
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=(v==null||!isFinite(v))?'—':(v<0?'−':'')+'£'+Math.abs(Math.round(v)).toLocaleString();};
+  set('bh-mli',d.bbMLI);
+  set('bh-out',d.brrrLoan);
+  set('bh-cf',d.bbNm);
+}
+const _cBTLEngine=cBTL;
+cBTL=function(){ _cBTLEngine(); renderBRRRHeadline(); };
+
 function runBTL(){ cBTL(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; saveIndexDraft(); }
 function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; checkValueWarningBTL(); saveIndexDraft(); }
 
@@ -1590,7 +1706,7 @@ function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale')
 let lastCompsResult=null, lastCrimeResult=null, lastPlanningResult=null, lastEmploymentResult=null;
 const GDV_THIN_EVIDENCE_THRESHOLD=8;
 const GDV_TIERS=['conservative','refurbished','bestInArea'];
-const GDV_APPLY_TARGETS={btl:{field:'b-emv',label:'BTL',markStale:markStaleBTL},hmo:{field:'h-emv',label:'HMO',markStale:markStaleHMO},sa:{field:'sa-emv',label:'SA',markStale:markStaleSA},flip:{field:'fl-sv',label:'Flip',markStale:markStaleFlip}};
+const GDV_APPLY_TARGETS={btl:{field:'b-emv',label:'BRRR / BTL',markStale:markStaleBTL},hmo:{field:'h-emv',label:'HMO',markStale:markStaleHMO},sa:{field:'sa-emv',label:'SA',markStale:markStaleSA},flip:{field:'fl-sv',label:'Flip',markStale:markStaleFlip}};
 
 function ordinalSuffix(n){
   const rem100=n%100;
@@ -2007,7 +2123,8 @@ function applyGDV(){
 
   document.getElementById(target.field).value=gdv;
   target.markStale();
-  switchTab(targetKey);
+  // BTL's end value also feeds the BRRR tab (same panel); BRRR leads.
+  switchTab(targetKey==='btl'?'brrr':targetKey);
 
   msg.textContent='Copied £'+gdv.toLocaleString()+' into '+target.label+"'s "+(targetKey==='flip'?'Sale Value':'End Market Value')+'.';
   msg.className='save-msg success';
@@ -2461,7 +2578,7 @@ async function confirmSaveDeal(){
 
     if(!res.ok)throw new Error(body.error||'Save failed');
     closeSaveModal();
-    msg.innerHTML='Saved ✓. View in <a href="/saved-deals.html">Saved Deals</a>';msg.className='save-msg success';
+    msg.innerHTML='Saved ✓. View it in <a href="/saved-deals.html">Deals</a>';msg.className='save-msg success';
   }catch(e){
     modalMsg.textContent='Could not save: '+e.message;modalMsg.className='save-msg error';
   }

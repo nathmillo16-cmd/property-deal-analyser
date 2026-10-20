@@ -150,6 +150,7 @@ body.theme-light .msg.error{background:var(--danger-bg);color:var(--danger)}
 
     <div class="panel" id="panel-signup">
       <form id="form-signup">
+        <div class="f"><label>First name (optional)</label><input type="text" id="signup-first-name" autocomplete="given-name" maxlength="60"/></div>
         <div class="f"><label>Email</label><input type="email" id="signup-email" required autocomplete="email"/></div>
         <div class="f"><label>Password</label><input type="password" id="signup-password" required minlength="6" autocomplete="new-password"/></div>
         <button type="submit" class="submit-btn" id="btn-signup">Sign Up</button>
@@ -307,8 +308,11 @@ document.getElementById('form-signup').addEventListener('submit', async (e)=>{
   const btn=document.getElementById('btn-signup');
   const email=document.getElementById('signup-email').value;
   const password=document.getElementById('signup-password').value;
+  // Optional. Kept on the auth user's metadata (no session exists yet to
+  // write the profile), then copied to profiles.name by Home on first login.
+  const firstName=document.getElementById('signup-first-name').value.trim();
   btn.disabled=true;btn.textContent='Signing up...';
-  const { error } = await client.auth.signUp({ email, password });
+  const { error } = await client.auth.signUp(firstName?{ email, password, options:{ data:{ first_name:firstName } } }:{ email, password });
   btn.disabled=false;btn.textContent='Sign Up';
   if(error){
     showMsg('msg-signup', error.message, 'error');

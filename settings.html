@@ -96,10 +96,10 @@
         <h2>Account</h2>
 
         <div class="field">
-          <label>Name</label>
-          <input type="text" id="set-name" placeholder="Add your name"/>
+          <label>First name (optional)</label>
+          <input type="text" id="set-name" placeholder="Used to greet you on Home" autocomplete="given-name"/>
         </div>
-        <button class="btn-primary" id="btn-save-name" onclick="saveName()">Save name</button>
+        <button class="btn-primary" id="btn-save-name" onclick="saveName()">Save first name</button>
         <p class="save-msg" id="name-msg"></p>
 
         <div class="settings-divider"></div>
@@ -271,7 +271,10 @@ async function loadProfile(){
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not load your profile.');
 
-    document.getElementById('set-name').value=d.name||'';
+    // Falls back to the first name given at signup (stored on the auth
+    // user's metadata) until one is saved to the profile.
+    const meta=(currentSession.user&&currentSession.user.user_metadata)||{};
+    document.getElementById('set-name').value=d.name||meta.first_name||'';
 
     const badge=document.getElementById('set-plan-badge');
     const isPaid=d.plan==='paid';
@@ -357,7 +360,7 @@ async function saveName(){
   const msg=document.getElementById('name-msg');
   const name=document.getElementById('set-name').value.trim();
   if(!name){
-    msg.textContent='Enter a name.';msg.className='save-msg error';
+    msg.textContent='Enter a first name.';msg.className='save-msg error';
     return;
   }
   btn.disabled=true;btn.textContent='Saving…';
@@ -374,7 +377,7 @@ async function saveName(){
   }catch(e){
     msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
   }
-  btn.disabled=false;btn.textContent='Save name';
+  btn.disabled=false;btn.textContent='Save first name';
 }
 
 // ---------------------------------------------------------------------

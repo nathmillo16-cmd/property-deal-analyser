@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>PROPulsion · Pipeline</title>
+<title>PROPulsion · Deals board</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
@@ -84,8 +84,9 @@ body.theme-light .empty-card{
 .kanban-wrap::-webkit-scrollbar-track{background:transparent}
 .kanban-wrap::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:999px}
 .kanban-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-.kanban{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:1rem}
-@media(max-width:860px){.kanban{grid-template-columns:repeat(5,240px)}}
+.kanban{display:grid;grid-template-columns:repeat(6,minmax(165px,1fr));gap:.75rem}
+@media(max-width:1100px){.kanban{grid-template-columns:repeat(6,230px)}}
+.kanban-col[data-stage="saved"]{border-style:dashed}
 .kanban-col{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius);padding:1rem}
 body.theme-light .kanban-col{
   border:1px solid rgba(0,0,0,.09);
@@ -297,7 +298,13 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
   <script src="/nav.js"></script>
   <script src="/crm-nav.js"></script>
 
-  <p class="page-title">Pipeline</p>
+  <div class="deals-head">
+    <p class="page-title">Deals</p>
+    <div class="view-switch" role="tablist" aria-label="Deals view">
+      <a href="/saved-deals.html" role="tab" aria-selected="false">List</a>
+      <a href="/pipeline.html" role="tab" aria-selected="true" class="active">Board</a>
+    </div>
+  </div>
 
   <div id="state-loading"><p class="hint">Loading…</p></div>
 
@@ -307,8 +314,8 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
 
   <div id="state-locked" style="display:none">
     <div class="locked-panel">
-      <h2>The Pipeline is a paid feature</h2>
-      <p>Track saved deals through analysing, viewing, offered, agreed, and completed, and compare them side by side.</p>
+      <h2>The Board is a paid feature</h2>
+      <p>Track saved deals through analysing, viewing, offered, agreed, and completed, and compare them side by side. Your saved deals are always in the <a href="/saved-deals.html">List</a> view.</p>
       <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
     </div>
   </div>
@@ -326,7 +333,7 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
 
     <div class="card empty-card" id="pipeline-empty-state" style="display:none">
       <h2>No deals in your pipeline yet</h2>
-      <p>Deals you move into your pipeline appear here, stage by stage.</p>
+      <p>Drag a deal from the Saved column into Analysing to start tracking it, stage by stage.</p>
       <a class="btn-primary" href="/index.html">Analyse a deal</a>
     </div>
 
@@ -399,6 +406,13 @@ const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',ag
 // Column-header dot colour per stage — same palette as home.html's pipeline
 // distribution bar. Display-only, read by renderBoard() below.
 const STAGE_COLORS={analysing:'#c7c4ea',viewing:'#a49ee0',offered:'#7a72d4',agreed:'#4b45b2',completed:'#0f7a5a'};
+// "Saved" is the board's first column: saved deals not yet in the pipeline
+// (pipeline_stage null). Moving a card there removes it from the pipeline
+// (the deal itself is never deleted); moving one out adds it.
+const SAVED_COL='saved';
+let savedOnlyDeals=[];
+function boardDeal(id){return pipelineDeals.find(d=>d.id===id)||savedOnlyDeals.find(d=>d.id===id)||null;}
+function colToStage(col){return col===SAVED_COL?null:col;}
 
 // COMPARE_FIELDS / fmtCompareC / fmtCompareP / fmtCompareField / the compare
 // table builder itself all live in compare-deals.js now (shared with
@@ -534,6 +548,14 @@ async function loadPipeline(){
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'Could not load pipeline.');
     pipelineDeals=data;
+    // Saved-but-not-pipelined deals for the Saved column. GET /api/deals is
+    // the same free endpoint the List view uses; a failure here just leaves
+    // the Saved column empty rather than breaking the board.
+    try{
+      const sres=await fetch(API_BASE+'/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+      const sdata=await sres.json();
+      savedOnlyDeals=(sres.ok&&Array.isArray(sdata))?sdata.filter(d=>!d.pipeline_stage):[];
+    }catch(e){ savedOnlyDeals=[]; }
     const stillPresent=new Set(pipelineDeals.map(d=>d.id));
     selectedIds.forEach(id=>{ if(!stillPresent.has(id)) selectedIds.delete(id); });
     renderBoard();
@@ -567,7 +589,15 @@ function renderBoard(){
   // element that's meant to guide.
   document.getElementById('pipeline-empty-state').style.display = pipelineDeals.length===0 ? 'block' : 'none';
   const kanban=document.getElementById('kanban');
-  kanban.innerHTML=STAGES.map(stage=>{
+  const savedCards=savedOnlyDeals.length
+    ? savedOnlyDeals.map(cardHtml).join('')
+    : '<p class="col-empty">No other saved deals</p>';
+  const savedCol=`<div class="kanban-col" data-stage="${SAVED_COL}"
+      ondragover="onColumnDragOver(event)" ondragleave="onColumnDragLeave(event)" ondrop="onColumnDrop(event,'${SAVED_COL}')">
+      <p class="col-title"><span class="stage-dot" style="background:var(--hairline-strong)"></span>Saved<span class="col-count">${savedOnlyDeals.length}</span></p>
+      <div class="col-cards">${savedCards}</div>
+    </div>`;
+  kanban.innerHTML=savedCol+STAGES.map(stage=>{
     const dealsInStage=pipelineDeals.filter(d=>d.pipeline_stage===stage);
     const cards=dealsInStage.length
       ? dealsInStage.map(cardHtml).join('')
@@ -653,7 +683,10 @@ function toggleStageDD(e, dealId){
 function selectStage(e, dealId, stage){
   e.stopPropagation();
   closeAllStageDD();
-  changeStage(dealId, stage);
+  const deal=boardDeal(dealId);
+  const to=colToStage(stage);
+  if(deal&&(deal.pipeline_stage||null)===to)return;
+  changeStage(dealId, to);
 }
 
 function stageDDKeydown(e, dealId){
@@ -802,8 +835,10 @@ function cardHtml(d){
   const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):'';
   const name=dealDisplayName(d);
   const checked=selectedIds.has(d.id)?'checked':'';
-  const options=STAGES.map(s=>
-    `<li class="stage-opt${s===d.pipeline_stage?' selected':''}" role="option" aria-selected="${s===d.pipeline_stage}" data-stage="${s}" onclick="selectStage(event,'${d.id}','${s}')">${STAGE_LABELS[s]}</li>`
+  const isSaved=!d.pipeline_stage;
+  const current=isSaved?SAVED_COL:d.pipeline_stage;
+  const options=[SAVED_COL,...STAGES].map(s=>
+    `<li class="stage-opt${s===current?' selected':''}" role="option" aria-selected="${s===current}" data-stage="${s}" onclick="selectStage(event,'${d.id}','${s}')">${s===SAVED_COL?'Saved (not in pipeline)':STAGE_LABELS[s]}</li>`
   ).join('');
   // draggable="true" sits ONLY on the handle span, not the card — so a drag
   // gesture can only ever start by grabbing the handle. The checkbox, stage
@@ -811,7 +846,7 @@ function cardHtml(d){
   // with a drag for the same click/touch.
   return `<div class="pipeline-card" data-deal-id="${d.id}">
     <div class="card-top">
-      <input type="checkbox" ${checked} onchange="toggleCompare('${d.id}', this.checked)"/>
+      ${isSaved?'':`<input type="checkbox" ${checked} onchange="toggleCompare('${d.id}', this.checked)"/>`}
       <span class="card-type">${escapeHtml(name)}</span>
       <span class="drag-handle" draggable="true" title="Drag to move"
         ondragstart="onHandleDragStart(event,'${d.id}')" ondragend="onHandleDragEnd(event)"
@@ -824,14 +859,14 @@ function cardHtml(d){
     <div class="stage-dd" data-deal-id="${d.id}">
       <button type="button" class="stage-dd-trigger" aria-haspopup="listbox" aria-expanded="false"
         onclick="toggleStageDD(event,'${d.id}')" onkeydown="stageDDKeydown(event,'${d.id}')">
-        <span>${STAGE_LABELS[d.pipeline_stage]||'—'}</span>
+        <span>${isSaved?'Saved':(STAGE_LABELS[d.pipeline_stage]||'—')}</span>
       </button>
       <ul class="stage-dd-list" role="listbox">${options}</ul>
     </div>
-    <div class="card-actions">
+    ${isSaved?`<div class="card-actions"><a class="mini-btn" href="/saved-deals.html?openDeal=${encodeURIComponent(d.id)}">Open deal</a></div>`:`<div class="card-actions">
       <button class="mini-btn" onclick="openDealDetails('${d.id}')">Notes &amp; offers</button>
       <button class="remove-btn" onclick="removeFromPipeline('${d.id}')">Remove</button>
-    </div>
+    </div>`}
   </div>`;
 }
 
@@ -876,9 +911,10 @@ function onColumnDrop(e, stage){
   const dealId=draggedDealId || e.dataTransfer.getData('text/plain');
   draggedDealId=null;
   if(!dealId)return;
-  const deal=pipelineDeals.find(d=>d.id===dealId);
-  if(!deal || deal.pipeline_stage===stage)return; // dropped back in its own column — no-op
-  changeStage(dealId, stage);
+  const deal=boardDeal(dealId);
+  const to=colToStage(stage);
+  if(!deal || (deal.pipeline_stage||null)===to)return; // dropped back in its own column — no-op
+  changeStage(dealId, to);
 }
 
 // Touch drag (best-effort): native HTML5 drag-and-drop does not fire on
@@ -931,9 +967,9 @@ function onTouchEnd(e){
   const {dealId}=touchDrag;
   touchDrag=null;
   if(col){
-    const stage=col.dataset.stage;
-    const deal=pipelineDeals.find(d=>d.id===dealId);
-    if(deal && deal.pipeline_stage!==stage)changeStage(dealId, stage);
+    const to=colToStage(col.dataset.stage);
+    const deal=boardDeal(dealId);
+    if(deal && (deal.pipeline_stage||null)!==to)changeStage(dealId, to);
   }
 }
 
@@ -942,7 +978,7 @@ async function changeStage(dealId, stage){
   // FROM — used only to decide which celebration (if any) to play below.
   // The persistence call itself (fetch/POST/error-handling/loadPipeline) is
   // otherwise byte-for-byte what it was before.
-  const priorDeal=pipelineDeals.find(d=>d.id===dealId);
+  const priorDeal=boardDeal(dealId);
   const fromStage=priorDeal?priorDeal.pipeline_stage:null;
   let succeeded=false;
   try{
