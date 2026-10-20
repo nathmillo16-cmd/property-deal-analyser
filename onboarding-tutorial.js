@@ -102,7 +102,7 @@ var TUTORIAL_STEPS = [
     page: 'portfolio.html',
     selectors: ['#pf-summary-grid', '#pf-empty-state', '#state-locked .locked-panel'],
     title: 'Your portfolio',
-    body: 'Once you complete on a property, add it here to track cashflow, equity and portfolio value. Open a property to add its mortgage, tenancy and compliance dates, and Home will flag what is coming up.'
+    body: 'Once you complete on a property, add it here to track cashflow, equity and portfolio value. Open a property to add its mortgage, tenancy, compliance and documents, and log rent and expenses. Home flags what is coming up, and Tax year summary gives your accountant the totals.'
   },
   {
     id: 'settings-help',

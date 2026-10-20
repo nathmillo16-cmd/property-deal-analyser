@@ -24,6 +24,8 @@
 <script src="/draft-state.js"></script>
 <script src="/onboarding-tutorial.js"></script>
 <script src="/portfolio-shared.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="/tax-summary.js"></script>
 <link rel="stylesheet" href="/portfolio.css">
 <style>
 /* page-specific layout only; shared portfolio styles live in portfolio.css */
@@ -41,6 +43,9 @@ body.theme-light .empty-card{border:1px solid rgba(0,0,0,.09);border-radius:14px
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
 .add-clear{font-size:12.5px;color:var(--muted);margin-right:auto}
+.pf-head-actions{display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center}
+.pf-head-actions .btn-secondary{border-radius:10px;padding:9px 14px}
+@media(max-width:520px){.pf-head-actions{width:100%}.pf-head-actions>*{flex:1 1 auto}}
 </style>
 </head>
 <body class="theme-light">
@@ -52,7 +57,11 @@ body.theme-light .empty-card{border:1px solid rgba(0,0,0,.09);border-radius:14px
 
   <div class="pf-head">
     <p class="page-title">Portfolio</p>
-    <button type="button" class="btn-primary" id="btn-open-add" onclick="openAddModal()" hidden>Add property</button>
+    <div class="pf-head-actions" id="pf-head-actions" hidden>
+      <button type="button" class="btn-secondary" id="btn-open-tax" onclick="openTaxSummary()" hidden>Tax year summary</button>
+      <button type="button" class="btn-secondary" id="btn-open-expense" onclick="openPortfolioExpense()" hidden>+ Expense</button>
+      <button type="button" class="btn-primary" id="btn-open-add" onclick="openAddModal()">Add property</button>
+    </div>
   </div>
 
   <div id="state-loading"><p class="hint">Loading…</p></div>
@@ -114,9 +123,41 @@ body.theme-light .empty-card{border:1px solid rgba(0,0,0,.09);border-radius:14px
   </div>
 </div>
 
+<div class="modal-overlay" id="pf-exp-overlay" onclick="if(event.target===this)closePortfolioExpense()">
+  <div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="pf-exp-title">
+    <div class="modal-header">
+      <h2 id="pf-exp-title">Add expense</h2>
+      <button class="modal-close" onclick="closePortfolioExpense()" aria-label="Close">×</button>
+    </div>
+    <div class="pf-form-grid" id="pf-exp-fields"></div>
+    <p class="save-msg" id="pf-exp-msg"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="pf-exp-save" onclick="savePortfolioExpense()">Save expense</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay tx-wide" id="pf-tax-overlay" onclick="if(event.target===this)closeTaxSummary()">
+  <div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="pf-tax-title">
+    <div class="modal-header">
+      <h2 id="pf-tax-title">Tax year summary</h2>
+      <button class="modal-close" onclick="closeTaxSummary()" aria-label="Close">×</button>
+    </div>
+    <div class="tx-top">
+      <div class="field"><label for="pf-tax-year">Tax year</label><select id="pf-tax-year" onchange="loadTaxSummary()"></select></div>
+      <div class="pf-head-actions">
+        <button type="button" class="btn-secondary" id="pf-tax-pdf" onclick="TaxSummary.downloadPdf()" disabled>Download PDF</button>
+        <button type="button" class="btn-secondary" id="pf-tax-csv" onclick="TaxSummary.downloadCsv()" disabled>Download CSV</button>
+      </div>
+    </div>
+    <p class="tx-disclaimer" id="pf-tax-disclaimer"></p>
+    <div id="pf-tax-body"><p class="hint">Loading…</p></div>
+  </div>
+</div>
+
 <script>
 let sbClient=null, currentSession=null, currentPlan=null;
-let portfolioProperties=[], schemaReady=false;
+let portfolioProperties=[], schemaReady=false, recordsReady=false;
 
 async function logout(){
   await sbClient.auth.signOut();
@@ -173,7 +214,7 @@ function showState(state){
   ['loading','loggedout','locked','board'].forEach(s=>{
     document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
   });
-  document.getElementById('btn-open-add').hidden = state!=='board';
+  document.getElementById('pf-head-actions').hidden = state!=='board';
 }
 
 // ---------------------------------------------------------------------
@@ -217,7 +258,62 @@ function openAddModal(){
 }
 function closeAddModal(){ document.getElementById('pf-add-overlay').classList.remove('open'); }
 
-document.addEventListener('keydown', function(e){ if(e.key==='Escape')closeAddModal(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeAddModal(); closePortfolioExpense(); closeTaxSummary(); } });
+
+// ---------------------------------------------------------------------
+// "+ Expense": the same expense form as the property page, with a
+// property picker. Saves to that property's expenses log (db/047).
+// ---------------------------------------------------------------------
+function openPortfolioExpense(){
+  if(!portfolioProperties.length)return;
+  const root=document.getElementById('pf-exp-fields');
+  root.innerHTML=PF.expenseFormHtml({properties:portfolioProperties.map(p=>({id:p.id,address:p.address}))});
+  PF.wireExpenseForm(root);
+  const msg=document.getElementById('pf-exp-msg');
+  if(!recordsReady){ msg.textContent='Expenses can be added once a quick database update has been run.'; msg.className='save-msg error'; }
+  else { msg.textContent=''; msg.className='save-msg'; }
+  document.getElementById('pf-exp-overlay').classList.add('open');
+}
+function closePortfolioExpense(){ document.getElementById('pf-exp-overlay').classList.remove('open'); }
+async function savePortfolioExpense(){
+  const msg=document.getElementById('pf-exp-msg');
+  const btn=document.getElementById('pf-exp-save');
+  const f=PF.readExpenseForm(document.getElementById('pf-exp-fields'));
+  if(f.error){ msg.textContent=f.error; msg.className='save-msg error'; return; }
+  btn.disabled=true; btn.textContent='Saving…';
+  try{
+    await PF.saveExpense(API_BASE,currentSession.access_token,f.value.property_id,f.value,null);
+    const p=portfolioProperties.find(x=>x.id===f.value.property_id);
+    closePortfolioExpense();
+    showPageNote('Expense saved'+(p?' to '+p.address:'')+'.');
+  }catch(e){ msg.textContent=e.message; msg.className='save-msg error'; }
+  btn.disabled=false; btn.textContent='Save expense';
+}
+function showPageNote(text){
+  let el=document.getElementById('pf-page-note');
+  if(!el){ el=document.createElement('p'); el.id='pf-page-note'; el.className='save-msg success'; el.setAttribute('role','status'); document.querySelector('.pf-head').after(el); }
+  el.textContent=text;
+  clearTimeout(showPageNote.t); showPageNote.t=setTimeout(()=>{ el.textContent=''; },5000);
+}
+
+// ---------------------------------------------------------------------
+// Tax year summary (tax-summary.js does the rendering and exports).
+// ---------------------------------------------------------------------
+function openTaxSummary(){
+  const sel=document.getElementById('pf-tax-year');
+  if(!sel.options.length){
+    const cur=PF.currentTaxYear();
+    for(let y=cur;y>=cur-6;y--){ const o=document.createElement('option'); o.value=y; o.textContent=y+' to '+(y+1)+(y===cur?' (this year)':''); sel.appendChild(o); }
+  }
+  document.getElementById('pf-tax-disclaimer').textContent=TaxSummary.DISCLAIMER;
+  document.getElementById('pf-tax-overlay').classList.add('open');
+  loadTaxSummary();
+}
+function closeTaxSummary(){ document.getElementById('pf-tax-overlay').classList.remove('open'); }
+function loadTaxSummary(){
+  TaxSummary.load({apiBase:API_BASE, token:currentSession.access_token, year:document.getElementById('pf-tax-year').value,
+    body:document.getElementById('pf-tax-body'), pdfBtn:document.getElementById('pf-tax-pdf'), csvBtn:document.getElementById('pf-tax-csv')});
+}
 
 async function init(){
   const auth=await requireAuth();
@@ -295,6 +391,9 @@ async function loadPortfolio(){
 
     portfolioProperties=d.properties;
     schemaReady=!!d.schema_ready;
+    recordsReady=!!d.records_ready;
+    document.getElementById('btn-open-expense').hidden=!portfolioProperties.length;
+    document.getElementById('btn-open-tax').hidden=!portfolioProperties.length;
 
     if(portfolioProperties.length===0){
       emptyEl.style.display='block';

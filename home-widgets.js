@@ -323,9 +323,9 @@ var HomeWidgets = (function () {
     var urgent = st.pipelineLocked ? [] : (st.needsAttention || []);
     if (urgent.length) {
       title.textContent = 'Needs attention';
-      var LABEL = { chase: 'Chase', update: 'Update', review: 'Review', refinance: 'Refinance', reminder: 'Reminder', fix_end: 'Fixed rate', tenancy: 'Tenancy', compliance: 'Compliance' };
+      var LABEL = { chase: 'Chase', update: 'Update', review: 'Review', refinance: 'Refinance', reminder: 'Reminder', fix_end: 'Fixed rate', tenancy: 'Tenancy', compliance: 'Compliance', rent: 'Rent' };
       list.innerHTML = urgent.map(function (n) {
-        // Portfolio alerts (refinance, fixed rate, tenancy, compliance) open
+        // Portfolio alerts (refinance, fixed rate, tenancy, compliance, rent) open
         // that property's page; deal alerts open the deal.
         var href = n.property_id ? '/property.html?id=' + encodeURIComponent(n.property_id)
           : (n.deal_id ? '/saved-deals.html?openDeal=' + encodeURIComponent(n.deal_id) : '/saved-deals.html');

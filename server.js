@@ -264,6 +264,128 @@ app.post('/api/portfolio/:id/photo', express.json({ limit: '8mb' }), async (req,
   res.json({ photo_url: signed ? signed.signedUrl : null });
 });
 
+// ---------------------------------------------------------------------
+// Property records uploads (db/047): gallery photos, documents and expense
+// receipts. Registered before the global express.json for the same reason
+// as the photo routes above: files travel as base64. The rest of the
+// property records routes (lists, rent log, tax summary) are further down,
+// after PUT /api/portfolio/:id.
+// ---------------------------------------------------------------------
+
+// Gallery photo: compressed to a JPEG of about 1600px in the browser, same
+// as deal photos. Before db/047 this returns 409 { needs_migration } and
+// the page falls back to the single-photo slot (POST /api/portfolio/:id/photo).
+app.post('/api/portfolio/:id/photos', express.json({ limit: '8mb' }), async (req, res) => {
+  const ctx = await propertyRequest(req, res, { needUser: true });
+  if (!ctx) return;
+  const { supabase, userId } = ctx;
+  if (!(await loadOwnProperty(supabase, req.params.id))) return res.status(404).json({ error: 'Property not found.' });
+
+  const { data: existing, error: listErr } = await supabase
+    .from('property_photos').select('id, position').eq('property_id', req.params.id);
+  if (listErr && isMissingSchemaError(listErr)) return recordsNeedMigration(res);
+  if (listErr) return res.status(400).json({ error: 'Photos could not be loaded. Try again.' });
+  if (existing.length >= PROPERTY_PHOTOS_PER_PROPERTY) return res.status(400).json({ error: `Up to ${PROPERTY_PHOTOS_PER_PROPERTY} photos per property.` });
+
+  const file = decodeUploadedFile(req.body, { 'image/jpeg': 'jpg' }, DEAL_PHOTO_MAX_BYTES);
+  if (file.error) return res.status(400).json({ error: file.error });
+
+  const storagePath = `${userId}/${req.params.id}/${crypto.randomUUID()}.jpg`;
+  const { error: uploadErr } = await supabase.storage.from('property-photos')
+    .upload(storagePath, file.buffer, { contentType: 'image/jpeg', upsert: false });
+  if (uploadErr) {
+    console.error('Property photo: upload failed for', userId, uploadErr.message);
+    return res.status(400).json({ error: 'That photo could not be uploaded. Try again.' });
+  }
+  const position = existing.length ? Math.max(...existing.map((p) => p.position)) + 1 : 0;
+  const { data: row, error } = await supabase.from('property_photos')
+    .insert({ property_id: req.params.id, storage_path: storagePath, position })
+    .select('id, position, created_at').single();
+  if (error) {
+    await supabase.storage.from('property-photos').remove([storagePath]);
+    return res.status(400).json({ error: 'That photo could not be saved. Try again.' });
+  }
+  const { data: signed } = await supabase.storage.from('property-photos').createSignedUrl(storagePath, PROPERTY_SIGNED_URL_SECONDS);
+  res.json({ ...row, url: signed ? signed.signedUrl : null });
+});
+
+// Document upload: PDF, JPEG or PNG up to 10MB, optionally linked to a
+// compliance item (e.g. a gas certificate on Gas safety).
+app.post('/api/portfolio/:id/documents', express.json({ limit: '15mb' }), async (req, res) => {
+  const ctx = await propertyRequest(req, res, { needUser: true });
+  if (!ctx) return;
+  const { supabase, userId } = ctx;
+  if (!(await loadOwnProperty(supabase, req.params.id))) return res.status(404).json({ error: 'Property not found.' });
+
+  const body = req.body || {};
+  const meta = validateDocumentMeta(body);
+  if (meta.error) return res.status(400).json({ error: meta.error });
+  const fileName = cleanText(body.file_name, 160) || 'Document';
+
+  const { count, error: countErr } = await supabase.from('property_documents')
+    .select('id', { count: 'exact', head: true }).eq('property_id', req.params.id);
+  if (countErr && isMissingSchemaError(countErr)) return recordsNeedMigration(res);
+  if (!countErr && count >= PROPERTY_DOCS_PER_PROPERTY) return res.status(400).json({ error: `Up to ${PROPERTY_DOCS_PER_PROPERTY} documents per property.` });
+
+  const file = decodeUploadedFile(body, PROPERTY_DOC_CONTENT_TYPES, PROPERTY_DOC_MAX_BYTES);
+  if (file.error) return res.status(400).json({ error: file.error });
+
+  const storagePath = `${userId}/${req.params.id}/${crypto.randomUUID()}.${file.ext}`;
+  const { error: uploadErr } = await supabase.storage.from('property-docs')
+    .upload(storagePath, file.buffer, { contentType: file.type, upsert: false });
+  if (uploadErr) {
+    console.error('Property document: upload failed for', userId, uploadErr.message);
+    return res.status(400).json({ error: isMissingSchemaError(uploadErr) || /bucket/i.test(uploadErr.message) ? 'Documents need a quick database update (db/047) first.' : 'That file could not be uploaded. Try again.' });
+  }
+  const { data: row, error } = await supabase.from('property_documents')
+    .insert({ property_id: req.params.id, doc_type: meta.value.doc_type, compliance_key: meta.value.compliance_key, file_name: fileName, storage_path: storagePath, content_type: file.type, size_bytes: file.buffer.length })
+    .select(PROPERTY_DOC_COLUMNS).single();
+  if (error) {
+    await supabase.storage.from('property-docs').remove([storagePath]);
+    return res.status(400).json({ error: 'That document could not be saved. Try again.' });
+  }
+  const { data: signed } = await supabase.storage.from('property-docs').createSignedUrl(storagePath, PROPERTY_SIGNED_URL_SECONDS);
+  res.json({ ...publicDocumentRow(row), url: signed ? signed.signedUrl : null });
+});
+
+// Expense, with an optional receipt (photo or PDF) stored in property-docs.
+app.post('/api/portfolio/:id/expenses', express.json({ limit: '15mb' }), async (req, res) => {
+  const ctx = await propertyRequest(req, res, { needUser: true });
+  if (!ctx) return;
+  const { supabase, userId } = ctx;
+  if (!(await loadOwnProperty(supabase, req.params.id))) return res.status(404).json({ error: 'Property not found.' });
+
+  const body = req.body || {};
+  const { value, error: vErr } = validateExpenseInput(body);
+  if (vErr) return res.status(400).json({ error: vErr });
+
+  const { error: probeErr } = await supabase.from('property_expenses').select('id').limit(1);
+  if (probeErr && isMissingSchemaError(probeErr)) return recordsNeedMigration(res);
+
+  let receiptPath = null;
+  if (body.receipt && body.receipt.data) {
+    const file = decodeUploadedFile(body.receipt, PROPERTY_DOC_CONTENT_TYPES, PROPERTY_DOC_MAX_BYTES);
+    if (file.error) return res.status(400).json({ error: 'Receipt: ' + file.error.charAt(0).toLowerCase() + file.error.slice(1) });
+    receiptPath = `${userId}/${req.params.id}/receipts/${crypto.randomUUID()}.${file.ext}`;
+    const { error: uploadErr } = await supabase.storage.from('property-docs')
+      .upload(receiptPath, file.buffer, { contentType: file.type, upsert: false });
+    if (uploadErr) {
+      console.error('Expense receipt: upload failed for', userId, uploadErr.message);
+      return res.status(400).json({ error: 'The receipt could not be uploaded. Try again.' });
+    }
+    value.receipt_path = receiptPath;
+    value.receipt_type = file.type;
+  }
+  const { data: row, error } = await supabase.from('property_expenses')
+    .insert({ ...value, property_id: req.params.id })
+    .select(PROPERTY_EXPENSE_COLUMNS).single();
+  if (error) {
+    if (receiptPath) await supabase.storage.from('property-docs').remove([receiptPath]);
+    return res.status(400).json({ error: 'That expense could not be saved. Try again.' });
+  }
+  res.json(publicExpenseRow(row));
+});
+
 app.use(express.json());
 
 // The bare root now serves the public landing page, not the calculator, so a
@@ -593,6 +715,7 @@ const EPC_RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 // Columns that existed before db/046. A write that fails because the newer
 // columns aren't there yet is retried with only these (see
 // writePortfolioProperty), so the page keeps working before the migration.
+const PORTFOLIO_047_COLUMNS = ['postcode', 'listing_url', 'source_deal_id'];
 const PORTFOLIO_LEGACY_COLUMNS = ['address', 'price_paid', 'property_type', 'monthly_rent', 'monthly_running_costs', 'monthly_mortgage', 'cash_invested', 'current_value', 'mortgage_balance', 'refinance_date'];
 
 function todayUTCDateStr() {
@@ -842,6 +965,26 @@ function validatePortfolioInput(body) {
     return { error: 'Tenancy end must be after the tenancy start.' };
   }
 
+  // Carried over from a deal by "Move to portfolio" (db/047).
+  if ('postcode' in body) {
+    const pc = body.postcode;
+    if (isBlank(pc)) value.postcode = null;
+    else if (typeof pc === 'string' && pc.trim().length <= 10) value.postcode = pc.trim().toUpperCase();
+    else return { error: 'Postcode can be up to 10 characters.' };
+  }
+  if ('listing_url' in body) {
+    const u = body.listing_url;
+    if (isBlank(u)) value.listing_url = null;
+    else if (typeof u === 'string' && u.trim().length <= 1000 && /^https?:\/\/\S+$/i.test(u.trim())) value.listing_url = u.trim();
+    else return { error: 'The listing link must be a full web address, starting https://' };
+  }
+  if ('source_deal_id' in body) {
+    const id = body.source_deal_id;
+    if (isBlank(id)) value.source_deal_id = null;
+    else if (typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)) value.source_deal_id = id;
+    else return { error: 'That deal is not recognised.' };
+  }
+
   if ('compliance' in body) {
     const { value: compliance, error } = normaliseCompliance(body.compliance);
     if (error) return { error };
@@ -905,7 +1048,16 @@ async function writePortfolioProperty(supabase, value, id) {
       : supabase.from('portfolio_properties').insert(v);
     return q.select().single();
   };
-  const first = await run(value);
+  let first = await run(value);
+  // db/047 columns (postcode, listing link, source deal) not there yet:
+  // retry without just those, so everything from db/046 still saves.
+  if (first.error && isMissingSchemaError(first.error) && PORTFOLIO_047_COLUMNS.some((k) => k in value)) {
+    const without = { ...value };
+    for (const k of PORTFOLIO_047_COLUMNS) delete without[k];
+    value = without;
+    first = await run(value);
+    if (!first.error) return { ...first, recordsPending: true };
+  }
   // 23514 (check violation) only counts here for BRRR: before db/046 the
   // old property_type check rejects it. Every other check is validated above.
   const failedOnSchema = first.error && (isMissingSchemaError(first.error) || (first.error.code === '23514' && value.property_type === 'BRRR'));
@@ -1255,7 +1407,7 @@ app.get('/api/needs-attention', async (req, res) => {
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const [dealsRes, offersRes, notesRes, refiRes, remindersRes] = await Promise.all([
+  const [dealsRes, offersRes, notesRes, refiRes, remindersRes, rentRes] = await Promise.all([
     supabase.from('deals').select('id, deal_data, pipeline_stage, updated_at, viewing_date'),
     supabase.from('deal_offers').select('id, deal_id, created_at, outcome').in('outcome', ['Pending', 'Countered']),
     supabase.from('deal_notes').select('deal_id, created_at'),
@@ -1265,6 +1417,8 @@ app.get('/api/needs-attention', async (req, res) => {
     supabase.from('portfolio_properties').select('*'),
     // Failure-tolerant too: deal_reminders only exists once db/045 is run.
     supabase.from('deal_reminders').select('id, deal_id, remind_on, note').eq('done', false).lte('remind_on', todayStr).order('remind_on', { ascending: true }),
+    // And the rent log (db/047): months marked late or missed.
+    supabase.from('property_rent_log').select('property_id, month, status, expected_amount, amount_received').in('status', ['late', 'missed']).order('month', { ascending: true }),
   ]);
 
   if (dealsRes.error) return res.status(400).json({ error: dealsRes.error.message });
@@ -1425,7 +1579,35 @@ app.get('/api/needs-attention', async (req, res) => {
     });
   }
 
-  res.json([...reminderResults, ...complianceResults.filter((r) => r.severity === 'overdue'), ...refiResults, ...fixResults, ...complianceResults.filter((r) => r.severity !== 'overdue'), ...tenancyResults, ...results]);
+  // (vi) rent: months the user marked late or missed in the rent log
+  // (db/047), one row per property, until they're marked received. Red
+  // when any month is missed.
+  const rentRows = rentRes.error ? [] : (rentRes.data || []);
+  const propertyById = new Map(propertyRows.map((p) => [p.id, p]));
+  const rentByProperty = new Map();
+  for (const r of rentRows) {
+    if (!propertyById.has(r.property_id)) continue;
+    if (!rentByProperty.has(r.property_id)) rentByProperty.set(r.property_id, []);
+    rentByProperty.get(r.property_id).push(r);
+  }
+  const rentResults = [];
+  const monthLabel = (m) => new Date(parseDateOnlyUTCms(m)).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+  for (const [propertyId, rows] of rentByProperty) {
+    const owed = rows.reduce((sum, r) => sum + rentShortfallPence(r), 0);
+    const anyMissed = rows.some((r) => r.status === 'missed');
+    let detail;
+    if (rows.length === 1) {
+      detail = `${monthLabel(rows[0].month)} rent ${rows[0].status === 'missed' ? 'missed' : 'late'}`;
+    } else {
+      detail = `${rows.length} months of rent late or missed`;
+    }
+    if (owed > 0) detail += `, £${Math.round(fromPence(owed)).toLocaleString('en-GB')} owed`;
+    rentResults.push({ property_id: propertyId, deal_name: propertyById.get(propertyId).address, reason: 'rent',
+      severity: anyMissed ? 'overdue' : 'due_soon', month: rows[0].month, detail });
+  }
+  rentResults.sort((a, b) => (a.month < b.month ? -1 : 1));
+
+  res.json([...reminderResults, ...rentResults, ...complianceResults.filter((r) => r.severity === 'overdue'), ...refiResults, ...fixResults, ...complianceResults.filter((r) => r.severity !== 'overdue'), ...tenancyResults, ...results]);
 });
 
 app.post('/api/deals/:id/name', async (req, res) => {
@@ -2258,11 +2440,11 @@ app.post('/api/portfolio', async (req, res) => {
   const { value, error: validationError } = validatePortfolioInput(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
 
-  const { data, error, schemaPending } = await writePortfolioProperty(supabase, value, null);
+  const { data, error, schemaPending, recordsPending } = await writePortfolioProperty(supabase, value, null);
 
   if (error) return res.status(400).json({ error: error.message });
   const row = schemaPending ? normaliseLegacyPortfolioRow(data) : data;
-  res.json({ ...row, ...computePropertyFigures(row), schema_pending: !!schemaPending });
+  res.json({ ...row, ...computePropertyFigures(row), schema_pending: !!schemaPending, records_pending: !!(recordsPending || schemaPending) });
 });
 
 app.get('/api/portfolio', async (req, res) => {
@@ -2292,11 +2474,24 @@ app.get('/api/portfolio', async (req, res) => {
 
   const schemaReady = !probeRes.error;
   const rows = schemaReady ? data : data.map(normaliseLegacyPortfolioRow);
-  const photoUrls = await signPropertyPhotoUrls(supabase, rows);
-  const properties = rows.map((p) => ({ ...p, ...computePropertyFigures(p, targetLtv), photo_url: photoUrls.get(p.photo_path) || null }));
+  // Card image: the first gallery photo (db/047), else the single photo
+  // slot (db/046). Failure-tolerant: before db/047 the gallery query errors
+  // and only the single photo is used.
+  const galleryRes = await supabase.from('property_photos').select('property_id, storage_path, position, created_at')
+    .order('position', { ascending: true }).order('created_at', { ascending: true });
+  const recordsReady = !galleryRes.error;
+  const coverPath = new Map();
+  const photoCount = new Map();
+  for (const ph of (recordsReady ? galleryRes.data : [])) {
+    if (!coverPath.has(ph.property_id)) coverPath.set(ph.property_id, ph.storage_path);
+    photoCount.set(ph.property_id, (photoCount.get(ph.property_id) || 0) + 1);
+  }
+  const cardPath = (p) => coverPath.get(p.id) || p.photo_path || null;
+  const photoUrls = await signPropertyPhotoUrls(supabase, rows.map((p) => ({ photo_path: cardPath(p) })));
+  const properties = rows.map((p) => ({ ...p, ...computePropertyFigures(p, targetLtv), photo_url: photoUrls.get(cardPath(p)) || null, photo_count: photoCount.get(p.id) || (p.photo_path ? 1 : 0) }));
   const totals = computePortfolioTotals(rows, targetLtv);
   await recordPortfolioSnapshot(supabase, rows.length, totals);
-  res.json({ properties, totals, target_ltv: targetLtv, schema_ready: schemaReady });
+  res.json({ properties, totals, target_ltv: targetLtv, schema_ready: schemaReady, records_ready: recordsReady });
 });
 
 // Property photos (db/046, private 'property-photos' bucket): short-lived
@@ -2376,6 +2571,9 @@ app.delete('/api/portfolio/:id', async (req, res) => {
     const { data: row } = await supabase.from('portfolio_properties').select('photo_path').eq('id', req.params.id).single();
     photoPath = row ? row.photo_path : null;
   } catch (e) {}
+  // Gallery photos, documents and receipts (db/047). Their rows cascade
+  // away with the property; the files are removed after.
+  const recordFiles = await collectPropertyFiles(supabase, (q) => q.eq('property_id', req.params.id));
 
   const { error } = await supabase
     .from('portfolio_properties')
@@ -2387,6 +2585,7 @@ app.delete('/api/portfolio/:id', async (req, res) => {
     const { error: rmErr } = await supabase.storage.from('property-photos').remove([photoPath]);
     if (rmErr) console.error('Property photo: could not remove', photoPath, rmErr.message);
   }
+  await removePropertyFiles(supabase, recordFiles, 'Property delete ' + req.params.id);
   res.json({ deleted: true });
 });
 
@@ -2428,6 +2627,567 @@ app.put('/api/portfolio/:id', async (req, res) => {
   if (error || !data) return res.status(404).json({ error: 'Property not found.' });
   const row = schemaPending ? normaliseLegacyPortfolioRow(data) : data;
   res.json({ ...row, ...computePropertyFigures(row), schema_pending: !!schemaPending });
+});
+
+// =====================================================================
+// Property records (db/047): photo gallery, documents, rent log, expenses
+// log and the tax-year summary. All paid-gated like the rest of the
+// portfolio, all scoped by RLS to the caller's own rows. Uploads are near
+// the top of this file (before the global express.json).
+//
+// Before db/047 is run every route here returns 409 { needs_migration }
+// and the property page shows a short "needs a database update" note in
+// those sections; nothing else on the page is affected.
+// =====================================================================
+const PROPERTY_SIGNED_URL_SECONDS = 60 * 60; // links expire after 1 hour
+const PROPERTY_PHOTOS_PER_PROPERTY = 40;
+const PROPERTY_DOCS_PER_PROPERTY = 200;
+const PROPERTY_DOC_MAX_BYTES = 10 * 1024 * 1024;
+const PROPERTY_DOC_CONTENT_TYPES = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png' };
+const PROPERTY_DOC_TYPES = ['tenancy', 'gas', 'eicr', 'epc', 'mortgage_offer', 'insurance', 'other'];
+const PROPERTY_DOC_COLUMNS = 'id, property_id, doc_type, file_name, storage_path, content_type, size_bytes, compliance_key, created_at';
+const PROPERTY_EXPENSE_COLUMNS = 'id, property_id, expense_date, amount, category, description, receipt_path, receipt_type, created_at';
+// Categories match UK property income records. mortgage_interest is kept
+// out of "expenses" everywhere and shown as finance costs instead.
+const EXPENSE_CATEGORIES = {
+  repairs: 'Repairs and maintenance',
+  insurance: 'Insurance',
+  letting_fees: 'Letting and management fees',
+  legal_professional: 'Legal and professional fees',
+  utilities: 'Utilities and services',
+  ground_rent: 'Ground rent and service charges',
+  council_tax: 'Council tax (while empty)',
+  mortgage_interest: 'Mortgage interest',
+  other: 'Other',
+};
+const RENT_STATUSES = ['received', 'part', 'late', 'missed'];
+// Actual cashflow looks back over at most this many months (current month included).
+const ACTUAL_CASHFLOW_MONTHS = 12;
+
+function recordsNeedMigration(res) {
+  return res.status(409).json({ needs_migration: true, error: 'This needs a quick database update (db/047) first.' });
+}
+
+// Auth + paid check shared by every property records route. Sends the
+// error response itself and returns null when the request can't go on.
+async function propertyRequest(req, res, { needUser } = {}) {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) { res.status(401).json({ error: 'Log in to use the portfolio.' }); return null; }
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') { res.status(403).json({ error: 'Upgrade to unlock the portfolio.' }); return null; }
+  let userId = null;
+  if (needUser) {
+    const { data, error } = await supabase.auth.getUser(getBearerToken(req));
+    if (error || !data || !data.user) { res.status(401).json({ error: 'Log in to use the portfolio.' }); return null; }
+    userId = data.user.id;
+  }
+  return { supabase, userId };
+}
+
+// RLS means this only ever finds the caller's own property.
+async function loadOwnProperty(supabase, id, cols = 'id') {
+  const { data, error } = await supabase.from('portfolio_properties').select(cols).eq('id', id).single();
+  return error ? null : data;
+}
+
+// Decodes a { type, data (base64) } upload and checks the bytes really are
+// the type claimed (PDF, JPEG or PNG signature), not just the label.
+function decodeUploadedFile(body, allowed, maxBytes) {
+  if (!body || typeof body.data !== 'string' || !allowed[body.type]) {
+    return { error: `Files must be ${Object.values(allowed).map((e) => e.toUpperCase()).join(', ').replace(/, ([^,]*)$/, ' or $1')}.` };
+  }
+  const buffer = Buffer.from(body.data, 'base64');
+  if (buffer.length === 0) return { error: 'That file is empty.' };
+  if (buffer.length > maxBytes) return { error: `That file is too large (up to ${Math.round(maxBytes / 1024 / 1024)}MB).` };
+  const sig = {
+    'application/pdf': () => buffer.slice(0, 5).toString('latin1') === '%PDF-',
+    'image/jpeg': () => buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
+    'image/png': () => buffer.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  }[body.type];
+  if (!sig()) return { error: 'That file does not look like the type it claims to be.' };
+  return { buffer, type: body.type, ext: allowed[body.type] };
+}
+
+function validateDocumentMeta(body) {
+  const value = {};
+  if (!PROPERTY_DOC_TYPES.includes(body.doc_type)) return { error: 'Choose what kind of document this is.' };
+  value.doc_type = body.doc_type;
+  const ck = body.compliance_key;
+  if (ck === null || ck === undefined || ck === '') value.compliance_key = null;
+  else if (COMPLIANCE_ITEMS.some((i) => i.key === ck)) value.compliance_key = ck;
+  else return { error: 'That compliance item is not recognised.' };
+  return { value };
+}
+
+function publicDocumentRow(r) {
+  const { storage_path, ...rest } = r;
+  return rest;
+}
+function publicExpenseRow(r, url) {
+  const { receipt_path, ...rest } = r;
+  return { ...rest, amount: Number(r.amount), has_receipt: !!receipt_path, receipt_url: url || null };
+}
+
+// Money in pence so totals never pick up floating point drift.
+const toPence = (v) => Math.round(Number(v) * 100);
+const fromPence = (p) => p / 100;
+
+function validateExpenseInput(body) {
+  const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d));
+  if (!validDate(body.expense_date)) return { error: 'Enter the date of the expense.' };
+  const amount = Number(body.amount);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 10000000) return { error: 'Enter an amount above £0.' };
+  if (!EXPENSE_CATEGORIES[body.category]) return { error: 'Choose a category.' };
+  return { value: {
+    expense_date: body.expense_date,
+    amount: fromPence(toPence(amount)),
+    category: body.category,
+    description: cleanText(body.description, 300),
+  } };
+}
+
+// Signed URLs (1 hour) for a list of storage paths in one bucket. Never
+// throws; a path that can't be signed just gets no URL.
+async function signPaths(supabase, bucket, paths) {
+  const list = [...new Set(paths.filter(Boolean))];
+  if (!list.length) return new Map();
+  try {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrls(list, PROPERTY_SIGNED_URL_SECONDS);
+    if (error) return new Map();
+    return new Map((data || []).filter((s) => s.signedUrl).map((s) => [s.path, s.signedUrl]));
+  } catch (e) {
+    return new Map();
+  }
+}
+
+// Every storage file belonging to some properties (gallery photos,
+// documents, receipts), for tidying up after a delete. Failure-tolerant:
+// before db/047 the tables don't exist and this returns empty lists.
+async function collectPropertyFiles(supabase, filter) {
+  const out = { photos: [], docs: [] };
+  const run = async (table, cols) => {
+    try {
+      const { data, error } = await filter(supabase.from(table).select(cols));
+      return error ? [] : (data || []);
+    } catch (e) { return []; }
+  };
+  const [photos, docs, expenses] = await Promise.all([
+    run('property_photos', 'storage_path'),
+    run('property_documents', 'storage_path'),
+    run('property_expenses', 'receipt_path'),
+  ]);
+  out.photos = photos.map((r) => r.storage_path).filter(Boolean);
+  out.docs = docs.map((r) => r.storage_path).concat(expenses.map((r) => r.receipt_path)).filter(Boolean);
+  return out;
+}
+async function removePropertyFiles(supabase, files, context) {
+  for (const [bucket, paths] of [['property-photos', files.photos], ['property-docs', files.docs]]) {
+    if (!paths.length) continue;
+    const { error } = await supabase.storage.from(bucket).remove(paths);
+    if (error) console.error(context, ': files not removed from', bucket, ':', error.message, '(needs manual cleanup in Storage)');
+  }
+}
+
+// ---------- month helpers (rent log) ----------
+// Months are 'YYYY-MM-01' strings throughout.
+function monthOf(dateStr) { return dateStr.slice(0, 7) + '-01'; }
+function addMonthsFirst(monthStr, n) {
+  const [y, m] = monthStr.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return d.toISOString().slice(0, 10);
+}
+// The date a month's rent is due: the rent due day (Tenancy section), or
+// the 1st when none is set, clamped to the month's last day. Used to put
+// each month's rent into the right tax year.
+function rentDueDate(monthStr, dueDay) {
+  const [y, m] = monthStr.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const d = Math.min(Math.max(1, Number(dueDay) || 1), last);
+  return `${monthStr.slice(0, 7)}-${String(d).padStart(2, '0')}`;
+}
+function rentReceivedPence(r) {
+  return r.status === 'received' || r.status === 'part' ? toPence(r.amount_received) : 0;
+}
+function rentShortfallPence(r) {
+  return r.status === 'received' ? 0 : Math.max(0, toPence(r.expected_amount) - rentReceivedPence(r));
+}
+
+// Arrears = expected minus received, across every month marked part paid,
+// late or missed. Months never marked aren't counted.
+function computeArrears(rentLog) {
+  return fromPence(rentLog.reduce((sum, r) => sum + rentShortfallPence(r), 0));
+}
+
+// "Actual" monthly cashflow from the logs, averaged over the months in the
+// last 12 (current month included) where rent has been marked, so a month
+// nobody has logged yet never counts as £0 rent:
+//   (rent received - logged expenses - mortgage) / marked months
+// Expenses count when they fall in one of those marked months. Mortgage is
+// the monthly payment from the Mortgage section x marked months when one
+// is set (logged mortgage interest is then left out, so it isn't counted
+// twice); with no monthly payment set, logged mortgage interest in those
+// months is used instead. Records dated after today aren't counted. null
+// until at least one month's rent has been marked.
+function computeActualCashflow(property, rentLog, expenses, todayStr = todayUTCDateStr()) {
+  const end = monthOf(todayStr);
+  const windowStart = addMonthsFirst(end, -(ACTUAL_CASHFLOW_MONTHS - 1));
+  const rents = rentLog.filter((r) => r.month >= windowStart && r.month <= end);
+  if (!rents.length) return null;
+  const marked = new Set(rents.map((r) => r.month));
+  const exps = expenses.filter((e) => e.expense_date <= todayStr && marked.has(monthOf(e.expense_date)));
+  const sortedMonths = [...marked].sort();
+  const start = sortedMonths[0];
+  const months = marked.size;
+  const rentP = rents.reduce((s, r) => s + rentReceivedPence(r), 0);
+  const expP = exps.filter((e) => e.category !== 'mortgage_interest').reduce((s, e) => s + toPence(e.amount), 0);
+  const interestP = exps.filter((e) => e.category === 'mortgage_interest').reduce((s, e) => s + toPence(e.amount), 0);
+  const payment = Number(property.monthly_mortgage) > 0 ? Number(property.monthly_mortgage) : 0;
+  const mortgageP = payment > 0 ? toPence(payment) * months : interestP;
+  return {
+    monthly_cashflow: fromPence(Math.round((rentP - expP - mortgageP) / months)),
+    months,
+    from_month: start,
+    to_month: sortedMonths[sortedMonths.length - 1],
+    rent_received: fromPence(rentP),
+    expenses: fromPence(expP),
+    mortgage: fromPence(mortgageP),
+    mortgage_basis: payment > 0 ? 'payment' : 'logged_interest',
+  };
+}
+
+// Tax year Y runs 6 April Y to 5 April Y+1.
+function taxYearBounds(startYear) {
+  return { start: `${startYear}-04-06`, end: `${startYear + 1}-04-05`, label: `${startYear} to ${startYear + 1}` };
+}
+function currentTaxYearStart(todayStr = todayUTCDateStr()) {
+  const y = Number(todayStr.slice(0, 4));
+  return todayStr >= `${y}-04-06` ? y : y - 1;
+}
+
+// One property's tax-year figures. Rent counts on the date it was due
+// (see rentDueDate), expenses on their own date.
+function computeTaxYearForProperty(property, rentLog, expenses, bounds) {
+  const inYear = (d) => d >= bounds.start && d <= bounds.end;
+  const rentItems = rentLog
+    .map((r) => ({ month: r.month, due_date: rentDueDate(r.month, property.rent_due_day), status: r.status, expected: Number(r.expected_amount), received: fromPence(rentReceivedPence(r)) }))
+    .filter((r) => inYear(r.due_date))
+    .sort((a, b) => (a.due_date < b.due_date ? -1 : 1));
+  const expenseItems = expenses
+    .filter((e) => inYear(e.expense_date))
+    .map((e) => ({ id: e.id, date: e.expense_date, category: e.category, category_label: EXPENSE_CATEGORIES[e.category], description: e.description || '', amount: Number(e.amount) }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  const byCatP = {};
+  for (const key of Object.keys(EXPENSE_CATEGORIES)) if (key !== 'mortgage_interest') byCatP[key] = 0;
+  let financeP = 0;
+  for (const e of expenseItems) {
+    if (e.category === 'mortgage_interest') financeP += toPence(e.amount);
+    else byCatP[e.category] += toPence(e.amount);
+  }
+  const rentP = rentItems.reduce((s, r) => s + toPence(r.received), 0);
+  const expensesP = Object.values(byCatP).reduce((s, v) => s + v, 0);
+  const byCat = {};
+  for (const [k, v] of Object.entries(byCatP)) byCat[k] = fromPence(v);
+  return {
+    rent_received: fromPence(rentP),
+    rent_months_logged: rentItems.length,
+    expenses_by_category: byCat,
+    total_expenses: fromPence(expensesP),
+    finance_costs: fromPence(financeP),
+    profit_before_finance_costs: fromPence(rentP - expensesP),
+    rent_items: rentItems,
+    expense_items: expenseItems,
+  };
+}
+
+// ---------- photos ----------
+app.get('/api/portfolio/:id/photos', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { data, error } = await supabase.from('property_photos')
+    .select('id, storage_path, position, created_at')
+    .eq('property_id', req.params.id)
+    .order('position', { ascending: true }).order('created_at', { ascending: true });
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error) return res.status(400).json({ error: 'Photos could not be loaded. Try again.' });
+  const urls = await signPaths(supabase, 'property-photos', data.map((r) => r.storage_path));
+  res.json(data.map((r) => ({ id: r.id, position: r.position, created_at: r.created_at, url: urls.get(r.storage_path) || null })));
+});
+
+// Makes a photo the first one (the card image).
+app.post('/api/property-photos/:id/make-first', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { data: row, error } = await supabase.from('property_photos').select('id, property_id').eq('id', req.params.id).single();
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error || !row) return res.status(404).json({ error: 'Photo not found.' });
+  const { data: all } = await supabase.from('property_photos').select('position').eq('property_id', row.property_id);
+  const min = Math.min(0, ...(all || []).map((p) => p.position));
+  const { error: upErr } = await supabase.from('property_photos').update({ position: min - 1 }).eq('id', row.id);
+  if (upErr) return res.status(400).json({ error: 'Could not change the order. Try again.' });
+  res.json({ ok: true });
+});
+
+app.delete('/api/property-photos/:id', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { data: row, error } = await supabase.from('property_photos').select('id, storage_path').eq('id', req.params.id).single();
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error || !row) return res.status(404).json({ error: 'Photo not found.' });
+  const { error: delErr } = await supabase.from('property_photos').delete().eq('id', row.id);
+  if (delErr) return res.status(400).json({ error: 'The photo could not be removed. Try again.' });
+  const { error: rmErr } = await supabase.storage.from('property-photos').remove([row.storage_path]);
+  if (rmErr) console.error('Property photo: storage remove failed for', row.id, rmErr.message);
+  res.json({ deleted: true });
+});
+
+// "Move to portfolio": copies a deal's photos (deal-photos bucket) into
+// this property's gallery, in the same order. The deal's own photos are
+// left untouched. Before db/047 only the first photo is copied, into the
+// single-photo slot.
+app.post('/api/portfolio/:id/photos/from-deal', async (req, res) => {
+  const ctx = await propertyRequest(req, res, { needUser: true });
+  if (!ctx) return;
+  const { supabase, userId } = ctx;
+  const property = await loadOwnProperty(supabase, req.params.id);
+  if (!property) return res.status(404).json({ error: 'Property not found.' });
+  const dealId = req.body && req.body.deal_id;
+  if (typeof dealId !== 'string' || !(await dealBelongsToRequester(supabase, dealId))) return res.status(404).json({ error: 'Deal not found.' });
+
+  const { data: dealPhotos, error } = await supabase.from('deal_photos')
+    .select('storage_path').eq('deal_id', dealId).order('created_at', { ascending: true });
+  if (error || !dealPhotos || !dealPhotos.length) return res.json({ copied: 0 });
+
+  const { error: probeErr } = await supabase.from('property_photos').select('id').limit(1);
+  const galleryReady = !(probeErr && isMissingSchemaError(probeErr));
+  const sources = galleryReady ? dealPhotos.slice(0, PROPERTY_PHOTOS_PER_PROPERTY) : dealPhotos.slice(0, 1);
+
+  let copied = 0;
+  for (const [i, p] of sources.entries()) {
+    try {
+      const { data: blob, error: dlErr } = await supabase.storage.from('deal-photos').download(p.storage_path);
+      if (dlErr || !blob) continue;
+      const buffer = Buffer.from(await blob.arrayBuffer());
+      const dest = `${userId}/${req.params.id}/${crypto.randomUUID()}.jpg`;
+      const { error: upErr } = await supabase.storage.from('property-photos').upload(dest, buffer, { contentType: 'image/jpeg', upsert: false });
+      if (upErr) continue;
+      const { error: insErr } = galleryReady
+        ? await supabase.from('property_photos').insert({ property_id: req.params.id, storage_path: dest, position: i })
+        : await supabase.from('portfolio_properties').update({ photo_path: dest }).eq('id', req.params.id);
+      if (insErr) { await supabase.storage.from('property-photos').remove([dest]); continue; }
+      copied++;
+    } catch (e) {
+      console.error('Move to portfolio: photo copy failed', e.message);
+    }
+  }
+  res.json({ copied, total: dealPhotos.length });
+});
+
+// ---------- documents ----------
+app.get('/api/portfolio/:id/documents', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { data, error } = await supabase.from('property_documents')
+    .select(PROPERTY_DOC_COLUMNS).eq('property_id', req.params.id).order('created_at', { ascending: false });
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error) return res.status(400).json({ error: 'Documents could not be loaded. Try again.' });
+  const urls = await signPaths(supabase, 'property-docs', data.map((r) => r.storage_path));
+  res.json(data.map((r) => ({ ...publicDocumentRow(r), url: urls.get(r.storage_path) || null })));
+});
+
+// Change a document's type, compliance link or name (not the file).
+app.put('/api/property-documents/:id', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const body = req.body || {};
+  const meta = validateDocumentMeta(body);
+  if (meta.error) return res.status(400).json({ error: meta.error });
+  const update = { ...meta.value };
+  const name = cleanText(body.file_name, 160);
+  if (name) update.file_name = name;
+  const { data, error } = await supabase.from('property_documents').update(update).eq('id', req.params.id).select(PROPERTY_DOC_COLUMNS).single();
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error || !data) return res.status(404).json({ error: 'Document not found.' });
+  res.json(publicDocumentRow(data));
+});
+
+app.delete('/api/property-documents/:id', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { data: row, error } = await supabase.from('property_documents').select('id, storage_path').eq('id', req.params.id).single();
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error || !row) return res.status(404).json({ error: 'Document not found.' });
+  const { error: delErr } = await supabase.from('property_documents').delete().eq('id', row.id);
+  if (delErr) return res.status(400).json({ error: 'The document could not be deleted. Try again.' });
+  const { error: rmErr } = await supabase.storage.from('property-docs').remove([row.storage_path]);
+  if (rmErr) console.error('Property document: storage remove failed for', row.id, rmErr.message);
+  res.json({ deleted: true });
+});
+
+// ---------- rent and expenses ----------
+// Everything the property page's Rent and Expenses sections need, plus
+// arrears and the "Actual" monthly cashflow.
+app.get('/api/portfolio/:id/records', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const property = await loadOwnProperty(supabase, req.params.id, '*');
+  if (!property) return res.status(404).json({ error: 'Property not found.' });
+
+  const [rentRes, expRes] = await Promise.all([
+    supabase.from('property_rent_log').select('month, expected_amount, status, amount_received, note, updated_at').eq('property_id', req.params.id).order('month', { ascending: false }),
+    supabase.from('property_expenses').select(PROPERTY_EXPENSE_COLUMNS).eq('property_id', req.params.id).order('expense_date', { ascending: false }).order('created_at', { ascending: false }),
+  ]);
+  if ((rentRes.error && isMissingSchemaError(rentRes.error)) || (expRes.error && isMissingSchemaError(expRes.error))) return recordsNeedMigration(res);
+  if (rentRes.error || expRes.error) return res.status(400).json({ error: 'Records could not be loaded. Try again.' });
+
+  const rentLog = rentRes.data.map((r) => ({ ...r, expected_amount: Number(r.expected_amount), amount_received: Number(r.amount_received) }));
+  const expenses = expRes.data;
+  const receiptUrls = await signPaths(supabase, 'property-docs', expenses.map((e) => e.receipt_path));
+  const today = todayUTCDateStr();
+  const taxYear = currentTaxYearStart(today);
+  const ty = computeTaxYearForProperty(property, rentLog, expenses, taxYearBounds(taxYear));
+  res.json({
+    rent_log: rentLog,
+    expenses: expenses.map((e) => publicExpenseRow(e, receiptUrls.get(e.receipt_path))),
+    arrears: computeArrears(rentLog),
+    actual: computeActualCashflow(property, rentLog, expenses, today),
+    current_month: monthOf(today),
+    tax_year: { start_year: taxYear, label: taxYearBounds(taxYear).label, expenses: fromPence(toPence(ty.total_expenses) + toPence(ty.finance_costs)), rent_received: ty.rent_received },
+    expense_categories: EXPENSE_CATEGORIES,
+  });
+});
+
+// Mark one month's rent. month is 'YYYY-MM'. Up to the current month only.
+app.put('/api/portfolio/:id/rent/:month', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(req.params.month)) return res.status(400).json({ error: 'That month is not valid.' });
+  const month = req.params.month + '-01';
+  if (month > monthOf(todayUTCDateStr())) return res.status(400).json({ error: 'Rent can be marked up to this month.' });
+  const property = await loadOwnProperty(supabase, req.params.id, 'id, monthly_rent');
+  if (!property) return res.status(404).json({ error: 'Property not found.' });
+
+  const body = req.body || {};
+  if (!RENT_STATUSES.includes(body.status)) return res.status(400).json({ error: 'Choose received, part paid, late or missed.' });
+  let expected = body.expected_amount === undefined || body.expected_amount === null || body.expected_amount === '' ? Number(property.monthly_rent) : Number(body.expected_amount);
+  if (!Number.isFinite(expected) || expected < 0 || expected > 1000000) return res.status(400).json({ error: 'Expected rent must be a number from £0.' });
+  expected = fromPence(toPence(expected));
+  let received = 0;
+  if (body.status === 'received') received = expected;
+  if (body.status === 'part') {
+    received = Number(body.amount_received);
+    if (!Number.isFinite(received) || received <= 0) return res.status(400).json({ error: 'Enter how much was paid.' });
+    if (received >= expected) return res.status(400).json({ error: 'That is the full rent. Mark it as received instead.' });
+    received = fromPence(toPence(received));
+  }
+  const row = { property_id: req.params.id, month, expected_amount: expected, status: body.status, amount_received: received, note: cleanText(body.note, 300), updated_at: new Date().toISOString() };
+  const { data, error } = await supabase.from('property_rent_log')
+    .upsert(row, { onConflict: 'property_id,month' })
+    .select('month, expected_amount, status, amount_received, note, updated_at').single();
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error) return res.status(400).json({ error: 'That could not be saved. Try again.' });
+  res.json({ ...data, expected_amount: Number(data.expected_amount), amount_received: Number(data.amount_received) });
+});
+
+// Clear a month back to "not marked".
+app.delete('/api/portfolio/:id/rent/:month', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(req.params.month)) return res.status(400).json({ error: 'That month is not valid.' });
+  const { error } = await supabase.from('property_rent_log').delete().eq('property_id', req.params.id).eq('month', req.params.month + '-01');
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error) return res.status(400).json({ error: 'That could not be cleared. Try again.' });
+  res.json({ deleted: true });
+});
+
+// Edit an expense's details (the receipt stays as it is).
+app.put('/api/property-expenses/:id', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { value, error: vErr } = validateExpenseInput(req.body || {});
+  if (vErr) return res.status(400).json({ error: vErr });
+  const { data, error } = await supabase.from('property_expenses').update(value).eq('id', req.params.id).select(PROPERTY_EXPENSE_COLUMNS).single();
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error || !data) return res.status(404).json({ error: 'Expense not found.' });
+  const urls = await signPaths(supabase, 'property-docs', [data.receipt_path]);
+  res.json(publicExpenseRow(data, urls.get(data.receipt_path)));
+});
+
+app.delete('/api/property-expenses/:id', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { data: row, error } = await supabase.from('property_expenses').select('id, receipt_path').eq('id', req.params.id).single();
+  if (error && isMissingSchemaError(error)) return recordsNeedMigration(res);
+  if (error || !row) return res.status(404).json({ error: 'Expense not found.' });
+  const { error: delErr } = await supabase.from('property_expenses').delete().eq('id', row.id);
+  if (delErr) return res.status(400).json({ error: 'The expense could not be deleted. Try again.' });
+  if (row.receipt_path) {
+    const { error: rmErr } = await supabase.storage.from('property-docs').remove([row.receipt_path]);
+    if (rmErr) console.error('Expense receipt: storage remove failed for', row.id, rmErr.message);
+  }
+  res.json({ deleted: true });
+});
+
+// ---------- tax-year summary ----------
+// GET /api/portfolio/tax-summary?year=2025 → 6 April 2025 to 5 April 2026.
+// A summary of the user's own records for their accountant. It doesn't
+// work out any tax and nothing is sent anywhere.
+app.get('/api/portfolio/tax-summary', async (req, res) => {
+  const ctx = await propertyRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const current = currentTaxYearStart();
+  const year = req.query.year === undefined ? current : Number(req.query.year);
+  if (!Number.isInteger(year) || year < 2000 || year > current + 1) return res.status(400).json({ error: 'Choose a tax year.' });
+  const bounds = taxYearBounds(year);
+
+  const [propsRes, rentRes, expRes] = await Promise.all([
+    supabase.from('portfolio_properties').select('*').order('created_at', { ascending: true }),
+    // Rent months that could fall in the year (due dates sit inside their own month).
+    supabase.from('property_rent_log').select('property_id, month, expected_amount, status, amount_received').gte('month', monthOf(bounds.start)).lte('month', monthOf(bounds.end)),
+    supabase.from('property_expenses').select('id, property_id, expense_date, amount, category, description').gte('expense_date', bounds.start).lte('expense_date', bounds.end),
+  ]);
+  if (propsRes.error) return res.status(400).json({ error: propsRes.error.message });
+  if ((rentRes.error && isMissingSchemaError(rentRes.error)) || (expRes.error && isMissingSchemaError(expRes.error))) return recordsNeedMigration(res);
+  if (rentRes.error || expRes.error) return res.status(400).json({ error: 'Records could not be loaded. Try again.' });
+
+  const byProp = (rows, id) => rows.filter((r) => r.property_id === id);
+  const properties = propsRes.data.map((p) => ({
+    id: p.id,
+    address: p.address,
+    postcode: p.postcode || null,
+    property_type: p.property_type,
+    ...computeTaxYearForProperty(p, byProp(rentRes.data, p.id), byProp(expRes.data, p.id), bounds),
+  }));
+  const sum = (key) => fromPence(properties.reduce((s, p) => s + toPence(p[key]), 0));
+  const byCat = {};
+  for (const key of Object.keys(EXPENSE_CATEGORIES)) if (key !== 'mortgage_interest') byCat[key] = fromPence(properties.reduce((s, p) => s + toPence(p.expenses_by_category[key]), 0));
+  res.json({
+    year,
+    label: bounds.label,
+    start: bounds.start,
+    end: bounds.end,
+    current_year: current,
+    categories: EXPENSE_CATEGORIES,
+    properties,
+    totals: {
+      rent_received: sum('rent_received'),
+      expenses_by_category: byCat,
+      total_expenses: sum('total_expenses'),
+      finance_costs: sum('finance_costs'),
+      profit_before_finance_costs: sum('profit_before_finance_costs'),
+    },
+  });
 });
 
 const REFURB_MODES = ['detailed', 'quick'];
@@ -3395,6 +4155,13 @@ app.post('/api/account/delete', async (req, res) => {
       if (rmErr) console.error('Account deletion: property photo files not removed for user', userId, ':', rmErr.message, '(needs manual cleanup in Storage)');
     }
   } catch (e) { /* no photo_path column yet */ }
+
+  // Property gallery photos, documents and expense receipts (db/047),
+  // same best-effort treatment.
+  try {
+    const files = await collectPropertyFiles(supabase, (q) => q.eq('user_id', userId));
+    await removePropertyFiles(supabase, files, 'Account deletion for user ' + userId);
+  } catch (e) { /* no db/047 tables yet */ }
 
   const dbDeleteSteps = [
     ['portfolio_properties', () => supabase.from('portfolio_properties').delete().eq('user_id', userId)],

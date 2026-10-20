@@ -140,6 +140,7 @@
       <div class="pp-photo" id="pp-photo">
         <span id="pp-photo-inner"></span>
         <button type="button" class="pp-photo-remove" id="pp-photo-remove" onclick="removePhoto()" hidden>Remove</button>
+        <button type="button" class="pp-photo-remove" id="pp-photo-all" onclick="openLightbox(0)" hidden></button>
         <label class="pp-photo-btn" for="pp-photo-input" id="pp-photo-label">Add photo</label>
         <input type="file" id="pp-photo-input" class="pp-file" accept="image/*" onchange="uploadPhoto(this.files)"/>
       </div>
@@ -149,7 +150,8 @@
         <div class="pp-figs">
           <div class="pp-fig"><span class="pp-fig-label">Value</span><span class="pp-fig-value" id="pp-value"></span></div>
           <div class="pp-fig"><span class="pp-fig-label">Equity</span><span class="pp-fig-value" id="pp-equity"></span></div>
-          <div class="pp-fig"><span class="pp-fig-label">Cashflow /mo</span><span class="pp-fig-value" id="pp-cashflow"></span></div>
+          <div class="pp-fig"><span class="pp-fig-label" id="pp-cashflow-label">Cashflow /mo</span><span class="pp-fig-value" id="pp-cashflow"></span>
+            <span class="pr-toggle" role="group" aria-label="Cashflow basis"><button type="button" id="pp-cf-est" aria-pressed="true" onclick="setCashflowMode('estimated')">Estimated</button><button type="button" id="pp-cf-act" aria-pressed="false" onclick="setCashflowMode('actual')">Actual</button></span></div>
           <div class="pp-fig"><span class="pp-fig-label">Net yield</span><span class="pp-fig-value" id="pp-yield"></span></div>
         </div>
         <div class="pp-actions">
@@ -179,9 +181,53 @@
   </div>
 </div>
 
+<!-- Expense pop-up (add or edit) -->
+<div class="modal-overlay" id="pp-exp-overlay" onclick="if(event.target===this)closeExpense()">
+  <div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="pp-exp-title">
+    <div class="modal-header">
+      <h2 id="pp-exp-title">Add expense</h2>
+      <button class="modal-close" onclick="closeExpense()" aria-label="Close">×</button>
+    </div>
+    <div class="pf-form-grid" id="pp-exp-fields"></div>
+    <p class="save-msg" id="pp-exp-msg"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="pp-exp-save" onclick="saveExpenseForm()">Save expense</button>
+    </div>
+  </div>
+</div>
+
+<!-- Document pop-up (upload or edit) -->
+<div class="modal-overlay" id="pp-doc-overlay" onclick="if(event.target===this)closeDocument()">
+  <div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="pp-doc-title">
+    <div class="modal-header">
+      <h2 id="pp-doc-title">Upload document</h2>
+      <button class="modal-close" onclick="closeDocument()" aria-label="Close">×</button>
+    </div>
+    <div class="pf-form-grid" id="pp-doc-fields"></div>
+    <p class="save-msg" id="pp-doc-msg"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="pp-doc-save" onclick="saveDocumentForm()">Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- Photo viewer -->
+<div class="pr-lightbox" id="pp-lightbox" role="dialog" aria-modal="true" aria-label="Photos" onclick="if(event.target===this)closeLightbox()">
+  <img id="pp-lb-img" alt=""/>
+  <button type="button" class="pr-lb-btn pr-lb-close" onclick="closeLightbox()" aria-label="Close">×</button>
+  <button type="button" class="pr-lb-btn pr-lb-prev" id="pp-lb-prev" onclick="stepLightbox(-1)" aria-label="Previous photo">‹</button>
+  <button type="button" class="pr-lb-btn pr-lb-next" id="pp-lb-next" onclick="stepLightbox(1)" aria-label="Next photo">›</button>
+  <span class="pr-lb-count" id="pp-lb-count"></span>
+</div>
+
 <script>
 let sbClient=null, currentSession=null, currentPlan=null;
 let property=null, targetLtv=75, schemaReady=false, editingSection=null;
+// Property records (db/047). recordsReady comes from GET /api/portfolio;
+// each of these is null until loaded, or {error} if it couldn't be.
+let recordsReady=false, records=null, documents=null, photos=null;
+let cashflowMode='estimated', rentEditMonth=null, rentMonthsShown=12, expensesShowAll=false;
+try{ if(localStorage.getItem('pp-cashflow-mode')==='actual')cashflowMode='actual'; }catch(e){}
 const propertyId=new URLSearchParams(location.search).get('id');
 const CHEVRON='<svg class="pp-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 const NEEDS_DB_NOTE='Some of these details can only be saved once a quick database update has been run. Until then, they won\'t be kept.';
@@ -264,9 +310,11 @@ async function loadProperty(){
     property=(d.properties||[]).find(p=>p.id===propertyId)||null;
     targetLtv=d.target_ltv||75;
     schemaReady=!!d.schema_ready;
+    recordsReady=!!d.records_ready;
     if(!property){ showState('missing'); return; }
     render();
     showState('page');
+    loadExtras();
   }catch(e){
     document.getElementById('missing-text').textContent=e.message;
     showState('missing');
@@ -279,6 +327,12 @@ async function loadProperty(){
 function row(label, value){
   const empty=value==null||value===''||value==='Not set';
   return `<div class="pp-row"><span class="pp-row-label">${PF.esc(label)}</span><span class="pp-row-value${empty?' empty':''}">${empty?'Not added':PF.esc(value)}</span></div>`;
+}
+// The listing link, as a link, only when it's a real web address.
+function listingRow(url){
+  if(!url||!/^https?:\/\//i.test(url))return row('Listing',null);
+  let host=url; try{ host=new URL(url).hostname.replace(/^www\./,''); }catch(e){}
+  return `<div class="pp-row"><span class="pp-row-label">Listing</span><span class="pp-row-value"><a class="pr-link" href="${PF.esc(url)}" target="_blank" rel="noopener">${PF.esc(host)}</a></span></div>`;
 }
 function moneyOrNull(v){ return v!=null&&v!==''?PF.gbp(v):null; }
 
@@ -293,19 +347,21 @@ function render(){
   badge.innerHTML=PF.statusDot(cs.level,cs.text)+PF.esc(cs.text==='Not set up'?'Compliance not set up':cs.text);
   document.getElementById('pp-value').textContent=PF.gbp(p.current_value!=null?p.current_value:p.price_paid);
   document.getElementById('pp-equity').textContent=PF.gbp(p.equity);
-  const cf=document.getElementById('pp-cashflow');
-  cf.textContent=PF.gbp(p.monthly_cashflow);
-  cf.classList.toggle('pf-neg',p.monthly_cashflow<0);
+  renderCashflowFigure();
   document.getElementById('pp-yield').textContent=PF.pct(p.yield);
   renderPhoto();
 
   const open=new Set([...document.querySelectorAll('.pp-sec[open]')].map(el=>el.dataset.sec));
   const sections=[
     ['overview','Overview',overviewSummary(),overviewBody()],
+    ['rent','Rent',rentSummary(),rentBody()],
+    ['expenses','Expenses',expensesSummary(),expensesBody()],
     ['mortgage','Mortgage',mortgageSummary(),mortgageBody()],
     ['equity','Equity',equitySummary(),equityBody()],
     ['tenancy','Tenancy',tenancySummary(),tenancyBody()],
     ['compliance','Compliance',complianceSummaryHtml(),complianceBody()],
+    ['documents','Documents',documentsSummary(),documentsBody()],
+    ['photos','Photos',photosSummary(),photosBody()],
   ];
   document.getElementById('pp-sections').innerHTML=sections.map(([key,title,sum,body])=>
     `<details class="pp-sec" data-sec="${key}"${open.has(key)?' open':''}>
@@ -327,16 +383,19 @@ function overviewBody(){
   const p=property;
   return `<div class="pp-rows">
     ${row('Strategy',p.property_type)}
+    ${recordsReady?row('Postcode',p.postcode):''}
+    ${recordsReady?listingRow(p.listing_url):''}
     ${row('Price paid',PF.gbp(p.price_paid))}
     ${row('Current value',moneyOrNull(p.current_value))}
     ${row('Cash invested',moneyOrNull(p.cash_invested))}
     ${row('Monthly rent',PF.gbp(p.monthly_rent))}
     ${row('Running costs /mo',PF.gbp(p.monthly_running_costs))}
     ${row('Mortgage payment /mo',moneyOrNull(p.monthly_mortgage))}
-    ${row('Monthly cashflow',PF.gbp(p.monthly_cashflow))}
+    ${row('Cashflow /mo (estimated)',PF.gbp(p.monthly_cashflow))}
+    ${row('Cashflow /mo (actual)',actualCashflowText())}
     ${row('Net yield',PF.pct(p.yield))}
   </div>
-  <div class="pp-sec-foot"><p class="pp-note">Net yield excludes the mortgage. Cashflow includes it.</p>${editBtn('overview')}</div>`;
+  <div class="pp-sec-foot"><p class="pp-note">Net yield excludes the mortgage. Estimated cashflow is rent minus running costs and the mortgage payment. ${actualBasisText()}</p>${editBtn('overview')}</div>`;
 }
 
 // Mortgage
@@ -474,7 +533,7 @@ function complianceBody(){
   const statusText=s=>s==='missing'?'Missing':PF.STATUS_LABEL[s];
   return `<ul class="pp-comp">${items.map(i=>`<li>
       ${PF.statusDot(i.status,statusText(i.status))}
-      <span><span class="pp-comp-name">${PF.esc(i.label)}</span><span class="pp-comp-detail">${PF.esc(complianceDetail(i))}</span></span>
+      <span><span class="pp-comp-name">${PF.esc(i.label)}</span>${complianceClip(i.key)}<span class="pp-comp-detail">${PF.esc(complianceDetail(i))}</span></span>
       <span class="pp-status ${i.status}">${PF.esc(statusText(i.status))}</span>
     </li>`).join('')}</ul>
   <div class="pp-sec-foot" style="margin-top:var(--space-4)"><p class="pp-note">Requirements vary by property and council. Check what applies to yours.</p>${editBtn('compliance','Update')}</div>`;
@@ -501,6 +560,8 @@ function openEdit(section){
     document.getElementById('pp-edit-title').textContent=PF.SECTIONS[section].title;
     root.className='pf-form-grid';
     root.innerHTML=PF.renderFields(section,property,{schemaReady});
+    // Postcode and listing link can only be kept once db/047 is in.
+    if(!recordsReady)root.querySelectorAll('[data-field="postcode"],[data-field="listing_url"]').forEach(el=>el.remove());
     PF.applyVisibility(root,property);
     root.oninput=root.onchange=()=>PF.applyVisibility(root,property);
   }
@@ -513,7 +574,7 @@ function openEdit(section){
   if(first&&window.matchMedia('(min-width:521px)').matches)setTimeout(()=>first.focus(),30);
 }
 function closeEdit(){ document.getElementById('pp-edit-overlay').classList.remove('open'); editingSection=null; }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeEdit(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeEdit(); closeExpense(); closeDocument(); closeLightbox(); } });
 
 async function saveEdit(){
   if(!editingSection)return;
@@ -554,39 +615,392 @@ async function deleteProperty(){
 }
 
 // ---------------------------------------------------------------------
-// Photo (one per property, private storage, db/046)
+// Property records (db/047): rent, expenses, documents, photo gallery.
+// Each loads on its own after the property, so a slow or failed one never
+// holds up the rest of the page.
 // ---------------------------------------------------------------------
+const NEEDS_RECORDS_DB='This needs a quick database update before it can be used. Everything else on this page works as normal.';
+const CLIP_ICON='<svg class="pr-clip" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l8.6-8.6a3.7 3.7 0 015.2 5.2l-8.6 8.6a1.8 1.8 0 01-2.6-2.6l7.9-7.9"/></svg>';
+
+async function getJson(path){
+  const res=await fetch(API_BASE+path,{headers:authHeaders()});
+  const d=await res.json().catch(()=>({}));
+  if(res.status===409&&d.needs_migration)return {needsMigration:true};
+  if(!res.ok)return {error:d.error||'Could not load.'};
+  return {data:d};
+}
+async function sendJson(method, path, body){
+  const res=await fetch(API_BASE+path,{method,headers:authHeaders(true),body:body?JSON.stringify(body):undefined});
+  const d=await res.json().catch(()=>({}));
+  if(res.status===409&&d.needs_migration)throw new Error('This needs a quick database update before it can be used.');
+  if(!res.ok)throw new Error(d.error||'That did not work. Try again.');
+  return d;
+}
+
+async function loadExtras(){
+  await Promise.all([loadRecords(), loadDocuments(), loadPhotos()]);
+}
+async function loadRecords(){ records=await getJson('/api/portfolio/'+encodeURIComponent(propertyId)+'/records'); render(); }
+async function loadDocuments(){ documents=await getJson('/api/portfolio/'+encodeURIComponent(propertyId)+'/documents'); render(); }
+async function loadPhotos(){
+  if(!recordsReady){ photos={needsMigration:true}; render(); return; }
+  photos=await getJson('/api/portfolio/'+encodeURIComponent(propertyId)+'/photos'); render();
+}
+
+// Shared states for a section body: loading, needs the database update, error.
+function sectionState(x){
+  if(!x)return '<p class="pr-empty">Loading…</p>';
+  if(x.needsMigration)return `<div class="pp-callout">${PF.esc(NEEDS_RECORDS_DB)}</div>`;
+  if(x.error)return `<p class="pr-empty">${PF.esc(x.error)}</p>`;
+  return null;
+}
+function sumState(x){
+  if(!x)return sumText('Loading…');
+  if(x.needsMigration)return sumText('Needs a database update');
+  if(x.error)return sumText('Could not load');
+  return null;
+}
+
+// ---------- cashflow: Estimated / Actual ----------
+function actualData(){ return records&&records.data?records.data.actual:null; }
+function actualCashflowText(){
+  if(!records||!records.data)return null;
+  const a=actualData();
+  return a?PF.gbp(a.monthly_cashflow):null;
+}
+function actualBasisText(){
+  const a=actualData();
+  if(!a)return 'Actual cashflow appears once you mark rent in the Rent section.';
+  const mort=a.mortgage_basis==='payment'?'your monthly mortgage payment':'logged mortgage interest';
+  const span=a.from_month===a.to_month?PF.monthLabel(a.from_month):`${PF.monthLabel(a.from_month)} to ${PF.monthLabel(a.to_month)}`;
+  return `Actual is the average of the ${PF.plural(a.months,'month')} with rent marked in the last 12 (${span}): rent received minus expenses logged in those months and ${mort}.`;
+}
+function setCashflowMode(mode){
+  cashflowMode=mode;
+  try{ localStorage.setItem('pp-cashflow-mode',mode); }catch(e){}
+  renderCashflowFigure();
+}
+function renderCashflowFigure(){
+  const p=property; if(!p)return;
+  const cf=document.getElementById('pp-cashflow');
+  const label=document.getElementById('pp-cashflow-label');
+  document.getElementById('pp-cf-est').setAttribute('aria-pressed',cashflowMode==='estimated');
+  document.getElementById('pp-cf-act').setAttribute('aria-pressed',cashflowMode==='actual');
+  if(cashflowMode==='actual'){
+    const a=actualData();
+    label.textContent='Cashflow /mo, actual';
+    if(!records){ cf.textContent='…'; cf.classList.remove('pf-neg'); return; }
+    if(!a){ cf.textContent=records.needsMigration?'Not set':'No records'; cf.classList.remove('pf-neg'); cf.title=records.needsMigration?NEEDS_RECORDS_DB:'Mark rent in the Rent section to see actual cashflow.'; return; }
+    cf.textContent=PF.gbp(a.monthly_cashflow);
+    cf.title=actualBasisText();
+    cf.classList.toggle('pf-neg',a.monthly_cashflow<0);
+  }else{
+    label.textContent='Cashflow /mo, estimated';
+    cf.textContent=PF.gbp(p.monthly_cashflow);
+    cf.title='Rent minus running costs and the mortgage payment.';
+    cf.classList.toggle('pf-neg',p.monthly_cashflow<0);
+  }
+}
+
+// ---------- rent log ----------
+const RENT_STATUS_LABEL={received:'Received',part:'Part paid',late:'Late',missed:'Missed'};
+function monthKey(m){ return m.slice(0,7); }
+function rentMonths(){
+  const cur=records.data.current_month;
+  const [y,m]=cur.split('-').map(Number);
+  const out=[];
+  for(let i=0;i<rentMonthsShown;i++){
+    const d=new Date(y,m-1-i,1);
+    out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01');
+  }
+  return out;
+}
+function rentSummary(){
+  const st=sumState(records); if(st)return st;
+  const d=records.data;
+  if(d.arrears>0)return PF.statusDot('overdue','Arrears')+sumText(`${PF.gbp2(d.arrears)} arrears`);
+  const ty=d.tax_year;
+  return sumText(`${PF.gbp(property.monthly_rent)} a month, ${PF.gbp(ty.rent_received)} received this tax year`);
+}
+function rentBody(){
+  const st=sectionState(records); if(st)return st;
+  const d=records.data;
+  const byMonth=new Map(d.rent_log.map(r=>[r.month,r]));
+  const owing=d.rent_log.filter(r=>r.status!=='received');
+  const arrears=d.arrears>0?`<div class="pp-callout"><strong>${PF.gbp2(d.arrears)} arrears</strong> across ${PF.plural(owing.length,'month')} marked part paid, late or missed.<span class="pp-callout-sub">Only months you have marked are counted.</span></div>`:'';
+  const rows=rentMonths().map(m=>{
+    const r=byMonth.get(m);
+    const expected=r?r.expected_amount:Number(property.monthly_rent)||0;
+    let pill='<span class="pr-pill">Not marked</span>';
+    let sub=`${PF.gbp2(expected)} expected`;
+    if(r){
+      pill=`<span class="pr-pill ${r.status}">${RENT_STATUS_LABEL[r.status]}</span>`;
+      if(r.status==='part')sub=`${PF.gbp2(r.amount_received)} of ${PF.gbp2(expected)} paid`;
+      else if(r.status!=='received')sub=`${PF.gbp2(expected)} owed`;
+    }
+    const editing=rentEditMonth===m;
+    return `<li class="pr-item"><div class="pr-row">
+        <span class="pr-main"><span class="pr-title">${PF.monthLabel(m,true)}</span><span class="pr-sub">${sub}</span></span>
+        ${pill}
+        <button type="button" class="pr-btn" onclick="openRentEditor('${m}')" aria-expanded="${editing}">${r?'Change':'Mark'}</button>
+      </div>${editing?rentEditorHtml(m,r,expected):''}</li>`;
+  }).join('');
+  const noRent=!(Number(property.monthly_rent)>0)?'<p class="pp-note" style="margin-bottom:var(--space-3)">Add the monthly rent in Overview to see what is expected each month.</p>':'';
+  return `${arrears}${noRent}<ul class="pr-list">${rows}</ul>
+    <button type="button" class="pr-btn pr-more" onclick="rentMonthsShown+=12;render()">Show earlier months</button>
+    <div class="pp-sec-foot"><p class="pp-note">Expected rent comes from the monthly rent in Overview. Late means not in yet; once it arrives, mark it received.</p></div>`;
+}
+function rentEditorHtml(m,r,expected){
+  const status=r?r.status:'received';
+  const chip=(k,label)=>`<button type="button" class="pr-chip" data-status="${k}" aria-pressed="${status===k}" onclick="pickRentStatus(this)">${label}</button>`;
+  return `<div class="pr-editor" id="pr-rent-editor" data-month="${m}" data-expected="${expected}">
+    <div class="pr-chips" role="group" aria-label="Rent for ${PF.esc(PF.monthLabel(m,true))}">
+      ${chip('received','Received in full')}${chip('part','Part paid')}${chip('late','Late')}${chip('missed','Missed')}
+    </div>
+    <div class="pr-editor-row">
+      <input type="number" id="pr-rent-amount" inputmode="decimal" step="0.01" min="0" placeholder="Amount paid (£)" aria-label="Amount paid" value="${r&&r.status==='part'?r.amount_received:''}" ${status==='part'?'':'hidden'}/>
+      <button type="button" class="btn-primary" onclick="saveRent()">Save</button>
+      ${r?'<button type="button" class="pr-btn danger" onclick="clearRent()">Clear</button>':''}
+      <button type="button" class="pr-btn" onclick="rentEditMonth=null;render()">Cancel</button>
+    </div>
+    <p class="pr-editor-msg" id="pr-rent-msg"></p>
+  </div>`;
+}
+function openRentEditor(m){ rentEditMonth=rentEditMonth===m?null:m; render(); }
+function pickRentStatus(btn){
+  btn.parentNode.querySelectorAll('.pr-chip').forEach(b=>b.setAttribute('aria-pressed',b===btn));
+  const amount=document.getElementById('pr-rent-amount');
+  amount.hidden=btn.dataset.status!=='part';
+  if(!amount.hidden)amount.focus();
+}
+async function saveRent(){
+  const ed=document.getElementById('pr-rent-editor');
+  const sel=ed.querySelector('.pr-chip[aria-pressed="true"]');
+  const msg=document.getElementById('pr-rent-msg');
+  const body={status:sel.dataset.status, expected_amount:Number(ed.dataset.expected)};
+  if(body.status==='part')body.amount_received=document.getElementById('pr-rent-amount').value;
+  try{
+    await sendJson('PUT','/api/portfolio/'+encodeURIComponent(propertyId)+'/rent/'+monthKey(ed.dataset.month),body);
+    rentEditMonth=null;
+    await loadRecords();
+  }catch(e){ msg.textContent=e.message; }
+}
+async function clearRent(){
+  const ed=document.getElementById('pr-rent-editor');
+  try{
+    await sendJson('DELETE','/api/portfolio/'+encodeURIComponent(propertyId)+'/rent/'+monthKey(ed.dataset.month));
+    rentEditMonth=null;
+    await loadRecords();
+  }catch(e){ document.getElementById('pr-rent-msg').textContent=e.message; }
+}
+
+// ---------- expenses ----------
+let editingExpenseId=null;
+function expensesSummary(){
+  const st=sumState(records); if(st)return st;
+  const d=records.data;
+  if(!d.expenses.length)return sumText('No expenses logged');
+  return sumText(`${PF.gbp2(d.tax_year.expenses)} this tax year, ${PF.plural(d.expenses.length,'item')} in total`);
+}
+function expensesBody(){
+  const st=sectionState(records); if(st)return st;
+  const d=records.data;
+  const list=expensesShowAll?d.expenses:d.expenses.slice(0,15);
+  const rows=list.map(e=>`<li class="pr-item"><div class="pr-row pr-has-actions">
+      <span class="pr-main"><span class="pr-title">${PF.esc(e.description||PF.EXPENSE_LABEL[e.category])}</span>
+        <span class="pr-sub">${PF.date(e.expense_date)} · ${PF.esc(PF.EXPENSE_LABEL[e.category])}</span></span>
+      <span class="pr-amount">${PF.gbp2(e.amount)}</span>
+      <span class="pr-actions">
+        ${e.receipt_url?`<a class="pr-btn" href="${PF.esc(e.receipt_url)}" target="_blank" rel="noopener" title="Open receipt (link lasts 1 hour)">${CLIP_ICON}<span class="sr-only">Receipt</span></a>`:''}
+        <button type="button" class="pr-btn" onclick="openExpense('${e.id}')">Edit</button>
+        <button type="button" class="pr-btn danger" onclick="deleteExpense('${e.id}')">Delete</button>
+      </span></div></li>`).join('');
+  const ty=d.tax_year;
+  const callout=`<div class="pp-callout">This tax year (${PF.esc(PF.taxYearLabel(ty.start_year))}): <strong>${PF.gbp2(ty.expenses)}</strong> of expenses logged, including mortgage interest.<span class="pp-callout-sub">See every property together in Portfolio, Tax year summary.</span></div>`;
+  return `${callout}
+    ${d.expenses.length?`<ul class="pr-list">${rows}</ul>`:'<p class="pr-empty">No expenses yet. Log repairs, insurance, fees and the rest as they happen.</p>'}
+    ${!expensesShowAll&&d.expenses.length>15?`<button type="button" class="pr-btn pr-more" onclick="expensesShowAll=true;render()">Show all ${d.expenses.length}</button>`:''}
+    <div class="pp-sec-foot"><p class="pp-note">Mortgage interest is kept separate as finance costs.</p><button type="button" class="pp-edit" onclick="openExpense()">Add expense</button></div>`;
+}
+function openExpense(id){
+  editingExpenseId=id||null;
+  const e=id?records.data.expenses.find(x=>x.id===id):null;
+  const root=document.getElementById('pp-exp-fields');
+  root.innerHTML=PF.expenseFormHtml({expense:e});
+  PF.wireExpenseForm(root);
+  document.getElementById('pp-exp-title').textContent=e?'Edit expense':'Add expense';
+  const msg=document.getElementById('pp-exp-msg'); msg.textContent=''; msg.className='save-msg';
+  document.getElementById('pp-exp-overlay').classList.add('open');
+  if(window.matchMedia('(min-width:521px)').matches)setTimeout(()=>document.getElementById('pfe-amount').focus(),30);
+}
+function closeExpense(){ document.getElementById('pp-exp-overlay').classList.remove('open'); editingExpenseId=null; }
+async function saveExpenseForm(){
+  const msg=document.getElementById('pp-exp-msg');
+  const btn=document.getElementById('pp-exp-save');
+  const f=PF.readExpenseForm(document.getElementById('pp-exp-fields'));
+  if(f.error){ msg.textContent=f.error; msg.className='save-msg error'; return; }
+  btn.disabled=true; btn.textContent='Saving…';
+  try{
+    await PF.saveExpense(API_BASE,currentSession.access_token,propertyId,f.value,editingExpenseId);
+    closeExpense();
+    await loadRecords();
+  }catch(e){ msg.textContent=e.message; msg.className='save-msg error'; }
+  btn.disabled=false; btn.textContent='Save expense';
+}
+async function deleteExpense(id){
+  if(!confirm('Delete this expense? Its receipt is deleted too.'))return;
+  try{ await sendJson('DELETE','/api/property-expenses/'+encodeURIComponent(id)); await loadRecords(); }
+  catch(e){ setPageMsg(e.message,true); }
+}
+
+// ---------- documents ----------
+let editingDocId=null;
+function docsFor(key){ return documents&&documents.data?documents.data.filter(d=>d.compliance_key===key):[]; }
+function complianceClip(key){
+  const docs=docsFor(key);
+  if(!docs.length)return '';
+  const title=docs.length===1?docs[0].file_name+' attached':docs.length+' documents attached';
+  return docs[0].url
+    ? `<a class="pp-comp-clip" href="${PF.esc(docs[0].url)}" target="_blank" rel="noopener" title="${PF.esc(title)}" aria-label="${PF.esc(title)}">${CLIP_ICON}</a>`
+    : `<span class="pp-comp-clip" title="${PF.esc(title)}" aria-label="${PF.esc(title)}">${CLIP_ICON}</span>`;
+}
+function documentsSummary(){
+  const st=sumState(documents); if(st)return st;
+  const n=documents.data.length;
+  return sumText(n?PF.plural(n,'document'):'No documents yet');
+}
+const COMPLIANCE_LABEL=Object.fromEntries(PF.COMPLIANCE_OPTIONS);
+function documentsBody(){
+  const st=sectionState(documents); if(st)return st;
+  const rows=documents.data.map(d=>{
+    const kind=d.content_type==='application/pdf'?'PDF':(d.content_type==='image/png'?'PNG':'JPG');
+    return `<li class="pr-item"><div class="pr-row pr-doc-row pr-has-actions">
+      <span class="pr-doc-icon" aria-hidden="true">${kind}</span>
+      <span class="pr-main"><span class="pr-title">${d.url?`<a class="pr-link" href="${PF.esc(d.url)}" target="_blank" rel="noopener">${PF.esc(d.file_name)}</a>`:PF.esc(d.file_name)}</span>
+        <span class="pr-sub">${PF.esc(PF.DOC_LABEL[d.doc_type]||'Document')}${d.compliance_key?' · on '+PF.esc(COMPLIANCE_LABEL[d.compliance_key]):''} · ${PF.date(d.created_at.slice(0,10))}${d.size_bytes?' · '+PF.fileSize(d.size_bytes):''}</span></span>
+      <span class="pr-actions">
+        <button type="button" class="pr-btn" onclick="openDocument('${d.id}')">Edit</button>
+        <button type="button" class="pr-btn danger" onclick="deleteDocument('${d.id}')">Delete</button>
+      </span></div></li>`;
+  }).join('');
+  return `${documents.data.length?`<ul class="pr-list">${rows}</ul>`:'<p class="pr-empty">Keep the tenancy agreement, certificates, mortgage offer and insurance here.</p>'}
+    <div class="pp-sec-foot"><p class="pp-note">Private to you. Links to open a document last 1 hour; reopen this page for fresh ones.</p><button type="button" class="pp-edit" onclick="openDocument()">Upload</button></div>`;
+}
+function openDocument(id){
+  editingDocId=id||null;
+  const d=id?documents.data.find(x=>x.id===id):null;
+  const opt=(list,val,blank)=>(blank?`<option value="">${blank}</option>`:'')+list.map(([k,l])=>`<option value="${k}"${k===val?' selected':''}>${PF.esc(l)}</option>`).join('');
+  const root=document.getElementById('pp-doc-fields');
+  root.innerHTML=(d?'':`<div class="field pf-span"><label for="pfd-file">File</label><input type="file" id="pfd-file" accept="application/pdf,image/jpeg,image/png,image/*"/><p class="pf-field-hint">PDF, JPEG or PNG, up to 10MB.</p></div>`)+
+    `<div class="field pf-span"><label for="pfd-name">Name</label><input type="text" id="pfd-name" maxlength="160" value="${PF.esc(d?d.file_name:'')}" placeholder="e.g. Gas certificate 2026"/></div>
+    <div class="field"><label for="pfd-type">Type</label><select id="pfd-type">${opt(PF.DOC_TYPES,d?d.doc_type:'',d?null:'Choose a type')}</select></div>
+    <div class="field"><label for="pfd-comp">Attach to compliance item</label><select id="pfd-comp">${opt(PF.COMPLIANCE_OPTIONS,d?d.compliance_key:'','None')}</select></div>`;
+  const type=root.querySelector('#pfd-type'), comp=root.querySelector('#pfd-comp'), file=root.querySelector('#pfd-file'), name=root.querySelector('#pfd-name');
+  type.addEventListener('change',()=>{ const s=PF.DOC_SUGGESTS_COMPLIANCE[type.value]; if(s&&!comp.value)comp.value=s; });
+  if(file)file.addEventListener('change',()=>{ if(file.files[0]&&!name.value)name.value=file.files[0].name.replace(/\.[a-z0-9]+$/i,''); });
+  document.getElementById('pp-doc-title').textContent=d?'Edit document':'Upload document';
+  document.getElementById('pp-doc-save').textContent=d?'Save changes':'Upload';
+  const msg=document.getElementById('pp-doc-msg'); msg.textContent=''; msg.className='save-msg';
+  document.getElementById('pp-doc-overlay').classList.add('open');
+}
+function closeDocument(){ document.getElementById('pp-doc-overlay').classList.remove('open'); editingDocId=null; }
+async function saveDocumentForm(){
+  const root=document.getElementById('pp-doc-fields');
+  const msg=document.getElementById('pp-doc-msg');
+  const btn=document.getElementById('pp-doc-save');
+  const label=btn.textContent;
+  const body={doc_type:root.querySelector('#pfd-type').value, compliance_key:root.querySelector('#pfd-comp').value, file_name:root.querySelector('#pfd-name').value.trim()};
+  const fileEl=root.querySelector('#pfd-file');
+  if(!editingDocId&&!(fileEl&&fileEl.files[0])){ msg.textContent='Choose a file.'; msg.className='save-msg error'; return; }
+  if(!body.doc_type){ msg.textContent='Choose what kind of document this is.'; msg.className='save-msg error'; return; }
+  btn.disabled=true; btn.textContent=editingDocId?'Saving…':'Uploading…';
+  try{
+    if(editingDocId){
+      await sendJson('PUT','/api/property-documents/'+encodeURIComponent(editingDocId),body);
+    }else{
+      const up=await PF.prepareUpload(fileEl.files[0],'document');
+      if(!body.file_name)body.file_name=up.file_name;
+      await sendJson('POST','/api/portfolio/'+encodeURIComponent(propertyId)+'/documents',{...body,type:up.type,data:up.data});
+    }
+    closeDocument();
+    await loadDocuments();
+  }catch(e){ msg.textContent=e.message; msg.className='save-msg error'; }
+  btn.disabled=false; btn.textContent=label;
+}
+async function deleteDocument(id){
+  if(!confirm('Delete this document? This can\'t be undone.'))return;
+  try{ await sendJson('DELETE','/api/property-documents/'+encodeURIComponent(id)); await loadDocuments(); }
+  catch(e){ setPageMsg(e.message,true); }
+}
+
+// ---------- photos ----------
+// After db/047: a gallery, first photo is the card image. Before it: the
+// single photo slot from db/046 (Add / Change / Remove in the header).
 function setPageMsg(text, isError){
   const el=document.getElementById('pp-msg');
   el.textContent=text||''; el.hidden=!text; el.className='pp-msg'+(isError?' error':'');
 }
+function galleryList(){ return photos&&photos.data?photos.data.filter(p=>p.url):[]; }
+function coverUrl(){
+  const g=galleryList();
+  if(photos&&photos.data)return g.length?g[0].url:null;
+  return property.photo_url||null;
+}
 function renderPhoto(){
+  const url=coverUrl();
+  const gallery=!!(photos&&photos.data);
   const inner=document.getElementById('pp-photo-inner');
-  inner.innerHTML=property.photo_url?`<img src="${PF.esc(property.photo_url)}" alt="Photo of ${PF.esc(property.address)}"/>`:PF.HOUSE_ICON;
-  inner.style.cssText=property.photo_url?'position:absolute;inset:0':'display:contents';
-  document.getElementById('pp-photo-label').textContent=property.photo_url?'Change photo':'Add photo';
-  document.getElementById('pp-photo-remove').hidden=!property.photo_url;
+  inner.innerHTML=url?`<img src="${PF.esc(url)}" alt="Photo of ${PF.esc(property.address)}"/>`:PF.HOUSE_ICON;
+  inner.style.cssText=url?'position:absolute;inset:0':'display:contents';
+  const input=document.getElementById('pp-photo-input');
+  input.multiple=gallery;
+  document.getElementById('pp-photo-label').textContent=gallery?'Add photos':(url?'Change photo':'Add photo');
+  document.getElementById('pp-photo-remove').hidden=gallery||!url;
+  const all=document.getElementById('pp-photo-all');
+  const n=galleryList().length;
+  all.hidden=!(gallery&&n);
+  all.textContent=n>1?'View all '+n:'View';
+}
+function photosSummary(){
+  if(photos&&photos.needsMigration)return sumText(property.photo_url?'1 photo':'No photos yet');
+  const st=sumState(photos); if(st)return st;
+  const n=photos.data.length;
+  return sumText(n?PF.plural(n,'photo'):'No photos yet');
+}
+function photosBody(){
+  if(photos&&photos.needsMigration)return `<div class="pp-callout">One photo for now, using the button on the photo above. A full gallery opens up once a quick database update has been run.</div>`;
+  const st=sectionState(photos); if(st)return st;
+  const g=photos.data;
+  const tiles=g.map((ph,i)=>`<div>
+      <div class="pr-thumb"><button type="button" class="pr-open" onclick="openLightbox(${i})" aria-label="View photo ${i+1}">${ph.url?`<img src="${PF.esc(ph.url)}" alt="" loading="lazy"/>`:''}</button>${i===0?'<span class="pr-first">Card image</span>':''}</div>
+      <div class="pr-thumb-actions">${i>0?`<button type="button" class="pr-btn" onclick="makeFirstPhoto('${ph.id}')">Make first</button>`:'<span></span>'}<button type="button" class="pr-btn danger" onclick="deletePhoto('${ph.id}')">Remove</button></div>
+    </div>`).join('');
+  return `${g.length?`<div class="pr-gallery">${tiles}</div>`:'<p class="pr-empty">No photos yet.</p>'}
+    <div class="pp-sec-foot"><p class="pp-note">The first photo is shown on the Portfolio card. Photos are made smaller before upload.</p><label class="pp-edit" for="pp-photo-input">Add photos</label></div>`;
 }
 async function uploadPhoto(files){
   const input=document.getElementById('pp-photo-input');
-  const file=files&&files[0];
-  if(!file)return;
+  const list=[...(files||[])];
+  if(!list.length)return;
   const label=document.getElementById('pp-photo-label');
-  label.textContent='Uploading…';
   setPageMsg('');
-  try{
-    const data=await PF.compressPhoto(file);
-    const res=await fetch(API_BASE+'/api/portfolio/'+encodeURIComponent(property.id)+'/photo',{method:'POST',headers:authHeaders(true),body:JSON.stringify({type:'image/jpeg',data})});
-    const body=await res.json().catch(()=>({}));
-    if(res.status===409&&body.needs_migration)throw new Error('Photos can be added once a quick database update has been run.');
-    if(!res.ok)throw new Error(body.error||'That photo could not be uploaded.');
-    property.photo_url=body.photo_url;
-    renderPhoto();
-  }catch(e){
-    setPageMsg(e.message,true);
-    renderPhoto();
+  const gallery=!!(photos&&photos.data);
+  let failed=0, lastError='';
+  for(let i=0;i<list.length;i++){
+    label.textContent=list.length>1?`Uploading ${i+1} of ${list.length}…`:'Uploading…';
+    try{
+      const data=await PF.compressPhoto(list[i]);
+      const path='/api/portfolio/'+encodeURIComponent(property.id)+(gallery?'/photos':'/photo');
+      const res=await fetch(API_BASE+path,{method:'POST',headers:authHeaders(true),body:JSON.stringify({type:'image/jpeg',data})});
+      const body=await res.json().catch(()=>({}));
+      if(res.status===409&&body.needs_migration)throw new Error('Photos can be added once a quick database update has been run.');
+      if(!res.ok)throw new Error(body.error||'That photo could not be uploaded.');
+      if(!gallery){ property.photo_url=body.photo_url; break; }
+    }catch(e){ failed++; lastError=e.message; }
   }
   input.value='';
+  if(failed)setPageMsg(list.length>1?`${failed} of ${list.length} photos could not be uploaded. ${lastError}`:lastError,true);
+  if(gallery)await loadPhotos(); else render();
 }
 async function removePhoto(){
   if(!confirm('Remove this photo?'))return;
@@ -595,9 +1009,40 @@ async function removePhoto(){
     const body=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(body.error||'The photo could not be removed.');
     property.photo_url=null;
-    renderPhoto();
+    render();
   }catch(e){ setPageMsg(e.message,true); }
 }
+async function deletePhoto(id){
+  if(!confirm('Remove this photo?'))return;
+  try{ await sendJson('DELETE','/api/property-photos/'+encodeURIComponent(id)); await loadPhotos(); }
+  catch(e){ setPageMsg(e.message,true); }
+}
+async function makeFirstPhoto(id){
+  try{ await sendJson('POST','/api/property-photos/'+encodeURIComponent(id)+'/make-first'); await loadPhotos(); }
+  catch(e){ setPageMsg(e.message,true); }
+}
+
+// Photo viewer
+let lightboxIndex=0;
+function openLightbox(i){
+  if(!galleryList().length)return;
+  lightboxIndex=i; showLightboxPhoto();
+  document.getElementById('pp-lightbox').classList.add('open');
+}
+function closeLightbox(){ document.getElementById('pp-lightbox').classList.remove('open'); }
+function stepLightbox(d){ const n=galleryList().length; lightboxIndex=(lightboxIndex+d+n)%n; showLightboxPhoto(); }
+function showLightboxPhoto(){
+  const g=galleryList();
+  document.getElementById('pp-lb-img').src=g[lightboxIndex].url;
+  document.getElementById('pp-lb-img').alt='Photo '+(lightboxIndex+1)+' of '+property.address;
+  document.getElementById('pp-lb-count').textContent=(lightboxIndex+1)+' of '+g.length;
+  document.getElementById('pp-lb-prev').hidden=document.getElementById('pp-lb-next').hidden=g.length<2;
+}
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('pp-lightbox').classList.contains('open'))return;
+  if(e.key==='ArrowLeft')stepLightbox(-1);
+  if(e.key==='ArrowRight')stepLightbox(1);
+});
 
 init();
 </script>
