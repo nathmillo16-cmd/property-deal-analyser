@@ -1622,8 +1622,8 @@ async function saveDealDetails(){
 
 // ---------- email agent ----------
 // Opens the user's own email app (mailto:) with the agent's address and
-// the "Direct offer in writing" letter from Letter Templates
-// (letter-templates.js) filled in. Nothing is sent from here.
+// the estate agent offer letter (agentOffer in letter-templates.js)
+// filled in. Nothing is sent from here.
 function latestOfferAmount(){
   const offers=(lastActivityEntries||[]).filter(e=>e.type==='offer');
   return offers.length?offers[0].amount:null;
@@ -1635,8 +1635,8 @@ function emailAgent(){
   const property=[deal.address,deal.postcode].filter(Boolean).join(', ')||dealDisplayName(deal);
   const amount=latestOfferAmount();
   const myEmail=currentSession.user&&currentSession.user.email?currentSession.user.email:'';
-  const body=LETTER_TEMPLATES.offer({
-    ownerName:a.name||'Sir or Madam',
+  const body=LETTER_TEMPLATES.agentOffer({
+    agentName:a.name||'Sir or Madam',
     propertyAddress:property,
     offerAmount:amount?fmt(amount):'[offer amount]',
     yourName:currentProfileName||'[your name]',

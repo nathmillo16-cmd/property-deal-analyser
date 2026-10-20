@@ -4,6 +4,11 @@
 // unchanged from letters.html. Each template takes the merge values
 // { ownerName, propertyAddress, offerAmount, yourName, yourArea,
 // yourPhone, yourEmail } and returns the letter as plain text.
+//
+// agentOffer is the one exception: it is written to the estate agent
+// (not the homeowner), for the Deal page's "Email agent" button, and
+// takes agentName instead of ownerName. It is not one of the letter types
+// on the Letter Templates page.
 
 var LETTER_TEMPLATES = {
   enquiry: (v) => `Dear ${v.ownerName},
@@ -50,6 +55,19 @@ I'd be pleased to offer ${v.offerAmount} for the property, as a direct purchase 
 This is simply a starting point, and I'm very happy to discuss it. There's no pressure and no deadline from my side.
 
 Whenever you're ready, you can reach me on ${v.yourPhone} or ${v.yourEmail}.
+
+Kind regards,
+${v.yourName}`,
+
+  agentOffer: (v) => `Dear ${v.agentName},
+
+Thank you for your help with ${v.propertyAddress}. I'd like to make an offer of ${v.offerAmount} for the property, and I'd be grateful if you could put it forward to the vendor.
+
+I'm a serious buyer and can move promptly. I'm happy to provide proof of funds or a mortgage agreement in principle, and to arrange a further viewing or survey if that would help.
+
+Please let me know the vendor's response, or if there's anything else you need from me.
+
+You can reach me on ${v.yourPhone} or ${v.yourEmail}.
 
 Kind regards,
 ${v.yourName}`
