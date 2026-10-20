@@ -24,6 +24,7 @@
 <script src="/draft-state.js"></script>
 <script src="/onboarding-tutorial.js"></script>
 <script src="/calc-engine.js"></script>
+<script src="/deal-insights.js"></script>
 <script src="/results-disclaimer.js"></script>
 <style>
 /* Page-specific layout only — colours/fonts/radius all come from styles.css (Underwriter). */
@@ -530,11 +531,13 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <div class="results-hold" id="b-hold" hidden></div>
+        <div class="deal-insights" id="b-insights"></div>
         <div class="brrr-headline brrr-only">
           <div class="bh"><p class="bh-l">Money left in deal</p><p class="bh-v" id="bh-mli">—</p><p class="bh-sub" id="bh-mli-sub" hidden></p></div>
           <div class="bh"><p class="bh-l">Cash pulled out at refinance</p><p class="bh-v" id="bh-out">—</p></div>
           <div class="bh"><p class="bh-l">Monthly cashflow</p><p class="bh-v" id="bh-cf">—</p></div>
         </div>
+        <div class="deal-stress" id="b-stress"></div>
         <details class="breakdown" id="b-breakdown">
         <summary>Full breakdown</summary>
         <div class="fin-tabs" role="tablist">
@@ -678,6 +681,8 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <div class="results-hold" id="h-hold" hidden></div>
+        <div class="deal-insights" id="h-insights"></div>
+        <div class="deal-stress" id="h-stress"></div>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('hmo','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('hmo','r')">Repayment</button>
@@ -837,6 +842,8 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <div class="results-hold" id="sa-hold" hidden></div>
+        <div class="deal-insights" id="sa-insights"></div>
+        <div class="deal-stress" id="sa-stress"></div>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('sa','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('sa','r')">Repayment</button>
@@ -977,6 +984,7 @@ body.theme-light .dd-trigger::after{
       <div class="results-col">
         <p class="sl">Results</p>
         <div class="results-hold" id="fl-hold" hidden></div>
+        <div class="deal-insights" id="fl-insights"></div>
         <div class="metric-grid">
           <div class="m"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
           <div class="m"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
@@ -1283,6 +1291,7 @@ function switchTab(t){
     breakdown.open=false;
   }
   if(t!=='comps')lastStrategyTab=t;
+  if(window.DealInsights){if(t!=='comps')DealInsights.render(panelFor);DealInsights.updateSticky();}
   relabelStampDuty();
   updateMedianButton();
   fitNumbers();
@@ -1299,6 +1308,7 @@ function switchFinTab(strategy,mode){
   if(!root)return;
   root.querySelectorAll('.fin-tab').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   root.querySelectorAll('.fin-panel').forEach(p=>p.classList.toggle('active',p.dataset.mode===mode));
+  if(window.DealInsights)DealInsights.render(strategy);
   fitNumbers();
 }
 
@@ -1635,6 +1645,7 @@ function confirmWarnings(s){
   const state=evaluateStrategy(s);
   state.warnings.forEach(w=>ackedWarnings[s].add(w.id));
   applyHold(s,state,true);
+  if(window.DealInsights)DealInsights.updateSticky();
   fitNumbers();
 }
 
@@ -1723,6 +1734,7 @@ function afterCalcDisplay(s){
   renderOfferBoxes(s);
   relabelStampDuty();
   hideZeroBoxes(s);
+  if(window.DealInsights)DealInsights.render(s);
   fitNumbers();
 }
 
