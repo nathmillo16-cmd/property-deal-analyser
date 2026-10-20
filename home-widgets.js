@@ -5,6 +5,7 @@
 // and never calculates deal figures itself: Quick analyse runs the shared
 // calc-engine.js (cBTL) against a hidden set of its own input ids.
 //
+//   Setup checklist    six first steps, ticked automatically, until done
 //   Portfolio street   one house per property owned, outlines up to the goal
 //   Goals              cashflow ring, property count, months to go
 //   Your next move     urgent items, or one suggested action
@@ -19,6 +20,10 @@ var HomeWidgets = (function () {
   var REFI_DAYS = 60;
   var ANALYSED_KEY = 'dny-analysed-at';      // set by the calculator's Analyse buttons
   var SEEN_KEY_PREFIX = 'dny-milestones-seen:'; // per user, this device
+  var DATES_KEY_PREFIX = 'dny-milestones-dates:'; // per user, this device: { id: ISO date earned }
+  var BRRR_KEY = 'dny-brrr-analysed-at';         // set by the calculator when analysed on the BRRR tab
+  var SETUP_DONE_PREFIX = 'dny-setup-done:';      // per user, this device: all items done once
+  var SETUP_DISMISSED_PREFIX = 'dny-setup-dismissed:';
 
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
   function money(n) { return (n < 0 ? '−' : '') + '£' + Math.abs(Math.round(n)).toLocaleString('en-GB'); }
@@ -116,6 +121,7 @@ var HomeWidgets = (function () {
     if (!f.goalsSet) {
       card.innerHTML = '<h2>Your goals</h2>' +
         '<p class="goals-empty">Set a cashflow target and a property count, and Home will track your progress towards them.</p>' +
+        '<p class="goals-example">e.g. £1,500/month from 5 properties by 2029</p>' +
         '<a class="btn-primary" href="/settings.html#goals">Set your goals</a>';
       return;
     }
@@ -134,6 +140,59 @@ var HomeWidgets = (function () {
     }
     var foot = g.goal_target_date ? '<p class="goal-date">' + esc(monthsToGo(g.goal_target_date)) + '</p>' : '';
     card.innerHTML = '<div class="goals-head"><h2>Your goals</h2><a class="goals-edit" href="/settings.html#goals">Edit</a></div>' + parts + foot;
+  }
+
+  // ---------------- setup checklist ----------------
+  // Six first steps, each ticked from data the page already loaded. Steps
+  // that need a paid feature the user can't use (portfolio, pipeline) or a
+  // database column that isn't there yet (goals) are left out, so the list
+  // never asks for something impossible. Hidden for good once every step is
+  // done, or when dismissed (both remembered on this device).
+  var CHECK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var ARROW_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+
+  function setupItems(st, f) {
+    var props = f.props;
+    var deals = st.savedDeals || [];
+    var items = [];
+    if (f.goalsAvailable) items.push({ id: 'goals', label: 'Set your goals', href: '/settings.html#goals', done: f.goalsSet });
+    if (!st.portfolioLocked) items.push({ id: 'value', label: 'Add current value to a property', href: '/portfolio.html', done: props.some(function (p) { return p.current_value != null; }) });
+    items.push({ id: 'save', label: 'Save a deal', href: '/index.html', done: deals.length > 0 });
+    if (!st.pipelineLocked) items.push({ id: 'pipeline', label: 'Add a deal to your pipeline', href: '/saved-deals.html', done: (st.pipelineDeals || []).length > 0 || deals.some(function (d) { return !!d.pipeline_stage; }) });
+    items.push({ id: 'brrr', label: 'Run a BRRR analysis', href: '/index.html', done: !!readLS(BRRR_KEY) || deals.some(function (d) { return d.deal_type === 'btl' && d.deal_data && d.deal_data.strategy === 'brrr'; }) });
+    if (!st.portfolioLocked) items.push({ id: 'refi', label: 'Add a refinance date', href: '/portfolio.html', done: props.some(function (p) { return !!p.refinance_date; }) });
+    return items;
+  }
+
+  function renderSetup(st, f) {
+    var card = document.getElementById('setup-card');
+    if (!card) return;
+    var uid = st.userId || 'anon';
+    if (readLS(SETUP_DONE_PREFIX + uid) || readLS(SETUP_DISMISSED_PREFIX + uid)) { card.hidden = true; return; }
+    var items = setupItems(st, f);
+    var done = items.filter(function (i) { return i.done; }).length;
+    if (!items.length || done === items.length) {
+      writeLS(SETUP_DONE_PREFIX + uid, String(Date.now()));
+      card.hidden = true;
+      return;
+    }
+    var pct = Math.round((done / items.length) * 100);
+    card.innerHTML =
+      '<div class="setup-head"><div><h2>Get the most out of PROPulsion</h2>' +
+        '<p class="setup-progress-text">' + done + ' of ' + items.length + ' done</p></div>' +
+        '<button type="button" class="setup-dismiss" id="setup-dismiss">Dismiss</button></div>' +
+      '<div class="setup-bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + items.length + '" aria-valuenow="' + done + '" aria-label="Setup progress"><div style="width:' + pct + '%"></div></div>' +
+      '<ul class="setup-list">' + items.map(function (i) {
+        return '<li><a class="setup-item' + (i.done ? ' done' : '') + '" href="' + i.href + '">' +
+          '<span class="setup-check" aria-hidden="true">' + (i.done ? CHECK_ICON : '') + '</span>' +
+          '<span class="setup-label">' + esc(i.label) + (i.done ? '<span class="sr-only"> (done)</span>' : '') + '</span>' +
+          (i.done ? '' : '<span class="setup-go" aria-hidden="true">' + ARROW_ICON + '</span>') + '</a></li>';
+      }).join('') + '</ul>';
+    card.hidden = false;
+    document.getElementById('setup-dismiss').addEventListener('click', function () {
+      writeLS(SETUP_DISMISSED_PREFIX + uid, String(Date.now()));
+      card.hidden = true;
+    });
   }
 
   // ---------------- your next move ----------------
@@ -226,6 +285,22 @@ var HomeWidgets = (function () {
       '<span class="ms-text">' + (cls === 'next' ? '<span class="ms-kicker">Next milestone</span>' : '') + '<span class="ms-label">' + esc(m.label) + '</span></span></div>';
   }
 
+  function readDates(uid) {
+    try { var d = JSON.parse(readLS(DATES_KEY_PREFIX + uid) || '{}'); return d && typeof d === 'object' ? d : {}; } catch (e) { return {}; }
+  }
+
+  // When each milestone was earned, where we know: a date recorded on this
+  // device the moment it was first celebrated, or else one read straight
+  // from the data (first saved deal, first property). Never guessed.
+  function earnedDate(m, st, stored) {
+    if (stored[m.id]) return stored[m.id];
+    var list = m.id === 'first-saved' ? (st.savedDeals || []) : m.id === 'first-property' ? (st.properties || []) : null;
+    if (!list || !list.length) return null;
+    var min = null;
+    list.forEach(function (x) { var t = x.created_at ? new Date(x.created_at).getTime() : NaN; if (isFinite(t) && (min === null || t < min)) min = t; });
+    return min === null ? null : new Date(min).toISOString();
+  }
+
   function renderMilestones(st, f) {
     var el = document.getElementById('milestones');
     if (!el) return;
@@ -238,15 +313,54 @@ var HomeWidgets = (function () {
 
     // Celebrate newly earned ones once (remembered on this device). The very
     // first visit just records what's already earned, so nobody gets a burst.
-    var key = SEEN_KEY_PREFIX + (st.userId || 'anon');
+    var uid = st.userId || 'anon';
+    var key = SEEN_KEY_PREFIX + uid;
     var raw = readLS(key);
     var ids = earned.map(function (m) { return m.id; });
-    if (raw === null) { writeLS(key, JSON.stringify(ids)); return; }
-    var seen = [];
-    try { seen = JSON.parse(raw) || []; } catch (e) {}
-    var fresh = earned.filter(function (m) { return seen.indexOf(m.id) === -1; });
-    writeLS(key, JSON.stringify(ids.concat(seen.filter(function (id) { return ids.indexOf(id) === -1; }))));
-    if (fresh.length) celebrate(fresh[fresh.length - 1], el);
+    var fresh = [];
+    if (raw === null) {
+      writeLS(key, JSON.stringify(ids));
+    } else {
+      var seen = [];
+      try { seen = JSON.parse(raw) || []; } catch (e) {}
+      fresh = earned.filter(function (m) { return seen.indexOf(m.id) === -1; });
+      writeLS(key, JSON.stringify(ids.concat(seen.filter(function (id) { return ids.indexOf(id) === -1; }))));
+    }
+    var stored = readDates(uid);
+    if (fresh.length) {
+      var now = new Date().toISOString();
+      fresh.forEach(function (m) { if (!stored[m.id]) stored[m.id] = now; });
+      writeLS(DATES_KEY_PREFIX + uid, JSON.stringify(stored));
+      celebrate(fresh[fresh.length - 1], el);
+    }
+    bindMilestonesModal(all, st, stored);
+  }
+
+  function fmtDay(iso) { var d = new Date(iso); return isFinite(d.getTime()) ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; }
+
+  function bindMilestonesModal(all, st, stored) {
+    var btn = document.getElementById('milestones-see-all');
+    var overlay = document.getElementById('ms-modal');
+    var list = document.getElementById('ms-modal-list');
+    if (!btn || !overlay || !list) return;
+    var earnedCount = all.filter(function (m) { return m.done; }).length;
+    document.getElementById('ms-modal-count').textContent = earnedCount + ' of ' + all.length + ' earned';
+    list.innerHTML = all.map(function (m) {
+      var when = m.done ? earnedDate(m, st, stored) : null;
+      return '<li class="ms-row' + (m.done ? ' earned' : ' locked') + '">' +
+        '<span class="ms-icon" aria-hidden="true"><svg viewBox="0 0 24 24">' + ICON[m.icon] + '</svg></span>' +
+        '<span class="ms-row-text"><span class="ms-row-label">' + esc(m.label) + '</span>' +
+        '<span class="ms-row-meta">' + (m.done ? (when ? 'Earned ' + esc(fmtDay(when)) : 'Earned') : 'Locked') + '</span></span></li>';
+    }).join('');
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    var lastFocus = null;
+    function open() { lastFocus = document.activeElement; overlay.hidden = false; document.body.classList.add('ms-modal-open'); document.getElementById('ms-modal-close').focus(); }
+    function close() { overlay.hidden = true; document.body.classList.remove('ms-modal-open'); if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+    btn.addEventListener('click', open);
+    document.getElementById('ms-modal-close').addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !overlay.hidden) close(); });
   }
 
   function celebrate(m, el) {
@@ -336,6 +450,18 @@ var HomeWidgets = (function () {
     card.hidden = false;
     var body = document.getElementById('growth-body');
     var snaps = (st.snapshots || []).slice();
+    card.classList.toggle('compact', snaps.length < 2);
+    if (snaps.length === 1) {
+      var s0 = snaps[0];
+      var hasEq = s0.total_equity != null;
+      var p0 = String(s0.month).split('-').map(Number);
+      var when = new Date(p0[0], p0[1] - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      document.getElementById('growth-title').textContent = hasEq ? 'Equity growth' : 'Portfolio value';
+      body.innerHTML = '<div class="growth-start"><span class="growth-dot" aria-hidden="true"></span>' +
+        '<p class="growth-start-text">Starting point: <strong>' + money(hasEq ? s0.total_equity : s0.portfolio_value) + '</strong> ' + (hasEq ? 'equity' : 'portfolio value') + ', ' + esc(when) + '</p></div>' +
+        '<p class="growth-start-sub">Your growth chart appears from next month.</p>';
+      return;
+    }
     if (snaps.length < 2) {
       body.innerHTML = '<p class="growth-note"><span class="growth-dot" aria-hidden="true"></span>Equity tracking started. Your growth chart appears next month.</p>';
       return;
@@ -416,6 +542,7 @@ var HomeWidgets = (function () {
   function render(st) {
     var f = facts(st);
     f.savedCount = (st.savedDeals || []).length;
+    renderSetup(st, f);
     renderStreet(f);
     renderGoals(f);
     var gc = document.getElementById('goals-card');
@@ -427,12 +554,15 @@ var HomeWidgets = (function () {
     return f;
   }
 
-  function renderMotto(text) {
+  // canAdd: the goals/motto fields exist (db/042), so offer "+ Add your motto".
+  function renderMotto(text, canAdd) {
     var el = document.getElementById('motto');
+    var add = document.getElementById('motto-add');
     if (!el) return;
     var t = (text || '').trim();
     el.textContent = t ? '“' + t + '”' : '';
     el.hidden = !t;
+    if (add) add.hidden = !!t || !canAdd;
   }
 
   return { render: render, renderMotto: renderMotto, ANALYSED_KEY: ANALYSED_KEY };

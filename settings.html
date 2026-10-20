@@ -444,6 +444,7 @@ async function saveName(){
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not save your name.');
     msg.textContent='Saved.';msg.className='save-msg success';
+    if(window.NavAccount)NavAccount.setName(name);
   }catch(e){
     msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
   }

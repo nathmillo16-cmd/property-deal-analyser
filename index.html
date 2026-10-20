@@ -1699,7 +1699,8 @@ cBTL=function(){ _cBTLEngine(); renderBRRRHeadline(); };
 
 // Remembers (this device only) when a deal was last analysed, for Home's
 // "First deal analysed" milestone and "Analyse your next deal" nudge.
-function noteAnalysed(){ try{ localStorage.setItem('dny-analysed-at', String(Date.now())); }catch(e){} }
+// The BRRR key feeds Home's "Run a BRRR analysis" setup checklist item.
+function noteAnalysed(){ try{ localStorage.setItem('dny-analysed-at', String(Date.now())); if(currentTab==='brrr')localStorage.setItem('dny-brrr-analysed-at', String(Date.now())); }catch(e){} }
 
 function runBTL(){ cBTL(); noteAnalysed(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; saveIndexDraft(); }
 function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; checkValueWarningBTL(); saveIndexDraft(); }

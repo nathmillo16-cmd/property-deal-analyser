@@ -152,31 +152,55 @@ p{margin:0}
    right values for --accent/--surface/etc, same as .topbar/.auth-bar above. */
 .user-menu{position:relative}
 .user-menu-trigger{
-  display:flex;align-items:center;gap:6px;
-  font-family:var(--font-body);font-size:12.5px;font-weight:600;letter-spacing:.03em;
-  color:var(--muted);background:transparent;border:none;cursor:pointer;padding:4px 0;
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--font-body);font-size:13.5px;font-weight:600;
+  color:var(--ink);background:transparent;border:1px solid transparent;border-radius:999px;
+  cursor:pointer;padding:3px 10px 3px 3px;transition:background .15s ease,border-color .15s ease;
 }
-.user-menu-trigger:hover{color:var(--accent)}
+.user-menu-trigger:hover,.user-menu.open .user-menu-trigger{background:var(--surface);border-color:var(--hairline)}
+.user-menu-trigger:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.user-avatar{
+  width:32px;height:32px;border-radius:50%;flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--accent);color:#fff;
+  font-family:var(--font-body);font-size:12.5px;font-weight:700;letter-spacing:.02em;line-height:1;
+}
+.user-avatar.is-empty::before{content:"";width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.85)}
+.user-avatar-lg{width:40px;height:40px;font-size:14.5px}
+.user-menu-name{max-width:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-menu-chevron{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;color:var(--muted);transition:transform .15s ease}
+.user-menu.open .user-menu-chevron{transform:rotate(180deg)}
 .user-menu-caret{font-size:10px;transition:transform .15s ease}
-.user-menu.open .user-menu-caret{transform:rotate(180deg)}
 
 .user-menu-list{
   display:none;position:absolute;top:calc(100% + 10px);right:0;z-index:450;
-  min-width:200px;padding:6px;
+  min-width:240px;max-width:min(300px,calc(100vw - 2rem));padding:6px;
   background:var(--surface);border:1px solid var(--hairline-strong);border-radius:var(--radius);
   box-shadow:0 1px 2px rgba(0,0,0,.08),0 12px 28px rgba(0,0,0,.12);
 }
 .user-menu.open .user-menu-list{display:block}
-.user-menu-item-email{
-  font-size:12px;color:var(--muted);padding:8px 10px;margin-bottom:2px;
-  border-bottom:1px solid var(--hairline);word-break:break-all;
-}
+.user-menu-head{display:flex;align-items:center;gap:10px;padding:8px 10px 10px;margin-bottom:4px;border-bottom:1px solid var(--hairline)}
+.user-menu-who{min-width:0}
+.user-menu-fullname{font-size:14px;font-weight:700;color:var(--ink);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-menu-item-email{font-size:12px;color:var(--muted);margin:1px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .user-menu-item{
-  display:block;font-family:var(--font-body);font-size:13.5px;font-weight:600;
+  display:flex;align-items:center;gap:10px;font-family:var(--font-body);font-size:13.5px;font-weight:600;
   color:var(--ink);text-decoration:none;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;
 }
-.user-menu-item:hover{background:var(--surface-2);color:var(--accent)}
-.user-menu-item.active{color:var(--accent)}
+.auth-bar a.user-menu-item{font-size:13.5px;text-transform:none;letter-spacing:0;color:var(--ink)}
+.user-menu-item:hover,.auth-bar a.user-menu-item:hover{background:var(--surface-2);color:var(--accent)}
+.user-menu-item.active,.auth-bar a.user-menu-item.active{color:var(--accent)}
+.user-menu-icon{width:17px;height:17px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.user-menu-item:hover .user-menu-icon,.user-menu-item.active .user-menu-icon{color:var(--accent)}
+.user-menu-divider{height:1px;background:var(--hairline);margin:5px 4px}
+/* Log out's icon is drawn in CSS: pages rewrite #auth-link's text
+   ("Log in"/"Log out"), which would wipe an inline <svg>. */
+.user-menu-logout::before{
+  content:"";width:17px;height:17px;flex-shrink:0;background:var(--muted);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3'/%3E%3Cpath d='M10 17l-5-5 5-5'/%3E%3Cpath d='M5 12h11'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3'/%3E%3Cpath d='M10 17l-5-5 5-5'/%3E%3Cpath d='M5 12h11'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.user-menu-logout:hover::before{background:var(--accent)}
 
 /* ---------- Tools dropdown (nav.js) ---------- */
 .nav-tools{position:relative}
@@ -213,7 +237,8 @@ p{margin:0}
   #nav-root .topbar{margin-bottom:1.5rem;padding-bottom:1rem;flex-wrap:nowrap}
   #nav-root .auth-bar{gap:1rem;min-width:0}
   #nav-root #subscribe-link{display:none!important}
-  #nav-root .user-menu-email{max-width:9.5rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #nav-root .user-menu-name,#nav-root .user-menu-chevron{display:none}
+  #nav-root .user-menu-trigger{padding:2px}
 }
 html.native-app .tabbar{display:flex}
 html.native-app body.has-tabbar{padding-bottom:calc(64px + env(safe-area-inset-bottom, 0px))}

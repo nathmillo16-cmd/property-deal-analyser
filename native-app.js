@@ -11,9 +11,10 @@
 //      access exactly as before.
 //   2. The bottom tab bar itself (Home, Analyse, Deals, Portfolio) comes
 //      from nav.js, same as on phone-width websites. In the app the top
-//      link row and account bar are hidden, and a "Menu" button in the
-//      header opens a sheet with Tools (Refurb, Letters), Settings, the
-//      tutorial, Contact us, help pages and Log out.
+//      link row and account bar are hidden, and the same round initials
+//      avatar the website uses sits in the header. Tapping it opens a sheet
+//      with the user's name and email, Tools (Refurb, Letters), Settings,
+//      Your goals, Replay tutorial, Contact us, help pages and Log out.
 //
 // Elements can also carry data-native-text="..." to show different wording
 // in the app (e.g. "Subscription" becomes "Plan").
@@ -51,11 +52,19 @@
       'height:env(safe-area-inset-top, 0px);background:var(--bg,#F2EFE7);z-index:390;pointer-events:none}' +
     // Refurb's sticky summary must stick below that band, not under it.
     'html.native-app .rf-summary{top:calc(1.5rem + env(safe-area-inset-top, 0px))}' +
-    // Header "Menu" button (opens the sheet below), right of the logo.
+    // Header account button (opens the sheet below), right of the logo.
     'html.native-app #nav-root .topbar{flex-wrap:nowrap;justify-content:space-between}' +
-    '.nt-menu-btn{display:flex;align-items:center;gap:6px;background:none;border:0;padding:8px 4px;margin:0;cursor:pointer;' +
-      'color:var(--ink,#1a1a2e);font-family:var(--font-body,inherit);font-size:14px;font-weight:600;-webkit-tap-highlight-color:transparent}' +
-    '.nt-menu-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}' +
+    '.nt-menu-btn{display:flex;align-items:center;gap:4px;background:none;border:0;padding:4px;margin:0;cursor:pointer;' +
+      'border-radius:999px;-webkit-tap-highlight-color:transparent}' +
+    '.nt-menu-btn .user-avatar{width:36px;height:36px;font-size:13.5px}' +
+    '.nt-head{display:flex;align-items:center;gap:12px;margin:0 4px 14px}' +
+    '.nt-head .user-avatar{width:44px;height:44px;font-size:16px}' +
+    '.nt-who{min-width:0}' +
+    '.nt-name{font-size:16px;font-weight:700;color:var(--ink,#1a1a2e);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '.nt-item-label{display:flex;align-items:center;gap:12px}' +
+    '.nt-item-label svg{width:19px;height:19px;flex-shrink:0;fill:none;stroke:var(--muted,#767a92);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}' +
+    '.nt-item.active .nt-item-label svg{stroke:#4b45b2}' +
+    '.nt-item.nt-danger .nt-item-label svg{stroke:var(--danger,#c0392b)}' +
     '.nt-label{font-size:11.5px;color:var(--muted,#767a92);margin:0 4px 6px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}' +
     '.nt-backdrop{position:fixed;inset:0;z-index:360;background:rgba(15,15,35,.45);opacity:0;pointer-events:none;transition:opacity .2s ease}' +
     '.nt-backdrop.open{opacity:1;pointer-events:auto}' +
@@ -65,7 +74,7 @@
       'box-shadow:0 -10px 40px rgba(0,0,0,.18);font-family:var(--font-body,inherit)}' +
     '.nt-sheet.open{transform:translateY(0)}' +
     '.nt-handle{width:36px;height:4px;border-radius:2px;background:var(--hairline-strong,#ccc);margin:4px auto 12px}' +
-    '.nt-email{font-size:12.5px;color:var(--muted,#767a92);margin:0 4px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '.nt-email{font-size:12.5px;color:var(--muted,#767a92);margin:1px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     '.nt-group{background:var(--surface-2,#f6f6f8);border-radius:12px;overflow:hidden;margin-bottom:12px}' +
     '.nt-item{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:50px;padding:0 16px;' +
       'background:none;border:0;border-bottom:1px solid var(--hairline,#e5e5e5);color:var(--ink,#1a1a2e);' +
@@ -137,9 +146,16 @@
   // The bottom tab bar is rendered by nav.js. This adds the sheet for
   // everything that isn't one of its four tabs.
   var MORE_PAGES = [
-    { key: 'refurb', href: '/refurb.html', label: 'Refurb Estimator' },
-    { key: 'letters', href: '/letters.html', label: 'Letter Templates' }
+    { key: 'refurb', href: '/refurb.html', label: 'Refurb Estimator', icon: 'refurb' },
+    { key: 'letters', href: '/letters.html', label: 'Letter Templates', icon: 'letters' }
   ];
+
+  // Same line icons as the website's account menu (nav.js).
+  function ic(name) {
+    var icons = window.NAV_MENU_ICONS || {};
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (icons[name] || '') + '</svg>';
+  }
+  function label(icon, text) { return '<span class="nt-item-label">' + ic(icon) + text + '</span>'; }
 
   function buildTabBar() {
     var navRoot = document.getElementById('nav-root');
@@ -154,7 +170,8 @@
     moreBtn.id = 'nt-more-btn';
     moreBtn.setAttribute('aria-haspopup', 'dialog');
     moreBtn.setAttribute('aria-expanded', 'false');
-    moreBtn.innerHTML = '<span>Menu</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+    moreBtn.setAttribute('aria-label', 'Account menu');
+    moreBtn.innerHTML = '<span class="user-avatar" data-account-initials aria-hidden="true"></span>';
     topbar.appendChild(moreBtn);
 
     var backdrop = document.createElement('div');
@@ -166,34 +183,34 @@
     sheet.id = 'nt-sheet';
     sheet.setAttribute('role', 'dialog');
     sheet.setAttribute('aria-modal', 'true');
-    sheet.setAttribute('aria-label', 'More');
+    sheet.setAttribute('aria-label', 'Account menu');
     sheet.innerHTML =
       '<div class="nt-handle"></div>' +
-      '<p class="nt-email" id="nt-email"></p>' +
+      '<div class="nt-head"><span class="user-avatar" data-account-initials aria-hidden="true"></span>' +
+        '<div class="nt-who"><p class="nt-name" data-account-name>Your account</p><p class="nt-email" data-account-email></p></div></div>' +
       '<p class="nt-label">Tools</p>' +
       '<div class="nt-group">' +
         MORE_PAGES.map(function (p) {
-          return '<a class="nt-item' + (p.key === active ? ' active' : '') + '" href="' + p.href + '">' + p.label + '</a>';
+          return '<a class="nt-item' + (p.key === active ? ' active' : '') + '" href="' + p.href + '">' + label(p.icon, p.label) + '</a>';
         }).join('') +
       '</div>' +
       '<div class="nt-group">' +
-        '<a class="nt-item' + (active === 'settings' ? ' active' : '') + '" href="/settings.html">Account &amp; settings</a>' +
-        '<button type="button" class="nt-item" id="nt-tutorial">Tutorial</button>' +
-        '<button type="button" class="nt-item" id="nt-contact">Contact us</button>' +
-        '<a class="nt-item" href="/support.html">Help &amp; support</a>' +
-        '<a class="nt-item" href="/privacy.html">Privacy policy</a>' +
+        '<a class="nt-item' + (active === 'settings' ? ' active' : '') + '" href="/settings.html">' + label('settings', 'Settings') + '</a>' +
+        '<a class="nt-item" href="/settings.html#goals" id="nt-goals">' + label('goals', 'Your goals') + '</a>' +
+        '<button type="button" class="nt-item" id="nt-tutorial">' + label('replay', 'Replay tutorial') + '</button>' +
+        '<button type="button" class="nt-item" id="nt-contact">' + label('contact', 'Contact us') + '</button>' +
+        '<a class="nt-item" href="/support.html">' + label('help', 'Help &amp; support') + '</a>' +
+        '<a class="nt-item" href="/privacy.html">' + label('privacy', 'Privacy policy') + '</a>' +
       '</div>' +
       '<div class="nt-group">' +
-        '<button type="button" class="nt-item nt-danger" id="nt-logout">Log out</button>' +
+        '<button type="button" class="nt-item nt-danger" id="nt-logout">' + label('logout', 'Log out') + '</button>' +
       '</div>';
 
     document.body.appendChild(backdrop);
     document.body.appendChild(sheet);
+    if (window.NavAccount) NavAccount.apply();
     function openSheet() {
-      // The page's own JS puts the signed-in email into the (now hidden) user menu.
-      var emailEl = document.getElementById('user-menu-item-email');
-      var email = emailEl ? emailEl.textContent.trim() : '';
-      document.getElementById('nt-email').textContent = email && email !== '—' ? 'Signed in as ' + email : '';
+      if (window.NavAccount) NavAccount.apply();
       backdrop.classList.add('open');
       sheet.classList.add('open');
       moreBtn.setAttribute('aria-expanded', 'true');
@@ -211,18 +228,11 @@
 
     document.getElementById('nt-tutorial').addEventListener('click', function () {
       closeSheet();
-      if (window.Tutorial && typeof window.Tutorial.replay === 'function') {
-        window.Tutorial.replay();
-      } else {
-        // Pages without the tutorial script (refurb, letters): write the same
-        // fresh-start state Tutorial.replay() writes, then go to Home, which
-        // picks it up and starts the tour.
-        try {
-          localStorage.setItem('dny-tutorial-state', JSON.stringify({ active: true, stepIndex: 0, startedAt: Date.now() }));
-        } catch (e) {}
-        window.location.href = '/home.html';
-      }
+      if (typeof window.navReplayTutorial === 'function') window.navReplayTutorial();
     });
+
+    // Already on Settings: the link only changes the #hash, so close the sheet.
+    document.getElementById('nt-goals').addEventListener('click', closeSheet);
 
     document.getElementById('nt-contact').addEventListener('click', function (e) {
       closeSheet();

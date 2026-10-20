@@ -4,8 +4,9 @@
 // the 7 nav links, an optional Subscribe/Upgrade link, and a user menu) and
 // marks the active page from the placeholder's own data attributes.
 // Layout: Home / Analyse / Deals / Portfolio, a Tools dropdown (Refurb,
-// Letters), and the account menu (Settings, Deal Sourcing, Contact us, Log
-// out). The same four items also render as a bottom tab bar on phones and
+// Letters), and the account menu: a round initials avatar plus first name
+// that opens Settings, Your goals, Replay tutorial, Deal Sourcing, Contact
+// us and Log out. The same four items also render as a bottom tab bar on phones and
 // in the iOS app.
 // Attaches NO auth logic — every page's existing JS (init()/updateTopbar()/
 // updateAuthUI()) keeps wiring #auth-link/#subscribe-link/#user-menu-email/
@@ -79,6 +80,27 @@ var NAV_ICONS = {
   portfolio: '<path d="M4 20V10l4-3 4 3v10"/><path d="M12 20V6l4-3 4 3v14"/><path d="M2 20h20"/>'
 };
 
+// Small line icons for the account menu (also used by native-app.js's
+// sheet in the iOS app, so both menus look the same).
+var NAV_MENU_ICONS = {
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  goals: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  replay: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  sourcing: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  contact: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-5A8 8 0 1 1 21 12z"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.9"/><path d="M12 17.2h.01"/>',
+  privacy: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/>',
+  refurb: '<path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8-1.3-1.3a4 4 0 0 0-5-5z"/><path d="M3 21l6-6"/>',
+  letters: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/>'
+};
+function menuIcon(name) {
+  return '<svg class="user-menu-icon" viewBox="0 0 24 24" aria-hidden="true">' + (NAV_MENU_ICONS[name] || '') + '</svg>';
+}
+function menuItem(href, icon, label, extraClass) {
+  return '<a href="' + href + '" class="user-menu-item' + (extraClass || '') + '" role="menuitem">' + menuIcon(icon) + label + '</a>';
+}
+
 (function renderNav(){
   var root = document.getElementById('nav-root');
   if (!root) return; // no placeholder on this page — nothing to do
@@ -104,23 +126,36 @@ var NAV_ICONS = {
     '</div>';
 
   var authLinkHtml = showSubscribe
-    ? '<a href="/login.html" id="auth-link" class="user-menu-item" role="menuitem">Log in</a>'
-    : '<a href="#" id="auth-link" class="user-menu-item" role="menuitem">Log out</a>';
+    ? '<a href="/login.html" id="auth-link" class="user-menu-item user-menu-logout" role="menuitem">Log in</a>'
+    : '<a href="#" id="auth-link" class="user-menu-item user-menu-logout" role="menuitem">Log out</a>';
 
-  // Deal Sourcing (an external, website-only waitlist page) and Contact us
-  // live in the account menu now, not the main nav.
+  // Account button: a round initials avatar plus the first name (name is
+  // hidden on phones), and a chevron. #user-menu-email is kept as a hidden
+  // element because every page's own JS still writes the email into it.
+  // Names/initials are filled in by NavAccount below, once the profile loads.
   var userMenuHtml =
     '<div class="user-menu" id="user-menu">' +
       '<button type="button" class="user-menu-trigger" id="user-menu-trigger" ' +
-        'onclick="toggleUserMenu(event)" aria-haspopup="true" aria-expanded="false">' +
-        '<span class="user-menu-email" id="user-menu-email">Account</span>' +
-        '<span class="user-menu-caret" aria-hidden="true">&#9662;</span>' +
+        'onclick="toggleUserMenu(event)" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">' +
+        '<span class="user-avatar" data-account-initials aria-hidden="true"></span>' +
+        '<span class="user-menu-name" data-account-first>Account</span>' +
+        '<svg class="user-menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>' +
+        '<span id="user-menu-email" hidden></span>' +
       '</button>' +
       '<div class="user-menu-list" id="user-menu-list" role="menu">' +
-        '<div class="user-menu-item-email" id="user-menu-item-email">&mdash;</div>' +
-        '<a href="/settings.html" class="user-menu-item" role="menuitem">Settings</a>' +
-        '<a href="/deal-sourcing/apply" class="user-menu-item web-only" role="menuitem" target="_blank" rel="noopener">Deal Sourcing ↗</a>' +
-        '<a href="#" id="contact-us-link" class="user-menu-item" role="menuitem" onclick="closeUserMenu();if(window.openSupportModal)openSupportModal(event);return false;">Contact us</a>' +
+        '<div class="user-menu-head">' +
+          '<span class="user-avatar user-avatar-lg" data-account-initials aria-hidden="true"></span>' +
+          '<div class="user-menu-who">' +
+            '<p class="user-menu-fullname" data-account-name>Your account</p>' +
+            '<p class="user-menu-item-email" id="user-menu-item-email">&mdash;</p>' +
+          '</div>' +
+        '</div>' +
+        menuItem('/settings.html', 'settings', 'Settings', active === 'settings' ? ' active' : '') +
+        menuItem('/settings.html#goals', 'goals', 'Your goals', '') +
+        '<a href="#" class="user-menu-item" role="menuitem" onclick="closeUserMenu();navReplayTutorial();return false;">' + menuIcon('replay') + 'Replay tutorial</a>' +
+        '<a href="/deal-sourcing/apply" class="user-menu-item web-only" role="menuitem" target="_blank" rel="noopener">' + menuIcon('sourcing') + 'Deal Sourcing ↗</a>' +
+        '<a href="#" id="contact-us-link" class="user-menu-item" role="menuitem" onclick="closeUserMenu();if(window.openSupportModal)openSupportModal(event);return false;">' + menuIcon('contact') + 'Contact us</a>' +
+        '<div class="user-menu-divider" role="separator"></div>' +
         authLinkHtml +
       '</div>' +
     '</div>';
@@ -219,3 +254,88 @@ document.addEventListener('click', function(e){
 document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') { closeUserMenu(); closeNavTools(); }
 });
+
+
+// Replay tutorial, from the account menu (and the iOS sheet). Pages that
+// load onboarding-tutorial.js restart it in place; the others (refurb,
+// letters) write the same fresh-start state Tutorial.replay() writes and
+// go to Home, which picks it up and starts the tour.
+function navReplayTutorial(){
+  if (window.Tutorial && typeof window.Tutorial.replay === 'function') {
+    window.Tutorial.replay();
+    return;
+  }
+  try {
+    localStorage.setItem('dny-tutorial-state', JSON.stringify({ active: true, stepIndex: 0, startedAt: Date.now() }));
+  } catch (e) {}
+  window.location.href = '/home.html';
+}
+
+// NavAccount: who is signed in, for the account button. Loads the session
+// and GET /api/profile once per page, then fills every element marked
+//   data-account-initials  round avatar text, e.g. "CH"
+//   data-account-first     first name (falls back to "Account")
+//   data-account-name      full name (falls back to "Your account"; the
+//                          email always shows on the line below it)
+//   data-account-email     email
+// crm-nav.js reuses NavAccount.ready for its admin check instead of making
+// its own profile request. Read-only: nothing here writes anything.
+var NavAccount = (function(){
+  var state = { name: '', email: '' };
+
+  function initials(){
+    var parts = (state.name || '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return state.email ? state.email[0].toUpperCase() : '';
+  }
+
+  function apply(){
+    var first = (state.name || '').trim().split(/\s+/)[0] || '';
+    var ini = initials();
+    document.querySelectorAll('[data-account-initials]').forEach(function(el){
+      el.textContent = ini;
+      el.classList.toggle('is-empty', !ini);
+    });
+    document.querySelectorAll('[data-account-first]').forEach(function(el){ el.textContent = first || 'Account'; });
+    document.querySelectorAll('[data-account-name]').forEach(function(el){ el.textContent = (state.name || '').trim() || 'Your account'; });
+    document.querySelectorAll('[data-account-email]').forEach(function(el){ el.textContent = state.email; });
+    var trigger = document.getElementById('user-menu-trigger');
+    if (trigger) trigger.setAttribute('aria-label', 'Account menu' + (state.name || state.email ? ' for ' + ((state.name || '').trim() || state.email) : ''));
+  }
+
+  var ready = (async function(){
+    try {
+      if (typeof supabase === 'undefined' || typeof API_BASE === 'undefined') return null;
+      var cfgRes = await fetch(API_BASE + '/api/config');
+      var cfg = await cfgRes.json();
+      var client = supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+      var sess = await client.auth.getSession();
+      var session = sess && sess.data ? sess.data.session : null;
+      if (!session) return null;
+      state.email = (session.user && session.user.email) || '';
+      var meta = (session.user && session.user.user_metadata) || {};
+      if (typeof meta.first_name === 'string') state.name = meta.first_name.trim();
+      apply();
+      var profile = null;
+      try {
+        var profRes = await fetch(API_BASE + '/api/profile', { headers: { 'Authorization': 'Bearer ' + session.access_token } });
+        if (profRes.ok) profile = await profRes.json();
+      } catch (e) {}
+      if (profile && typeof profile.name === 'string' && profile.name.trim()) state.name = profile.name.trim();
+      apply();
+      return { session: session, profile: profile };
+    } catch (e) {
+      return null;
+    }
+  })();
+
+  return {
+    ready: ready,
+    apply: apply,
+    // Settings calls this after saving a new name, so the button updates at once.
+    setName: function(name){ state.name = String(name || '').trim(); apply(); },
+    get name(){ return state.name; },
+    get email(){ return state.email; }
+  };
+})();

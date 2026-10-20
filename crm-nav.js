@@ -27,14 +27,16 @@
     if (document.getElementById(STYLE_ID)) return;
     var style = document.createElement('style');
     style.id = STYLE_ID;
+    // Deliberately quiet: a small outlined pill in muted ink, so it never
+    // competes with the main nav or the account button.
     style.textContent =
-      '.admin-badge-link{display:inline-flex;align-items:center;gap:5px;' +
-      'font-family:var(--font-body);font-size:11px;font-weight:700;' +
-      'text-transform:uppercase;letter-spacing:.04em;text-decoration:none;' +
-      'color:var(--warn-ink);background:var(--warn-bg);border:1.5px solid var(--warn);' +
-      'border-radius:999px;padding:4px 11px 4px 9px;white-space:nowrap}' +
-      '.admin-badge-link:hover{filter:brightness(0.95)}' +
-      '.admin-badge-link.active{outline:2px solid var(--warn);outline-offset:1px}';
+      '.admin-badge-link{display:inline-flex;align-items:center;' +
+      'font-family:var(--font-body);font-size:10px;font-weight:600;line-height:1;' +
+      'text-transform:uppercase;letter-spacing:.06em;text-decoration:none;' +
+      'color:var(--muted)!important;background:transparent;border:1px solid var(--hairline-strong,var(--hairline));' +
+      'border-radius:999px;padding:4px 8px;white-space:nowrap}' +
+      '.admin-badge-link:hover{color:var(--accent)!important;border-color:var(--accent)}' +
+      '.admin-badge-link.active{color:var(--accent)!important;border-color:var(--accent)}';
     document.head.appendChild(style);
   }
 
@@ -43,17 +45,24 @@
     if (!authBar) return; // no placeholder on this page — nothing to do
 
     try {
-      var cfgRes = await fetch(API_BASE+'/api/config');
-      var cfg = await cfgRes.json();
-      var client = supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
-      var { data: { session } } = await client.auth.getSession();
-      if (!session) return;
-
-      var profRes = await fetch(API_BASE+'/api/profile', {
-        headers: { 'Authorization': 'Bearer ' + session.access_token }
-      });
-      var prof = await profRes.json();
-      if (prof.role !== 'superuser') return;
+      // nav.js has already loaded the session and profile for the account
+      // button, so reuse that rather than asking the server again.
+      var prof = null;
+      if (window.NavAccount && NavAccount.ready) {
+        var acct = await NavAccount.ready;
+        prof = acct && acct.profile;
+      } else {
+        var cfgRes = await fetch(API_BASE+'/api/config');
+        var cfg = await cfgRes.json();
+        var client = supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+        var { data: { session } } = await client.auth.getSession();
+        if (!session) return;
+        var profRes = await fetch(API_BASE+'/api/profile', {
+          headers: { 'Authorization': 'Bearer ' + session.access_token }
+        });
+        prof = await profRes.json();
+      }
+      if (!prof || prof.role !== 'superuser') return;
 
       injectStyleOnce();
 
@@ -61,7 +70,7 @@
       link.href = '/admin/index.html';
       link.className = 'admin-badge-link';
       if (window.location.pathname.indexOf('/admin/') === 0) link.className += ' active';
-      link.innerHTML = '<span aria-hidden="true">&#9881;</span> Admin';
+      link.textContent = 'Admin';
 
       // Inserted before the user-menu, not appended at the end of
       // .auth-bar, so it always sits directly beside Account regardless of
