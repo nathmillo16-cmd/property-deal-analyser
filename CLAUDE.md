@@ -33,6 +33,7 @@ BTL:
 HMO:
 - Mortgage fixed at 75% LTV of EMV (not deposit-derived like BTL).
 - Bills auto-calculated at 10% of total rent.
+- Searches count in both the mortgage and cash total investment and in the ROI max-bid bisections (the mortgage total used to leave them out while the cash total included them; fixed on the owner's explicit instruction, 2026-10-20, flagged for Nathan's review).
 - Council tax entered annually, divided by 12 for monthly display.
 - Same EMV-based yield convention as BTL. ROI max bid uses an 80-iteration bisection search (stamp duty is banded/non-linear, so no closed form).
 

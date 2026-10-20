@@ -262,7 +262,9 @@ function cHMO(){
   const mNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC-mm, mNy=mNm*12;
   const cNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC, cNy=cNm*12;
   const ag=totalRent*12;
-  const mTI=dep+sol+mf+lic+ref+sd.total, cTI=pp+sol+mf+lic+ref+sd.total+srch;
+  // Searches count in the mortgage total too, same as BTL and SA and the
+  // HMO cash total. Added on the owner's explicit instruction, October 2026.
+  const mTI=dep+sol+mf+lic+ref+sd.total+srch, cTI=pp+sol+mf+lic+ref+sd.total+srch;
   const gy=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
   const mROI=mTI!==0?(mNy/mTI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
   const mPB=mNy!==0?mTI/mNy:0, cPB=cNy>0?cTI/cNy:0;
@@ -329,7 +331,7 @@ function cHMO(){
       const sdM=stamp(mid).total;
       const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
       const mNyM=(totalRent-bills-ins-wifi-ct-maintC-mgmtC-mmM)*12;
-      const tiM=depM+sol+mf+lic+ref+sdM;
+      const tiM=depM+sol+mf+lic+ref+sdM+srch;
       const roiM=tiM!==0?(mNyM/tiM)*100:0;
       if(roiM>troi)lo=mid;else hi=mid;
     }
@@ -346,7 +348,7 @@ function cHMO(){
       const sdM=stamp(mid).total;
       const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
       const rNyM=(totalRent-bills-ins-wifi-ct-maintC-mgmtC-rmmM)*12;
-      const tiM=depM+sol+mf+lic+ref+sdM;
+      const tiM=depM+sol+mf+lic+ref+sdM+srch;
       const roiM=tiM!==0?(rNyM/tiM)*100:0;
       if(roiM>troi)rlo=mid;else rhi=mid;
     }
