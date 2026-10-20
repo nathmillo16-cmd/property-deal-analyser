@@ -88,7 +88,7 @@ html.native-app .fin-tab{padding:9px 4px;text-align:center}
 #panel-btl.brrr-mode .fin-tabs{display:none}
 #panel-btl.brrr-mode .fin-panel{display:none}
 #panel-btl.brrr-mode .fin-panel[data-mode="brrr"]{display:block}
-.brrr-headline{grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 1.25rem}
+.brrr-headline{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 1.25rem}
 @media(max-width:520px){.brrr-headline{grid-template-columns:1fr}}
 .bh{background:linear-gradient(135deg,var(--accent),#37317f);color:#fff;border-radius:14px;padding:1rem 1.05rem;min-width:0;display:flex;flex-direction:column;justify-content:space-between}
 .bh-l{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.75);margin:0 0 .45rem}
@@ -112,9 +112,52 @@ details.adv[open]>summary{margin-bottom:.75rem}
 details.breakdown>summary{border-top-color:var(--hairline);margin-bottom:.5rem}
 #panel-btl:not(.brrr-mode) details.breakdown>summary{display:none}
 
-/* Sanity warning (e.g. end value far below purchase price): results stay
-   hidden until the input is fixed, rather than showing beside the warning. */
-.results-col.warning-hold>*:not(.sl):not(.value-warning){display:none!important}
+/* Results hold: while an input is missing, out of range, or a sanity
+   warning hasn't been confirmed, everything in the results column except
+   its own "Results" heading and the hold message is hidden, including the
+   "Recommended offer prices" heading further down. */
+.results-col.warning-hold>*:not(.sl:first-child):not(.results-hold){display:none!important}
+.results-hold{font-size:13px;border-radius:var(--radius-sm);padding:.75rem .95rem;margin-bottom:1.1rem;line-height:1.5}
+.results-hold p{margin:0}
+.results-hold ul{margin:.4rem 0 .2rem;padding-left:1.1rem}
+.results-hold li{margin:.15rem 0}
+.results-hold.neutral{background:var(--surface-2);color:var(--muted);border:1px dashed var(--hairline)}
+.results-hold.error{background:var(--danger-bg);color:var(--danger-ink);border:1px solid var(--danger)}
+.results-hold.warn{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn)}
+.results-hold .hold-title{font-weight:700;margin-bottom:.15rem}
+.results-hold .hold-confirm{margin-top:.7rem;background:transparent;border:1.5px solid currentColor;color:inherit;border-radius:var(--radius-sm);padding:7px 12px;font-family:var(--font-body);font-size:12.5px;font-weight:700;cursor:pointer}
+.results-hold .hold-confirm:hover{background:rgba(0,0,0,.05)}
+
+/* Inline input validation */
+.f input.invalid,.tr input.invalid,.rg input.invalid{border-color:var(--danger)}
+.field-err{font-size:11.5px;color:var(--danger);margin:2px 0 0;line-height:1.35;text-transform:none;letter-spacing:0;font-weight:500}
+.tr+.field-err,.rg+.field-err{margin:-4px 0 10px}
+
+/* Field help: a small "i" next to each label, tap or click to show a one-
+   line explanation under it. In-flow (not a floating tooltip) so it can
+   never run off the edge of a phone screen. */
+.fh{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:5px;padding:0;border-radius:50%;border:1.2px solid currentColor;background:transparent;color:var(--input-muted);font:700 9.5px/1 var(--font-body);font-style:italic;cursor:pointer;vertical-align:1px;text-transform:none;letter-spacing:0;flex-shrink:0;opacity:.75}
+.fh:hover,.fh[aria-expanded="true"]{opacity:1;color:var(--accent)}
+.fh-tip{font-size:12px;line-height:1.45;color:var(--input-ink);background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.45rem .6rem;margin:2px 0 4px;text-transform:none;letter-spacing:0;font-weight:400}
+.tr+.fh-tip,.rg+.fh-tip{margin:-4px 0 10px}
+
+/* Calculator top-right actions: Reset to my defaults / Clear all */
+.calc-actions{margin:-1.35rem 0 1.75rem;text-align:right;font-size:12.5px;color:var(--muted)}
+.calc-actions button{background:none;border:none;padding:0;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.calc-actions .calc-actions-msg{margin-left:.5rem;font-style:italic}
+
+/* Headline numbers never cut off: kept on one line and shrunk to fit their
+   card by fitNumbers() below. Grid columns use minmax(0,1fr) so a long
+   figure can't stretch its card wider than the screen. */
+.mv,.ov,.bh-v{white-space:nowrap;overflow:hidden;text-overflow:clip}
+.m{min-width:0}
+.ov.ov-msg,body.theme-light .ov.ov-msg{font-size:14px;font-weight:600;line-height:1.45;white-space:normal;color:var(--ink);margin-bottom:0}
+.m-sub,.bh-sub{font-size:11px;margin:3px 0 0;line-height:1.35}
+.m-sub{color:var(--success)}
+.bh-sub{color:rgba(255,255,255,.85)}
+
+/* Comps: one quiet line until a search has run */
+.cp-empty{font-size:13px;color:var(--muted);margin:.25rem 0 0}
 
 .split-panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 @media(max-width:860px){.split-panel{grid-template-columns:1fr}}
@@ -193,7 +236,7 @@ body.theme-light .sl{color:var(--accent)}
   color:var(--muted);margin:0 0 .85rem;padding-bottom:.5rem;
   border-bottom:1px solid var(--hairline);
 }
-.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .m{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.85rem 1rem}
 .ml{font-size:10.5px;color:var(--muted);margin:0 0 4px;text-transform:uppercase;letter-spacing:.04em}
 .mv{font-family:var(--font-body);font-size:19px;font-weight:700;color:var(--ink);margin:0;font-variant-numeric:tabular-nums}
@@ -436,7 +479,7 @@ body.theme-light .dd-trigger::after{
     <button class="tab" onclick="switchTab('flip')">Flip</button>
     <button class="tab" onclick="switchTab('comps')">Comps</button>
   </div>
-  <p class="hint" style="margin:-1.35rem 0 1.75rem;text-align:right"><a href="#" onclick="clearIndexDraft();return false;">Clear draft</a></p>
+  <p class="calc-actions"><button type="button" onclick="resetToMyDefaults()">Reset to my defaults</button> · <button type="button" onclick="clearAllFields()">Clear all</button><span class="calc-actions-msg" id="calc-actions-msg"></span></p>
 
   <!-- BTL -->
   <div class="panel active brrr-mode" id="panel-btl">
@@ -475,21 +518,19 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="markStaleBTL()"/></div>
         </div>
-        <p class="hint">Stamp duty auto-calculated with BTL surcharge. Deposit uses purchase price. Yields use end market value.</p>
+        <p class="hint">Stamp duty auto-calculated with the additional property surcharge. Deposit uses purchase price. Yields use end market value.</p>
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
         </details>
-        <button class="run-btn" onclick="runBTL()" id="btn-run-btl">Analyse deal</button>
         <button class="save-btn" onclick="saveDefaults('btl')" id="btn-save-defaults-btl">Save as my defaults</button>
         <p class="save-msg" id="btl-defaults-msg"></p>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
-        <p class="stale-note" id="btl-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <p class="value-warning" id="b-value-warning">End market value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
+        <div class="results-hold" id="b-hold" hidden></div>
         <div class="brrr-headline brrr-only">
-          <div class="bh"><p class="bh-l">Money left in deal</p><p class="bh-v" id="bh-mli">—</p></div>
+          <div class="bh"><p class="bh-l">Money left in deal</p><p class="bh-v" id="bh-mli">—</p><p class="bh-sub" id="bh-mli-sub" hidden></p></div>
           <div class="bh"><p class="bh-l">Cash pulled out at refinance</p><p class="bh-v" id="bh-out">—</p></div>
           <div class="bh"><p class="bh-l">Monthly cashflow</p><p class="bh-v" id="bh-cf">—</p></div>
         </div>
@@ -556,7 +597,7 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Net yield</p><p class="mv" id="bb-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="bb-roi">—</p></div>
             <div class="m"><p class="ml">Total investment</p><p class="mv" id="bb-ti">—</p></div>
-            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bb-mli">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bb-mli">—</p><p class="m-sub" id="bb-mli-sub" hidden></p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bb-pb">—</p></div>
           </div>
           <p class="ch section-gap">Refinance</p>
@@ -571,7 +612,7 @@ body.theme-light .dd-trigger::after{
         <div id="b-sn" class="sn"></div>
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
-        <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (interest-only mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
         </details>
         <p class="results-disclaimer"></p>
         <div class="result-actions">
@@ -630,14 +671,12 @@ body.theme-light .dd-trigger::after{
         <div class="tr"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
         </details>
-        <button class="run-btn" onclick="runHMO()" id="btn-run-hmo">Analyse deal</button>
         <button class="save-btn" onclick="saveDefaults('hmo')" id="btn-save-defaults-hmo">Save as my defaults</button>
         <p class="save-msg" id="hmo-defaults-msg"></p>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
-        <p class="stale-note" id="hmo-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <p class="value-warning" id="h-value-warning">End market value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
+        <div class="results-hold" id="h-hold" hidden></div>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('hmo','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('hmo','r')">Repayment</button>
@@ -714,7 +753,7 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Net yield</p><p class="mv" id="hb-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="hb-roi">—</p></div>
             <div class="m"><p class="ml">Total investment</p><p class="mv" id="hb-ti">—</p></div>
-            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hb-mli">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="hb-mli">—</p><p class="m-sub" id="hb-mli-sub" hidden></p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="hb-pb">—</p></div>
           </div>
           <p class="ch section-gap">Refinance</p>
@@ -729,7 +768,7 @@ body.theme-light .dd-trigger::after{
         <div id="h-sn" class="sn"></div>
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="h-ly">10</span>% gross yield</p><p class="ov" id="h-oy">—</p><p class="on" id="h-oyn"></p></div>
-        <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (interest-only mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
         <p class="results-disclaimer"></p>
         <div class="result-actions">
         <button class="save-btn" onclick="saveDeal('hmo')" id="btn-save-hmo">Save deal</button>
@@ -786,19 +825,17 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Insurance /mo (£)</label><input type="text" inputmode="decimal" id="sa-ins" value="40" oninput="markStaleSA()"/></div>
           <div class="f"><label>Council tax annual (£)</label><input type="text" inputmode="decimal" id="sa-ct" value="2265" oninput="markStaleSA()"/></div>
         </div>
-        <p class="hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with BTL surcharge. Deposit uses purchase price. Yields use end market value.</p>
+        <p class="hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with the additional property surcharge. Deposit uses purchase price. Yields use end market value.</p>
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
         </details>
-        <button class="run-btn" onclick="runSA()" id="btn-run-sa">Analyse deal</button>
         <button class="save-btn" onclick="saveDefaults('sa')" id="btn-save-defaults-sa">Save as my defaults</button>
         <p class="save-msg" id="sa-defaults-msg"></p>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
-        <p class="stale-note" id="sa-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <p class="value-warning" id="sa-value-warning">End market value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
+        <div class="results-hold" id="sa-hold" hidden></div>
         <div class="fin-tabs" role="tablist">
           <button type="button" class="fin-tab active" data-mode="m" onclick="switchFinTab('sa','m')">Interest-only</button>
           <button type="button" class="fin-tab" data-mode="r" onclick="switchFinTab('sa','r')">Repayment</button>
@@ -876,7 +913,7 @@ body.theme-light .dd-trigger::after{
             <div class="m"><p class="ml">Net yield</p><p class="mv" id="sab-ny">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="sab-roi">—</p></div>
             <div class="m"><p class="ml">Total investment</p><p class="mv" id="sab-ti">—</p></div>
-            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="sab-mli">—</p></div>
+            <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="sab-mli">—</p><p class="m-sub" id="sab-mli-sub" hidden></p></div>
             <div class="m"><p class="ml">Monthly income</p><p class="mv" id="sab-im">—</p></div>
             <div class="m"><p class="ml">Yearly income</p><p class="mv" id="sab-iy">—</p></div>
             <div class="m"><p class="ml">Monthly cashflow</p><p class="mv" id="sab-cfm">—</p></div>
@@ -894,7 +931,7 @@ body.theme-light .dd-trigger::after{
         <div id="sa-sn" class="sn"></div>
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="sa-ly">12</span>% gross yield</p><p class="ov" id="sa-oy">—</p><p class="on" id="sa-oyn"></p></div>
-        <div class="ob"><p class="ot">To achieve <span id="sa-lr">20</span>% ROI (mortgage)</p><p class="ov" id="sa-or">—</p><p class="on" id="sa-orn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span id="sa-lr">20</span>% ROI (interest-only mortgage)</p><p class="ov" id="sa-or">—</p><p class="on" id="sa-orn"></p></div>
         <p class="results-disclaimer"></p>
         <div class="result-actions">
         <button class="save-btn" onclick="saveDeal('sa')" id="btn-save-sa">Save deal</button>
@@ -931,24 +968,22 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
           <div class="f"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
         </div>
-        <p class="hint">Stamp duty auto-calculated with BTL surcharge on purchase price. Contingency is optional; leave it blank to treat as £0. Cash-only strategy, no mortgage version.</p>
+        <p class="hint">Stamp duty auto-calculated with the additional property surcharge on purchase price. Contingency is optional; leave it blank to treat as £0. Cash-only strategy, no mortgage version.</p>
         <p class="sl section-gap">Target</p>
         <div class="tr"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
         </details>
-        <button class="run-btn" onclick="runFlip()" id="btn-run-flip">Analyse deal</button>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
-        <p class="stale-note" id="flip-stale">Inputs changed. Press Analyse deal to update these results.</p>
-        <p class="value-warning" id="fl-value-warning">Sale value is much lower than purchase price. Check for a missing zero. Results are hidden until this is fixed.</p>
+        <div class="results-hold" id="fl-hold" hidden></div>
         <div class="metric-grid">
           <div class="m"><p class="ml">Net profit</p><p class="mv" id="fl-profit">—</p></div>
           <div class="m"><p class="ml">ROI</p><p class="mv" id="fl-roi">—</p></div>
           <div class="m"><p class="ml">Profit margin</p><p class="mv" id="fl-margin">—</p></div>
           <div class="m"><p class="ml">Total cash invested</p><p class="mv" id="fl-ti">—</p></div>
           <div class="m"><p class="ml">Stamp duty</p><p class="mv" id="fl-sdout">—</p></div>
-          <div class="m"><p class="ml">Agent fee amount</p><p class="mv" id="fl-agentout">—</p></div>
-          <div class="m"><p class="ml">Contingency amount</p><p class="mv" id="fl-contout">—</p></div>
+          <div class="m" data-hide-zero><p class="ml">Agent fee amount</p><p class="mv" id="fl-agentout">—</p></div>
+          <div class="m" data-hide-zero><p class="ml">Contingency amount</p><p class="mv" id="fl-contout">—</p></div>
         </div>
         <p class="sl section-gap">Recommended max bid</p>
         <div class="ob"><p class="ot">To achieve <span id="fl-lr">20</span>% ROI</p><p class="ov" id="fl-or">—</p><p class="on" id="fl-orn"></p></div>
@@ -997,7 +1032,11 @@ body.theme-light .dd-trigger::after{
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
+        <p class="cp-empty" id="cp-empty">Enter a postcode to see recent sold prices nearby.</p>
+        <div id="cp-results" hidden>
         <div class="ob"><p class="ot">Median sold price</p><p class="ov" id="cp-median">—</p><p class="on" id="cp-count-note"></p></div>
+        <button class="save-btn" onclick="useMedianAsEndValue()" id="btn-use-median" style="margin:0 0 .35rem">Use median as end value</button>
+        <p class="save-msg" id="cp-median-msg" style="margin:0 0 1.1rem"></p>
         <div class="metric-grid">
           <div class="m"><p class="ml">Range (20th–80th pct)</p><p class="mv" id="cp-range">—</p></div>
           <div class="m"><p class="ml">£ / sqm</p><p class="mv" id="cp-psqm">—</p></div>
@@ -1088,6 +1127,7 @@ body.theme-light .dd-trigger::after{
           <p class="save-msg" id="cp-apply-msg"></p>
         </div>
         <p class="results-disclaimer"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -1215,6 +1255,10 @@ document.addEventListener('keydown', function(e){
 });
 
 let currentTab='brrr';
+// The last calculator tab used (not Comps), so Comps' "Use median as end
+// value" knows which tab to fill in, and the BTL panel's stamp duty line
+// knows whether it's showing as BRRR or BTL.
+let lastStrategyTab='brrr';
 
 // BRRR is its own tab but uses the BTL panel (same inputs, same cBTL()
 // calculation) in "brrr-mode". See the .brrr-mode CSS for what changes.
@@ -1237,6 +1281,10 @@ function switchTab(t){
   }else if(t==='brrr'&&!wasBrrr){
     breakdown.open=false;
   }
+  if(t!=='comps')lastStrategyTab=t;
+  relabelStampDuty();
+  updateMedianButton();
+  fitNumbers();
   saveIndexDraft();
 }
 
@@ -1250,6 +1298,7 @@ function switchFinTab(strategy,mode){
   if(!root)return;
   root.querySelectorAll('.fin-tab').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   root.querySelectorAll('.fin-panel').forEach(p=>p.classList.toggle('active',p.dataset.mode===mode));
+  fitNumbers();
 }
 
 // ---------------------------------------------------------------------
@@ -1396,26 +1445,445 @@ function initMoneyFields(){
 }
 
 // ---------------------------------------------------------------------
-// Sanity warning: end value (or, for Flip, sale value) far below purchase
-// price usually means a missing zero, not a genuine deal. Warn only —
-// never blocks analysis, since a real below-value purchase is a normal,
-// supported scenario. Uses moneyVal() (calc-engine.js) so a comma-
-// formatted value parses exactly the way the engine itself reads it.
+// Input checks. Display only: these decide WHETHER results are shown,
+// never what they are (calc-engine.js is untouched). Three levels, checked
+// in this order:
+//  1. invalid  - a value outside a sensible range. Red message under the
+//                field, results hidden until it's fixed.
+//  2. missing  - a figure the results depend on is blank. A neutral
+//                "enter X to see results" line, nothing red.
+//  3. warnings - a value that's possible but usually a typo. Results stay
+//                hidden until fixed or the user clicks "These numbers are
+//                correct".
+// Blank optional fields are fine: calc-engine.js already falls back to its
+// own value for them, and that value is shown as the field's placeholder
+// (FIELD_FALLBACKS below). Money fields can't go negative: the thousands-
+// separator formatting above strips anything that isn't a digit or a dot.
 // ---------------------------------------------------------------------
-function checkValueWarning(ppId,endId,warningId){
-  const pp=moneyVal(ppId), end=moneyVal(endId);
-  const el=document.getElementById(warningId);
-  if(!el)return;
-  const fires=pp>0&&end>0&&end<pp*0.5;
-  el.style.display=fires?'block':'none';
-  // Hide the results themselves while the warning is showing.
-  const col=el.closest('.results-col');
-  if(col)col.classList.toggle('warning-hold',fires);
+const STRATEGY_PREFIX={btl:'b',hmo:'h',sa:'sa',flip:'fl'};
+
+const RANGE_RULES=(function(){
+  const r={};
+  const add=(ids,rule)=>ids.forEach(id=>{r[id]=rule;});
+  add(['sa-occ'],{min:0,max:100,msg:'Occupancy must be between 0 and 100%.'});
+  add(['bb-refi-ltv','hb-refi-ltv','sab-refi-ltv'],{min:0,max:90,msg:'Refinance LTV must be between 0 and 90%.'});
+  add(['b-dp','h-dp','sa-dp'],{min:0,max:100,msg:'Deposit must be between 0 and 100%.'});
+  add(['b-mr','h-mr','sa-mr'],{min:0,max:20,msg:'Mortgage rate must be between 0 and 20%.'});
+  add(['b-term','h-term','sa-term'],{min:1,max:40,msg:'Mortgage term must be between 1 and 40 years.'});
+  add(['b-mgmt','b-maint','h-maint','h-mgmt','sa-mgmt','sa-util','sa-maint','fl-cont'],{min:0,max:100,msg:'Enter a percentage between 0 and 100.'});
+  add(['fl-agent'],{min:0,max:20,msg:'Estate agent fee must be between 0 and 20%.'});
+  add(['b-ty','h-ty','sa-ty'],{min:0,max:100,msg:'Target yield must be between 0 and 100%.'});
+  add(['b-tr','h-troi','sa-troi','fl-troi'],{min:0,max:200,msg:'Target ROI must be between 0 and 200%.'});
+  add(['h-r1n','h-r2n','h-r3n','h-r4n'],{min:0,max:50,integer:true,msg:'Enter a whole number of rooms, 0 to 50.'});
+  return r;
+})();
+
+// What calc-engine.js uses when each of these is left blank (its own
+// "||25"-style fallbacks, copied here as placeholder text only).
+const FIELD_FALLBACKS={
+  'b-dp':25,'b-maint':10,'b-ty':7,'b-tr':15,'b-term':25,'bb-refi-ltv':75,
+  'h-mr':5,'h-dp':25,'h-ty':10,'h-troi':15,'h-term':25,'hb-refi-ltv':75,
+  'sa-dp':25,'sa-mgmt':10,'sa-util':10,'sa-maint':10,'sa-ty':12,'sa-troi':20,'sa-term':25,'sab-refi-ltv':75,
+  'fl-agent':2,'fl-troi':20
+};
+// Figures every result depends on. Left without a placeholder so a blank
+// one reads as "still to fill in", not as a zero.
+const REQUIRED_FIELD_IDS=new Set(['b-pp','b-emv','b-rent','h-pp','h-emv','sa-rate','sa-occ','sa-pp','sa-emv','fl-pp','fl-sv']);
+function initPlaceholders(){
+  Object.values(DRAFT_FIELD_IDS).flat().forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el||el.placeholder||REQUIRED_FIELD_IDS.has(id))return;
+    el.placeholder=FIELD_FALLBACKS[id]!=null?String(FIELD_FALLBACKS[id]):'0';
+  });
 }
-function checkValueWarningBTL(){checkValueWarning('b-pp','b-emv','b-value-warning');}
-function checkValueWarningHMO(){checkValueWarning('h-pp','h-emv','h-value-warning');}
-function checkValueWarningSA(){checkValueWarning('sa-pp','sa-emv','sa-value-warning');}
-function checkValueWarningFlip(){checkValueWarning('fl-pp','fl-sv','fl-value-warning');}
+
+function rangeError(id){
+  const el=document.getElementById(id);
+  if(!el)return null;
+  if(el.validity&&el.validity.badInput)return 'Enter a number.';
+  const rule=RANGE_RULES[id];
+  if(!rule)return null;
+  const raw=String(el.value).replace(/,/g,'').trim();
+  if(raw==='')return null;
+  const n=+raw;
+  if(!Number.isFinite(n))return 'Enter a number.';
+  if(n<rule.min||n>rule.max||(rule.integer&&!Number.isInteger(n)))return rule.msg;
+  return null;
+}
+
+function showFieldError(id,msg){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.classList.toggle('invalid',!!msg);
+  if(msg)el.setAttribute('aria-invalid','true');else el.removeAttribute('aria-invalid');
+  let err=document.getElementById('err-'+id);
+  if(!msg){if(err)err.remove();return;}
+  if(!err){
+    err=document.createElement('p');
+    err.className='field-err';
+    err.id='err-'+id;
+    const box=el.closest('.f');
+    if(box)box.appendChild(err);
+    else{const row=el.closest('.tr,.rg');if(row)row.insertAdjacentElement('afterend',err);}
+  }
+  err.textContent=msg;
+}
+
+function dataFor(s){return s==='btl'?btlData:(s==='hmo'?hmoData:(s==='sa'?saData:flipData));}
+
+function joinAnd(list){
+  if(list.length<=1)return list.join('');
+  return list.slice(0,-1).join(', ')+' and '+list[list.length-1];
+}
+
+// Reads the figures calc-engine.js has just stored (btlData etc.), so the
+// checks see exactly the numbers the results were built from.
+function evaluateStrategy(s){
+  const invalid=[];
+  DRAFT_FIELD_IDS[s].forEach(id=>{
+    const msg=rangeError(id);
+    showFieldError(id,msg);
+    if(msg)invalid.push(id);
+  });
+
+  const d=dataFor(s)||{};
+  const missing=[];
+  if(!(d.pp>0))missing.push('purchase price');
+  if(s==='flip'){
+    if(!(d.sv>0))missing.push('sale value');
+  }else{
+    if(!(d.emv>0))missing.push('end market value');
+  }
+  if(s==='btl'&&!(d.rent>0))missing.push('monthly rent');
+  if(s==='hmo'&&!(d.totalRent>0))missing.push('room rents');
+  if(s==='sa'){
+    if(!(d.rate>0))missing.push('nightly rate');
+    if(!(d.occ>0))missing.push('occupancy');
+  }
+
+  const warnings=[];
+  const pp=d.pp||0, end=(s==='flip'?d.sv:d.emv)||0;
+  if(pp>0&&pp<20000)warnings.push({id:'pp-low',text:'Purchase price is under £20,000. Check for a missing zero.'});
+  if(pp>0&&end>0&&end<pp){
+    warnings.push({id:'end-low',text:s==='flip'
+      ?'Sale value is lower than the purchase price, so this flip loses money. Check for a missing zero.'
+      :'End market value is lower than the purchase price. Check for a missing zero.'});
+  }
+  if(pp>0&&end>pp*3)warnings.push({id:'end-high',text:(s==='flip'?'Sale value':'End market value')+' is more than 3 times the purchase price. Check for an extra zero.'});
+  const monthlyIncome=s==='btl'?d.rent:(s==='hmo'?d.totalRent:(s==='sa'?(d.annualRevenue||0)/12:0));
+  if(pp>0&&monthlyIncome>pp*0.03){
+    warnings.push({id:'rent-high',text:s==='sa'
+      ?'Monthly booking income is more than 3% of the purchase price. Check the nightly rate and occupancy.'
+      :'Monthly rent is more than 3% of the purchase price. Check for an extra zero.'});
+  }
+  return {invalid,missing,warnings};
+}
+
+// Warnings the user has confirmed with "These numbers are correct". A
+// confirmation lasts until that warning stops applying, so fixing a figure
+// and later mistyping it again asks again.
+const ackedWarnings={btl:new Set(),hmo:new Set(),sa:new Set(),flip:new Set()};
+
+function pendingWarnings(s,state){
+  const live=new Set(state.warnings.map(w=>w.id));
+  [...ackedWarnings[s]].forEach(id=>{if(!live.has(id))ackedWarnings[s].delete(id);});
+  return state.warnings.filter(w=>!ackedWarnings[s].has(w.id));
+}
+
+function applyHold(s,state,showWarnings){
+  const hold=document.getElementById(STRATEGY_PREFIX[s]+'-hold');
+  if(!hold)return;
+  const col=hold.closest('.results-col');
+  let cls='',html='';
+  if(state.invalid.length){
+    cls='error';
+    const many=state.invalid.length>1;
+    html='<p class="hold-title">Check the highlighted '+(many?'fields':'field')+'</p>'+
+      '<p>Results are hidden until '+(many?'they are':'it is')+' fixed.</p>';
+  }else if(state.missing.length){
+    cls='neutral';
+    html='<p>Enter the '+joinAnd(state.missing)+' to see results.</p>';
+  }else if(showWarnings){
+    const pending=pendingWarnings(s,state);
+    if(pending.length){
+      cls='warn';
+      html='<p class="hold-title">Check '+(pending.length>1?'these numbers':'this number')+'</p>'+
+        '<ul>'+pending.map(w=>'<li>'+w.text+'</li>').join('')+'</ul>'+
+        '<p>Results are hidden until you fix this or confirm it is right.</p>'+
+        '<button type="button" class="hold-confirm" onclick="confirmWarnings(\''+s+'\')">These numbers are correct</button>';
+    }
+  }
+  hold.className='results-hold'+(cls?' '+cls:'');
+  hold.innerHTML=html;
+  hold.hidden=!cls;
+  if(col)col.classList.toggle('warning-hold',!!cls);
+  return !cls;
+}
+
+function confirmWarnings(s){
+  const state=evaluateStrategy(s);
+  state.warnings.forEach(w=>ackedWarnings[s].add(w.id));
+  applyHold(s,state,true);
+  fitNumbers();
+}
+
+// ---------------------------------------------------------------------
+// Results display tidy-ups, run after every calculation. Display only:
+// each reads what calc-engine.js already wrote or stored and changes how
+// it's shown, never the figure itself.
+// ---------------------------------------------------------------------
+function gbp(v){return '£'+Math.abs(Math.round(v)).toLocaleString();}
+
+// BRRR: a negative "money left in" means every penny came back out at
+// refinance, plus some. Show that plainly instead of a negative number.
+function renderMoneyLeftIn(id,subId,v){
+  const el=document.getElementById(id), sub=document.getElementById(subId);
+  if(!el||!sub)return;
+  if(v!=null&&isFinite(v)&&v<0){
+    el.textContent='£0 left in';
+    sub.textContent='All money out, +'+gbp(-v)+' released';
+    sub.hidden=false;
+  }else{
+    sub.hidden=true;
+  }
+}
+
+// "Cannot achieve at these inputs" (and its search-floor equivalent, where
+// the max-bid search ran all the way down to its lowest test price without
+// reaching the target) shown as a normal-sized sentence with a reason,
+// rather than a headline-sized figure. ROI max-bid searches start at
+// £10,000 (BTL/HMO/SA) or £1,000 (Flip); a result sitting on that floor
+// means no price tested hits the target.
+const OFFER_BOXES={
+  btl:[{ov:'b-or',note:'b-orn',key:'oR',floor:10000,reason:'Not achievable at this rent. Try a higher rent, lower costs or a lower target ROI.'}],
+  hmo:[{ov:'h-oy',note:'h-oyn',key:'oY',reason:'Add at least one room with a rent to work this out.'},
+       {ov:'h-or',note:'h-orn',key:'oR',floor:10000,reason:'Not achievable at these room rents. Try higher rents, lower costs or a lower target ROI.'}],
+  sa:[{ov:'sa-oy',note:'sa-oyn',key:'oY',reason:'Enter a nightly rate and occupancy to work this out.'},
+      {ov:'sa-or',note:'sa-orn',key:'oR',floor:10000,reason:'Not achievable at this income. Try a higher nightly rate or occupancy, lower costs or a lower target ROI.'}],
+  flip:[{ov:'fl-or',note:'fl-orn',key:'oR',floor:1000,reason:'Not achievable at this sale value. Try a higher sale value, lower costs or a lower target ROI.'}]
+};
+const OFFER_CEILING_REASON='Over £1.9m. Your target is met at every price tested, so check the rent figure.';
+function renderOfferBoxes(s){
+  const d=dataFor(s)||{};
+  OFFER_BOXES[s].forEach(b=>{
+    const ov=document.getElementById(b.ov), note=document.getElementById(b.note);
+    if(!ov)return;
+    const v=d[b.key];
+    let reason=null;
+    if(!(v>0))reason=b.reason;
+    else if(b.floor&&v<=b.floor+1)reason=b.reason;
+    else if(b.key==='oR'&&s!=='flip'&&v>=1900000)reason=OFFER_CEILING_REASON;
+    ov.classList.toggle('ov-msg',!!reason);
+    if(reason){
+      ov.textContent=reason;
+      if(note)note.textContent='';
+    }
+  });
+}
+
+// Stamp duty line: calc-engine.js labels it "(BTL)" on every strategy.
+// Relabel to whichever strategy is actually showing.
+function relabelStampDuty(){
+  const labels={'b-sn':lastStrategyTab==='btl'?'BTL':'BRRR','h-sn':'HMO','sa-sn':'SA'};
+  Object.keys(labels).forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.innerHTML=el.innerHTML.replace(/^Stamp duty \([^)]*\)/,'Stamp duty ('+labels[id]+')');
+  });
+}
+
+// Optional cost boxes (e.g. Flip contingency) hidden when they're £0.
+function hideZeroBoxes(s){
+  document.querySelectorAll('#panel-'+s+' [data-hide-zero]').forEach(card=>{
+    const v=card.querySelector('.mv');
+    card.hidden=!!v&&v.textContent.trim()==='£0';
+  });
+}
+
+function afterCalcDisplay(s){
+  const d=dataFor(s)||{};
+  if(s==='btl'){
+    renderMoneyLeftIn('bh-mli','bh-mli-sub',d.bbMLI);
+    renderMoneyLeftIn('bb-mli','bb-mli-sub',d.bbMLI);
+  }else if(s==='hmo'){
+    renderMoneyLeftIn('hb-mli','hb-mli-sub',d.bbMLI);
+  }else if(s==='sa'){
+    renderMoneyLeftIn('sab-mli','sab-mli-sub',d.bbMLI);
+  }
+  renderOfferBoxes(s);
+  relabelStampDuty();
+  hideZeroBoxes(s);
+  fitNumbers();
+}
+
+// Headline numbers never cut off: each figure stays on one line and its
+// font steps down until it fits its card. Re-run whenever what's on screen
+// changes size (new results, tab switch, resize). Hidden figures report a
+// width of 0 and are skipped until they're shown.
+const FIT_MIN_PX=11;
+function fitNumbers(){
+  document.querySelectorAll('.panel.active .mv, .panel.active .ov:not(.ov-msg), .panel.active .bh-v').forEach(el=>{
+    el.style.fontSize='';
+    if(!el.clientWidth)return;
+    let size=parseFloat(getComputedStyle(el).fontSize);
+    while(el.scrollWidth>el.clientWidth+1&&size>FIT_MIN_PX){
+      size-=1;
+      el.style.fontSize=size+'px';
+    }
+  });
+}
+let fitResizeTimer=null;
+window.addEventListener('resize',()=>{clearTimeout(fitResizeTimer);fitResizeTimer=setTimeout(fitNumbers,120);});
+
+// ---------------------------------------------------------------------
+// Field help: a small "i" beside each input's label. Tap or click to show a
+// one-line plain-English explanation with a typical value; hovering on a
+// desktop also shows it as a tooltip.
+// ---------------------------------------------------------------------
+const FIELD_HELP={
+  // BRRR / BTL
+  'b-pp':'Purchase price: what you expect to pay for the property. Typical: the asking price or your offer.',
+  'b-emv':'End market value: what the property will be worth once the work is done. Typical: check sold prices on the Comps tab.',
+  'b-rent':'Monthly rent: what a tenant will pay each month. Typical: 0.5% to 1% of the purchase price.',
+  'b-ref':'Refurb: the total cost of the work before it is let. Typical: £5,000 to £30,000 for a light to medium refurb.',
+  'b-dp':'Deposit: the share of the price you pay yourself. The lender covers the rest. Typical: 25%.',
+  'bb-refi-ltv':'Refinance LTV: how much the lender will lend against the new value. Typical: 75%.',
+  'bb-refi-type':'Refinance type: interest-only keeps payments low, repayment pays the loan off over the term. Typical: interest-only.',
+  'b-mr':'Mortgage rate: the yearly interest rate on the loan. Typical: 4% to 6%.',
+  'b-term':'Mortgage term: how many years the loan runs for. Typical: 25 years.',
+  'b-sol':'Solicitor fees: legal costs for the purchase. Typical: £1,200 to £2,000.',
+  'b-mf':'Mortgage fees: lender arrangement and broker fees. Typical: £0 to £2,000.',
+  'b-srch':'Searches: local authority and environmental searches. Typical: £250 to £400.',
+  'b-ins':'Insurance: landlord buildings cover, per month. Typical: £20 to £50.',
+  'b-mgmt':'Management: what a letting agent charges, as a % of rent. Typical: 10% to 15%, or 0% if you manage it yourself.',
+  'b-maint':'Maintenance: money set aside for repairs, as a % of rent. Typical: 5% to 10%.',
+  'b-ty':'Target yield: the yearly rent as a % of value that you are aiming for. Used for your offer price. Typical: 7% to 8%.',
+  'b-tr':'Target ROI: the yearly return you want on the cash you put in. Used for your max bid. Typical: 10% to 15%.',
+  // HMO
+  'h-pp':'Purchase price: what you expect to pay for the property. Typical: the asking price or your offer.',
+  'h-emv':'End market value: what the property will be worth once the work is done. Typical: check sold prices on the Comps tab.',
+  'h-ref':'Refurb: the total cost of the conversion and works. Typical: £20,000 to £60,000 for an HMO.',
+  'h-dp':'Deposit: the share of the price you pay yourself. The lender covers the rest. Typical: 25%.',
+  'hb-refi-ltv':'Refinance LTV: how much the lender will lend against the new value. Typical: 75%.',
+  'hb-refi-type':'Refinance type: interest-only keeps payments low, repayment pays the loan off over the term. Typical: interest-only.',
+  'h-mr':'Mortgage rate: the yearly interest rate on the loan. Typical: 5% to 7% for an HMO.',
+  'h-term':'Mortgage term: how many years the loan runs for. Typical: 25 years.',
+  'h-sol':'Solicitor fees: legal costs for the purchase. Typical: £1,200 to £2,000.',
+  'h-mf':'Mortgage fees: lender arrangement and broker fees. Typical: £0 to £2,000.',
+  'h-lic':'Licensing fee: the council fee for an HMO licence. Typical: £500 to £1,500.',
+  'h-srch':'Searches: local authority and environmental searches. Typical: £250 to £400.',
+  'h-ins':'Insurance: HMO landlord cover, per month. Typical: £30 to £80.',
+  'h-wifi':'WiFi: broadband for the tenants, per month. Typical: £30 to £50.',
+  'h-ct':'Council tax: the yearly bill, which you pay in an HMO. Typical: £1,500 to £2,500.',
+  'h-maint':'Maintenance: money set aside for repairs, as a % of rent. Typical: 5% to 10%.',
+  'h-mgmt':'Management: what an agent charges, as a % of rent. Typical: 10% to 15%, or 0% if you manage it yourself.',
+  'h-ty':'Target yield: the yearly rent as a % of value that you are aiming for. Used for your offer price. Typical: 10% to 12%.',
+  'h-troi':'Target ROI: the yearly return you want on the cash you put in. Used for your max bid. Typical: 15% to 20%.',
+  // SA
+  'sa-rate':'Nightly rate: the average price guests pay per night. Typical: £80 to £150.',
+  'sa-occ':'Occupancy: the share of nights booked across the year. Typical: 60% to 75%.',
+  'sa-pp':'Purchase price: what you expect to pay for the property. Typical: the asking price or your offer.',
+  'sa-emv':'End market value: what the property will be worth once the work is done. Typical: check sold prices on the Comps tab.',
+  'sa-ref':'Refurbishment: the total cost of the work before guests arrive. Typical: £5,000 to £25,000.',
+  'sa-dp':'Deposit: the share of the price you pay yourself. The lender covers the rest. Typical: 25%.',
+  'sab-refi-ltv':'Refinance LTV: how much the lender will lend against the new value. Typical: 75%.',
+  'sab-refi-type':'Refinance type: interest-only keeps payments low, repayment pays the loan off over the term. Typical: interest-only.',
+  'sa-mr':'Mortgage rate: the yearly interest rate on the loan. Typical: 5% to 7%.',
+  'sa-term':'Mortgage term: how many years the loan runs for. Typical: 25 years.',
+  'sa-sol':'Solicitor fees: legal costs for the purchase. Typical: £1,200 to £2,000.',
+  'sa-mf':'Mortgage fees: lender arrangement and broker fees. Typical: £0 to £2,000.',
+  'sa-srch':'Searches: local authority and environmental searches. Typical: £250 to £400.',
+  'sa-furn':'Furnishings: furniture and soft furnishings to make it guest-ready. Typical: £5,000 to £10,000.',
+  'sa-wg':'White goods: fridge, washing machine, oven and similar. Typical: £1,500 to £3,000.',
+  'sa-mgmt':'Management: what an operator charges to run bookings, as a % of revenue. Typical: 15% to 20%.',
+  'sa-util':'Utilities: gas, electricity and water, as a % of revenue. Typical: 8% to 12%.',
+  'sa-maint':'Maintenance: money set aside for repairs, as a % of revenue. Typical: 5% to 10%.',
+  'sa-clean':'Cleaning: the monthly cost of cleaning between stays. Typical: £300 to £600.',
+  'sa-ins':'Insurance: specialist short-let cover, per month. Typical: £30 to £60.',
+  'sa-ct':'Council tax or business rates for the year. Typical: £1,500 to £2,500.',
+  'sa-ty':'Target yield: the yearly revenue as a % of value that you are aiming for. Used for your offer price. Typical: 10% to 12%.',
+  'sa-troi':'Target ROI: the yearly return you want on the cash you put in. Used for your max bid. Typical: 15% to 20%.',
+  // Flip
+  'fl-pp':'Purchase price: what you expect to pay for the property. Typical: the asking price or your offer.',
+  'fl-sv':'Sale value: what you expect to sell for once the work is done. Typical: check sold prices on the Comps tab.',
+  'fl-ref':'Refurbishment: the total cost of the work before you sell. Typical: £15,000 to £50,000.',
+  'fl-bf':'Buying fees: solicitor, searches and survey together. Typical: £1,500 to £3,000.',
+  'fl-agent':'Estate agent fee: the agent\'s cut of the sale price. Typical: 1% to 2%.',
+  'fl-cont':'Contingency: extra budget for refurb surprises, as a % of the refurb. Typical: 10% to 15%.',
+  'fl-troi':'Target ROI: the return you want on the cash you put in. Used for your max bid. Typical: 20% to 30%.',
+  // Comps
+  'cp-postcode':'Postcode: the property\'s postcode. Sold prices within half a mile are used.',
+  'cp-type':'Property type: compares like with like, so only sales of the same type are used.',
+  'cp-floor-area':'Floor area after the work, in square metres. Typical: 70 to 90 sqm for a 3-bed semi.',
+  'cp-apply-target':'Apply to: which tab the chosen GDV is copied into as the end value.'
+};
+// The HMO room table has column headings rather than one label per input.
+const ROOM_HEADER_HELP={
+  'Rent/mo':'Rent per room: what one room of that type lets for each month. Typical: £450 to £700.',
+  'Rooms':'Rooms: how many rooms of that type the house has.'
+};
+
+function closeFieldHelp(except){
+  document.querySelectorAll('.fh[aria-expanded="true"]').forEach(btn=>{
+    if(btn===except)return;
+    btn.setAttribute('aria-expanded','false');
+    const tip=document.getElementById(btn.getAttribute('aria-controls'));
+    if(tip)tip.remove();
+  });
+}
+let fieldHelpSeq=0;
+function addFieldHelp(label,text,placeTip){
+  const btn=document.createElement('button');
+  btn.type='button';
+  btn.className='fh';
+  btn.textContent='i';
+  btn.title=text;
+  btn.setAttribute('aria-label','What is this?');
+  btn.setAttribute('aria-expanded','false');
+  const tipId='fh-tip-'+(++fieldHelpSeq);
+  btn.setAttribute('aria-controls',tipId);
+  btn.addEventListener('click',e=>{
+    e.preventDefault();e.stopPropagation();
+    const open=btn.getAttribute('aria-expanded')==='true';
+    closeFieldHelp(btn);
+    if(open){
+      btn.setAttribute('aria-expanded','false');
+      const tip=document.getElementById(tipId);
+      if(tip)tip.remove();
+      return;
+    }
+    const tip=document.createElement('p');
+    tip.className='fh-tip';
+    tip.id=tipId;
+    tip.textContent=text;
+    placeTip(tip);
+    btn.setAttribute('aria-expanded','true');
+  });
+  label.appendChild(btn);
+}
+function initFieldHelp(){
+  Object.keys(FIELD_HELP).forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    const f=el.closest('.f');
+    if(f){
+      const label=f.querySelector(':scope > label');
+      if(label)addFieldHelp(label,FIELD_HELP[id],tip=>label.insertAdjacentElement('afterend',tip));
+      return;
+    }
+    const row=el.closest('.tr');
+    if(row){
+      const label=row.querySelector('label');
+      if(label)addFieldHelp(label,FIELD_HELP[id],tip=>row.insertAdjacentElement('afterend',tip));
+    }
+  });
+  const headerRow=document.querySelector('#panel-hmo .rg');
+  if(headerRow){
+    headerRow.querySelectorAll('span').forEach(span=>{
+      const text=ROOM_HEADER_HELP[span.textContent.trim()];
+      if(text)addFieldHelp(span,text,tip=>headerRow.insertAdjacentElement('afterend',tip));
+    });
+  }
+}
 
 // ---------------------------------------------------------------------
 // "Re-run with this refurb cost" handoff from the Deal Workspace
@@ -1520,9 +1988,9 @@ async function autoSaveRerun(){
     });
     switchTab(strategy);
 
-    const calcFn={brrr:cBTL,btl:cBTL,hmo:cHMO,sa:cSA,flip:cFlip}[strategy];
-    if(!calcFn)throw new Error('Unknown strategy.');
-    calcFn();
+    const calcStrategy={brrr:'btl',btl:'btl',hmo:'hmo',sa:'sa',flip:'flip'}[strategy];
+    if(!calcStrategy)throw new Error('Unknown strategy.');
+    refreshStrategy(calcStrategy,'now');
 
     if(!currentSession)throw new Error('Log in to save this deal.');
 
@@ -1582,6 +2050,7 @@ function currentIndexDraftState(){
   });
   return {
     activeTab: currentTab,
+    lastStrategyTab,
     fields,
     refi,
     comps:{
@@ -1668,18 +2137,64 @@ function restoreIndexDraft(){
   }catch(e){ /* comps restore failed — leave that panel at its blank default */ }
 
   try{
+    if(d.lastStrategyTab&&d.lastStrategyTab!=='comps')switchTab(d.lastStrategyTab);
     if(d.activeTab)switchTab(d.activeTab);
   }catch(e){ /* stay on the default tab */ }
 }
 
-function clearIndexDraft(){
-  clearDraft('index');
-  clearScrollPosition('index');
-  location.reload();
+// ---------------------------------------------------------------------
+// "Reset to my defaults" and "Clear all" (top right of the calculator).
+// Both cover every strategy tab. Neither touches saved deals or saved
+// defaults, only what's typed on this page.
+// ---------------------------------------------------------------------
+const ALL_CALC_INPUT_IDS=Object.values(DRAFT_FIELD_IDS).flat();
+let calcActionsMsgTimer=null;
+function flashCalcActionsMsg(text){
+  const el=document.getElementById('calc-actions-msg');
+  if(!el)return;
+  el.textContent=text;
+  clearTimeout(calcActionsMsgTimer);
+  calcActionsMsgTimer=setTimeout(()=>{el.textContent='';},3500);
+}
+function resetCalcExtras(){
+  Object.values(REFI_TYPE_IDS).forEach(id=>setDDValue(id,'io',REFI_TYPE_LABELS.io));
+  Object.values(ackedWarnings).forEach(set=>set.clear());
+  ALL_CALC_INPUT_IDS.forEach(id=>showFieldError(id,null));
+  closeFieldHelp();
 }
 
-// Calculation is button-driven, not live. These just control WHEN cBTL()/cHMO()/cSA()/cFlip()
-// (unchanged, in calc-engine.js) run, and toggle the "stale results" notice — no maths here.
+// The page's built-in starting figures, with the user's saved defaults
+// (Settings / "Save as my defaults") applied on top, same as a fresh visit.
+async function resetToMyDefaults(){
+  ALL_CALC_INPUT_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.value=el.defaultValue;});
+  resetCalcExtras();
+  if(currentSession)await loadDefaults();
+  formatAllMoneyFields();
+  refreshAll('now');
+  saveIndexDraft();
+  flashCalcActionsMsg(currentSession?'Reset to your defaults.':'Reset.');
+}
+
+// Every field empty, on every tab, plus the Comps search.
+function clearAllFields(){
+  ALL_CALC_INPUT_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  resetCalcExtras();
+  document.getElementById('cp-postcode').value='';
+  document.getElementById('cp-floor-area').value='';
+  document.querySelectorAll('input[name="cp-tier"]').forEach(r=>{r.checked=false;});
+  ['comps-msg','cp-apply-msg','cp-median-msg'].forEach(id=>{const el=document.getElementById(id);if(el){el.textContent='';el.className='save-msg';}});
+  lastCompsResult=null;lastCrimeResult=null;lastPlanningResult=null;lastEmploymentResult=null;
+  resetCompsDisplay();
+  renderCrimeResult(null);renderPlanningResult(null);renderEmploymentResult(null);
+  renderGDVTiers();
+  refreshAll('now');
+  saveIndexDraft();
+  flashCalcActionsMsg('All fields cleared.');
+}
+
+// Results update live as the user types (debounced, see scheduleRecalc()
+// below). These flags just record that a strategy has results showing, for
+// the AI Full Analysis button. No maths here.
 let btlAnalysed=false, hmoAnalysed=false, saAnalysed=false, flipAnalysed=false;
 
 // BRRR headline figures. Display only: reads the values cBTL() (calc-
@@ -1694,8 +2209,14 @@ function renderBRRRHeadline(){
   set('bh-out',d.brrrLoan);
   set('bh-cf',d.bbNm);
 }
-const _cBTLEngine=cBTL;
-cBTL=function(){ _cBTLEngine(); renderBRRRHeadline(); };
+// Wrapped so the display tidy-ups (afterCalcDisplay) run after every
+// calculation, wherever it's triggered from. The engine functions
+// themselves are called unchanged.
+const _cBTLEngine=cBTL, _cHMOEngine=cHMO, _cSAEngine=cSA, _cFlipEngine=cFlip;
+cBTL=function(){ _cBTLEngine(); renderBRRRHeadline(); afterCalcDisplay('btl'); };
+cHMO=function(){ _cHMOEngine(); afterCalcDisplay('hmo'); };
+cSA=function(){ _cSAEngine(); afterCalcDisplay('sa'); };
+cFlip=function(){ _cFlipEngine(); afterCalcDisplay('flip'); };
 
 // Remembers (this device only) when a deal was last analysed, for Home's
 // "First deal analysed" milestone and "Analyse your next deal" nudge.
@@ -1719,17 +2240,46 @@ function noteAnalysed(){
   fetch(API_BASE+'/api/profile/progress',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},body:JSON.stringify(body)}).catch(function(){});
 }
 
-function runBTL(){ cBTL(); noteAnalysed(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; saveIndexDraft(); }
-function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; checkValueWarningBTL(); saveIndexDraft(); }
+// Live recalculation. Typing in any field (the oninput="markStaleX()"
+// handlers in the markup) saves the draft straight away and recalculates
+// 300ms after the last keystroke. A new sanity warning waits a little
+// longer before it hides the results, so a figure that passes through a
+// "wrong" value while being typed (e.g. 2, 20, 200,000) doesn't flash a
+// warning on every keystroke. Out-of-range values are flagged straight away.
+const CALC_FNS={btl:()=>cBTL(),hmo:()=>cHMO(),sa:()=>cSA(),flip:()=>cFlip()};
+const RECALC_DELAY_MS=300, WARNING_DELAY_MS=700;
+const recalcTimers={}, warningTimers={};
 
-function runHMO(){ cHMO(); noteAnalysed(); hmoAnalysed=true; document.getElementById('hmo-stale').style.display='none'; saveIndexDraft(); }
-function markStaleHMO(){ if(hmoAnalysed) document.getElementById('hmo-stale').style.display='block'; checkValueWarningHMO(); saveIndexDraft(); }
+function setAnalysedFlag(s,v){
+  if(s==='btl')btlAnalysed=v;else if(s==='hmo')hmoAnalysed=v;else if(s==='sa')saAnalysed=v;else flipAnalysed=v;
+}
 
-function runSA(){ cSA(); noteAnalysed(); saAnalysed=true; document.getElementById('sa-stale').style.display='none'; saveIndexDraft(); }
-function markStaleSA(){ if(saAnalysed) document.getElementById('sa-stale').style.display='block'; checkValueWarningSA(); saveIndexDraft(); }
+// mode 'now': page load, restore, reset. mode 'typing': the user is editing.
+function refreshStrategy(s,mode){
+  CALC_FNS[s]();
+  const state=evaluateStrategy(s);
+  const hold=document.getElementById(STRATEGY_PREFIX[s]+'-hold');
+  const warnShowing=hold&&hold.classList.contains('warn');
+  const deferWarnings=mode==='typing'&&!warnShowing&&!state.invalid.length&&!state.missing.length&&pendingWarnings(s,state).length>0;
+  const clean=applyHold(s,state,!deferWarnings);
+  clearTimeout(warningTimers[s]);
+  if(deferWarnings)warningTimers[s]=setTimeout(()=>refreshStrategy(s,'now'),WARNING_DELAY_MS);
+  const usable=!state.invalid.length&&!state.missing.length;
+  setAnalysedFlag(s,usable);
+  if(mode==='typing'&&clean&&!deferWarnings)noteAnalysed();
+  fitNumbers();
+}
+function refreshAll(mode){['btl','hmo','sa','flip'].forEach(s=>refreshStrategy(s,mode));}
 
-function runFlip(){ cFlip(); noteAnalysed(); flipAnalysed=true; document.getElementById('flip-stale').style.display='none'; saveIndexDraft(); }
-function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale').style.display='block'; checkValueWarningFlip(); saveIndexDraft(); }
+function scheduleRecalc(s){
+  clearTimeout(recalcTimers[s]);
+  recalcTimers[s]=setTimeout(()=>refreshStrategy(s,'typing'),RECALC_DELAY_MS);
+}
+
+function markStaleBTL(){ saveIndexDraft(); scheduleRecalc('btl'); }
+function markStaleHMO(){ saveIndexDraft(); scheduleRecalc('hmo'); }
+function markStaleSA(){ saveIndexDraft(); scheduleRecalc('sa'); }
+function markStaleFlip(){ saveIndexDraft(); scheduleRecalc('flip'); }
 
 let lastCompsResult=null, lastCrimeResult=null, lastPlanningResult=null, lastEmploymentResult=null;
 const GDV_THIN_EVIDENCE_THRESHOLD=8;
@@ -2034,11 +2584,56 @@ function renderCompsResult(d){
   confEl.textContent = confLabel+' ('+d.count+' comp'+(d.count===1?'':'s')+')';
   confEl.className = d.confidence==='high'?'verdict-yes':(d.confidence==='low'?'verdict-no':'');
   document.getElementById('cp-count-note').textContent = d.count+' comparable sale'+(d.count===1?'':'s')+' in the last 12 months, within 0.5 miles.';
+  setCompsVisible(true);
+  updateMedianButton();
 }
 
-function resetCompsDisplay(){
+const CP_EMPTY_TEXT='Enter a postcode to see recent sold prices nearby.';
+function setCompsVisible(show,emptyText){
+  document.getElementById('cp-results').hidden=!show;
+  const empty=document.getElementById('cp-empty');
+  empty.hidden=show;
+  empty.textContent=emptyText||CP_EMPTY_TEXT;
+  if(show)fitNumbers();
+}
+
+// "Use median as end value": fills the end value on whichever calculator
+// tab the user was on before opening Comps.
+const MEDIAN_TARGETS={
+  brrr:{field:'b-emv',strategy:'btl',tab:'BRRR',label:'End market value'},
+  btl:{field:'b-emv',strategy:'btl',tab:'BTL',label:'End market value'},
+  hmo:{field:'h-emv',strategy:'hmo',tab:'HMO',label:'End market value'},
+  sa:{field:'sa-emv',strategy:'sa',tab:'SA',label:'End market value'},
+  flip:{field:'fl-sv',strategy:'flip',tab:'Flip',label:'Sale value'}
+};
+function updateMedianButton(){
+  const btn=document.getElementById('btn-use-median');
+  const msg=document.getElementById('cp-median-msg');
+  if(!btn||!msg)return;
+  const t=MEDIAN_TARGETS[lastStrategyTab]||MEDIAN_TARGETS.brrr;
+  const median=lastCompsResult&&lastCompsResult.medianPrice;
+  btn.textContent=t.strategy==='flip'?'Use median as sale value':'Use median as end value';
+  btn.disabled=median==null;
+  msg.className='save-msg';
+  msg.textContent=median==null?'':'Goes into '+t.label+' on the '+t.tab+' tab.';
+}
+function useMedianAsEndValue(){
+  const median=lastCompsResult&&lastCompsResult.medianPrice;
+  if(median==null)return;
+  const t=MEDIAN_TARGETS[lastStrategyTab]||MEDIAN_TARGETS.brrr;
+  const value=Math.round(median);
+  document.getElementById(t.field).value=formatMoneyString(String(value));
+  switchTab(lastStrategyTab in MEDIAN_TARGETS?lastStrategyTab:'brrr');
+  refreshStrategy(t.strategy,'now');
+  saveIndexDraft();
+  flashCalcActionsMsg('Median £'+value.toLocaleString()+' added as '+t.label.toLowerCase()+'.');
+}
+
+function resetCompsDisplay(emptyText){
   ['cp-median','cp-range','cp-psqm','cp-n','cp-dates','cp-confidence'].forEach(id=>document.getElementById(id).textContent='—');
   document.getElementById('cp-count-note').textContent='';
+  setCompsVisible(false,emptyText);
+  updateMedianButton();
 }
 
 async function runComps(){
@@ -2066,6 +2661,7 @@ async function runComps(){
   fetchEmployment(postcode);
 
   btn.disabled=true;btn.textContent='Searching…';
+  setCompsVisible(false,'Searching for sold prices near '+postcode.toUpperCase()+'…');
 
   try{
     const res=await fetch(API_BASE+'/api/comps',{
@@ -2083,6 +2679,7 @@ async function runComps(){
     saveIndexDraft();
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';
+    setCompsVisible(false);
   }
 
   btn.disabled=false;btn.textContent='Find comparables';
@@ -2149,7 +2746,7 @@ function applyGDV(){
   const targetKey=getDDValue('cp-apply-target');
   const target=GDV_APPLY_TARGETS[targetKey];
 
-  document.getElementById(target.field).value=gdv;
+  document.getElementById(target.field).value=formatMoneyString(String(gdv));
   target.markStale();
   // BTL's end value also feeds the BRRR tab (same panel); BRRR leads.
   switchTab(targetKey==='btl'?'brrr':targetKey);
@@ -2176,7 +2773,7 @@ async function analyse(type){
   if(!analysedFlag){
     wrap.style.display='block';
     body.className='ai-body';
-    body.textContent='Press "Analyse deal" first so there are results to analyse.';
+    body.textContent='Fill in the deal details above first so there are results to analyse.';
     return;
   }
 
@@ -2429,6 +3026,7 @@ async function initAuth(){
   sbClient=auth.client;
   currentSession=auth.session;
   document.getElementById('app').style.display='block';
+  fitNumbers();
   updateAuthUI();
   if(currentSession)await loadDefaults();
   checkUpgradeReturn();
@@ -2752,7 +3350,6 @@ async function loadDefaults(){
     // from.
     if(d.default_refurb_contingency_pct!=null){
       document.getElementById('fl-cont').value=d.default_refurb_contingency_pct;
-      cFlip();
     }
     // default_mortgage_type is a display preference only (which results
     // tab opens first) — never changes what's calculated, all three modes
@@ -2768,18 +3365,21 @@ async function loadDefaults(){
       }
     }
 
-    cBTL();cHMO();cSA();
     formatAllMoneyFields();
-    checkValueWarningBTL();checkValueWarningHMO();checkValueWarningSA();
+    refreshAll('now');
   }catch(e){
     // fail silently — calculator keeps its built-in default values
   }
 }
 
+initPlaceholders();
+initFieldHelp();
+document.addEventListener('click',e=>{if(!e.target.closest('.fh,.fh-tip'))closeFieldHelp();});
+document.querySelectorAll('details').forEach(d=>d.addEventListener('toggle',fitNumbers));
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitNumbers);
 if(!applyRerunPayload())restoreIndexDraft();
-cBTL();cHMO();cSA();cFlip();
 initMoneyFields();
-checkValueWarningBTL();checkValueWarningHMO();checkValueWarningSA();checkValueWarningFlip();
+refreshAll('now');
 // Scroll restore waits for initAuth() to fully settle (it can re-render
 // via loadDefaults(), which would otherwise shift the page after we'd
 // already scrolled) — .finally() so it still happens even if auth itself
