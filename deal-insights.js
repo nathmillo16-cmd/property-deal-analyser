@@ -29,13 +29,31 @@
 
   // Runs the real engine for one strategy with some inputs replaced.
   // overrides: { inputId: value }. Returns that strategy's data object.
+  // When a "Make it realistic" cost (bridge, holding costs) is switched on,
+  // deal-realistic.js adds it here too, so every what-if figure matches the
+  // main results. With every toggle off this changes nothing.
   function runEngine(strategy, overrides) {
     overrides = overrides || {};
+    if (window.DealRealistic) overrides = window.DealRealistic.engineOverrides(strategy, overrides);
     var fakeDoc = {
       getElementById: function (id) {
         if (Object.prototype.hasOwnProperty.call(overrides, id)) return stub(overrides[id]);
         var real = document.getElementById(id);
         return real ? stub(real.value) : null;
+      }
+    };
+    var dd = function (id) { return typeof window.getDDValue === 'function' ? window.getDDValue(id) : null; };
+    return factory(fakeDoc, dd)(strategy);
+  }
+
+  // Same engine, but its output goes to the real page (only the inputs in
+  // `overrides` are swapped). Used for the main results when a "Make it
+  // realistic" cost is switched on.
+  function runEngineOnPage(strategy, overrides) {
+    var fakeDoc = {
+      getElementById: function (id) {
+        if (Object.prototype.hasOwnProperty.call(overrides, id)) return stub(overrides[id]);
+        return document.getElementById(id);
       }
     };
     var dd = function (id) { return typeof window.getDDValue === 'function' ? window.getDDValue(id) : null; };
@@ -187,13 +205,14 @@
     var box = document.getElementById(PREFIX[st] + '-insights');
     if (!box) return;
     var d = dataOf(st) || {};
-    if (!(d.pp > 0)) { box.innerHTML = ''; clearStress(st); lastSummary[st] = null; if (window.DealPlanning) DealPlanning.clear(st); scheduleSticky(); return; }
+    if (!(d.pp > 0)) { box.innerHTML = ''; clearStress(st); lastSummary[st] = null; if (window.DealPlanning) DealPlanning.clear(st); if (window.DealRealistic) DealRealistic.clear(st); scheduleSticky(); return; }
 
     if (st === 'flip') {
       var fv = flipVerdict(d);
       box.innerHTML = verdictHtml(fv, null);
       lastSummary.flip = { level: fv.level, label: fv.label, nums: [
         { l: 'Profit', v: money(d.profit) }, { l: 'ROI', v: pct(d.roi) }, { l: 'Margin', v: pct(d.margin) }] };
+      if (window.DealRealistic) DealRealistic.render('flip');
       scheduleSticky();
       return;
     }
@@ -218,6 +237,7 @@
 
     renderStress(st, mode, d, m);
     if (window.DealPlanning) DealPlanning.render(st);
+    if (window.DealRealistic) DealRealistic.render(st);
     scheduleSticky();
   }
 
@@ -394,6 +414,7 @@
     MODE_LABEL: MODE_LABEL,
     updateSticky: scheduleSticky,
     runEngine: runEngine,
+    runEngineOnPage: runEngineOnPage,
     brrrMoneyOutBid: function (st) { return brrrMoneyOutBid(st, dataOf(st)); },
     stressFigures: function (st) { return runEngine(st, stressOverrides(st, dataOf(st))); }
   };

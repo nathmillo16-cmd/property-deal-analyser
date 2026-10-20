@@ -67,7 +67,10 @@ function buildRerunFields(deal, newRef){
   // A BRRR deal (deal_type 'btl', deal_data.strategy 'brrr') reopens on the
   // calculator's BRRR tab. Its fields are BTL's, refinance LTV/type included.
   const strategy=(type==='btl'&&d.strategy==='brrr')?'brrr':type;
-  return {strategy,fields,roomsFellBack,dealId:deal.id};
+  // Lender, refinance, projection, bridge, holding and tax inputs saved
+  // with the deal (deal_data.planning). Older deals have none: the
+  // calculator then uses the defaults.
+  return {strategy,fields,roomsFellBack,dealId:deal.id,planning:d.planning||null};
 }
 
 function goToRerun(deal, newRef){

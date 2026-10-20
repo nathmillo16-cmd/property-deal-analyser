@@ -214,6 +214,8 @@
     return moneyVal('sa-rate') > 0 && (+($('sa-occ') || {}).value || 0) > 0 && changedFromSample(['sa-rate', 'sa-occ']);
   }
 
+  function isOnToggle(id) { var b = $(id); return !!b && b.getAttribute('aria-checked') === 'true'; }
+
   var LEVEL_RANK = { good: 3, warn: 2, bad: 1 };
 
   function renderCompare(st) {
@@ -233,11 +235,14 @@
       return o ? DI.runEngine(target, o) : DI.dataOf(target);
     };
 
-    var btl = dataFor('btl');
+    // BTL and BRRR come from the same engine run, except that a switched-on
+    // bridge only belongs in the BRRR column.
+    var btlRun = function (bridge) { return DI.runEngine('btl', Object.assign({}, overridesFor('btl') || {}, { __bridge: bridge })); };
+    var btl = btlRun(false), brrr = btlRun(true);
     var cols = [];
     var btlFilled = btl.rent > 0;
     cols.push({ key: 'btl', label: 'BTL', sub: DI.MODE_LABEL[mode], st: 'btl', mode: mode, d: btl, filled: btlFilled, missing: 'Add monthly rent to compare' });
-    cols.push({ key: 'brrr', label: 'BRRR', sub: 'Refinanced', st: 'btl', mode: 'brrr', d: btl, filled: btlFilled, missing: 'Add monthly rent to compare' });
+    cols.push({ key: 'brrr', label: 'BRRR', sub: 'Refinanced', st: 'btl', mode: 'brrr', d: brrr, filled: btlFilled, missing: 'Add monthly rent to compare' });
     var hmoOk = st === 'hmo' || hmoRentsFilled();
     cols.push({ key: 'hmo', label: 'HMO', sub: DI.MODE_LABEL[mode], st: 'hmo', mode: mode, d: hmoOk ? dataFor('hmo') : null, filled: hmoOk, missing: 'Add room rents to compare' });
     var saOk = st === 'sa' || saRentsFilled();
@@ -285,7 +290,8 @@
 
     body.innerHTML =
       '<div class="di-table-wrap"><table class="di-table cmp-table"><thead>' + head + '</thead><tbody>' + bodyRows + '</tbody></table></div>' +
-      '<p class="hint">Every column uses this deal\'s purchase price, end value and refurb. Rents, running costs and targets come from each strategy\'s own tab, and each verdict uses that strategy\'s targets. The best figure on each row is highlighted.</p>';
+      '<p class="hint">Every column uses this deal\'s purchase price, end value and refurb. Rents, running costs and targets come from each strategy\'s own tab, and each verdict uses that strategy\'s targets. The best figure on each row is highlighted.</p>' +
+      (window.DealRealistic && (DealRealistic.bridgeOn() || isOnToggle('b-hc-on')) ? '<p class="hint">Bridge and holding costs, when switched on, are included in the BTL and BRRR columns only.</p>' : '');
 
     var sum = '';
     if (live.length >= 2) {
@@ -516,7 +522,13 @@
     if (typeof markStaleBTL === 'function') markStaleBTL();
   };
 
-  function onProjInput(st) { renderProjection(st); save(); }
+  function onProjInput(st) {
+    renderProjection(st);
+    // Keep the copy saved with the deal current.
+    var d = DI.dataOf(st);
+    if (d && window.DealRealistic) d.planning = window.DealRealistic.getDealState(st);
+    save();
+  }
   function toggleCosts(st) {
     var b = $(PREFIX[st] + '-pj-costs');
     if (!b) return;

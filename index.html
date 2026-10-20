@@ -27,6 +27,7 @@
 <script src="/deal-insights.js"></script>
 <script src="/deal-assumptions.js"></script>
 <script src="/deal-planning.js"></script>
+<script src="/deal-realistic.js"></script>
 <script src="/results-disclaimer.js"></script>
 <style>
 /* Page-specific layout only — colours/fonts/radius all come from styles.css (Underwriter). */
@@ -547,6 +548,53 @@ body.theme-light .dd-trigger::after{
         </div>
         <p class="hint">Used for the lender check in the results. Rent cover resets when you change ownership type.</p>
         </details>
+        <details class="adv real">
+          <summary>Make it realistic <span class="real-sum" id="b-real-sum">all off</span></summary>
+          <p class="hint" style="margin:0 0 .6rem">Optional extras, all off unless you switch them on. Bridge and holding costs are added to total investment and money left in.</p>
+          <div class="rz brrr-only">
+            <button type="button" class="pj-switch" id="b-br-on" role="switch" aria-checked="false" onclick="DealRealistic.toggle('b-br-on')"><span class="sw" aria-hidden="true"></span><span>Bought with a bridge</span></button>
+            <div class="rz-body" id="b-br-on-body" hidden>
+              <div class="g2">
+                <div class="f"><label>Bridge LTV % (of purchase price)</label><input type="number" id="b-br-ltv" step="1" oninput="markStaleBTL()"/></div>
+                <div class="f"><label>Monthly interest %</label><input type="number" id="b-br-rate" step="0.01" oninput="markStaleBTL()"/></div>
+                <div class="f"><label>Arrangement fee %</label><input type="number" id="b-br-arr" step="0.1" oninput="markStaleBTL()"/></div>
+                <div class="f"><label>Exit fee %</label><input type="number" id="b-br-exit" step="0.1" oninput="markStaleBTL()"/></div>
+                <div class="f"><label>Months held</label><input type="number" id="b-br-months" oninput="markStaleBTL()"/></div>
+              </div>
+              <p class="rz-out" id="b-br-out"></p>
+            </div>
+          </div>
+          <div class="rz">
+            <button type="button" class="pj-switch" id="b-hc-on" role="switch" aria-checked="false" onclick="DealRealistic.toggle('b-hc-on')"><span class="sw" aria-hidden="true"></span><span>Include holding costs</span></button>
+            <div class="rz-body" id="b-hc-on-body" hidden>
+              <div class="g2">
+                <div class="f"><label>Months empty</label><input type="number" id="b-hc-months" oninput="markStaleBTL()"/></div>
+                <div class="f"><label>Monthly holding cost (£)</label><input type="text" inputmode="decimal" id="b-hc-cost" oninput="markStaleBTL()"/></div>
+              </div>
+              <p class="rz-out" id="b-hc-out"></p>
+            </div>
+          </div>
+          <div class="rz">
+            <button type="button" class="pj-switch" id="b-tax-on" role="switch" aria-checked="false" onclick="DealRealistic.toggle('b-tax-on')"><span class="sw" aria-hidden="true"></span><span>Show after-tax</span></button>
+            <div class="rz-body" id="b-tax-on-body" hidden>
+              <div class="g2">
+                <div class="f"><label>Your income tax band</label>
+                  <div class="dd" id="b-tax-band" data-value="basic" data-onchange="onTaxBandChange">
+                    <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'b-tax-band')" onkeydown="ddKeydown(event,'b-tax-band')">
+                      <span>Basic rate, 20%</span>
+                    </button>
+                    <ul class="dd-list" role="listbox">
+                      <li class="dd-opt selected" role="option" aria-selected="true" data-value="basic" onclick="selectDDOption(event,'b-tax-band','basic','Basic rate, 20%')">Basic rate, 20%</li>
+                      <li class="dd-opt" role="option" aria-selected="false" data-value="higher" onclick="selectDDOption(event,'b-tax-band','higher','Higher rate, 40%')">Higher rate, 40%</li>
+                      <li class="dd-opt" role="option" aria-selected="false" data-value="additional" onclick="selectDDOption(event,'b-tax-band','additional','Additional rate, 45%')">Additional rate, 45%</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <p class="rz-out">Compares owning personally with a limited company. Results in the After-tax section.</p>
+            </div>
+          </div>
+        </details>
         <button class="save-btn" onclick="saveDefaults('btl')" id="btn-save-defaults-btl">Save as my defaults</button>
         <p class="save-msg" id="btl-defaults-msg"></p>
       </div>
@@ -635,6 +683,7 @@ body.theme-light .dd-trigger::after{
           </div>
           <p class="hint">Refinance rate and term reuse the mortgage rate and term under Advanced. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
         </div>
+        <div class="xc-break" id="b-xc"></div>
         <div id="b-sn" class="sn"></div>
         <p class="sn-note">England and NI rates. Scotland and Wales use different taxes.</p>
         <p class="sl section-gap">Recommended offer prices</p>
@@ -653,6 +702,7 @@ body.theme-light .dd-trigger::after{
             </div>
             <div id="b-proj"></div>
           </div></details>
+          <details class="rsec" id="b-sec-tax" hidden><summary><span class="rsec-t">After-tax</span><span class="rsec-s" id="b-sec-tax-sum"></span></summary><div class="rsec-body" id="b-tax"></div></details>
         </div>
         <p class="results-disclaimer"></p>
         <div class="result-actions">
@@ -686,10 +736,10 @@ body.theme-light .dd-trigger::after{
         </div>
         <p class="sl section-gap">Room breakdown</p>
         <div class="rg"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
-        <div class="rg"><span>Single</span><input type="text" inputmode="decimal" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r1t">£0</span></div>
-        <div class="rg"><span>Double</span><input type="text" inputmode="decimal" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="rt" id="h-r2t">£0</span></div>
-        <div class="rg"><span>Single en suite</span><input type="text" inputmode="decimal" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r3t">£0</span></div>
-        <div class="rg"><span>Double en suite</span><input type="text" inputmode="decimal" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="rt" id="h-r4t">£0</span></div>
+        <div class="rg"><span>Single</span><input type="text" inputmode="decimal" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="rz" id="h-r1t">£0</span></div>
+        <div class="rg"><span>Double</span><input type="text" inputmode="decimal" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="rz" id="h-r2t">£0</span></div>
+        <div class="rg"><span>Single en suite</span><input type="text" inputmode="decimal" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="rz" id="h-r3t">£0</span></div>
+        <div class="rg"><span>Double en suite</span><input type="text" inputmode="decimal" id="h-r4p" value="675" oninput="markStaleHMO()"/><input type="number" id="h-r4n" value="0" oninput="markStaleHMO()"/><span class="rz" id="h-r4t">£0</span></div>
         <div class="trow">Total rent: <span id="h-tr">£0</span>/mo &nbsp;·&nbsp; Bills (10%): <span id="h-bills">£0</span>/mo</div>
         <details class="adv">
           <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
@@ -710,6 +760,30 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
+        </details>
+        <details class="adv real">
+          <summary>Make it realistic <span class="real-sum" id="h-real-sum">all off</span></summary>
+          <p class="hint" style="margin:0 0 .6rem">Optional extras, off unless you switch them on.</p>
+          <div class="rz">
+            <button type="button" class="pj-switch" id="h-tax-on" role="switch" aria-checked="false" onclick="DealRealistic.toggle('h-tax-on')"><span class="sw" aria-hidden="true"></span><span>Show after-tax</span></button>
+            <div class="rz-body" id="h-tax-on-body" hidden>
+              <div class="g2">
+                <div class="f"><label>Your income tax band</label>
+                  <div class="dd" id="h-tax-band" data-value="basic" data-onchange="onTaxBandChange">
+                    <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'h-tax-band')" onkeydown="ddKeydown(event,'h-tax-band')">
+                      <span>Basic rate, 20%</span>
+                    </button>
+                    <ul class="dd-list" role="listbox">
+                      <li class="dd-opt selected" role="option" aria-selected="true" data-value="basic" onclick="selectDDOption(event,'h-tax-band','basic','Basic rate, 20%')">Basic rate, 20%</li>
+                      <li class="dd-opt" role="option" aria-selected="false" data-value="higher" onclick="selectDDOption(event,'h-tax-band','higher','Higher rate, 40%')">Higher rate, 40%</li>
+                      <li class="dd-opt" role="option" aria-selected="false" data-value="additional" onclick="selectDDOption(event,'h-tax-band','additional','Additional rate, 45%')">Additional rate, 45%</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <p class="rz-out">Compares owning personally with a limited company. Results in the After-tax section.</p>
+            </div>
+          </div>
         </details>
         <button class="save-btn" onclick="saveDefaults('hmo')" id="btn-save-defaults-hmo">Save as my defaults</button>
         <p class="save-msg" id="hmo-defaults-msg"></p>
@@ -822,6 +896,7 @@ body.theme-light .dd-trigger::after{
             </div>
             <div id="h-proj"></div>
           </div></details>
+          <details class="rsec" id="h-sec-tax" hidden><summary><span class="rsec-t">After-tax</span><span class="rsec-s" id="h-sec-tax-sum"></span></summary><div class="rsec-body" id="h-tax"></div></details>
         </div>
         <p class="results-disclaimer"></p>
         <div class="result-actions">
@@ -883,6 +958,30 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
+        </details>
+        <details class="adv real">
+          <summary>Make it realistic <span class="real-sum" id="sa-real-sum">all off</span></summary>
+          <p class="hint" style="margin:0 0 .6rem">Optional extras, off unless you switch them on.</p>
+          <div class="rz">
+            <button type="button" class="pj-switch" id="sa-tax-on" role="switch" aria-checked="false" onclick="DealRealistic.toggle('sa-tax-on')"><span class="sw" aria-hidden="true"></span><span>Show after-tax</span></button>
+            <div class="rz-body" id="sa-tax-on-body" hidden>
+              <div class="g2">
+                <div class="f"><label>Your income tax band</label>
+                  <div class="dd" id="sa-tax-band" data-value="basic" data-onchange="onTaxBandChange">
+                    <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'sa-tax-band')" onkeydown="ddKeydown(event,'sa-tax-band')">
+                      <span>Basic rate, 20%</span>
+                    </button>
+                    <ul class="dd-list" role="listbox">
+                      <li class="dd-opt selected" role="option" aria-selected="true" data-value="basic" onclick="selectDDOption(event,'sa-tax-band','basic','Basic rate, 20%')">Basic rate, 20%</li>
+                      <li class="dd-opt" role="option" aria-selected="false" data-value="higher" onclick="selectDDOption(event,'sa-tax-band','higher','Higher rate, 40%')">Higher rate, 40%</li>
+                      <li class="dd-opt" role="option" aria-selected="false" data-value="additional" onclick="selectDDOption(event,'sa-tax-band','additional','Additional rate, 45%')">Additional rate, 45%</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <p class="rz-out">Compares owning personally with a limited company. Results in the After-tax section.</p>
+            </div>
+          </div>
         </details>
         <button class="save-btn" onclick="saveDefaults('sa')" id="btn-save-defaults-sa">Save as my defaults</button>
         <p class="save-msg" id="sa-defaults-msg"></p>
@@ -999,6 +1098,7 @@ body.theme-light .dd-trigger::after{
             </div>
             <div id="sa-proj"></div>
           </div></details>
+          <details class="rsec" id="sa-sec-tax" hidden><summary><span class="rsec-t">After-tax</span><span class="rsec-s" id="sa-sec-tax-sum"></span></summary><div class="rsec-body" id="sa-tax"></div></details>
         </div>
         <p class="results-disclaimer"></p>
         <div class="result-actions">
@@ -1040,6 +1140,20 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Target</p>
         <div class="tr"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
         </details>
+        <details class="adv real">
+          <summary>Make it realistic <span class="real-sum" id="fl-real-sum">all off</span></summary>
+          <p class="hint" style="margin:0 0 .6rem">Optional extras, off unless you switch them on. Holding costs are added to total cash invested and taken off profit.</p>
+          <div class="rz">
+            <button type="button" class="pj-switch" id="fl-hc-on" role="switch" aria-checked="false" onclick="DealRealistic.toggle('fl-hc-on')"><span class="sw" aria-hidden="true"></span><span>Include holding costs</span></button>
+            <div class="rz-body" id="fl-hc-on-body" hidden>
+              <div class="g2">
+                <div class="f"><label>Months empty</label><input type="number" id="fl-hc-months" oninput="markStaleFlip()"/></div>
+                <div class="f"><label>Monthly holding cost (£)</label><input type="text" inputmode="decimal" id="fl-hc-cost" oninput="markStaleFlip()"/></div>
+              </div>
+              <p class="rz-out" id="fl-hc-out"></p>
+            </div>
+          </div>
+        </details>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
@@ -1054,6 +1168,7 @@ body.theme-light .dd-trigger::after{
           <div class="m" data-hide-zero><p class="ml">Agent fee amount</p><p class="mv" id="fl-agentout">—</p></div>
           <div class="m" data-hide-zero><p class="ml">Contingency amount</p><p class="mv" id="fl-contout">—</p></div>
         </div>
+        <div class="xc-break" id="fl-xc"></div>
         <div id="fl-sn" class="sn"></div>
         <p class="sn-note">England and NI rates. Scotland and Wales use different taxes.</p>
         <p class="sl section-gap">Recommended max bid</p>
@@ -1343,6 +1458,8 @@ function switchTab(t){
   document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['panel-btl','panel-hmo','panel-sa','panel-flip','panel-comps'][i]==='panel-'+panelFor));
   const btlPanel=document.getElementById('panel-btl');
   btlPanel.classList.toggle('brrr-mode',t==='brrr');
+  // A switched-on bridge only counts on the BRRR tab, so BTL's figures change with the tab.
+  if(window.DealRealistic&&DealRealistic.bridgeOn()&&wasBrrr!==(t==='brrr'))cBTL();
   const breakdown=document.getElementById('b-breakdown');
   if(t==='btl'){
     breakdown.open=true;
@@ -1380,10 +1497,10 @@ function switchFinTab(strategy,mode){
 // it. Never a substitute for Save deal / saved defaults.
 // ---------------------------------------------------------------------
 const DRAFT_FIELD_IDS={
-  btl:['b-pp','b-emv','b-rent','b-mr','b-term','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr','bb-refi-ltv','bb-refi-months','b-lc-stress','b-lc-cover'],
+  btl:['b-pp','b-emv','b-rent','b-mr','b-term','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr','bb-refi-ltv','bb-refi-months','b-lc-stress','b-lc-cover','b-br-ltv','b-br-rate','b-br-arr','b-br-exit','b-br-months','b-hc-months','b-hc-cost'],
   hmo:['h-pp','h-emv','h-mr','h-term','h-dp','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-maint','h-mgmt','h-r1p','h-r1n','h-r2p','h-r2n','h-r3p','h-r3n','h-r4p','h-r4n','h-ty','h-troi','hb-refi-ltv'],
   sa:['sa-rate','sa-occ','sa-pp','sa-emv','sa-mr','sa-term','sa-dp','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-mgmt','sa-util','sa-maint','sa-clean','sa-ins','sa-ct','sa-ty','sa-troi','sab-refi-ltv'],
-  flip:['fl-pp','fl-bf','fl-ref','fl-sv','fl-agent','fl-cont','fl-troi'],
+  flip:['fl-pp','fl-bf','fl-ref','fl-sv','fl-agent','fl-cont','fl-troi','fl-hc-months','fl-hc-cost'],
 };
 const CP_TYPE_LABELS={D:'Detached',S:'Semi',T:'Terraced',F:'Flat',O:'Other'};
 const REFI_TYPE_LABELS={io:'Interest-only',repay:'Repayment'};
@@ -1407,10 +1524,10 @@ const REFI_TYPE_IDS={btl:'bb-refi-type',hmo:'hb-refi-type',sa:'sab-refi-type'};
 // the numeric keypad on mobile.
 // ---------------------------------------------------------------------
 const MONEY_FIELD_IDS={
-  btl:['b-pp','b-emv','b-rent','b-ref','b-sol','b-mf','b-srch','b-ins'],
+  btl:['b-pp','b-emv','b-rent','b-ref','b-sol','b-mf','b-srch','b-ins','b-hc-cost'],
   hmo:['h-pp','h-emv','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-r1p','h-r2p','h-r3p','h-r4p'],
   sa:['sa-rate','sa-pp','sa-emv','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-clean','sa-ins','sa-ct'],
-  flip:['fl-pp','fl-bf','fl-ref','fl-sv'],
+  flip:['fl-pp','fl-bf','fl-ref','fl-sv','fl-hc-cost'],
 };
 const MONEY_FIELD_SET=new Set(Object.values(MONEY_FIELD_IDS).flat());
 
@@ -1550,6 +1667,10 @@ const RANGE_RULES=(function(){
   add(['b-lc-stress'],{min:0,minExclusive:true,max:20,msg:'Stress rate must be more than 0% and no more than 20%.'});
   add(['b-lc-cover'],{min:100,max:300,msg:'Rent cover must be between 100% and 300%.'});
   add(['bb-refi-months'],{min:0,max:60,integer:true,msg:'Enter a whole number of months, 0 to 60.'});
+  add(['b-br-ltv'],{min:0,max:100,msg:'Bridge LTV must be between 0 and 100%.'});
+  add(['b-br-rate'],{min:0,max:5,msg:'Monthly interest must be between 0 and 5%.'});
+  add(['b-br-arr','b-br-exit'],{min:0,max:10,msg:'Enter a fee between 0 and 10%.'});
+  add(['b-br-months','b-hc-months','fl-hc-months'],{min:0,max:36,integer:true,msg:'Enter a whole number of months, 0 to 36.'});
   add(['h-r1n','h-r2n','h-r3n','h-r4n'],{min:0,max:50,integer:true,msg:'Enter a whole number of rooms, 0 to 50.'});
   return r;
 })();
@@ -1840,6 +1961,15 @@ const FIELD_HELP={
   'b-lc-own':'Ownership type: who buys the property. Lenders ask higher rate taxpayers for more rent cover. Typical: limited company.',
   'b-lc-stress':'Stress rate: the interest rate a lender tests the rent against, usually higher than your actual rate. Typical: 5.5%.',
   'b-lc-cover':'Rent cover: how much the rent must exceed the stressed mortgage payment. Typical: 125%, or 145% for a higher rate taxpayer.',
+  'b-br-ltv':'Bridge LTV: how much of the purchase price the bridging lender lends. Typical: 70% to 75%.',
+  'b-br-rate':'Monthly interest: bridging loans charge interest by the month. Typical: 0.75% to 1%.',
+  'b-br-arr':'Arrangement fee: charged by the bridging lender, as a % of the loan. Typical: 2%.',
+  'b-br-exit':'Exit fee: some bridging lenders charge a % of the loan when you repay. Typical: 0% to 1%.',
+  'b-br-months':'Months held: how long the bridge runs before the refinance pays it off. Leave blank to use Months until refinance.',
+  'b-hc-months':'Months empty: how long the property sits empty during the refurb. Typical: 2 to 4 months.',
+  'b-hc-cost':'Monthly holding cost: council tax, insurance and utilities while it is empty. Typical: £200 to £300.',
+  'fl-hc-months':'Months empty: how long the property sits empty during the refurb and sale. Typical: 3 to 6 months.',
+  'fl-hc-cost':'Monthly holding cost: council tax, insurance and utilities while it is empty. Typical: £200 to £300.',
   'b-mr':'Mortgage rate: the yearly interest rate on the loan. Typical: 4% to 6%.',
   'b-term':'Mortgage term: how many years the loan runs for. Typical: 25 years.',
   'b-sol':'Solicitor fees: legal costs for the purchase. Typical: £1,200 to £2,000.',
@@ -2020,6 +2150,9 @@ function applyRerunPayload(){
         if(el)el.value=val;
       }
     });
+    // Lender, refinance, projection, bridge, holding and tax inputs saved
+    // with the deal. A deal saved before these existed gets the defaults.
+    if(window.DealRealistic)DealRealistic.applyDealState(payload.strategy,payload.planning||null);
     switchTab(payload.strategy);
   }catch(e){ /* a bad payload shouldn't block the page loading normally */ }
 
@@ -2063,6 +2196,7 @@ function applyRerunPayload(){
 async function autoSaveRerun(){
   if(!pendingRerun)return;
   const{dealId,strategy,fields}=pendingRerun;
+  const savedPlanning=pendingRerun.planning||null;
   pendingRerun=null;
   const note=document.getElementById('rerun-note');
 
@@ -2078,6 +2212,7 @@ async function autoSaveRerun(){
         if(el)el.value=val;
       }
     });
+    if(window.DealRealistic)DealRealistic.applyDealState(strategy,savedPlanning);
     switchTab(strategy);
 
     const calcStrategy={brrr:'btl',btl:'btl',hmo:'hmo',sa:'sa',flip:'flip'}[strategy];
@@ -2089,7 +2224,8 @@ async function autoSaveRerun(){
     // BRRR deals are stored as deal_type 'btl' plus strategy:'brrr'.
     const dealType=strategy==='brrr'?'btl':strategy;
     const base=dealType==='btl'?btlData:(dealType==='hmo'?hmoData:(dealType==='sa'?saData:flipData));
-    const dealData=strategy==='brrr'?{...base,strategy:'brrr'}:base;
+    const dealData=strategy==='brrr'?{...base,strategy:'brrr'}:{...base};
+    if(window.DealRealistic)dealData.planning=DealRealistic.getDealState(dealType);
     const res=await fetch(API_BASE+'/api/deals/'+dealId+'/refresh-figures',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
@@ -2146,6 +2282,7 @@ function currentIndexDraftState(){
     fields,
     refi,
     planning: window.DealPlanning?DealPlanning.getState():null,
+    realistic: window.DealRealistic?DealRealistic.getState():null,
     comps:{
       postcode: postcodeEl?postcodeEl.value:'',
       propertyType: getDDValue('cp-type'),
@@ -2199,6 +2336,7 @@ function restoreIndexDraft(){
   }catch(e){ /* refi restore failed — leave those fields at their defaults */ }
 
   try{ if(d.planning&&window.DealPlanning)DealPlanning.setState(d.planning); }catch(e){ /* keep the defaults */ }
+  try{ if(d.realistic&&window.DealRealistic)DealRealistic.setState(d.realistic); }catch(e){ /* everything stays off */ }
 
   try{
     const c=d.comps;
@@ -2254,6 +2392,7 @@ function flashCalcActionsMsg(text){
 function resetCalcExtras(){
   Object.values(REFI_TYPE_IDS).forEach(id=>setDDValue(id,'io',REFI_TYPE_LABELS.io));
   if(window.DealPlanning)DealPlanning.reset();
+  if(window.DealRealistic)DealRealistic.reset();
   Object.values(ackedWarnings).forEach(set=>set.clear());
   ALL_CALC_INPUT_IDS.forEach(id=>showFieldError(id,null));
   closeFieldHelp();
@@ -2309,10 +2448,18 @@ function renderBRRRHeadline(){
 // calculation, wherever it's triggered from. The engine functions
 // themselves are called unchanged.
 const _cBTLEngine=cBTL, _cHMOEngine=cHMO, _cSAEngine=cSA, _cFlipEngine=cFlip;
-cBTL=function(){ _cBTLEngine(); renderBRRRHeadline(); afterCalcDisplay('btl'); };
-cHMO=function(){ _cHMOEngine(); afterCalcDisplay('hmo'); };
-cSA=function(){ _cSAEngine(); afterCalcDisplay('sa'); };
-cFlip=function(){ _cFlipEngine(); afterCalcDisplay('flip'); };
+// "Make it realistic" (deal-realistic.js): with bridge or holding costs
+// switched on, the same engine runs with that cost added to refurb (or
+// Flip's buying fees). With everything off this is the plain engine call.
+function runEngineMain(s,engineFn){
+  if(!window.DealRealistic){engineFn();return;}
+  const d=DealRealistic.runMain(s,engineFn,()=>dataFor(s));
+  if(s==='btl')btlData=d;else if(s==='hmo')hmoData=d;else if(s==='sa')saData=d;else flipData=d;
+}
+cBTL=function(){ runEngineMain('btl',_cBTLEngine); renderBRRRHeadline(); afterCalcDisplay('btl'); };
+cHMO=function(){ runEngineMain('hmo',_cHMOEngine); afterCalcDisplay('hmo'); };
+cSA=function(){ runEngineMain('sa',_cSAEngine); afterCalcDisplay('sa'); };
+cFlip=function(){ runEngineMain('flip',_cFlipEngine); afterCalcDisplay('flip'); };
 
 // Remembers (this device only) when a deal was last analysed, for Home's
 // "First deal analysed" milestone and "Analyse your next deal" nudge.
@@ -3260,6 +3407,9 @@ async function confirmSaveDeal(){
   const msg=document.getElementById(type+'-save-msg');
   const d=type==='btl'?btlData:(type==='hmo'?hmoData:(type==='sa'?saData:flipData));
   const dealData={...d,name:nameVal};
+  // Every planning input on screen right now (lender, refinance, projection,
+  // bridge, holding costs, tax), so reopening the deal restores them exactly.
+  if(window.DealRealistic)dealData.planning=DealRealistic.getDealState(type);
   if(type==='btl'&&savingAsBrrr)dealData.strategy='brrr';
 
   // Captured once, here, at the moment of save — never re-captured on the
