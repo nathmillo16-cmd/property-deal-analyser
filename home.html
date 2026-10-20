@@ -208,6 +208,7 @@ const STAGES=['analysing','viewing','offered','agreed','completed'];
 const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',agreed:'Agreed',completed:'Completed'};
 const STAGE_COLORS={analysing:'#c7c4ea',viewing:'#a49ee0',offered:'#7a72d4',agreed:'#4b45b2',completed:'#0f7a5a'};
 const KEY_FIGURE={
+  brrr:{label:'Money left in',key:'bbMLI',type:'c'},
   btl:{label:'Gross yield',key:'gy',type:'p'},
   hmo:{label:'Gross yield',key:'gy',type:'p'},
   sa:{label:'Gross yield',key:'gy',type:'p'},
@@ -223,8 +224,11 @@ function escapeHtml(s){
   return div.innerHTML;
 }
 
+// BRRR deals are stored as deal_type 'btl' plus deal_data.strategy='brrr'
+// (same helper as compare-deals.js, which this page doesn't load).
+function dealStrategy(d){return (d&&d.deal_type==='btl'&&d.deal_data&&d.deal_data.strategy==='brrr')?'brrr':(d?d.deal_type:'');}
 function fallbackName(d){
-  const label=d.deal_type.toUpperCase();
+  const label=dealStrategy(d).toUpperCase();
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):null;
   return pp?`${label} · ${pp} · ${date}`:`${label} · ${date}`;
@@ -235,7 +239,7 @@ function dealDisplayName(d){
 }
 
 function keyFigure(d){
-  const f=KEY_FIGURE[d.deal_type];
+  const f=KEY_FIGURE[dealStrategy(d)];
   if(!f)return null;
   const v=d.deal_data&&d.deal_data[f.key];
   if(v==null)return null;
@@ -436,7 +440,7 @@ function render(){
 
   const recent=savedDeals.slice(0,4);
   document.getElementById('recent-list').innerHTML=recent.map(d=>{
-    const label=d.deal_type.toUpperCase();
+    const label=dealStrategy(d).toUpperCase();
     const fig=keyFigure(d);
     const meta=[label, fig?fig.label:null, d.pipeline_stage?'In pipeline':null].filter(Boolean).join(' · ');
     return `<div class="recent-item">

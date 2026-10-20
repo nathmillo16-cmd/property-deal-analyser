@@ -426,7 +426,7 @@ body.theme-light .dd-trigger::after{
   <p class="page-title">Analyse a deal</p>
   <p class="page-sub">Analyse a deal as BRRR, BTL, HMO, SA or Flip, or pull live comps for a postcode.</p>
   <p class="hint" id="upgrade-notice" style="display:none"></p>
-  <p class="value-warning" id="rerun-note" style="display:none">Re-running a saved deal. Figures may differ from the original due to calculator updates.</p>
+  <p class="value-warning" id="rerun-note" style="display:none">Opened a saved deal. Figures may differ slightly from when it was saved if the calculator has changed since.</p>
   <p class="value-warning" id="rerun-room-note" style="display:none">Room breakdown wasn't saved for this deal, so the total rent is being used as a single room.</p>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('brrr')">BRRR</button>
@@ -1473,7 +1473,7 @@ function applyRerunPayload(){
       // Defensive fallback only — every payload rerun-prefill.js builds now
       // carries a dealId. Covers a payload written by an old cached tab
       // before this change, where there's nothing to auto-save over.
-      note.textContent='Re-running a saved deal. Figures may differ from the original due to calculator updates.';
+      note.textContent='Opened a saved deal. Figures may differ slightly from when it was saved if the calculator has changed since.';
     }
     note.style.display='block';
   }
@@ -1517,23 +1517,26 @@ async function autoSaveRerun(){
     });
     switchTab(strategy);
 
-    const calcFn={btl:cBTL,hmo:cHMO,sa:cSA,flip:cFlip}[strategy];
+    const calcFn={brrr:cBTL,btl:cBTL,hmo:cHMO,sa:cSA,flip:cFlip}[strategy];
     if(!calcFn)throw new Error('Unknown strategy.');
     calcFn();
 
     if(!currentSession)throw new Error('Log in to save this deal.');
 
-    const dealData=strategy==='btl'?btlData:(strategy==='hmo'?hmoData:(strategy==='sa'?saData:flipData));
+    // BRRR deals are stored as deal_type 'btl' plus strategy:'brrr'.
+    const dealType=strategy==='brrr'?'btl':strategy;
+    const base=dealType==='btl'?btlData:(dealType==='hmo'?hmoData:(dealType==='sa'?saData:flipData));
+    const dealData=strategy==='brrr'?{...base,strategy:'brrr'}:base;
     const res=await fetch(API_BASE+'/api/deals/'+dealId+'/refresh-figures',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({deal_type:strategy, deal_data:dealData})
+      body:JSON.stringify({deal_type:dealType, deal_data:dealData})
     });
     const body=await res.json();
     if(!res.ok)throw new Error(body.error||'Could not save this deal.');
 
     if(note){
-      const refFieldId={btl:'b-ref',hmo:'h-ref',sa:'sa-ref',flip:'fl-ref'}[strategy];
+      const refFieldId={brrr:'b-ref',btl:'b-ref',hmo:'h-ref',sa:'sa-ref',flip:'fl-ref'}[strategy];
       const refVal=+fields[refFieldId]||0;
       note.innerHTML='Deal re-run with refurb cost '+fmt(refVal)+' and saved. Figures updated. '+
         '<a href="saved-deals.html?openDeal='+encodeURIComponent(dealId)+'">Back to the deal</a>';
@@ -2480,9 +2483,10 @@ const DEAL_NAME_LABEL={btl:'BTL',hmo:'HMO',sa:'SA',flip:'Flip'};
 const DEAL_NAME_PP_ID={btl:'b-pp',hmo:'h-pp',sa:'sa-pp',flip:'fl-pp'};
 
 function defaultDealName(type){
-  const pp=+document.getElementById(DEAL_NAME_PP_ID[type]).value||0;
+  const pp=moneyVal(DEAL_NAME_PP_ID[type]);
   const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-  return `${DEAL_NAME_LABEL[type]} · ${fmt(pp)} · ${date}`;
+  const label=(type==='btl'&&savingAsBrrr)?'BRRR':DEAL_NAME_LABEL[type];
+  return `${label} · ${fmt(pp)} · ${date}`;
 }
 
 // Which strategy tab's Save deal was clicked — carried across the async gap
@@ -2490,6 +2494,10 @@ function defaultDealName(type){
 // modal's own Save button. Same pattern as movingDealId in saved-deals.html's
 // Move to portfolio modal.
 let savingDealType=null;
+// True when Save was pressed on the BRRR tab. BRRR deals are stored as
+// deal_type 'btl' (same inputs and cBTL() calculation) with
+// deal_data.strategy='brrr', so they show and reopen as BRRR.
+let savingAsBrrr=false;
 
 // Opens the shared save modal for this tab. The name input is left BLANK —
 // defaultDealName(type)'s descriptive string is shown only as a placeholder
@@ -2499,6 +2507,7 @@ let savingDealType=null;
 function saveDeal(type){
   if(!currentSession)return;
   savingDealType=type;
+  savingAsBrrr=(type==='btl'&&currentTab==='brrr');
 
   const nameInput=document.getElementById('save-modal-name');
   nameInput.value='';
@@ -2532,6 +2541,7 @@ async function confirmSaveDeal(){
   const msg=document.getElementById(type+'-save-msg');
   const d=type==='btl'?btlData:(type==='hmo'?hmoData:(type==='sa'?saData:flipData));
   const dealData={...d,name:nameVal};
+  if(type==='btl'&&savingAsBrrr)dealData.strategy='brrr';
 
   // Captured once, here, at the moment of save — never re-captured on the
   // duplicate-confirm retry below (same snapshot goes in both POST bodies,

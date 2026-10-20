@@ -5,7 +5,28 @@
 // plain <script src>, so it has no build step and no load-order dependency
 // on either page's own script.
 
+// BRRR deals are stored with deal_type 'btl' (same inputs, same cBTL()
+// calculation) plus deal_data.strategy = 'brrr', set when saved from the
+// calculator's BRRR tab. dealStrategy() is the one place that turns that
+// into the strategy shown to the user: 'brrr', or the deal_type as-is.
+function dealStrategy(d) {
+  if (d && d.deal_type === 'btl' && d.deal_data && d.deal_data.strategy === 'brrr') return 'brrr';
+  return d ? d.deal_type : '';
+}
+
 const COMPARE_FIELDS = {
+  // Figures cBTL() already stores for its BRRR scenario (bb*/brrr* keys).
+  brrr: [
+    { label: 'Purchase price', key: 'pp', type: 'c' },
+    { label: 'End value', key: 'emv', type: 'c' },
+    { label: 'Money left in deal', key: 'bbMLI', type: 'c' },
+    { label: 'Cash pulled out at refinance', key: 'brrrLoan', type: 'c' },
+    { label: 'Monthly cashflow', key: 'bbNm', type: 'c' },
+    { label: 'ROI (after refinance)', key: 'bbROI', type: 'p' },
+    { label: 'Refinance LTV', key: 'brrrLtv', type: 'p' },
+    { label: 'Gross yield', key: 'gy', type: 'p' },
+    { label: 'Max bid (ROI)', key: 'oR', type: 'c' }
+  ],
   btl: [
     { label: 'Purchase price', key: 'pp', type: 'c' },
     { label: 'EMV', key: 'emv', type: 'c' },
@@ -65,20 +86,20 @@ function buildCompareTableHTML(deals) {
   const rows = [];
   const seen = new Set();
   deals.forEach(d => {
-    (COMPARE_FIELDS[d.deal_type] || []).forEach(f => {
+    (COMPARE_FIELDS[dealStrategy(d)] || []).forEach(f => {
       if (!seen.has(f.label)) { seen.add(f.label); rows.push(f.label); }
     });
   });
 
   let html = '<table class="compare-table"><thead><tr><th>Figure</th>';
   deals.forEach(d => {
-    html += `<th>${escapeHtmlForCompare(d.displayName)}<br><span style="font-family:var(--font-body);font-size:11px;color:var(--muted);font-weight:600">${d.deal_type.toUpperCase()}</span></th>`;
+    html += `<th>${escapeHtmlForCompare(d.displayName)}<br><span style="font-family:var(--font-body);font-size:11px;color:var(--muted);font-weight:600">${dealStrategy(d).toUpperCase()}</span></th>`;
   });
   html += '</tr></thead><tbody>';
   rows.forEach(label => {
     html += `<tr><td>${label}</td>`;
     deals.forEach(d => {
-      const fields = COMPARE_FIELDS[d.deal_type] || [];
+      const fields = COMPARE_FIELDS[dealStrategy(d)] || [];
       const f = fields.find(x => x.label === label);
       const val = f ? fmtCompareField(f, d.deal_data[f.key]) : '—';
       html += `<td>${val}</td>`;

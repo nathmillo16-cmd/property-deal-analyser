@@ -305,8 +305,11 @@ let savedEstimates=[], editingId=null;
 let savedDeals=null; // cached on first "Add to deal" open, per page load
 
 function fmtGBP(v){ return '£'+Math.round(v||0).toLocaleString(); }
+// BRRR deals are stored as deal_type 'btl' plus deal_data.strategy='brrr'
+// (same helper as compare-deals.js, which this page doesn't load).
+function dealStrategy(d){return (d&&d.deal_type==='btl'&&d.deal_data&&d.deal_data.strategy==='brrr')?'brrr':(d?d.deal_type:'');}
 function fallbackName(d){
-  const label=d.deal_type.toUpperCase();
+  const label=dealStrategy(d).toUpperCase();
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const pp=d.deal_data&&d.deal_data.pp?fmtGBP(d.deal_data.pp):null;
   return pp?`${label} · ${pp} · ${date}`:`${label} · ${date}`;
@@ -772,7 +775,7 @@ async function openAddToDealPicker(estimateId){
     listEl.innerHTML=savedDeals.map(deal=>`<div class="saved-item" onclick="linkEstimateToDeal('${deal.id}')">
       <div class="saved-info">
         <span class="saved-name">${escapeHtml(dealDisplayName(deal))}</span>
-        <span class="saved-detail">${deal.deal_type.toUpperCase()}${deal.refurb_estimate_id?' · already has a linked estimate':''}</span>
+        <span class="saved-detail">${dealStrategy(deal).toUpperCase()}${deal.refurb_estimate_id?' · already has a linked estimate':''}</span>
       </div>
       <span class="saved-chevron">›</span>
     </div>`).join('');

@@ -444,6 +444,7 @@ body.theme-light .dd-trigger::after{
       <button class="mini-btn" onclick="moveToPortfolioFromWorkspace()">Move to portfolio</button>
       <button class="mini-btn" onclick="renameFromWorkspace()">Rename</button>
       <button class="mini-btn" onclick="downloadPropertyPack()">Download pack</button>
+      <button class="mini-btn" onclick="openInCalculatorFromWorkspace()">Open in calculator</button>
     </div>
   </div>
 </div>
@@ -574,7 +575,7 @@ function escapeHtml(s){
 }
 
 function fallbackName(d){
-  const label=d.deal_type.toUpperCase();
+  const label=dealStrategy(d).toUpperCase();
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):null;
   return pp?`${label} · ${pp} · ${date}`:`${label} · ${date}`;
@@ -624,7 +625,7 @@ async function loadSavedDeals(){
     }
     listEl.innerHTML=savedDealsCache.map(d=>{
       const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-      const label=d.deal_type.toUpperCase();
+      const label=dealStrategy(d).toUpperCase();
       const pp=d.deal_data&&d.deal_data.pp?fmt(d.deal_data.pp):'';
       // Row title only: short "Untitled deal" for unnamed deals instead of
       // dealDisplayName()'s long fallbackName() string — that long string
@@ -807,6 +808,9 @@ function mapDealToPortfolio(deal){
     monthly_mortgage:d.monthlyPayment!=null?Math.round(d.monthlyPayment):''
   };
   if(type==='btl'){
+    // A BRRR deal's ongoing mortgage is the refinance payment, not the
+    // purchase mortgage (it was bought with cash).
+    if(dealStrategy(deal)==='brrr')result.monthly_mortgage=d.brrrPayment!=null?Math.round(d.brrrPayment):'';
     if(d.rent!=null)result.monthly_rent=d.rent;
     if(d.rent!=null&&d.cNm!=null)result.monthly_running_costs=Math.round(d.rent-d.cNm);
   }else if(type==='hmo'){
@@ -895,7 +899,7 @@ function openDealWorkspace(dealId){
 // this never re-derives or re-guesses which figures matter per strategy.
 function renderWorkspaceAnalysis(deal){
   const listEl=document.getElementById('workspace-analysis-list');
-  const fields=COMPARE_FIELDS[deal.deal_type]||[];
+  const fields=COMPARE_FIELDS[dealStrategy(deal)]||[];
   listEl.innerHTML=fields.map(f=>{
     const val=fmtCompareField(f, deal.deal_data ? deal.deal_data[f.key] : null);
     return `<div class="analysis-row"><span class="analysis-label">${escapeHtml(f.label)}</span><span class="analysis-value">${escapeHtml(val)}</span></div>`;
@@ -1182,7 +1186,7 @@ async function downloadPropertyPack(){
   const contentPageH=footerRuleY-8+margin;
 
   const addressLine=(deal.address&&deal.address.trim())?deal.address.trim():dealDisplayName(deal);
-  const strategyLabel=DEAL_TO_PORTFOLIO_TYPE[deal.deal_type]||deal.deal_type.toUpperCase();
+  const strategyLabel=dealStrategy(deal)==='brrr'?'BRRR':(DEAL_TO_PORTFOLIO_TYPE[deal.deal_type]||deal.deal_type.toUpperCase());
   const generatedDate=packDateOnly(new Date().toISOString());
   const createdDate=packDateOnly(deal.created_at);
 
@@ -1232,7 +1236,7 @@ async function downloadPropertyPack(){
   y+=6;
 
   const d=deal.deal_data||{};
-  const headlineField=packHeadlineField(deal.deal_type);
+  const headlineField=packHeadlineField(dealStrategy(deal));
   if(headlineField){
     const headlineLines=packMeasureLabelLines(doc, headlineField.label, 10, contentW-24);
     const headlineH=Math.max(74, packCalloutHeight(headlineLines,'headline'));
@@ -1241,7 +1245,7 @@ async function downloadPropertyPack(){
     y+=headlineH+18;
   }
 
-  const secondary=packSecondaryFields(deal.deal_type);
+  const secondary=packSecondaryFields(dealStrategy(deal));
   const cols=3;
   const gap=12;
   const boxW=(contentW-gap*(cols-1))/cols;
@@ -1650,12 +1654,12 @@ async function deleteOfferFromActivity(offerId){
 // search range) — oR is still a number even when "not achievable" (a
 // bisection-search-bound artefact), so without this guard a headroom
 // figure could silently show against a meaningless value.
-const MAX_BID_LABELS={btl:'Max bid (interest-only)',hmo:'Max bid (interest-only)',sa:'Max bid (interest-only)',flip:'Max bid (ROI)'};
+const MAX_BID_LABELS={brrr:'Max bid (interest-only)',btl:'Max bid (interest-only)',hmo:'Max bid (interest-only)',sa:'Max bid (interest-only)',flip:'Max bid (ROI)'};
 
 function computeMaxBidLine(deal, amount){
   const d=deal.deal_data||{};
   const oR=d.oR;
-  const label=MAX_BID_LABELS[deal.deal_type]||'Max bid (ROI)';
+  const label=MAX_BID_LABELS[dealStrategy(deal)]||'Max bid (ROI)';
   const achievable=oR!=null&&(deal.deal_type==='flip'?oR>0:(oR>0&&oR<1900000));
   if(!achievable){
     return `<p class="activity-maxbid">${escapeHtml(label)}: not achievable at these inputs</p>`;
@@ -1914,6 +1918,20 @@ async function renameFromWorkspace(){
 // it invisible/unreachable. Close the workspace first so they never stack;
 // the deal id is captured into a local before closing, since
 // closeDealWorkspace() clears workspaceDealId.
+// Reopens this deal's saved inputs in the calculator, on its own tab (a
+// BRRR deal opens on BRRR with its refinance LTV and type). Uses the same
+// field mapping as the refurb re-run (rerun-prefill.js), but without a
+// deal id, so nothing is saved back automatically.
+function openInCalculatorFromWorkspace(){
+  const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
+  if(!deal)return;
+  const payload=buildRerunFields(deal,(deal.deal_data||{}).ref);
+  if(!payload)return;
+  delete payload.dealId;
+  try{ sessionStorage.setItem('dny-rerun',JSON.stringify(payload)); }catch(e){ return; }
+  window.location.href='/index.html';
+}
+
 function moveToPortfolioFromWorkspace(){
   if(!workspaceDealId)return;
   const dealId=workspaceDealId;

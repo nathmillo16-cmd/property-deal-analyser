@@ -431,7 +431,7 @@ function escapeHtml(s){
 }
 
 function fallbackName(d){
-  const label=d.deal_type.toUpperCase();
+  const label=dealStrategy(d).toUpperCase();
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):null;
   return pp?`${label} · ${pp} · ${date}`:`${label} · ${date}`;
@@ -831,7 +831,7 @@ function handleOfferOutcomeChange(id, value){
 
 function cardHtml(d){
   const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-  const label=d.deal_type.toUpperCase();
+  const label=dealStrategy(d).toUpperCase();
   const pp=d.deal_data&&d.deal_data.pp?fmtC(d.deal_data.pp):'';
   const name=dealDisplayName(d);
   const checked=selectedIds.has(d.id)?'checked':'';
