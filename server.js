@@ -2049,7 +2049,113 @@ app.get('/api/profile', async (req, res) => {
     if (!goalsError && goalsRow) goals = { ...goalsRow, goals_available: true };
   } catch (e) {}
 
-  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals });
+  // Home progress (db/044): checklist, milestones, last analysed. Same
+  // decoupled query; progress_available tells Home whether to read and
+  // write these or keep using localStorage because the migration isn't run.
+  let progress = { progress_available: false };
+  try {
+    const { data: progressRow, error: progressError } = await supabase
+      .from('profiles')
+      .select(PROGRESS_COLUMNS)
+      .eq('user_id', userId)
+      .single();
+    if (!progressError && progressRow) progress = { ...progressRow, progress_available: true };
+  } catch (e) {}
+
+  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals, ...progress });
+});
+
+// Home progress (db/044), so the setup checklist, milestones and "last
+// analysed" are the same on every device. A narrow update of only these
+// six columns, same reason as /api/profile/goals. Not plan-gated: Home is
+// free. Every field is optional and only ever moves forward:
+//   setup_dismissed, setup_completed, brrr_analysed  set once, never cleared
+//   last_analysed                                    keeps the later time
+//   milestone_dates  { id: time }                    adds ids not already dated
+//   milestones_seen  [ id ]                          union with what's stored
+// A time is either true (now) or an ISO string from the browser, which is
+// how Home uploads what an older version kept in localStorage.
+const PROGRESS_COLUMNS = 'setup_dismissed_at, setup_completed_at, milestone_dates, milestones_seen, last_analysed_at, brrr_analysed_at';
+const MILESTONE_ID_RE = /^[a-z0-9-]{1,40}$/;
+
+function progressTime(v) {
+  if (v === true) return new Date().toISOString();
+  if (typeof v !== 'string') return null;
+  const t = Date.parse(v);
+  // Not before the app existed, not more than a few minutes in the future.
+  if (Number.isNaN(t) || t < Date.parse('2024-01-01') || t > Date.now() + 5 * 60 * 1000) return null;
+  return new Date(t).toISOString();
+}
+
+app.post('/api/profile/progress', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in required.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) {
+    return res.status(401).json({ error: 'Log in required.' });
+  }
+  const userId = userData.user.id;
+
+  const { data: row, error: readErr } = await supabase
+    .from('profiles')
+    .select(PROGRESS_COLUMNS)
+    .eq('user_id', userId)
+    .single();
+  if (readErr || !row) {
+    // Most likely cause before db/044 is run: the columns don't exist yet.
+    return res.status(400).json({ error: 'Progress could not be saved right now.' });
+  }
+
+  const body = req.body || {};
+  const update = {};
+
+  [['setup_dismissed', 'setup_dismissed_at'], ['setup_completed', 'setup_completed_at'], ['brrr_analysed', 'brrr_analysed_at']].forEach(([key, col]) => {
+    if (body[key] === undefined || row[col]) return;
+    const t = progressTime(body[key]);
+    if (t) update[col] = t;
+  });
+
+  if (body.last_analysed !== undefined) {
+    const t = progressTime(body.last_analysed);
+    if (t && (!row.last_analysed_at || Date.parse(t) > Date.parse(row.last_analysed_at))) update.last_analysed_at = t;
+  }
+
+  if (body.milestone_dates && typeof body.milestone_dates === 'object' && !Array.isArray(body.milestone_dates)) {
+    const dates = { ...(row.milestone_dates && typeof row.milestone_dates === 'object' ? row.milestone_dates : {}) };
+    let changed = false;
+    Object.keys(body.milestone_dates).slice(0, 50).forEach((id) => {
+      if (!MILESTONE_ID_RE.test(id) || dates[id]) return;
+      const t = progressTime(body.milestone_dates[id]);
+      if (t) { dates[id] = t; changed = true; }
+    });
+    if (changed) update.milestone_dates = dates;
+  }
+
+  if (Array.isArray(body.milestones_seen)) {
+    const had = Array.isArray(row.milestones_seen) ? row.milestones_seen : null;
+    const seen = had ? had.slice() : [];
+    body.milestones_seen.slice(0, 50).forEach((id) => {
+      if (typeof id === 'string' && MILESTONE_ID_RE.test(id) && seen.indexOf(id) === -1) seen.push(id);
+    });
+    // Write even an empty list the first time: it marks "first visit recorded".
+    if (!had || seen.length !== had.length) update.milestones_seen = seen;
+  }
+
+  if (!Object.keys(update).length) return res.json(row);
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(update)
+    .eq('user_id', userId)
+    .select(PROGRESS_COLUMNS)
+    .single();
+  if (error) {
+    console.error('Progress save failed:', error.message);
+    return res.status(400).json({ error: 'Progress could not be saved right now.' });
+  }
+  res.json(data);
 });
 
 // Goals and motto (Settings > Goals, db/042). A narrow update of just these

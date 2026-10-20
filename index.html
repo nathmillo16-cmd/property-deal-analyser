@@ -1700,7 +1700,24 @@ cBTL=function(){ _cBTLEngine(); renderBRRRHeadline(); };
 // Remembers (this device only) when a deal was last analysed, for Home's
 // "First deal analysed" milestone and "Analyse your next deal" nudge.
 // The BRRR key feeds Home's "Run a BRRR analysis" setup checklist item.
-function noteAnalysed(){ try{ localStorage.setItem('dny-analysed-at', String(Date.now())); if(currentTab==='brrr')localStorage.setItem('dny-brrr-analysed-at', String(Date.now())); }catch(e){} }
+// Also saved to the account (POST /api/profile/progress, db/044) so Home is
+// the same on every device. At most one save a minute, plus the first BRRR
+// one; if the migration isn't run yet the save just fails quietly and Home
+// falls back to these localStorage keys.
+let lastAnalysedSync=0;
+function noteAnalysed(){
+  const isBrrr=currentTab==='brrr';
+  let firstBrrr=false;
+  try{
+    localStorage.setItem('dny-analysed-at', String(Date.now()));
+    if(isBrrr){ firstBrrr=!localStorage.getItem('dny-brrr-analysed-at'); localStorage.setItem('dny-brrr-analysed-at', String(Date.now())); }
+  }catch(e){}
+  if(!currentSession||(!firstBrrr&&Date.now()-lastAnalysedSync<60000))return;
+  lastAnalysedSync=Date.now();
+  const body={last_analysed:true};
+  if(isBrrr)body.brrr_analysed=true;
+  fetch(API_BASE+'/api/profile/progress',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},body:JSON.stringify(body)}).catch(function(){});
+}
 
 function runBTL(){ cBTL(); noteAnalysed(); btlAnalysed=true; document.getElementById('btl-stale').style.display='none'; saveIndexDraft(); }
 function markStaleBTL(){ if(btlAnalysed) document.getElementById('btl-stale').style.display='block'; checkValueWarningBTL(); saveIndexDraft(); }

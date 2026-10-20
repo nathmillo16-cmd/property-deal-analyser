@@ -651,6 +651,7 @@ function render(){
   HomeWidgets.renderMotto(profileData.motto, !!profileData.goals_available);
   HomeWidgets.render({
     userId: currentSession&&currentSession.user?currentSession.user.id:null,
+    accessToken: currentSession?currentSession.access_token:null,
     savedDeals, pipelineDeals, pipelineLocked,
     properties: portfolioProperties, portfolioTotals, portfolioLocked,
     needsAttention, profile: profileData, snapshots, snapshotsAvailable

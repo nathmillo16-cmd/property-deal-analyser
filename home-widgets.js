@@ -33,6 +33,89 @@ var HomeWidgets = (function () {
   function todayUTC() { var n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()); }
   function dateOnlyUTC(s) { var p = String(s).split('-').map(Number); return Date.UTC(p[0], p[1] - 1, p[2]); }
 
+  // ---------------- progress: account first, this device as fallback ----------------
+  // Checklist dismissed/completed, milestone dates, celebrations shown, last
+  // analysed and BRRR analysed live on the profile (db/044) when
+  // profile.progress_available is true, so they match on every device.
+  // Before that migration is run (or if a save fails) the same localStorage
+  // keys as before are used. Local values are always written too, and any
+  // the account doesn't have yet are uploaded once, so nothing recorded on
+  // an older version is lost.
+  function parseSeen(raw) { if (raw === null) return null; try { var a = JSON.parse(raw); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function ms(iso) { var t = iso ? Date.parse(iso) : NaN; return isFinite(t) ? t : 0; }
+  function iso(n) { return new Date(n).toISOString(); }
+
+  function makeProgress(st) {
+    var uid = st.userId || 'anon';
+    var p = st.profile || {};
+    var server = !!p.progress_available;
+    var srvDates = (server && p.milestone_dates && typeof p.milestone_dates === 'object') ? p.milestone_dates : {};
+    var srvSeen = server && Array.isArray(p.milestones_seen) ? p.milestones_seen : null;
+    var local = {
+      analysed: Number(readLS(ANALYSED_KEY)) || 0,
+      brrr: Number(readLS(BRRR_KEY)) || 0,
+      done: Number(readLS(SETUP_DONE_PREFIX + uid)) || 0,
+      dismissed: Number(readLS(SETUP_DISMISSED_PREFIX + uid)) || 0,
+      seen: parseSeen(readLS(SEEN_KEY_PREFIX + uid)),
+      dates: readDates(uid)
+    };
+    var seen = null;
+    if (srvSeen || local.seen) {
+      seen = (srvSeen || []).slice();
+      (local.seen || []).forEach(function (id) { if (seen.indexOf(id) === -1) seen.push(id); });
+    }
+    var dates = {};
+    Object.keys(local.dates).forEach(function (k) { dates[k] = local.dates[k]; });
+    Object.keys(srvDates).forEach(function (k) { dates[k] = srvDates[k]; });
+
+    var pending = {};
+    // One-time upload of anything this device knows that the account doesn't.
+    if (server) {
+      if (local.analysed && local.analysed > ms(p.last_analysed_at)) pending.last_analysed = iso(local.analysed);
+      if (local.brrr && !p.brrr_analysed_at) pending.brrr_analysed = iso(local.brrr);
+      if (local.done && !p.setup_completed_at) pending.setup_completed = iso(local.done);
+      if (local.dismissed && !p.setup_dismissed_at) pending.setup_dismissed = iso(local.dismissed);
+      var missing = Object.keys(local.dates).filter(function (k) { return !srvDates[k]; });
+      if (missing.length) { pending.milestone_dates = {}; missing.forEach(function (k) { pending.milestone_dates[k] = local.dates[k]; }); }
+      if (local.seen && local.seen.some(function (id) { return !srvSeen || srvSeen.indexOf(id) === -1; })) pending.milestones_seen = seen.slice();
+    }
+
+    function post(patch) {
+      if (!server || !st.accessToken || typeof fetch !== 'function') return;
+      fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/profile/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + st.accessToken },
+        body: JSON.stringify(patch)
+      }).catch(function () {});
+    }
+
+    return {
+      analysedAt: Math.max(local.analysed, ms(p.last_analysed_at)),
+      brrrDone: !!(local.brrr || p.brrr_analysed_at),
+      setupHidden: !!(local.done || local.dismissed || p.setup_completed_at || p.setup_dismissed_at),
+      seen: seen, // null = never recorded anywhere (first visit)
+      dates: dates,
+      setupCompleted: function () { writeLS(SETUP_DONE_PREFIX + uid, String(Date.now())); pending.setup_completed = true; },
+      setupDismissed: function () { writeLS(SETUP_DISMISSED_PREFIX + uid, String(Date.now())); post({ setup_dismissed: true }); },
+      recordSeen: function (ids) {
+        var all = (seen || []).slice();
+        ids.forEach(function (id) { if (all.indexOf(id) === -1) all.push(id); });
+        var changed = !seen || all.length !== seen.length;
+        seen = all;
+        writeLS(SEEN_KEY_PREFIX + uid, JSON.stringify(all));
+        if (changed || !srvSeen) pending.milestones_seen = all;
+      },
+      recordDates: function (map) {
+        Object.keys(map).forEach(function (k) { if (!dates[k]) dates[k] = map[k]; });
+        writeLS(DATES_KEY_PREFIX + uid, JSON.stringify(dates));
+        pending.milestone_dates = pending.milestone_dates || {};
+        Object.keys(map).forEach(function (k) { pending.milestone_dates[k] = map[k]; });
+      },
+      // Called once at the end of render(): sends everything queued in one request.
+      flush: function () { if (Object.keys(pending).length) { post(pending); pending = {}; } }
+    };
+  }
+
   // ---------------- derived facts, shared by several widgets ----------------
   function facts(st) {
     var props = (!st.portfolioLocked && st.properties) ? st.properties : [];
@@ -49,7 +132,7 @@ var HomeWidgets = (function () {
     });
     var lastDealMs = 0;
     (st.savedDeals || []).forEach(function (d) { var ms = new Date(d.created_at).getTime(); if (ms > lastDealMs) lastDealMs = ms; });
-    var analysedAt = Number(readLS(ANALYSED_KEY)) || 0;
+    var analysedAt = st.progress ? st.progress.analysedAt : (Number(readLS(ANALYSED_KEY)) || 0);
     return {
       props: props,
       owned: props.length,
@@ -147,7 +230,7 @@ var HomeWidgets = (function () {
   // that need a paid feature the user can't use (portfolio, pipeline) or a
   // database column that isn't there yet (goals) are left out, so the list
   // never asks for something impossible. Hidden for good once every step is
-  // done, or when dismissed (both remembered on this device).
+  // done, or when dismissed (both remembered on the account, see makeProgress).
   var CHECK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   var ARROW_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
@@ -159,7 +242,7 @@ var HomeWidgets = (function () {
     if (!st.portfolioLocked) items.push({ id: 'value', label: 'Add current value to a property', href: '/portfolio.html', done: props.some(function (p) { return p.current_value != null; }) });
     items.push({ id: 'save', label: 'Save a deal', href: '/index.html', done: deals.length > 0 });
     if (!st.pipelineLocked) items.push({ id: 'pipeline', label: 'Add a deal to your pipeline', href: '/saved-deals.html', done: (st.pipelineDeals || []).length > 0 || deals.some(function (d) { return !!d.pipeline_stage; }) });
-    items.push({ id: 'brrr', label: 'Run a BRRR analysis', href: '/index.html', done: !!readLS(BRRR_KEY) || deals.some(function (d) { return d.deal_type === 'btl' && d.deal_data && d.deal_data.strategy === 'brrr'; }) });
+    items.push({ id: 'brrr', label: 'Run a BRRR analysis', href: '/index.html', done: !!(st.progress && st.progress.brrrDone) || deals.some(function (d) { return d.deal_type === 'btl' && d.deal_data && d.deal_data.strategy === 'brrr'; }) });
     if (!st.portfolioLocked) items.push({ id: 'refi', label: 'Add a refinance date', href: '/portfolio.html', done: props.some(function (p) { return !!p.refinance_date; }) });
     return items;
   }
@@ -167,12 +250,12 @@ var HomeWidgets = (function () {
   function renderSetup(st, f) {
     var card = document.getElementById('setup-card');
     if (!card) return;
-    var uid = st.userId || 'anon';
-    if (readLS(SETUP_DONE_PREFIX + uid) || readLS(SETUP_DISMISSED_PREFIX + uid)) { card.hidden = true; return; }
+    var pr = st.progress;
+    if (pr.setupHidden) { card.hidden = true; return; }
     var items = setupItems(st, f);
     var done = items.filter(function (i) { return i.done; }).length;
     if (!items.length || done === items.length) {
-      writeLS(SETUP_DONE_PREFIX + uid, String(Date.now()));
+      pr.setupCompleted();
       card.hidden = true;
       return;
     }
@@ -190,7 +273,7 @@ var HomeWidgets = (function () {
       }).join('') + '</ul>';
     card.hidden = false;
     document.getElementById('setup-dismiss').addEventListener('click', function () {
-      writeLS(SETUP_DISMISSED_PREFIX + uid, String(Date.now()));
+      pr.setupDismissed();
       card.hidden = true;
     });
   }
@@ -289,8 +372,8 @@ var HomeWidgets = (function () {
     try { var d = JSON.parse(readLS(DATES_KEY_PREFIX + uid) || '{}'); return d && typeof d === 'object' ? d : {}; } catch (e) { return {}; }
   }
 
-  // When each milestone was earned, where we know: a date recorded on this
-  // device the moment it was first celebrated, or else one read straight
+  // When each milestone was earned, where we know: a date recorded on the
+  // account the moment it was first celebrated, or else one read straight
   // from the data (first saved deal, first property). Never guessed.
   function earnedDate(m, st, stored) {
     if (stored[m.id]) return stored[m.id];
@@ -311,29 +394,22 @@ var HomeWidgets = (function () {
       (next ? badge(next, 'next') : '') +
       (!earned.length ? '<p class="ms-hint">Milestones unlock as you analyse, save and buy.</p>' : '');
 
-    // Celebrate newly earned ones once (remembered on this device). The very
-    // first visit just records what's already earned, so nobody gets a burst.
-    var uid = st.userId || 'anon';
-    var key = SEEN_KEY_PREFIX + uid;
-    var raw = readLS(key);
+    // Celebrate newly earned ones once (remembered on the account, so a
+    // badge celebrated on the phone isn't celebrated again on the laptop).
+    // The very first visit just records what's already earned, so nobody
+    // gets a burst.
+    var pr = st.progress;
     var ids = earned.map(function (m) { return m.id; });
-    var fresh = [];
-    if (raw === null) {
-      writeLS(key, JSON.stringify(ids));
-    } else {
-      var seen = [];
-      try { seen = JSON.parse(raw) || []; } catch (e) {}
-      fresh = earned.filter(function (m) { return seen.indexOf(m.id) === -1; });
-      writeLS(key, JSON.stringify(ids.concat(seen.filter(function (id) { return ids.indexOf(id) === -1; }))));
-    }
-    var stored = readDates(uid);
+    var fresh = pr.seen === null ? [] : earned.filter(function (m) { return pr.seen.indexOf(m.id) === -1; });
+    pr.recordSeen(ids);
     if (fresh.length) {
       var now = new Date().toISOString();
-      fresh.forEach(function (m) { if (!stored[m.id]) stored[m.id] = now; });
-      writeLS(DATES_KEY_PREFIX + uid, JSON.stringify(stored));
+      var map = {};
+      fresh.forEach(function (m) { map[m.id] = earnedDate(m, st, {}) || now; }); // real date from the data where known
+      pr.recordDates(map);
       celebrate(fresh[fresh.length - 1], el);
     }
-    bindMilestonesModal(all, st, stored);
+    bindMilestonesModal(all, st, pr.dates);
   }
 
   function fmtDay(iso) { var d = new Date(iso); return isFinite(d.getTime()) ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; }
@@ -540,6 +616,7 @@ var HomeWidgets = (function () {
 
   // ---------------- entry point ----------------
   function render(st) {
+    st.progress = makeProgress(st);
     var f = facts(st);
     f.savedCount = (st.savedDeals || []).length;
     renderSetup(st, f);
@@ -551,6 +628,7 @@ var HomeWidgets = (function () {
     renderMilestones(st, f);
     initQuickAnalyse(st);
     renderGrowth(st, f);
+    st.progress.flush();
     return f;
   }
 
