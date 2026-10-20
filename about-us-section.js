@@ -35,6 +35,114 @@ var ABOUT_US_FOUNDERS = [
   }
 ];
 
+// ---------------------------------------------------------------------
+// "The team" variant (landing page)
+// ---------------------------------------------------------------------
+var TEAM_ICONS = {
+  building: '<path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16"/><path d="M15 9h4a1 1 0 0 1 1 1v11"/><path d="M8 8h3M8 12h3M8 16h3"/><path d="M2 21h20"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l2 2M15 8l2 2"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'
+};
+var LINKEDIN_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11H3zM9.5 9.75h3.8v1.5h.06c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.77 2.65 4.77 6.1v5.46h-4v-4.84c0-1.16-.02-2.64-1.61-2.64-1.61 0-1.86 1.26-1.86 2.56v4.92h-4z"/></svg>';
+
+var TEAM_MEMBERS = [
+  {
+    name: 'Cameron Hearne',
+    initials: 'CH',
+    photo: null,
+    role: 'Co-founder · Investor & Product',
+    bio: "Director of Hearne Property Group, a limited-company buy-to-let and BRRR portfolio in the East Midlands. Cameron built his investment approach from the numbers up, and every assumption in PROPulsion is one he's used with his own capital.",
+    credentials: [
+      { icon: 'building', text: 'Director, Hearne Property Group Ltd' },
+      { icon: 'pin', text: 'BTL and BRRR investor, East Midlands' },
+      { icon: 'compass', text: 'Leads product and investor experience' }
+    ],
+    linkedin: '#'
+  },
+  {
+    name: 'Nathan Millington',
+    initials: 'NM',
+    photo: null,
+    role: 'Co-founder · Sourcing & Technology',
+    bio: 'Nathan has spent over five years sourcing deals for investors and managing refurbs and lettings from offer to tenant. He built PROPulsion\'s analysis engine around how deals actually perform on the ground, not how they look on paper.',
+    credentials: [
+      { icon: 'search', text: '5+ years sourcing property for investors' },
+      { icon: 'key', text: 'Refurb and lettings management' },
+      { icon: 'chart', text: 'Leads technology and deal data' }
+    ],
+    linkedin: '#'
+  }
+];
+
+function renderTeamVariant(root, escapeHtml) {
+  if (!document.getElementById('team-section-styles')) {
+    var style = document.createElement('style');
+    style.id = 'team-section-styles';
+    style.textContent =
+      '.team-section{width:100%;padding:clamp(3.5rem,8vw,6rem) 0;border-top:1px solid var(--hairline)}' +
+      '.team-inner{max-width:1080px;margin:0 auto;padding:0 1.5rem}' +
+      '.team-head{text-align:center;max-width:640px;margin:0 auto clamp(2.25rem,5vw,3.25rem)}' +
+      '.team-kicker{font-family:var(--font-body);font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 .9rem}' +
+      '.team-head h2{font-family:var(--font-head);font-size:clamp(1.75rem,3.6vw,2.5rem);line-height:1.15;letter-spacing:-.015em;color:var(--ink);margin:0 0 1rem}' +
+      '.team-intro{font-family:var(--font-body);font-size:16px;line-height:1.6;color:var(--muted);margin:0}' +
+      '.team-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1rem,2.5vw,1.75rem)}' +
+      '@media(max-width:760px){.team-grid{grid-template-columns:1fr}}' +
+      '.team-card{background:var(--surface,#fff);border:1px solid rgba(0,0,0,.08);border-radius:18px;padding:clamp(1.5rem,3vw,2.25rem);' +
+        'box-shadow:0 1px 2px rgba(20,20,40,.04),0 8px 24px rgba(20,20,40,.05);display:flex;flex-direction:column}' +
+      '.team-top{display:flex;align-items:center;gap:1.1rem;margin:0 0 1.35rem}' +
+      '.team-photo{width:76px;height:76px;border-radius:50%;flex-shrink:0;object-fit:cover;display:flex;align-items:center;justify-content:center;' +
+        'background:linear-gradient(135deg,var(--accent,#4b45b2),#37317f);color:#fff;font-family:var(--font-head);font-weight:600;font-size:24px;letter-spacing:.02em;' +
+        'box-shadow:0 0 0 4px rgba(75,69,178,.10)}' +
+      '.team-id{min-width:0;flex:1}' +
+      '.team-name{font-family:var(--font-head);font-size:20px;font-weight:600;color:var(--ink);margin:0 0 .25rem;letter-spacing:-.005em}' +
+      '.team-role{font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--accent);margin:0}' +
+      '.team-li{flex-shrink:0;align-self:flex-start;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;' +
+        'border:1px solid var(--hairline);color:var(--muted);text-decoration:none;transition:color .15s ease,border-color .15s ease,background .15s ease}' +
+      '.team-li:hover{color:var(--accent);border-color:rgba(75,69,178,.35);background:rgba(75,69,178,.06)}' +
+      '.team-bio{font-family:var(--font-body);font-size:15px;line-height:1.7;color:var(--muted);margin:0 0 1.5rem}' +
+      '.team-creds{list-style:none;margin:auto 0 0;padding:1.25rem 0 0;border-top:1px solid var(--hairline);display:grid;gap:.75rem}' +
+      '.team-creds li{display:flex;align-items:center;gap:.7rem;font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--ink)}' +
+      '.team-cred-icon{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;background:rgba(75,69,178,.08);color:var(--accent)}' +
+      '.team-cred-icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}' +
+      '@media(max-width:480px){.team-card{padding:1.35rem 1.25rem}.team-top{gap:.85rem}.team-photo{width:56px;height:56px;font-size:19px}.team-name{font-size:18px}.team-role{font-size:12.5px}.team-li{width:32px;height:32px}}' +
+      '.team-close{max-width:620px;margin:clamp(2.25rem,5vw,3.25rem) auto 0;text-align:center;font-family:var(--font-head);font-size:clamp(1.05rem,2vw,1.25rem);line-height:1.55;color:var(--ink);font-weight:500}';
+    document.head.appendChild(style);
+  }
+
+  var cards = TEAM_MEMBERS.map(function (m) {
+    var photo = m.photo
+      ? '<img class="team-photo" src="' + escapeHtml(m.photo) + '" alt="' + escapeHtml(m.name) + '">'
+      : '<span class="team-photo" aria-hidden="true">' + escapeHtml(m.initials) + '</span>';
+    var creds = m.credentials.map(function (c) {
+      return '<li><span class="team-cred-icon"><svg viewBox="0 0 24 24" aria-hidden="true">' + TEAM_ICONS[c.icon] + '</svg></span>' + escapeHtml(c.text) + '</li>';
+    }).join('');
+    return '<article class="team-card">' +
+      '<div class="team-top">' + photo +
+        '<div class="team-id"><h3 class="team-name">' + escapeHtml(m.name) + '</h3><p class="team-role">' + escapeHtml(m.role) + '</p></div>' +
+        '<a class="team-li" href="' + escapeHtml(m.linkedin) + '" target="_blank" rel="noopener" aria-label="' + escapeHtml(m.name) + ' on LinkedIn">' + LINKEDIN_SVG + '</a>' +
+      '</div>' +
+      '<p class="team-bio">' + escapeHtml(m.bio) + '</p>' +
+      '<ul class="team-creds">' + creds + '</ul>' +
+    '</article>';
+  }).join('');
+
+  root.innerHTML =
+    '<section class="team-section" id="about-us">' +
+      '<div class="team-inner">' +
+        '<div class="team-head">' +
+          '<p class="team-kicker">The team</p>' +
+          '<h2>Investors first. Software second.</h2>' +
+          '<p class="team-intro">We built the tool we wanted when we were analysing our own deals.</p>' +
+        '</div>' +
+        '<div class="team-grid">' + cards + '</div>' +
+        '<p class="team-close">We invest in the same markets we analyse, using the same numbers we\'d put our own money against.</p>' +
+      '</div>' +
+    '</section>';
+}
+
 (function renderAboutUsSection(){
   var root = document.getElementById('about-us-root');
   if (!root) return; // no placeholder on this page -- nothing to do
@@ -75,18 +183,12 @@ var ABOUT_US_FOUNDERS = [
     '</div>';
   }).join('');
 
-  // data-variant="short" (landing page): a 2-sentence version that keeps
-  // the "our own money, same numbers" line. Other pages get the full one.
-  if (root.dataset.variant === 'short') {
-    root.innerHTML =
-      '<section class="about-us-section" id="about-us">' +
-        '<div class="about-us-inner">' +
-          '<p class="about-us-kicker">About us</p>' +
-          '<h2>Built by two people with skin in the deals</h2>' +
-          '<p>PROPulsion was built by <strong>Cameron Hearne</strong>, who invests his own money in property, and <strong>Nathan Millington</strong>, who spent five years sourcing deals and managing refurbs for investors. ' +
-          'We invest in the same markets we analyse, using the same numbers we\'d put our own money against.</p>' +
-        '</div>' +
-      '</section>';
+  // data-variant="team" (landing page): "The team" layout with two founder
+  // cards. Other pages (deal-sourcing-apply.html) keep the full text version
+  // below. Photos: set `photo` on a TEAM_MEMBERS entry to an image path and
+  // it replaces the initials circle.
+  if (root.dataset.variant === 'team') {
+    renderTeamVariant(root, escapeHtml);
     return;
   }
 
@@ -101,3 +203,4 @@ var ABOUT_US_FOUNDERS = [
       '</div>' +
     '</section>';
 })();
+
