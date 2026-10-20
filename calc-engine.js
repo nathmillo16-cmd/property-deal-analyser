@@ -108,7 +108,10 @@ function cBTL(){
   const mNm=rent-ins-maintC-mgmtC-mm, mNy=mNm*12;
   const cNm=rent-maintC-ins-mgmtC, cNy=cNm*12;
   const ag=rent*12;
-  const mTI=sol+mf+srch+dep+ref, cTI=pp+sol+mf+srch+ref;
+  // Stamp duty is part of the cash needed to buy, so it counts in total
+  // investment, money left in, ROI and max bid (same as HMO and Flip).
+  // Added on the owner's explicit instruction, October 2026.
+  const mTI=sol+mf+srch+dep+ref+sd.total, cTI=pp+sol+mf+srch+ref+sd.total;
   const gy=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
   const mMLI=cTI-loan, mROI=mMLI!==0?(mNy/mMLI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
   const mPB=mNy!==0?mMLI/mNy:0, cPB=cNy>0?cTI/cNy:0;
@@ -150,7 +153,7 @@ function cBTL(){
       const mid=(lo+hi)/2;
       const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
       const mNyM=(rent-ins-maintC-mgmtC-mmM)*12;
-      const mMLIM=(mid+sol+mf+srch+ref)-loanM;
+      const mMLIM=(mid+sol+mf+srch+ref+stamp(mid).total)-loanM;
       const roiM=mMLIM!==0?(mNyM/mMLIM)*100:0;
       if(roiM>tr)lo=mid;else hi=mid;
     }
@@ -164,7 +167,7 @@ function cBTL(){
       const mid=(lo+hi)/2;
       const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
       const rNyM=(rent-ins-maintC-mgmtC-rmmM)*12;
-      const mMLIM=(mid+sol+mf+srch+ref)-loanM;
+      const mMLIM=(mid+sol+mf+srch+ref+stamp(mid).total)-loanM;
       const roiM=mMLIM!==0?(rNyM/mMLIM)*100:0;
       if(roiM>tr)lo=mid;else hi=mid;
     }
@@ -421,8 +424,11 @@ function cSA(){
   const mny=emv>0?(mCFy/emv)*100:0;
   const cny=emv>0?(cCFy/emv)*100:0;
 
-  const mTI=sol+mf+srch+dep+ref+furn+wg;
-  const cTI=pp+sol+mf+srch+ref+furn+wg;
+  // Stamp duty counts in total investment, money left in, ROI and max bid,
+  // same as BTL, HMO and Flip. Added on the owner's explicit instruction,
+  // October 2026.
+  const mTI=sol+mf+srch+dep+ref+furn+wg+sd.total;
+  const cTI=pp+sol+mf+srch+ref+furn+wg+sd.total;
   const mMLI=cTI-loan;
   const mROI=mMLI!==0?(mCFy/mMLI)*100:0;
   const cROI=cTI>0?(cCFy/cTI)*100:0;
@@ -462,7 +468,7 @@ function cSA(){
       const mid=(lo+hi)/2;
       const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
       const mCFyM=netInc-mmM*12;
-      const mMLIM=(mid+sol+mf+srch+ref+furn+wg)-loanM;
+      const mMLIM=(mid+sol+mf+srch+ref+furn+wg+stamp(mid).total)-loanM;
       const roiM=mMLIM!==0?(mCFyM/mMLIM)*100:0;
       if(roiM>troi)lo=mid;else hi=mid;
     }
@@ -476,7 +482,7 @@ function cSA(){
       const mid=(lo+hi)/2;
       const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
       const rCFyM=netInc-rmmM*12;
-      const mMLIM=(mid+sol+mf+srch+ref+furn+wg)-loanM;
+      const mMLIM=(mid+sol+mf+srch+ref+furn+wg+stamp(mid).total)-loanM;
       const roiM=mMLIM!==0?(rCFyM/mMLIM)*100:0;
       if(roiM>troi)lo=mid;else hi=mid;
     }
