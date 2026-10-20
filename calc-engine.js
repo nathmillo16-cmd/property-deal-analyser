@@ -24,6 +24,18 @@ function s(id,val,cls){const e=document.getElementById(id);if(e){e.textContent=v
 // Money inputs can now display thousands separators (e.g. "110,000") —
 // reads the same way +el.value||0 always has, just strips commas first.
 // Input-reading only, no calculation logic touched.
+// Number input with a default: the default applies only when the field is
+// BLANK (or missing from the page). A typed 0 is respected as 0, e.g. 0%
+// management, 0% maintenance, 0% deposit. Previously "+value||default",
+// which also swapped a typed 0 for the default.
+function numOr(id,def){
+  const el=document.getElementById(id);
+  if(!el) return def;
+  const raw=String(el.value).trim();
+  if(raw==='') return def;
+  const n=+raw;
+  return Number.isFinite(n)?n:def;
+}
 function moneyVal(id){
   const el=document.getElementById(id);
   if(!el) return 0;
@@ -38,18 +50,18 @@ function cBTL(){
   const emv=moneyVal('b-emv');
   const rent=moneyVal('b-rent');
   const mr=+document.getElementById('b-mr').value||0;
-  const dp=(+document.getElementById('b-dp').value||25)/100;
+  const dp=(numOr('b-dp',25))/100;
   const ref=moneyVal('b-ref');
   const sol=moneyVal('b-sol');
   const mf=moneyVal('b-mf');
   const srch=moneyVal('b-srch');
   const ins=moneyVal('b-ins');
   const mgmt=(+document.getElementById('b-mgmt').value||0)/100;
-  const maint=(+document.getElementById('b-maint').value||10)/100;
-  const ty=+document.getElementById('b-ty').value||7;
-  const tr=+document.getElementById('b-tr').value||15;
+  const maint=(numOr('b-maint',10))/100;
+  const ty=numOr('b-ty',7);
+  const tr=numOr('b-tr',15);
   const btermEl=document.getElementById('b-term');
-  const term=btermEl?(+btermEl.value||25):25;
+  const term=numOr('b-term',25);
 
   const dep=pp*dp, loan=pp-dep, mm=mort(loan,mr), sd=stamp(pp);
   const maintC=rent*maint, mgmtC=rent*mgmt;
@@ -68,7 +80,7 @@ function cBTL(){
   // unlike the purchase mortgage above. Defensive reads so this is a no-op
   // on any page without this markup, e.g. landing.html's taster calculator.
   const bbRefiLtvEl=document.getElementById('bb-refi-ltv');
-  const bbRefiLtv=(bbRefiLtvEl?(+bbRefiLtvEl.value||75):75)/100;
+  const bbRefiLtv=(numOr('bb-refi-ltv',75))/100;
   const bbRefiType=(typeof getDDValue==='function'&&getDDValue('bb-refi-type'))||'io';
   const bbRefiLoan=emv*bbRefiLtv;
   const bbRefiPay=bbRefiType==='repay'?mortRepay(bbRefiLoan,mr,term):mort(bbRefiLoan,mr);
@@ -175,8 +187,8 @@ function cBTL(){
 function cHMO(){
   const pp=moneyVal('h-pp');
   const emv=moneyVal('h-emv');
-  const mr=+document.getElementById('h-mr').value||5;
-  const dp=(+document.getElementById('h-dp').value||25)/100;
+  const mr=numOr('h-mr',5);
+  const dp=(numOr('h-dp',25))/100;
   const ref=moneyVal('h-ref');
   const sol=moneyVal('h-sol');
   const mf=moneyVal('h-mf');
@@ -187,10 +199,10 @@ function cHMO(){
   const ct=moneyVal('h-ct')/12;
   const maint=(+document.getElementById('h-maint').value||0)/100;
   const mgmt=(+document.getElementById('h-mgmt').value||0)/100;
-  const ty=+document.getElementById('h-ty').value||10;
-  const troi=+document.getElementById('h-troi').value||15;
+  const ty=numOr('h-ty',10);
+  const troi=numOr('h-troi',15);
   const htermEl=document.getElementById('h-term');
-  const term=htermEl?(+htermEl.value||25):25;
+  const term=numOr('h-term',25);
 
   const rooms=[[moneyVal('h-r1p'),+document.getElementById('h-r1n').value||0,'h-r1t'],
                [moneyVal('h-r2p'),+document.getElementById('h-r2n').value||0,'h-r2t'],
@@ -219,7 +231,7 @@ function cHMO(){
   // unlike the purchase mortgage above. Defensive reads so this is a no-op
   // on any page without this markup, e.g. landing.html's taster calculator.
   const hbRefiLtvEl=document.getElementById('hb-refi-ltv');
-  const hbRefiLtv=(hbRefiLtvEl?(+hbRefiLtvEl.value||75):75)/100;
+  const hbRefiLtv=(numOr('hb-refi-ltv',75))/100;
   const hbRefiType=(typeof getDDValue==='function'&&getDDValue('hb-refi-type'))||'io';
   const hbRefiLoan=emv*hbRefiLtv;
   const hbRefiPay=hbRefiType==='repay'?mortRepay(hbRefiLoan,mr,term):mort(hbRefiLoan,mr);
@@ -334,23 +346,23 @@ function cSA(){
   const pp=moneyVal('sa-pp');
   const emv=moneyVal('sa-emv');
   const mr=+document.getElementById('sa-mr').value||0;
-  const dp=(+document.getElementById('sa-dp').value||25)/100;
+  const dp=(numOr('sa-dp',25))/100;
   const sol=moneyVal('sa-sol');
   const mf=moneyVal('sa-mf');
   const srch=moneyVal('sa-srch');
   const ref=moneyVal('sa-ref');
   const furn=moneyVal('sa-furn');
   const wg=moneyVal('sa-wg');
-  const mgmt=(+document.getElementById('sa-mgmt').value||10)/100;
-  const util=(+document.getElementById('sa-util').value||10)/100;
-  const maint=(+document.getElementById('sa-maint').value||10)/100;
+  const mgmt=(numOr('sa-mgmt',10))/100;
+  const util=(numOr('sa-util',10))/100;
+  const maint=(numOr('sa-maint',10))/100;
   const clean=moneyVal('sa-clean');
   const ins=moneyVal('sa-ins');
   const ct=moneyVal('sa-ct');
-  const ty=+document.getElementById('sa-ty').value||12;
-  const troi=+document.getElementById('sa-troi').value||20;
+  const ty=numOr('sa-ty',12);
+  const troi=numOr('sa-troi',20);
   const satermEl=document.getElementById('sa-term');
-  const term=satermEl?(+satermEl.value||25):25;
+  const term=numOr('sa-term',25);
 
   const ag=rate*(occ/100)*365;
   const mgmtCost=ag*mgmt, utilCost=ag*util, maintCost=ag*maint;
@@ -382,7 +394,7 @@ function cSA(){
   // unlike the purchase mortgage above. Defensive reads so this is a no-op
   // on any page without this markup, e.g. landing.html's taster calculator.
   const sabRefiLtvEl=document.getElementById('sab-refi-ltv');
-  const sabRefiLtv=(sabRefiLtvEl?(+sabRefiLtvEl.value||75):75)/100;
+  const sabRefiLtv=(numOr('sab-refi-ltv',75))/100;
   const sabRefiType=(typeof getDDValue==='function'&&getDDValue('sab-refi-type'))||'io';
   const sabRefiLoan=emv*sabRefiLtv;
   const sabRefiPay=sabRefiType==='repay'?mortRepay(sabRefiLoan,mr,term):mort(sabRefiLoan,mr);
@@ -512,9 +524,9 @@ function cFlip(){
   const bf=moneyVal('fl-bf');
   const ref=moneyVal('fl-ref');
   const sv=moneyVal('fl-sv');
-  const agentPct=(+document.getElementById('fl-agent').value||2)/100;
+  const agentPct=(numOr('fl-agent',2))/100;
   const contPct=(+document.getElementById('fl-cont').value||0)/100;
-  const troi=+document.getElementById('fl-troi').value||20;
+  const troi=numOr('fl-troi',20);
 
   const sd=stamp(pp);
   const contAmt=contPct*ref;

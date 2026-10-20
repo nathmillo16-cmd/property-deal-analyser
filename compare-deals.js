@@ -25,7 +25,7 @@ const COMPARE_FIELDS = {
     { label: 'ROI (after refinance)', key: 'bbROI', type: 'p' },
     { label: 'Refinance LTV', key: 'brrrLtv', type: 'p' },
     { label: 'Gross yield', key: 'gy', type: 'p' },
-    { label: 'Max bid (ROI)', key: 'oR', type: 'c' }
+    { label: 'Max bid (ROI)', key: 'oR', type: 'c', notAchievableAtOrBelow: 10000 }
   ],
   btl: [
     { label: 'Purchase price', key: 'pp', type: 'c' },
@@ -35,7 +35,7 @@ const COMPARE_FIELDS = {
     { label: 'ROI (cash)', key: 'cROI', type: 'p' },
     { label: 'Money left in (mortgage)', key: 'mMLI', type: 'c' },
     { label: 'Max bid (yield)', key: 'oY', type: 'c' },
-    { label: 'Max bid (ROI)', key: 'oR', type: 'c' }
+    { label: 'Max bid (ROI)', key: 'oR', type: 'c', notAchievableAtOrBelow: 10000 }
   ],
   hmo: [
     { label: 'Purchase price', key: 'pp', type: 'c' },
@@ -45,7 +45,7 @@ const COMPARE_FIELDS = {
     { label: 'ROI (cash)', key: 'cROI', type: 'p' },
     { label: 'Total investment (mortgage)', key: 'mTI', type: 'c' },
     { label: 'Max bid (yield)', key: 'oY', type: 'c' },
-    { label: 'Max bid (ROI)', key: 'oR', type: 'c' }
+    { label: 'Max bid (ROI)', key: 'oR', type: 'c', notAchievableAtOrBelow: 10000 }
   ],
   sa: [
     { label: 'Purchase price', key: 'pp', type: 'c' },
@@ -55,7 +55,7 @@ const COMPARE_FIELDS = {
     { label: 'ROI (mortgage)', key: 'mROI', type: 'p' },
     { label: 'ROI (cash)', key: 'cROI', type: 'p' },
     { label: 'Max bid (yield)', key: 'oY', type: 'c' },
-    { label: 'Max bid (ROI)', key: 'oR', type: 'c' }
+    { label: 'Max bid (ROI)', key: 'oR', type: 'c', notAchievableAtOrBelow: 10000 }
   ],
   flip: [
     { label: 'Purchase price', key: 'pp', type: 'c' },
@@ -63,14 +63,22 @@ const COMPARE_FIELDS = {
     { label: 'Net profit', key: 'profit', type: 'c' },
     { label: 'ROI', key: 'roi', type: 'p' },
     { label: 'Profit margin', key: 'margin', type: 'p' },
-    { label: 'Max bid (ROI)', key: 'oR', type: 'c' }
+    { label: 'Max bid (ROI)', key: 'oR', type: 'c', notAchievableAtOrBelow: 1000 }
   ]
 };
 
 function fmtCompareC(n) { return '£' + Math.round(n).toLocaleString(); }
 function fmtCompareP(n) { return n.toFixed(2) + '%'; }
+// Max bid (ROI) is found by searching prices upwards from a floor (£10,000
+// for BTL/BRRR/HMO/SA, £1,000 for Flip). When no price hits the target the
+// search stops on that floor, and deals saved that way store the floor as
+// if it were a real max bid. Shown as "Not achievable" instead.
+function isMaxBidNotAchievable(f, v) {
+  return !!f && f.notAchievableAtOrBelow != null && v != null && v <= f.notAchievableAtOrBelow;
+}
 function fmtCompareField(f, v) {
   if (v == null) return '—';
+  if (isMaxBidNotAchievable(f, v)) return 'Not achievable';
   return f.type === 'c' ? fmtCompareC(v) : fmtCompareP(v);
 }
 

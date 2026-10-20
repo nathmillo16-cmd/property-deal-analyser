@@ -1649,18 +1649,19 @@ async function deleteOfferFromActivity(offerId){
 // rOR has no display anywhere — see the CLAUDE.md backlog note). Flip has
 // no financing modes at all (cash-only), so it keeps the plain "Max bid
 // (ROI)" wording rather than a financing qualifier that wouldn't apply.
-// The achievability guard mirrors calc-engine.js's own exactly (oR>0 &&
-// oR<1900000 for BTL/HMO/SA; oR>0 only for Flip, matching its own wider
-// search range) — oR is still a number even when "not achievable" (a
-// bisection-search-bound artefact), so without this guard a headroom
-// figure could silently show against a meaningless value.
+// The achievability guard treats a max bid sitting on the search floor
+// (£10,000 for BTL/HMO/SA, £1,000 for Flip: no price hit the target) or
+// at the £1.9m ceiling as not achievable, same as compare-deals.js's
+// isMaxBidNotAchievable(). oR is still a number in those cases (a search-
+// bound artefact), so without this guard a headroom figure could silently
+// show against a meaningless value.
 const MAX_BID_LABELS={brrr:'Max bid (interest-only)',btl:'Max bid (interest-only)',hmo:'Max bid (interest-only)',sa:'Max bid (interest-only)',flip:'Max bid (ROI)'};
 
 function computeMaxBidLine(deal, amount){
   const d=deal.deal_data||{};
   const oR=d.oR;
   const label=MAX_BID_LABELS[dealStrategy(deal)]||'Max bid (ROI)';
-  const achievable=oR!=null&&(deal.deal_type==='flip'?oR>0:(oR>0&&oR<1900000));
+  const achievable=oR!=null&&(deal.deal_type==='flip'?oR>1000:(oR>10000&&oR<1900000));
   if(!achievable){
     return `<p class="activity-maxbid">${escapeHtml(label)}: not achievable at these inputs</p>`;
   }

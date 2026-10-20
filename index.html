@@ -123,6 +123,7 @@ details.breakdown>summary{border-top-color:var(--hairline);margin-bottom:.5rem}
 .results-hold li{margin:.15rem 0}
 .results-hold.neutral{background:var(--surface-2);color:var(--muted);border:1px dashed var(--hairline)}
 .results-hold.error{background:var(--danger-bg);color:var(--danger-ink);border:1px solid var(--danger)}
+.results-hold.note{background:var(--warn-bg);color:var(--warn-ink);border:1px dashed var(--warn)}
 .results-hold.warn{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn)}
 .results-hold .hold-title{font-weight:700;margin-bottom:.15rem}
 .results-hold .hold-confirm{margin-top:.7rem;background:transparent;border:1.5px solid currentColor;color:inherit;border-radius:var(--radius-sm);padding:7px 12px;font-family:var(--font-body);font-size:12.5px;font-weight:700;cursor:pointer}
@@ -1472,7 +1473,7 @@ const RANGE_RULES=(function(){
   add(['b-term','h-term','sa-term'],{min:1,max:40,msg:'Mortgage term must be between 1 and 40 years.'});
   add(['b-mgmt','b-maint','h-maint','h-mgmt','sa-mgmt','sa-util','sa-maint','fl-cont'],{min:0,max:100,msg:'Enter a percentage between 0 and 100.'});
   add(['fl-agent'],{min:0,max:20,msg:'Estate agent fee must be between 0 and 20%.'});
-  add(['b-ty','h-ty','sa-ty'],{min:0,max:100,msg:'Target yield must be between 0 and 100%.'});
+  add(['b-ty','h-ty','sa-ty'],{min:0,minExclusive:true,max:100,msg:'Target yield must be more than 0% and no more than 100%.'});
   add(['b-tr','h-troi','sa-troi','fl-troi'],{min:0,max:200,msg:'Target ROI must be between 0 and 200%.'});
   add(['h-r1n','h-r2n','h-r3n','h-r4n'],{min:0,max:50,integer:true,msg:'Enter a whole number of rooms, 0 to 50.'});
   return r;
@@ -1507,7 +1508,7 @@ function rangeError(id){
   if(raw==='')return null;
   const n=+raw;
   if(!Number.isFinite(n))return 'Enter a number.';
-  if(n<rule.min||n>rule.max||(rule.integer&&!Number.isInteger(n)))return rule.msg;
+  if(n<rule.min||(rule.minExclusive&&n===rule.min)||n>rule.max||(rule.integer&&!Number.isInteger(n)))return rule.msg;
   return null;
 }
 
@@ -1564,10 +1565,16 @@ function evaluateStrategy(s){
   const warnings=[];
   const pp=d.pp||0, end=(s==='flip'?d.sv:d.emv)||0;
   if(pp>0&&pp<20000)warnings.push({id:'pp-low',text:'Purchase price is under £20,000. Check for a missing zero.'});
-  if(pp>0&&end>0&&end<pp){
-    warnings.push({id:'end-low',text:s==='flip'
-      ?'Sale value is lower than the purchase price, so this flip loses money. Check for a missing zero.'
-      :'End market value is lower than the purchase price. Check for a missing zero.'});
+  // Under half the purchase price is almost always a typo, so results are
+  // held. Between half and the full price it can be a real deal, so it's a
+  // soft note shown above the results instead.
+  const notes=[];
+  if(pp>0&&end>0&&end<pp*0.5){
+    warnings.push({id:'end-low',text:(s==='flip'?'Sale value':'End market value')+' is less than half the purchase price. Check for a missing zero.'});
+  }else if(pp>0&&end>0&&end<pp){
+    notes.push(s==='flip'
+      ?'Sale value is lower than the purchase price, so this flip may lose money. Check it is right.'
+      :'End market value is lower than the purchase price. Check it is right.');
   }
   if(pp>0&&end>pp*3)warnings.push({id:'end-high',text:(s==='flip'?'Sale value':'End market value')+' is more than 3 times the purchase price. Check for an extra zero.'});
   const monthlyIncome=s==='btl'?d.rent:(s==='hmo'?d.totalRent:(s==='sa'?(d.annualRevenue||0)/12:0));
@@ -1576,7 +1583,7 @@ function evaluateStrategy(s){
       ?'Monthly booking income is more than 3% of the purchase price. Check the nightly rate and occupancy.'
       :'Monthly rent is more than 3% of the purchase price. Check for an extra zero.'});
   }
-  return {invalid,missing,warnings};
+  return {invalid,missing,warnings,notes};
 }
 
 // Warnings the user has confirmed with "These numbers are correct". A
@@ -1613,9 +1620,13 @@ function applyHold(s,state,showWarnings){
         '<button type="button" class="hold-confirm" onclick="confirmWarnings(\''+s+'\')">These numbers are correct</button>';
     }
   }
-  hold.className='results-hold'+(cls?' '+cls:'');
+  // Soft notes (e.g. end value a little under the price) sit in the same
+  // box but leave the results visible.
+  const soft=!cls&&state.notes&&state.notes.length;
+  if(soft)html=state.notes.map(n=>'<p>'+n+'</p>').join('');
+  hold.className='results-hold'+(cls?' '+cls:(soft?' note':''));
   hold.innerHTML=html;
-  hold.hidden=!cls;
+  hold.hidden=!cls&&!soft;
   if(col)col.classList.toggle('warning-hold',!!cls);
   return !cls;
 }
