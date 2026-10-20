@@ -1,0 +1,109 @@
+/* portfolio.css: shared by portfolio.html and property.html. Colours,
+   fonts and radii come from styles.css tokens (body.theme-light). Status
+   colours are used sparingly: green OK, amber due soon, red overdue. */
+
+.pf-head{display:flex;justify-content:space-between;align-items:center;gap:var(--space-4);margin:0 0 var(--space-5);flex-wrap:wrap}
+.pf-head .page-title{margin:0}
+.pf-head .btn-primary{border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3)}
+
+/* ---------- status dots and badges ---------- */
+.pf-dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--hairline-strong)}
+.pf-dot-ok{background:var(--success)}
+.pf-dot-due_soon{background:var(--warn)}
+.pf-dot-overdue{background:var(--danger)}
+.pf-dot-incomplete,.pf-dot-none,.pf-dot-missing,.pf-dot-na{background:#c9c6bd}
+
+.pf-badge{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;white-space:nowrap;background:var(--surface-2);color:var(--ink)}
+.pf-badge.ok{background:var(--success-bg);color:var(--success-ink)}
+.pf-badge.due_soon{background:var(--warn-bg);color:var(--warn-ink)}
+.pf-badge.overdue{background:var(--danger-bg);color:var(--danger-ink)}
+
+/* ---------- summary card ---------- */
+.pf-summary{
+  background:linear-gradient(135deg, var(--accent), #37317f);
+  border-radius:16px;box-shadow:0 4px 20px rgba(75,69,178,.24);
+  color:#fff;padding:var(--space-6);margin-bottom:var(--space-5);
+}
+.pf-summary-top{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-4);flex-wrap:wrap}
+.pf-summary .hero-label{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72);margin:0 0 var(--space-2)}
+.pf-summary .hero-number{font-family:var(--font-body);font-weight:700;font-size:38px;letter-spacing:-.02em;color:#fff;margin:0 0 var(--space-5);font-variant-numeric:tabular-nums}
+.pf-summary .pf-badge{background:rgba(255,255,255,.14);color:#fff}
+.pf-summary-figs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--space-4) var(--space-5)}
+@media(max-width:980px){.pf-summary-figs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:520px){.pf-summary-figs{grid-template-columns:repeat(2,minmax(0,1fr))}.pf-summary .hero-number{font-size:32px}}
+.pf-fig{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pf-fig-label{font-size:11px;color:rgba(255,255,255,.68);letter-spacing:.02em;display:flex;align-items:center;gap:5px}
+.pf-fig-value{font-family:var(--font-body);font-weight:600;font-size:18px;color:#fff;font-variant-numeric:tabular-nums}
+.pf-summary .hero-note{font-size:12px;color:rgba(255,255,255,.72);margin:var(--space-4) 0 0}
+
+/* Small "?" explainer: shows on hover, or on tap (focus) on a phone. */
+.pf-tip{position:relative;width:15px;height:15px;border-radius:50%;border:1px solid currentColor;background:transparent;color:inherit;font-size:9.5px;font-weight:700;line-height:13px;padding:0;cursor:help;font-family:var(--font-body)}
+.pf-tip::after{
+  content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
+  width:200px;padding:8px 10px;border-radius:8px;background:#1f1d3a;color:#fff;font-size:12px;font-weight:500;line-height:1.4;text-align:left;
+  box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .12s ease;z-index:20;text-transform:none;letter-spacing:0;
+}
+.pf-tip:hover::after,.pf-tip:focus::after{opacity:1}
+@media(max-width:520px){.pf-tip::after{left:auto;right:-40px;transform:none}}
+
+/* ---------- property cards ---------- */
+.pf-list{display:flex;flex-direction:column;gap:10px}
+.pf-card{
+  display:grid;grid-template-columns:72px minmax(0,1fr) auto;align-items:center;gap:var(--space-4);
+  padding:12px 16px 12px 12px;background:var(--surface);border:1px solid rgba(0,0,0,.09);border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);text-decoration:none;color:inherit;
+  transition:background-color .15s ease, border-color .15s ease;
+}
+.pf-card:hover{background:var(--surface-2);border-color:rgba(0,0,0,.14)}
+.pf-photo{width:72px;height:72px;border-radius:10px;overflow:hidden;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pf-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.pf-photo svg{width:34px;height:34px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.55}
+.pf-card-main{min-width:0;display:flex;flex-direction:column;gap:5px}
+.pf-card-address{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px;color:var(--ink);min-width:0}
+.pf-card-address span.pf-addr-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-card-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.pf-pill{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--accent);background:rgba(75,69,178,.08);padding:2px 8px;border-radius:999px}
+.pf-card-figs{display:grid;grid-template-columns:repeat(4,auto);gap:var(--space-5)}
+.pf-cfig{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.pf-cfig-value{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pf-cfig-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.pf-neg{color:var(--danger)}
+@media(max-width:760px){
+  .pf-card{grid-template-columns:56px minmax(0,1fr);padding:12px}
+  .pf-photo{width:56px;height:56px}
+  .pf-card-figs{grid-column:1 / -1;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-3);padding-top:10px;border-top:1px solid var(--hairline)}
+  .pf-cfig{align-items:flex-start}
+}
+@media(max-width:420px){.pf-card-figs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ---------- pop-ups ---------- */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(20,18,40,.45);z-index:400;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-card{max-width:520px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);border-radius:16px}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem}
+.modal-header h2{font-size:18px;margin:0;word-break:break-word}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:24px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
+.modal-close:hover{color:var(--ink)}
+.modal-actions{display:flex;justify-content:flex-end;align-items:center;gap:var(--space-3);margin-top:1rem}
+.modal-actions .btn-primary{border-radius:10px}
+.pf-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 var(--space-4)}
+.pf-form-grid .field[data-field="address"]{grid-column:1 / -1}
+@media(max-width:520px){.pf-form-grid{grid-template-columns:1fr}}
+.pf-field-hint{font-size:11.5px;color:var(--muted);margin:2px 0 0}
+.pf-modal-note{font-size:12.5px;color:var(--muted);margin:0 0 1rem}
+.pf-modal-note.warn{background:var(--warn-bg);color:var(--warn-ink);padding:8px 12px;border-radius:8px}
+.save-msg{font-size:12.5px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
+.save-msg.success{color:var(--success)}
+.save-msg.error{color:var(--danger)}
+@media(max-width:520px){
+  .modal-overlay{padding:0;align-items:flex-end}
+  .modal-card{max-height:92vh;border-radius:16px 16px 0 0;padding-bottom:calc(1.75rem + env(safe-area-inset-bottom, 0px))}
+}
+
+/* compliance form */
+.pfc-item{border:1px solid var(--hairline);border-radius:12px;padding:10px 14px 2px;margin:0 0 10px}
+.pfc-item legend{font-weight:700;font-size:13.5px;padding:0 4px;color:var(--ink)}
+.pfc-item legend span{font-weight:400;font-size:12px;color:var(--muted)}
+.pfc-na{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin:2px 0 10px;cursor:pointer}
+.pfc-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 var(--space-4)}
+.pfc-item[data-na="1"] .pfc-fields{display:none}

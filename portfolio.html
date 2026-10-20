@@ -23,170 +23,24 @@
 <script src="/auth-guard.js"></script>
 <script src="/draft-state.js"></script>
 <script src="/onboarding-tutorial.js"></script>
+<script src="/portfolio-shared.js"></script>
+<link rel="stylesheet" href="/portfolio.css">
 <style>
-/* page-specific layout only — colours/fonts/radius all come from styles.css */
+/* page-specific layout only; shared portfolio styles live in portfolio.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
-
 .page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
 
-/* Empty-state card — same visual model as home.html's #empty-state
-   "Get started" card (heading + one line + CTA), duplicated here per this
-   app's existing per-page convention rather than shared. The CTA here is
-   a button, not a link — see chat: the Add-property form already sits in
-   the other column on this page, so it focuses that form instead of
-   navigating away. */
+/* Empty-state card, same visual model as home.html's "Get started" card. */
 .empty-card{text-align:center;padding:var(--space-6) var(--space-4);margin-bottom:var(--space-5)}
 .empty-card h2{font-size:22px;font-weight:600;margin:0 0 var(--space-3)}
 .empty-card p{font-size:13.5px;color:var(--muted);margin:0 0 var(--space-5);max-width:44ch;margin-left:auto;margin-right:auto}
-.empty-card .btn-primary{
-  text-decoration:none;display:inline-block;
-  border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3);
-}
-body.theme-light .empty-card{
-  border:1px solid rgba(0,0,0,.09);
-  border-radius:14px;
-  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
-}
+.empty-card .btn-primary{border-radius:10px;box-shadow:0 1px 2px rgba(75,69,178,.3)}
+body.theme-light .empty-card{border:1px solid rgba(0,0,0,.09);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02)}
 
 .locked-panel{text-align:center;padding:3.5rem 1rem}
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
-
-.split-panel{display:grid;grid-template-columns:1fr 1.3fr;gap:16px;align-items:start}
-@media(max-width:860px){.split-panel{grid-template-columns:1fr}}
-
-.add-property-card h2{font-size:18px;margin:0 0 1.25rem}
-
-/* Light-theme card treatment for the add-property form — matches home's
-   card style. Scoped to this specific class (not the shared .card) so the
-   as-yet-unstyled modal (which also carries class="card") is untouched by
-   this rule directly — see chat re: token cascade still reaching it
-   regardless, since that's unavoidable once <body> carries theme-light. */
-body.theme-light .add-property-card{
-  border-radius:14px;
-  border:1px solid rgba(0,0,0,.09);
-  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
-}
-body.theme-light .add-property-card .btn-primary{
-  border-radius:10px;
-  box-shadow:0 1px 2px rgba(75,69,178,.3);
-}
-
-.save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
-.save-msg.success{color:var(--accent-2)}
-.save-msg.error{color:#E8746B}
-
-/* Hero panel — full-width indigo summary, matching home.html's hero
-   exactly (same class names, duplicated here rather than shared, per this
-   app's existing per-page convention — see e.g. the .dd component below).
-   id="pf-summary-grid" is kept on this element on purpose: loadPortfolio()
-   (script below) already shows/hides it via that exact id, unchanged, so
-   the hero inherits the existing "hidden until >=1 property" empty-state
-   behaviour for free, with zero JS changes. */
-.hero-panel{
-  background:linear-gradient(135deg, var(--accent), #37317f);
-  border:none;
-  border-radius:16px;
-  box-shadow:0 4px 20px rgba(75,69,178,.28);
-  color:#ffffff;
-  padding:var(--space-6);
-  margin-bottom:var(--space-5);
-}
-.hero-label{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.72);margin:0 0 var(--space-2)}
-.hero-number{font-family:var(--font-body);font-weight:700;font-size:38px;letter-spacing:-.02em;color:#ffffff;margin:0 0 var(--space-5);font-variant-numeric:tabular-nums}
-.hero-figures{display:flex;gap:var(--space-6);flex-wrap:wrap}
-.hero-fig{display:flex;flex-direction:column;gap:2px}
-.hero-fig-label{font-size:11px;color:rgba(255,255,255,.65);letter-spacing:.02em}
-.hero-fig-value{font-family:var(--font-body);font-weight:600;font-size:18px;color:#ffffff;font-variant-numeric:tabular-nums}
-/* #pf-total-cashflow can't carry class="hero-fig-value" like its two
-   sibling figures — loadPortfolio() (script below, unchanged) always
-   resets its class to exactly "mv", "mv positive", or "mv negative" on
-   every load, since that sign-check logic wasn't touched. This rule
-   matches the hero-fig-value look (size/weight/tabular-nums) and forces
-   white regardless of which of those three classes is present, so the
-   figure looks identical to its siblings and never shows the old
-   success/danger colouring inside the hero, without touching that JS at
-   all. */
-body.theme-light #pf-total-cashflow{
-  font-family:var(--font-body);font-weight:600;font-size:18px;color:#ffffff;font-variant-numeric:tabular-nums;
-}
-
-.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap;cursor:pointer;transition:border-color .15s ease}
-.saved-item:hover{border-color:var(--hairline-strong)}
-.saved-info{display:flex;flex-direction:column;gap:2px}
-.saved-name{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
-.saved-detail{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.saved-chevron{color:var(--muted);font-size:18px;line-height:1}
-
-/* Right-hand figure group (yield, cashflow) in each property row — wrapped
-   with the chevron in .saved-right so .saved-item's existing
-   justify-content:space-between still only ever sees 2 direct children
-   (the left info block and this group), not 3, which would otherwise put
-   the figures in the horizontal middle of the row instead of the right. */
-.saved-right{display:flex;align-items:center;gap:1.25rem}
-.saved-figures{display:flex;gap:1.25rem}
-.saved-figure{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
-.sf-value{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
-.sf-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
-body.theme-light .sf-value.sf-success{color:var(--success)}
-body.theme-light .sf-value.sf-danger{color:var(--danger)}
-
-.mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
-.mini-btn:hover{background:rgba(224,164,88,.08)}
-.mini-btn:disabled{opacity:.4;cursor:not-allowed}
-.mini-btn.danger{color:#E8746B;border-color:#E8746B}
-.mini-btn.danger:hover{background:rgba(232,116,107,.08)}
-
-/* Light-theme property rows — same card treatment as the tiles above,
-   plus a background-only hover and an indigo chevron instead of muted
-   grey, so the row reads as clickable. */
-body.theme-light .saved-item{
-  border:1px solid rgba(0,0,0,.09);
-  border-radius:14px;
-  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
-  transition:background-color .15s ease;
-}
-body.theme-light .saved-item:hover{background:var(--surface-2)}
-body.theme-light .saved-chevron{color:var(--accent)}
-
-/* The shared .mini-btn hover and .mini-btn.danger colours above are
-   hardcoded amber/red literals, not tokens, so they don't auto-theme —
-   overridden here for light theme only. Danger now uses the new
-   --danger/--danger-bg semantic tokens instead of the old hardcoded hex. */
-body.theme-light .mini-btn:hover{background:rgba(75,69,178,.08)}
-body.theme-light .mini-btn.danger{color:var(--danger);border-color:var(--danger)}
-body.theme-light .mini-btn.danger:hover{background:var(--danger-bg)}
-
-/* .dd dropdown (property-type picker): colours only, no markup/class
-   changes — see chat. Two things in the shared styles.css component are
-   hardcoded to the old amber accent rather than token-driven, so they
-   don't auto-theme and need an explicit override here: the hover/
-   highlight background on .dd-opt, and the dropdown chevron icon itself,
-   which is a hardcoded SVG data-URI (the stroke colour is baked into the
-   string, which CSS custom properties cannot reach inside a
-   url(data:...) value — the same known limitation flagged in the
-   original design-system review). Same path/viewBox as the shared icon,
-   only the stroke colour changes (amber -> indigo). */
-body.theme-light .dd-opt:hover,
-body.theme-light .dd-opt.highlight{background:rgba(75,69,178,.10)}
-body.theme-light .dd-trigger::after{
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b45b2' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-}
-
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
-.modal-overlay.open{display:flex}
-.modal-card{max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem}
-.modal-header h2{font-size:18px;margin:0;word-break:break-word}
-.modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
-.modal-close:hover{color:var(--ink)}
-.modal-figures{display:flex;flex-wrap:wrap;gap:1rem 1.75rem;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--hairline)}
-.modal-figure .ml{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
-.modal-figure .mv{font-family:var(--font-body);font-weight:700;font-size:17px;color:var(--ink);margin:0;font-variant-numeric:tabular-nums}
-.modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:1rem}
-.pf-subhead{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin:1.25rem 0 .75rem;padding-top:1rem;border-top:1px solid var(--hairline)}
-.pf-subhead span{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)}
-.hero-note{font-size:12px;color:rgba(255,255,255,.7);margin:var(--space-4) 0 0}
+.add-clear{font-size:12.5px;color:var(--muted);margin-right:auto}
 </style>
 </head>
 <body class="theme-light">
@@ -196,7 +50,10 @@ body.theme-light .dd-trigger::after{
   <script src="/nav.js"></script>
   <script src="/crm-nav.js"></script>
 
-  <p class="page-title">Portfolio</p>
+  <div class="pf-head">
+    <p class="page-title">Portfolio</p>
+    <button type="button" class="btn-primary" id="btn-open-add" onclick="openAddModal()" hidden>Add property</button>
+  </div>
 
   <div id="state-loading"><p class="hint">Loading…</p></div>
 
@@ -213,219 +70,53 @@ body.theme-light .dd-trigger::after{
   </div>
 
   <div id="state-board" style="display:none">
-    <div class="hero-panel" id="pf-summary-grid" style="display:none">
-      <p class="hero-label">Portfolio value · <span id="pf-count">—</span></p>
-      <p class="hero-number" id="pf-portfolio-value">—</p>
-      <div class="hero-figures">
-        <div class="hero-fig"><span class="hero-fig-label">Total equity</span><span class="hero-fig-value" id="pf-total-equity">—</span></div>
-        <div class="hero-fig"><span class="hero-fig-label">Cash invested</span><span class="hero-fig-value" id="pf-total-cash">—</span></div>
-        <div class="hero-fig"><span class="hero-fig-label">Monthly cashflow</span><span class="mv" id="pf-total-cashflow">—</span></div>
-        <div class="hero-fig"><span class="hero-fig-label">Blended yield</span><span class="hero-fig-value" id="pf-blended-yield">—</span></div>
+    <!-- id="pf-summary-grid" is kept: the tutorial's portfolio step targets it. -->
+    <section class="pf-summary" id="pf-summary-grid" hidden aria-label="Portfolio summary">
+      <div class="pf-summary-top">
+        <p class="hero-label">Portfolio value · <span id="pf-count"></span></p>
+        <span class="pf-badge" id="pf-compliance-badge" hidden></span>
+      </div>
+      <p class="hero-number" id="pf-portfolio-value"></p>
+      <div class="pf-summary-figs">
+        <div class="pf-fig"><span class="pf-fig-label">Total equity</span><span class="pf-fig-value" id="pf-total-equity"></span></div>
+        <div class="pf-fig"><span class="pf-fig-label">Cash invested</span><span class="pf-fig-value" id="pf-total-cash"></span></div>
+        <div class="pf-fig"><span class="pf-fig-label">Monthly cashflow</span><span class="pf-fig-value" id="pf-total-cashflow"></span></div>
+        <div class="pf-fig"><span class="pf-fig-label">Net yield</span><span class="pf-fig-value" id="pf-blended-yield"></span></div>
+        <div class="pf-fig"><span class="pf-fig-label">Overall LTV</span><span class="pf-fig-value" id="pf-overall-ltv"></span></div>
+        <div class="pf-fig"><span class="pf-fig-label">Available to release <button type="button" class="pf-tip" aria-label="Equity you could pull out by remortgaging, before fees." data-tip="Equity you could pull out by remortgaging, before fees.">?</button></span><span class="pf-fig-value" id="pf-total-release"></span></div>
       </div>
       <p class="hero-note" id="pf-partial-note" hidden></p>
-    </div>
+    </section>
 
     <div class="card empty-card" id="pf-empty-state" style="display:none">
       <h2>No properties yet</h2>
-      <p>Track properties you own to see portfolio value, equity and blended yield.</p>
-      <button type="button" class="btn-primary" onclick="focusAddPropertyForm()">Add your first property</button>
+      <p>Track properties you own to see portfolio value, equity and net yield.</p>
+      <button type="button" class="btn-primary" onclick="openAddModal()">Add your first property</button>
     </div>
 
-    <div class="split-panel">
-      <div class="card add-property-card">
-        <h2>Add property</h2>
-        <div class="field"><label>Address</label><input type="text" id="pf-address" oninput="savePortfolioDraft()"/></div>
-        <div class="field"><label>Price paid (£)</label><input type="number" id="pf-price" oninput="savePortfolioDraft()"/></div>
-        <div class="field"><label>Property type</label>
-          <div class="dd" id="pf-type" data-value="BTL" data-onchange="savePortfolioDraft">
-            <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'pf-type')" onkeydown="ddKeydown(event,'pf-type')">
-              <span>BTL</span>
-            </button>
-            <ul class="dd-list" role="listbox">
-              <li class="dd-opt selected" role="option" aria-selected="true" data-value="BTL" onclick="selectDDOption(event,'pf-type','BTL','BTL')">BTL</li>
-              <li class="dd-opt" role="option" aria-selected="false" data-value="HMO" onclick="selectDDOption(event,'pf-type','HMO','HMO')">HMO</li>
-              <li class="dd-opt" role="option" aria-selected="false" data-value="SA" onclick="selectDDOption(event,'pf-type','SA','SA')">SA</li>
-              <li class="dd-opt" role="option" aria-selected="false" data-value="Flip" onclick="selectDDOption(event,'pf-type','Flip','Flip')">Flip</li>
-            </ul>
-          </div>
-        </div>
-        <div class="field"><label>Monthly rent (£)</label><input type="number" id="pf-rent" oninput="savePortfolioDraft()"/></div>
-        <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pf-costs" oninput="savePortfolioDraft()"/></div>
-        <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pf-mortgage" placeholder="Leave blank if no mortgage" oninput="savePortfolioDraft()"/></div>
-        <p class="pf-subhead">Value and equity <span>(optional)</span></p>
-        <div class="field"><label>Cash invested (£)</label><input type="number" id="pf-cash" oninput="savePortfolioDraft()"/></div>
-        <div class="field"><label>Current value (£)</label><input type="number" id="pf-value" oninput="savePortfolioDraft()"/></div>
-        <div class="field"><label>Mortgage balance (£)</label><input type="number" id="pf-balance" placeholder="Leave blank if no mortgage" oninput="savePortfolioDraft()"/></div>
-        <div class="field"><label>Refinance date</label><input type="date" id="pf-refi" oninput="savePortfolioDraft()"/></div>
-        <p class="hint" style="margin-bottom:1rem">Running costs = management, insurance, maintenance, not mortgage. Yield excludes mortgage; cashflow includes it. Equity is current value minus mortgage balance. We'll flag the refinance date on Home 60 days before.</p>
-        <button class="btn-primary" onclick="addProperty()" id="btn-add-property">Add property</button>
-        <a href="#" class="hint" onclick="clearPortfolioDraft();return false;" style="display:inline-block;margin-top:.5rem">Clear</a>
-        <p class="save-msg" id="pf-msg"></p>
-      </div>
-
-      <div>
-        <div id="pf-list"><p class="hint">Loading…</p></div>
-      </div>
-    </div>
+    <div class="pf-list" id="pf-list"><p class="hint">Loading…</p></div>
   </div>
 </div>
 
-<div class="modal-overlay" id="pf-modal-overlay" onclick="handleOverlayClick(event)">
-  <div class="card modal-card">
+<div class="modal-overlay" id="pf-add-overlay" onclick="if(event.target===this)closeAddModal()">
+  <div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="pf-add-title">
     <div class="modal-header">
-      <h2 id="pf-modal-address">—</h2>
-      <button class="modal-close" onclick="closePropertyDetail()" aria-label="Close">×</button>
+      <h2 id="pf-add-title">Add property</h2>
+      <button class="modal-close" onclick="closeAddModal()" aria-label="Close">×</button>
     </div>
-    <div class="modal-figures">
-      <div class="modal-figure"><p class="ml">Yield</p><p class="mv" id="pf-modal-yield">—</p></div>
-      <div class="modal-figure"><p class="ml">Monthly cashflow</p><p class="mv" id="pf-modal-cashflow">—</p></div>
-      <div class="modal-figure"><p class="ml">Equity</p><p class="mv" id="pf-modal-equity">—</p></div>
-    </div>
-    <div class="field"><label>Address</label><input type="text" id="pfm-address"/></div>
-    <div class="field"><label>Price paid (£)</label><input type="number" id="pfm-price"/></div>
-    <div class="field"><label>Property type</label>
-      <div class="dd" id="pfm-type" data-value="BTL">
-        <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'pfm-type')" onkeydown="ddKeydown(event,'pfm-type')">
-          <span>BTL</span>
-        </button>
-        <ul class="dd-list" role="listbox">
-          <li class="dd-opt selected" role="option" aria-selected="true" data-value="BTL" onclick="selectDDOption(event,'pfm-type','BTL','BTL')">BTL</li>
-          <li class="dd-opt" role="option" aria-selected="false" data-value="HMO" onclick="selectDDOption(event,'pfm-type','HMO','HMO')">HMO</li>
-          <li class="dd-opt" role="option" aria-selected="false" data-value="SA" onclick="selectDDOption(event,'pfm-type','SA','SA')">SA</li>
-          <li class="dd-opt" role="option" aria-selected="false" data-value="Flip" onclick="selectDDOption(event,'pfm-type','Flip','Flip')">Flip</li>
-        </ul>
-      </div>
-    </div>
-    <div class="field"><label>Monthly rent (£)</label><input type="number" id="pfm-rent"/></div>
-    <div class="field"><label>Monthly running costs (£)</label><input type="number" id="pfm-costs"/></div>
-    <div class="field"><label>Monthly mortgage (£)</label><input type="number" id="pfm-mortgage" placeholder="Leave blank if no mortgage"/></div>
-        <p class="pf-subhead">Value and equity <span>(optional)</span></p>
-        <div class="field"><label>Cash invested (£)</label><input type="number" id="pfm-cash"/></div>
-        <div class="field"><label>Current value (£)</label><input type="number" id="pfm-value"/></div>
-        <div class="field"><label>Mortgage balance (£)</label><input type="number" id="pfm-balance" placeholder="Leave blank if no mortgage"/></div>
-        <div class="field"><label>Refinance date</label><input type="date" id="pfm-refi"/></div>
-    <p class="save-msg" id="pf-modal-msg"></p>
+    <p class="pf-modal-note" id="pf-add-note"></p>
+    <div class="pf-form-grid" id="pf-add-fields" oninput="savePortfolioDraft()" onchange="savePortfolioDraft()"></div>
+    <p class="save-msg" id="pf-msg"></p>
     <div class="modal-actions">
-      <button class="mini-btn danger" onclick="deleteFromDetail()">Delete</button>
-      <button class="btn-primary" id="pf-modal-save-btn" onclick="savePropertyChanges()">Save changes</button>
+      <a href="#" class="add-clear" onclick="clearPortfolioDraft();return false;">Clear</a>
+      <button class="btn-primary" onclick="addProperty()" id="btn-add-property">Add property</button>
     </div>
   </div>
 </div>
 
 <script>
-// Custom themed dropdown, replacing native <select> — same visual treatment
-// and interaction mechanics as pipeline.html's original stage-dd component
-// (which stays as its own separate, untouched implementation there),
-// generalized so it can back any value+options picker. A <select>'s .value
-// has no equivalent once it's gone, so the wrapper div carries the current
-// value in data-value instead, keyed by the same id the old <select> had —
-// getDDValue/setDDValue read/write it.
-let openDD=null;
-
-function closeAllDD(){
-  document.querySelectorAll('.dd.open').forEach(el=>{
-    el.classList.remove('open');
-    const btn=el.querySelector('.dd-trigger');
-    if(btn)btn.setAttribute('aria-expanded','false');
-  });
-  openDD=null;
-}
-
-function positionDDList(wrap){
-  const trigger=wrap.querySelector('.dd-trigger');
-  const list=wrap.querySelector('.dd-list');
-  if(!trigger||!list)return;
-  const r=trigger.getBoundingClientRect();
-  const gap=4;
-  const listHeight=list.getBoundingClientRect().height;
-  const spaceBelow=window.innerHeight-r.bottom, spaceAbove=r.top;
-  const openUpward=spaceBelow<(listHeight+gap) && spaceAbove>=(listHeight+gap);
-  list.style.left=r.left+'px';
-  list.style.width=r.width+'px';
-  list.style.top=openUpward ? (r.top-listHeight-gap)+'px' : (r.bottom+gap)+'px';
-}
-
-function toggleDD(e, id){
-  e.stopPropagation();
-  const wasOpen=openDD===id;
-  closeAllDD();
-  if(wasOpen)return;
-  const wrap=document.getElementById(id);
-  if(!wrap)return;
-  wrap.classList.add('open');
-  wrap.querySelector('.dd-trigger').setAttribute('aria-expanded','true');
-  positionDDList(wrap);
-  openDD=id;
-  wrap.querySelectorAll('.dd-opt').forEach(o=>o.classList.remove('highlight'));
-  const current=wrap.querySelector('.dd-opt.selected')||wrap.querySelector('.dd-opt');
-  if(current)current.classList.add('highlight');
-}
-
-function setDDValue(id, value, label){
-  const wrap=document.getElementById(id);
-  if(!wrap)return;
-  wrap.dataset.value=value;
-  const span=wrap.querySelector('.dd-trigger span');
-  if(span)span.textContent=label!=null?label:value;
-  wrap.querySelectorAll('.dd-opt').forEach(o=>{
-    const match=o.dataset.value===String(value);
-    o.classList.toggle('selected',match);
-    o.setAttribute('aria-selected',match?'true':'false');
-  });
-}
-
-function getDDValue(id){
-  const wrap=document.getElementById(id);
-  return wrap?wrap.dataset.value:null;
-}
-
-function selectDDOption(e, id, value, label){
-  e.stopPropagation();
-  closeAllDD();
-  setDDValue(id, value, label);
-  const wrap=document.getElementById(id);
-  const cb=wrap&&wrap.dataset.onchange;
-  if(cb&&typeof window[cb]==='function')window[cb](id, value);
-}
-
-function ddKeydown(e, id){
-  const wrap=document.getElementById(id);
-  if(!wrap)return;
-  const isOpen=openDD===id;
-  if(e.key==='Enter'||e.key===' '){
-    e.preventDefault();
-    if(!isOpen){toggleDD(e, id);return;}
-    const hl=wrap.querySelector('.dd-opt.highlight');
-    if(hl)selectDDOption(e, id, hl.dataset.value, hl.textContent);
-    return;
-  }
-  if(e.key==='Escape'){closeAllDD();return;}
-  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
-    e.preventDefault();
-    if(!isOpen){toggleDD(e, id);return;}
-    const opts=[...wrap.querySelectorAll('.dd-opt')];
-    let idx=opts.findIndex(o=>o.classList.contains('highlight'));
-    idx = e.key==='ArrowDown' ? Math.min(idx+1, opts.length-1) : Math.max(idx-1, 0);
-    opts.forEach(o=>o.classList.remove('highlight'));
-    opts[idx].classList.add('highlight');
-  }
-}
-
-document.addEventListener('click', closeAllDD);
-window.addEventListener('scroll', closeAllDD, true);
-
 let sbClient=null, currentSession=null, currentPlan=null;
-let portfolioProperties=[], editingId=null;
-
-function fmtGBP(v){ return v!=null ? '£'+Math.round(v).toLocaleString() : '—'; }
-function fmtPct(v){ return v!=null ? v.toFixed(1)+'%' : '—'; }
-function fmtDate(d){ const [y,m,day]=String(d).split('-').map(Number); return new Date(y,m-1,day).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
-
-function escapeHtml(s){
-  const div=document.createElement('div');
-  div.textContent=s;
-  return div.innerHTML;
-}
+let portfolioProperties=[], schemaReady=false;
 
 async function logout(){
   await sbClient.auth.signOut();
@@ -467,7 +158,7 @@ function updateTopbar(){
   const menuEmail=document.getElementById('user-menu-email');
   const itemEmail=document.getElementById('user-menu-item-email');
   if(menuEmail)menuEmail.textContent=email||'Account';
-  if(itemEmail)itemEmail.textContent=email||'—';
+  if(itemEmail)itemEmail.textContent=email||'';
   const subLink=document.getElementById('subscribe-link');
   if(loggedIn&&currentPlan==='free'){
     subLink.style.display='';
@@ -482,60 +173,51 @@ function showState(state){
   ['loading','loggedout','locked','board'].forEach(s=>{
     document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
   });
+  document.getElementById('btn-open-add').hidden = state!=='board';
 }
 
 // ---------------------------------------------------------------------
-// Draft persistence (draft-state.js) — saves/restores the "Add property"
-// form to localStorage so an accidental refresh doesn't lose a half-filled
-// entry. The edit modal (pfm-*) is excluded — it's always freshly
-// pre-filled from already-saved data each time it opens, and isn't open by
-// default on load, so there's nothing mid-flight to restore there.
+// Add property pop-up. Fields come from portfolio-shared.js (the same
+// definitions the property page's Edit pop-up uses). A half-filled form is
+// kept in localStorage (draft-state.js) so a refresh doesn't lose it.
 // ---------------------------------------------------------------------
-const PORTFOLIO_FIELD_IDS=['pf-address','pf-price','pf-rent','pf-costs','pf-mortgage','pf-cash','pf-value','pf-balance','pf-refi'];
+function addFieldsRoot(){ return document.getElementById('pf-add-fields'); }
+
+function renderAddFields(values){
+  addFieldsRoot().innerHTML=PF.renderFields('add', values||null, {schemaReady});
+  PF.applyVisibility(addFieldsRoot());
+  document.getElementById('pf-add-note').textContent=PF.SECTIONS.add.note;
+}
 
 function savePortfolioDraft(){
-  const fields={};
-  PORTFOLIO_FIELD_IDS.forEach(id=>{
-    const el=document.getElementById(id);
-    if(el)fields[id]=el.value;
-  });
-  saveDraft('portfolio', { fields, propertyType: getDDValue('pf-type') });
+  saveDraft('portfolio-add', { fields: PF.readFields(addFieldsRoot()) });
 }
 
 function restorePortfolioDraft(){
-  const d=loadDraft('portfolio');
-  if(!d)return;
+  let values=null;
   try{
-    if(d.fields&&typeof d.fields==='object'){
-      PORTFOLIO_FIELD_IDS.forEach(id=>{
-        try{
-          if(d.fields[id]!=null){
-            const el=document.getElementById(id);
-            if(el)el.value=d.fields[id];
-          }
-        }catch(e){ /* one bad field shouldn't block the rest */ }
-      });
-    }
-  }catch(e){ /* leave fields at their defaults */ }
-  try{
-    if(d.propertyType)setDDValue('pf-type', d.propertyType, d.propertyType);
-  }catch(e){ /* leave property type at its default */ }
+    const d=loadDraft('portfolio-add');
+    if(d&&d.fields&&typeof d.fields==='object')values=d.fields;
+  }catch(e){ /* start blank */ }
+  if(values&&values.property_type==='BRRR'&&!schemaReady)values.property_type='BTL';
+  renderAddFields(values);
 }
 
 function clearPortfolioDraft(){
-  clearDraft('portfolio');
-  PORTFOLIO_FIELD_IDS.forEach(id=>document.getElementById(id).value='');
-  setDDValue('pf-type','BTL','BTL');
+  clearDraft('portfolio-add');
+  renderAddFields(null);
+  const msg=document.getElementById('pf-msg');msg.textContent='';msg.className='save-msg';
 }
 
-// Empty-state CTA — the Add-property form already sits in the other
-// column on this page, so this focuses it rather than navigating away.
-function focusAddPropertyForm(){
-  const el=document.getElementById('pf-address');
-  if(!el)return;
-  el.scrollIntoView({behavior:'smooth', block:'center'});
-  el.focus();
+function openAddModal(){
+  const msg=document.getElementById('pf-msg');msg.textContent='';msg.className='save-msg';
+  document.getElementById('pf-add-overlay').classList.add('open');
+  const first=document.getElementById('pff-address');
+  if(first)setTimeout(()=>first.focus(),30);
 }
+function closeAddModal(){ document.getElementById('pf-add-overlay').classList.remove('open'); }
+
+document.addEventListener('keydown', function(e){ if(e.key==='Escape')closeAddModal(); });
 
 async function init(){
   const auth=await requireAuth();
@@ -554,23 +236,20 @@ async function init(){
 
   if(currentPlan!=='paid'){
     showState('locked');
-    // Still resumed here (not just in the paid branch below) — the
-    // portfolio tutorial step's fallback target is this exact locked panel,
-    // for a free user who reaches this step mid-tour.
+    // The portfolio tutorial step falls back to this locked panel for a
+    // free user who reaches it mid-tour.
     Tutorial.resumeIfActive(currentSession.access_token);
     return;
   }
 
   showState('board');
-  // Scroll restore waits for the portfolio list to finish loading (it's
-  // the part of this page whose height varies) so it lands on content
-  // that's actually there, not a still-loading placeholder.
+  renderAddFields(null);
   loadPortfolio().finally(function(){
+    restorePortfolioDraft();
     restoreScrollPosition('portfolio');
     attachScrollSaver('portfolio');
     Tutorial.resumeIfActive(currentSession.access_token);
   });
-  restorePortfolioDraft();
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
@@ -579,13 +258,35 @@ async function init(){
   });
 }
 
+function propertyCard(p){
+  const cs=PF.complianceSummary(p.compliance_status);
+  const next=PF.nextKeyDate(p);
+  const photo=p.photo_url
+    ? `<img src="${PF.esc(p.photo_url)}" alt="" loading="lazy"/>`
+    : PF.HOUSE_ICON;
+  const fig=(value,label,neg)=>`<div class="pf-cfig"><span class="pf-cfig-value${neg?' pf-neg':''}">${value}</span><span class="pf-cfig-label">${label}</span></div>`;
+  return `<a class="pf-card" href="/property.html?id=${encodeURIComponent(p.id)}">
+    <div class="pf-photo">${photo}</div>
+    <div class="pf-card-main">
+      <span class="pf-card-address"><span class="pf-addr-text">${PF.esc(p.address)}</span>${PF.statusDot(cs.level,'Compliance: '+cs.text)}</span>
+      <span class="pf-card-meta"><span class="pf-pill">${PF.esc(p.property_type)}</span>${next?'<span>'+PF.esc(next.text)+'</span>':''}</span>
+    </div>
+    <div class="pf-card-figs">
+      ${fig(PF.pct(p.yield),'Net yield')}
+      ${fig(PF.gbp(p.monthly_cashflow),'Cashflow /mo',p.monthly_cashflow<0)}
+      ${fig(PF.gbp(p.equity),'Equity')}
+      ${fig(PF.gbp(p.available_to_release),'To release')}
+    </div>
+  </a>`;
+}
+
 async function loadPortfolio(){
   const listEl=document.getElementById('pf-list');
   const emptyEl=document.getElementById('pf-empty-state');
   const summaryEl=document.getElementById('pf-summary-grid');
   listEl.innerHTML='<p class="hint">Loading…</p>';
   emptyEl.style.display='none';
-  summaryEl.style.display='none';
+  summaryEl.hidden=true;
 
   try{
     const res=await fetch(API_BASE+'/api/portfolio',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
@@ -593,6 +294,7 @@ async function loadPortfolio(){
     if(!res.ok)throw new Error(d.error||'Could not load your portfolio.');
 
     portfolioProperties=d.properties;
+    schemaReady=!!d.schema_ready;
 
     if(portfolioProperties.length===0){
       emptyEl.style.display='block';
@@ -600,53 +302,44 @@ async function loadPortfolio(){
       return;
     }
 
-    summaryEl.style.display='';
+    summaryEl.hidden=false;
     const n=portfolioProperties.length;
-    document.getElementById('pf-count').textContent=n+(n===1?' property':' properties');
-    const cashflowEl=document.getElementById('pf-total-cashflow');
-    const cf=d.totals.total_monthly_cashflow;
-    cashflowEl.textContent=fmtGBP(cf);
-    cashflowEl.className='mv'+(cf>0?' positive':(cf<0?' negative':''));
-    document.getElementById('pf-blended-yield').textContent=fmtPct(d.totals.blended_yield);
     const t=d.totals;
-    document.getElementById('pf-portfolio-value').textContent=fmtGBP(t.portfolio_value);
-    document.getElementById('pf-total-equity').textContent=fmtGBP(t.total_equity);
-    document.getElementById('pf-total-cash').textContent=fmtGBP(t.total_cash_invested);
-    // Older properties won't have the optional value/equity fields yet, so
-    // say plainly when a total only covers some of them.
+    document.getElementById('pf-count').textContent=n+(n===1?' property':' properties');
+    document.getElementById('pf-portfolio-value').textContent=PF.gbp(t.portfolio_value);
+    document.getElementById('pf-total-equity').textContent=PF.gbp(t.total_equity);
+    document.getElementById('pf-total-cash').textContent=PF.gbp(t.total_cash_invested);
+    document.getElementById('pf-total-cashflow').textContent=PF.gbp(t.total_monthly_cashflow);
+    document.getElementById('pf-blended-yield').textContent=PF.pct(t.blended_yield);
+    document.getElementById('pf-overall-ltv').textContent=PF.pct(t.overall_ltv,0);
+    document.getElementById('pf-total-release').textContent=PF.gbp(t.total_available_to_release);
+
+    // Compliance badge: "All compliant" or "N items due". Until any
+    // compliance has been entered it says so rather than claiming
+    // everything is fine.
+    const badge=document.getElementById('pf-compliance-badge');
+    const due=t.compliance_overdue+t.compliance_due_soon;
+    let level, text;
+    if(due){ level=t.compliance_overdue?'overdue':'due_soon'; text=PF.plural(due,'item')+' due'; }
+    else if(!t.compliance_started){ level='none'; text='Compliance not set up'; }
+    else if(t.compliance_missing){ level='incomplete'; text=PF.plural(t.compliance_missing,'item')+' to add'; }
+    else { level='ok'; text='All compliant'; }
+    badge.innerHTML=PF.statusDot(level,text)+PF.esc(text);
+    badge.hidden=false;
+
+    // Older properties won't have every optional figure, so say plainly
+    // when a total only covers some of them.
     const notes=[];
-    if(t.equity_count<n)notes.push(`Equity covers ${t.equity_count} of ${n} properties. Portfolio value uses price paid where no current value is entered.`);
+    if(t.equity_count<n)notes.push(`Equity and available to release cover ${t.equity_count} of ${n} properties. Portfolio value uses price paid where no current value is entered.`);
     if(t.cash_invested_count<n)notes.push(`Cash invested covers ${t.cash_invested_count} of ${n}.`);
     if(notes.length)notes.push('Open a property to add the missing figures.');
     const noteEl=document.getElementById('pf-partial-note');
     noteEl.textContent=notes.join(' ');
     noteEl.hidden=!notes.length;
 
-    // Yield and cashflow move to a right-aligned figure group (styled
-    // above); price paid stays in the left meta line rather than being
-    // dropped, since it's still useful context and doesn't fit the
-    // two-figure group the redesign calls for. No values are recomputed
-    // here — same p.yield/p.monthly_cashflow/p.price_paid the server
-    // already returned, just laid out differently.
-    listEl.innerHTML=portfolioProperties.map(p=>{
-      const cfClass=p.monthly_cashflow>0?'sf-success':(p.monthly_cashflow<0?'sf-danger':'');
-      return `<div class="saved-item" onclick="openPropertyDetail('${p.id}')">
-      <div class="saved-info">
-        <span class="saved-name">${escapeHtml(p.address)} <span class="hint">(${escapeHtml(p.property_type)})</span></span>
-        <span class="saved-detail">Paid ${fmtGBP(p.price_paid)}${p.current_value!=null?' · Value '+fmtGBP(p.current_value):''}${p.refinance_date?' · Refinance '+fmtDate(p.refinance_date):''}</span>
-      </div>
-      <div class="saved-right">
-        <div class="saved-figures">
-          <div class="saved-figure"><span class="sf-value sf-success">${fmtPct(p.yield)}</span><span class="sf-label">Yield</span></div>
-          <div class="saved-figure"><span class="sf-value ${cfClass}">${fmtGBP(p.monthly_cashflow)}</span><span class="sf-label">Cashflow</span></div>
-          <div class="saved-figure"><span class="sf-value">${fmtGBP(p.equity)}</span><span class="sf-label">Equity</span></div>
-        </div>
-        <span class="saved-chevron">›</span>
-      </div>
-    </div>`;
-    }).join('');
+    listEl.innerHTML=portfolioProperties.map(propertyCard).join('');
   }catch(e){
-    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+    listEl.innerHTML='<p class="hint">'+PF.esc(e.message)+'</p>';
   }
 }
 
@@ -655,20 +348,10 @@ async function addProperty(){
   const btn=document.getElementById('btn-add-property');
   msg.className='save-msg';msg.textContent='';
 
-  const payload={
-    address:document.getElementById('pf-address').value.trim(),
-    price_paid:document.getElementById('pf-price').value,
-    property_type:getDDValue('pf-type'),
-    monthly_rent:document.getElementById('pf-rent').value,
-    monthly_running_costs:document.getElementById('pf-costs').value,
-    monthly_mortgage:document.getElementById('pf-mortgage').value,
-    cash_invested:document.getElementById('pf-cash').value,
-    current_value:document.getElementById('pf-value').value,
-    mortgage_balance:document.getElementById('pf-balance').value,
-    refinance_date:document.getElementById('pf-refi').value
-  };
+  const payload=PF.finalisePayload(PF.readVisibleFields(addFieldsRoot()));
+  if(!payload.address){ msg.textContent='Enter an address.'; msg.className='save-msg error'; return; }
 
-  btn.disabled=true;btn.textContent='Adding...';
+  btn.disabled=true;btn.textContent='Adding…';
   try{
     const res=await fetch(API_BASE+'/api/portfolio',{
       method:'POST',
@@ -678,107 +361,14 @@ async function addProperty(){
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not add property.');
 
-    PORTFOLIO_FIELD_IDS.forEach(id=>document.getElementById(id).value='');
-    clearDraft('portfolio');
-    msg.textContent='Property added.';msg.className='save-msg success';
+    clearDraft('portfolio-add');
+    renderAddFields(null);
+    closeAddModal();
     await loadPortfolio();
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';
   }
   btn.disabled=false;btn.textContent='Add property';
-}
-
-function openPropertyDetail(id){
-  const p=portfolioProperties.find(x=>x.id===id);
-  if(!p)return;
-  editingId=id;
-
-  document.getElementById('pf-modal-address').textContent=p.address;
-  document.getElementById('pf-modal-yield').textContent=fmtPct(p.yield);
-  document.getElementById('pf-modal-cashflow').textContent=fmtGBP(p.monthly_cashflow);
-
-  document.getElementById('pfm-address').value=p.address;
-  document.getElementById('pfm-price').value=p.price_paid;
-  setDDValue('pfm-type', p.property_type, p.property_type);
-  document.getElementById('pfm-rent').value=p.monthly_rent;
-  document.getElementById('pfm-costs').value=p.monthly_running_costs;
-  document.getElementById('pfm-mortgage').value=p.monthly_mortgage!=null?p.monthly_mortgage:'';
-  document.getElementById('pfm-cash').value=p.cash_invested!=null?p.cash_invested:'';
-  document.getElementById('pfm-value').value=p.current_value!=null?p.current_value:'';
-  document.getElementById('pfm-balance').value=p.mortgage_balance!=null?p.mortgage_balance:'';
-  document.getElementById('pfm-refi').value=p.refinance_date||'';
-  document.getElementById('pf-modal-equity').textContent=fmtGBP(p.equity);
-
-  const msg=document.getElementById('pf-modal-msg');
-  msg.textContent='';msg.className='save-msg';
-
-  document.getElementById('pf-modal-overlay').classList.add('open');
-}
-
-function closePropertyDetail(){
-  document.getElementById('pf-modal-overlay').classList.remove('open');
-  editingId=null;
-}
-
-function handleOverlayClick(e){
-  if(e.target.id==='pf-modal-overlay')closePropertyDetail();
-}
-
-document.addEventListener('keydown', function(e){
-  if(e.key==='Escape')closePropertyDetail();
-});
-
-async function savePropertyChanges(){
-  if(!editingId)return;
-  const msg=document.getElementById('pf-modal-msg');
-  const btn=document.getElementById('pf-modal-save-btn');
-  msg.className='save-msg';msg.textContent='';
-
-  const payload={
-    address:document.getElementById('pfm-address').value.trim(),
-    price_paid:document.getElementById('pfm-price').value,
-    property_type:getDDValue('pfm-type'),
-    monthly_rent:document.getElementById('pfm-rent').value,
-    monthly_running_costs:document.getElementById('pfm-costs').value,
-    monthly_mortgage:document.getElementById('pfm-mortgage').value,
-    cash_invested:document.getElementById('pfm-cash').value,
-    current_value:document.getElementById('pfm-value').value,
-    mortgage_balance:document.getElementById('pfm-balance').value,
-    refinance_date:document.getElementById('pfm-refi').value
-  };
-
-  btn.disabled=true;btn.textContent='Saving...';
-  try{
-    const res=await fetch(API_BASE+'/api/portfolio/'+editingId,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify(payload)
-    });
-    const d=await res.json();
-    if(!res.ok)throw new Error(d.error||'Could not save changes.');
-    closePropertyDetail();
-    await loadPortfolio();
-  }catch(e){
-    msg.textContent=e.message;msg.className='save-msg error';
-  }
-  btn.disabled=false;btn.textContent='Save changes';
-}
-
-async function deleteFromDetail(){
-  if(!editingId)return;
-  if(!confirm('Delete this property from your portfolio?'))return;
-  try{
-    const res=await fetch(API_BASE+'/api/portfolio/'+editingId,{
-      method:'DELETE',
-      headers:{'Authorization':'Bearer '+currentSession.access_token}
-    });
-    const d=await res.json();
-    if(!res.ok)throw new Error(d.error||'Could not delete property.');
-    closePropertyDetail();
-    await loadPortfolio();
-  }catch(e){
-    alert('Could not delete property: '+e.message);
-  }
 }
 
 init();

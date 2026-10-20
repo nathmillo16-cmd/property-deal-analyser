@@ -102,7 +102,7 @@ var TUTORIAL_STEPS = [
     page: 'portfolio.html',
     selectors: ['#pf-summary-grid', '#pf-empty-state', '#state-locked .locked-panel'],
     title: 'Your portfolio',
-    body: 'Once you complete on a property, add it here to track cashflow, equity and portfolio value. Add a refinance date and Home will flag it 60 days ahead.'
+    body: 'Once you complete on a property, add it here to track cashflow, equity and portfolio value. Open a property to add its mortgage, tenancy and compliance dates, and Home will flag what is coming up.'
   },
   {
     id: 'settings-help',

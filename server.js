@@ -215,6 +215,55 @@ app.post('/api/deals/:dealId/photos', express.json({ limit: '8mb' }), async (req
   res.json(row);
 });
 
+// Property photo upload (db/046): one photo per portfolio property, shown
+// on its card and property page. Same base64 JPEG approach as deal photos
+// above, so it's registered before the global express.json too. A new
+// upload replaces the old one (the old file is removed afterwards).
+app.post('/api/portfolio/:id/photo', express.json({ limit: '8mb' }), async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to add photos.' });
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the portfolio.' });
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to add photos.' });
+  const userId = userData.user.id;
+
+  const { data: row, error: fetchErr } = await supabase
+    .from('portfolio_properties')
+    .select('id, photo_path')
+    .eq('id', req.params.id)
+    .single();
+  if (fetchErr && isMissingSchemaError(fetchErr)) {
+    return res.status(409).json({ needs_migration: true, error: 'Photos need a quick database update (db/046) first.' });
+  }
+  if (fetchErr || !row) return res.status(404).json({ error: 'Property not found.' });
+
+  const body = req.body || {};
+  if (body.type !== 'image/jpeg' || typeof body.data !== 'string') return res.status(400).json({ error: 'Photos must be JPEG.' });
+  const buffer = Buffer.from(body.data, 'base64');
+  if (buffer.length === 0 || buffer.length > DEAL_PHOTO_MAX_BYTES) return res.status(400).json({ error: 'That photo is too large.' });
+
+  const storagePath = `${userId}/${req.params.id}/${crypto.randomUUID()}.jpg`;
+  const { error: uploadErr } = await supabase.storage
+    .from('property-photos')
+    .upload(storagePath, buffer, { contentType: 'image/jpeg', upsert: false });
+  if (uploadErr) {
+    console.error('Property photo: upload failed for', userId, uploadErr.message);
+    return res.status(400).json({ error: 'That photo could not be uploaded. Try again.' });
+  }
+
+  const { error } = await supabase.from('portfolio_properties').update({ photo_path: storagePath }).eq('id', req.params.id);
+  if (error) {
+    await supabase.storage.from('property-photos').remove([storagePath]);
+    return res.status(400).json({ error: 'That photo could not be saved. Try again.' });
+  }
+  if (row.photo_path) await supabase.storage.from('property-photos').remove([row.photo_path]);
+
+  const { data: signed } = await supabase.storage.from('property-photos').createSignedUrl(storagePath, 60 * 60);
+  res.json({ photo_url: signed ? signed.signedUrl : null });
+});
+
 app.use(express.json());
 
 // The bare root now serves the public landing page, not the calculator, so a
@@ -518,21 +567,121 @@ function toStandardFeesOrNull(v) {
   return fees;
 }
 
-const PORTFOLIO_PROPERTY_TYPES = ['BTL', 'HMO', 'SA', 'Flip'];
+// BRRR only exists as a stored type once db/046 has been run (it widens the
+// property_type check). Before that, the page doesn't offer it.
+const PORTFOLIO_PROPERTY_TYPES = ['BTL', 'HMO', 'SA', 'Flip', 'BRRR'];
+
+// "Available to release" uses the user's target LTV (Settings, db/046),
+// 75% until they change it.
+const DEFAULT_TARGET_LTV = 75;
+
+// Compliance items (db/046). months = how long a check lasts, so expiry is
+// worked out from the date it was done; null = no fixed expiry (a date on
+// file is enough). Thresholds live here only, never in the browser.
+const COMPLIANCE_DUE_SOON_DAYS = 60;
+const COMPLIANCE_ITEMS = [
+  { key: 'gas', label: 'Gas safety', months: 12 },
+  { key: 'eicr', label: 'EICR', months: 60 },
+  { key: 'epc', label: 'EPC', months: 120 },
+  { key: 'deposit', label: 'Deposit protected', months: null },
+  { key: 'licence', label: 'Licence', months: null },
+  { key: 'alarms', label: 'Smoke and CO alarms', months: null },
+  { key: 'right_to_rent', label: 'Right to rent', months: null },
+];
+const EPC_RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+// Columns that existed before db/046. A write that fails because the newer
+// columns aren't there yet is retried with only these (see
+// writePortfolioProperty), so the page keeps working before the migration.
+const PORTFOLIO_LEGACY_COLUMNS = ['address', 'price_paid', 'property_type', 'monthly_rent', 'monthly_running_costs', 'monthly_mortgage', 'cash_invested', 'current_value', 'mortgage_balance', 'refinance_date'];
+
+function todayUTCDateStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Adds whole months to a YYYY-MM-DD date, clamping to the month's last day
+// (a 31 Jan gas check expires 28/29 Feb next year, not 3 Mar).
+function addMonthsDateStr(dateStr, months) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const target = new Date(Date.UTC(y, m - 1 + months, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(d, lastDay));
+  return target.toISOString().slice(0, 10);
+}
+
+function daysUntilDateStr(dateStr, todayStr) {
+  return Math.round((parseDateOnlyUTCms(dateStr) - parseDateOnlyUTCms(todayStr)) / MS_PER_DAY);
+}
+
+// Status for each compliance item: ok / due_soon / overdue / missing / na.
+// "Missing" means nothing entered yet; "na" means the user marked it not
+// applicable (or, for the licence, "Not required").
+function computeComplianceStatus(compliance, todayStr = todayUTCDateStr()) {
+  const c = (compliance && typeof compliance === 'object') ? compliance : {};
+  const items = COMPLIANCE_ITEMS.map((def) => {
+    const v = (c[def.key] && typeof c[def.key] === 'object') ? c[def.key] : {};
+    const item = { key: def.key, label: def.label, date: v.date || null, expiry: null, status: 'missing', days: null };
+    if (def.key === 'epc') item.rating = v.rating || null;
+    if (def.key === 'deposit') { item.protected = v.protected || null; item.scheme = v.scheme || null; }
+    if (def.key === 'licence') item.not_required = !!v.not_required;
+
+    const fromExpiry = (expiry) => {
+      item.expiry = expiry;
+      item.days = daysUntilDateStr(expiry, todayStr);
+      item.status = item.days < 0 ? 'overdue' : (item.days <= COMPLIANCE_DUE_SOON_DAYS ? 'due_soon' : 'ok');
+    };
+
+    if (v.na || (def.key === 'licence' && v.not_required)) { item.status = 'na'; return item; }
+    if (def.key === 'deposit') {
+      if (v.protected === 'yes') item.status = 'ok';
+      else if (v.protected === 'no') item.status = 'overdue';
+      return item;
+    }
+    if (def.key === 'licence') {
+      if (v.expiry) fromExpiry(v.expiry);
+      return item;
+    }
+    if (!v.date) return item;
+    if (def.months) fromExpiry(addMonthsDateStr(v.date, def.months));
+    else item.status = 'ok';
+    return item;
+  });
+  const count = (s) => items.filter((i) => i.status === s).length;
+  const overdue = count('overdue');
+  const dueSoon = count('due_soon');
+  const missing = count('missing');
+  return {
+    items,
+    overdue,
+    due_soon: dueSoon,
+    missing,
+    // One word for the card's status dot: red, amber, green, or grey when
+    // nothing has been entered and nothing is due.
+    level: overdue ? 'overdue' : (dueSoon ? 'due_soon' : (missing === items.length ? 'none' : (missing ? 'incomplete' : 'ok'))),
+  };
+}
 
 // Yield excludes mortgage on purpose (it's a return-on-asset figure);
 // monthly_cashflow includes it, treating a null/blank mortgage (bought
 // cash) as 0. price_paid of 0 returns null rather than Infinity/NaN.
-function computePropertyFigures(p) {
+function computePropertyFigures(p, targetLtv = DEFAULT_TARGET_LTV) {
   const mortgage = p.monthly_mortgage || 0;
   const annualNet = (p.monthly_rent * 12) - (p.monthly_running_costs * 12);
+  const value = p.current_value != null ? Number(p.current_value) : null;
+  const balance = Number(p.mortgage_balance || 0);
   return {
     yield: p.price_paid > 0 ? (annualNet / p.price_paid) * 100 : null,
     monthly_cashflow: p.monthly_rent - p.monthly_running_costs - mortgage,
     // Equity = current value minus mortgage balance (db/041). Only known
     // once a current value is entered; a blank mortgage balance counts as 0
     // (owned outright). null for older properties with no current value.
-    equity: p.current_value != null ? Number(p.current_value) - Number(p.mortgage_balance || 0) : null,
+    equity: value != null ? value - balance : null,
+    // Available to release (db/046) = current value x target LTV minus
+    // mortgage balance, never below £0. Same "needs a current value" rule
+    // as equity.
+    available_to_release: value != null ? Math.max(0, value * (targetLtv / 100) - balance) : null,
+    ltv: value != null && value > 0 ? (balance / value) * 100 : null,
+    compliance_status: computeComplianceStatus(p.compliance),
   };
 }
 
@@ -545,7 +694,7 @@ function propertyValue(p) {
 // £-weighted blend (sum of net income over sum of price paid), not an
 // average of each property's own yield — a £1m property and a £50k
 // property shouldn't count equally toward the portfolio figure.
-function computePortfolioTotals(properties) {
+function computePortfolioTotals(properties, targetLtv = DEFAULT_TARGET_LTV) {
   const totalCashflow = properties.reduce((sum, p) => sum + computePropertyFigures(p).monthly_cashflow, 0);
   const totalPricePaid = properties.reduce((sum, p) => sum + p.price_paid, 0);
   const totalAnnualNet = properties.reduce((sum, p) => sum + (p.monthly_rent * 12) - (p.monthly_running_costs * 12), 0);
@@ -554,7 +703,20 @@ function computePortfolioTotals(properties) {
   // *_count says how many did, so the page can say when a total is partial.
   const withEquity = properties.filter((p) => p.current_value != null);
   const withCash = properties.filter((p) => p.cash_invested != null);
+  // Overall LTV (db/046) = total mortgage balances / total portfolio value,
+  // using the same value per property as "Portfolio value" above.
+  const portfolioValue = properties.reduce((sum, p) => sum + propertyValue(p), 0);
+  const totalBalance = properties.reduce((sum, p) => sum + Number(p.mortgage_balance || 0), 0);
+  const compliance = properties.map((p) => computeComplianceStatus(p.compliance));
   return {
+    total_mortgage_balance: totalBalance,
+    overall_ltv: portfolioValue > 0 ? (totalBalance / portfolioValue) * 100 : null,
+    total_available_to_release: withEquity.length ? withEquity.reduce((sum, p) => sum + computePropertyFigures(p, targetLtv).available_to_release, 0) : null,
+    target_ltv: targetLtv,
+    compliance_overdue: compliance.reduce((sum, c) => sum + c.overdue, 0),
+    compliance_due_soon: compliance.reduce((sum, c) => sum + c.due_soon, 0),
+    compliance_missing: compliance.reduce((sum, c) => sum + c.missing, 0),
+    compliance_started: compliance.some((c) => c.level !== 'none'),
     total_monthly_cashflow: totalCashflow,
     blended_yield: totalPricePaid > 0 ? (totalAnnualNet / totalPricePaid) * 100 : null,
     total_price_paid: totalPricePaid,
@@ -616,7 +778,166 @@ function validatePortfolioInput(body) {
     else return { error: 'Refinance date must be a valid date, or blank.' };
   }
 
+  // Mortgage, tenancy and compliance details (db/046). Same rule as above:
+  // only written when the request carries them.
+  const isBlank = (v) => v === null || v === undefined || v === '';
+  const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d));
+  const textField = (key, label, max) => {
+    if (!(key in body)) return null;
+    const raw = body[key];
+    if (isBlank(raw)) { value[key] = null; return null; }
+    if (typeof raw !== 'string') return `${label} must be text.`;
+    const t = raw.trim();
+    if (t.length > max) return `${label} can be up to ${max} characters.`;
+    value[key] = t || null;
+    return null;
+  };
+  const numberField = (key, label, min, max) => {
+    if (!(key in body)) return null;
+    const raw = body[key];
+    if (isBlank(raw)) { value[key] = null; return null; }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < min || n > max) return `${label} must be a number from ${min} to ${max}, or blank.`;
+    value[key] = n;
+    return null;
+  };
+  const dateField = (key, label) => {
+    if (!(key in body)) return null;
+    const raw = body[key];
+    if (isBlank(raw)) { value[key] = null; return null; }
+    if (!validDate(raw)) return `${label} must be a valid date, or blank.`;
+    value[key] = raw;
+    return null;
+  };
+
+  const fieldErrors = [
+    textField('lender', 'Lender', 100),
+    numberField('interest_rate', 'Interest rate', 0, 25),
+    dateField('fixed_rate_end_date', 'Fixed rate end date'),
+    numberField('remaining_term_years', 'Remaining term', 0, 50),
+    textField('tenant_names', 'Tenant names', 200),
+    dateField('tenancy_start', 'Tenancy start'),
+    dateField('tenancy_end', 'Tenancy end'),
+    numberField('deposit_amount', 'Deposit amount', 0, 1000000),
+  ];
+  const firstError = fieldErrors.find(Boolean);
+  if (firstError) return { error: firstError };
+
+  if ('mortgage_type' in body) {
+    const t = body.mortgage_type;
+    if (isBlank(t)) value.mortgage_type = null;
+    else if (t === 'interest_only' || t === 'repayment') value.mortgage_type = t;
+    else return { error: 'Mortgage type must be interest-only or repayment.' };
+  }
+  if ('rent_due_day' in body) {
+    const d = body.rent_due_day;
+    if (isBlank(d)) value.rent_due_day = null;
+    else {
+      const n = Number(d);
+      if (!Number.isInteger(n) || n < 1 || n > 31) return { error: 'Rent due day must be a whole number from 1 to 31, or blank.' };
+      value.rent_due_day = n;
+    }
+  }
+  if (value.tenancy_start && value.tenancy_end && value.tenancy_end < value.tenancy_start) {
+    return { error: 'Tenancy end must be after the tenancy start.' };
+  }
+
+  if ('compliance' in body) {
+    const { value: compliance, error } = normaliseCompliance(body.compliance);
+    if (error) return { error };
+    value.compliance = compliance;
+  }
+
   return { value };
+}
+
+// Keeps only the fields each compliance item uses, so nothing arbitrary is
+// ever stored in the jsonb column.
+function normaliseCompliance(raw) {
+  if (raw === null || raw === undefined) return { value: {} };
+  if (typeof raw !== 'object' || Array.isArray(raw)) return { error: 'Compliance details are in the wrong format.' };
+  const validDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d));
+  const out = {};
+  for (const def of COMPLIANCE_ITEMS) {
+    const v = raw[def.key];
+    if (!v || typeof v !== 'object') continue;
+    const item = {};
+    if (v.na === true) { out[def.key] = { na: true }; continue; }
+    if (v.date) {
+      if (!validDate(v.date)) return { error: `${def.label}: enter a valid date, or leave it blank.` };
+      item.date = v.date;
+    }
+    if (def.key === 'epc' && v.rating) {
+      const r = String(v.rating).toUpperCase();
+      if (!EPC_RATINGS.includes(r)) return { error: 'EPC rating must be A to G.' };
+      item.rating = r;
+    }
+    if (def.key === 'deposit') {
+      if (v.protected === 'yes' || v.protected === 'no') item.protected = v.protected;
+      else if (v.protected) return { error: 'Deposit protected must be yes or no.' };
+      if (v.scheme) {
+        const s = String(v.scheme).trim();
+        if (s.length > 60) return { error: 'Deposit scheme can be up to 60 characters.' };
+        if (s) item.scheme = s;
+      }
+    }
+    if (def.key === 'licence') {
+      if (v.not_required === true) { out[def.key] = { not_required: true }; continue; }
+      if (v.expiry) {
+        if (!validDate(v.expiry)) return { error: 'Licence: enter a valid expiry date, or leave it blank.' };
+        item.expiry = v.expiry;
+      }
+    }
+    if (Object.keys(item).length) out[def.key] = item;
+  }
+  return { value: out };
+}
+
+// Insert or update a portfolio row. If the database hasn't had db/046 run
+// yet, the newer columns (and the BRRR type) don't exist, so the write is
+// retried with only the older columns. In that case a fixed rate end date
+// is kept in refinance_date, which is where it lived before db/046, and
+// the response carries schema_pending so the page can say what wasn't saved.
+async function writePortfolioProperty(supabase, value, id) {
+  const run = (v) => {
+    const q = id
+      ? supabase.from('portfolio_properties').update(v).eq('id', id)
+      : supabase.from('portfolio_properties').insert(v);
+    return q.select().single();
+  };
+  const first = await run(value);
+  // 23514 (check violation) only counts here for BRRR: before db/046 the
+  // old property_type check rejects it. Every other check is validated above.
+  const failedOnSchema = first.error && (isMissingSchemaError(first.error) || (first.error.code === '23514' && value.property_type === 'BRRR'));
+  if (!failedOnSchema) return first;
+
+  if (value.property_type === 'BRRR') {
+    return { data: null, error: { message: 'BRRR properties can be added once the database update (db/046) has been run.' }, schemaBlocked: true };
+  }
+  const legacy = {};
+  for (const k of PORTFOLIO_LEGACY_COLUMNS) if (k in value) legacy[k] = value[k];
+  if ('fixed_rate_end_date' in value) legacy.refinance_date = value.fixed_rate_end_date;
+  const second = await run(legacy);
+  return { ...second, schemaPending: true };
+}
+
+// Before db/046, a non-BRRR property's refinance_date was really its fixed
+// rate end, so it is shown as one. After db/046 the migration has moved it.
+function normaliseLegacyPortfolioRow(p) {
+  if ('fixed_rate_end_date' in p) return p;
+  return { ...p, fixed_rate_end_date: p.refinance_date || null, refinance_date: null, compliance: {} };
+}
+
+// Target LTV from Settings (db/046), 75% until set or before the migration.
+async function getTargetLtv(supabase, userId) {
+  if (!userId) return DEFAULT_TARGET_LTV;
+  try {
+    const { data, error } = await supabase.from('profiles').select('target_ltv').eq('user_id', userId).single();
+    const n = !error && data ? Number(data.target_ltv) : NaN;
+    return Number.isFinite(n) && n > 0 && n <= 100 ? n : DEFAULT_TARGET_LTV;
+  } catch (e) {
+    return DEFAULT_TARGET_LTV;
+  }
 }
 
 // Fail-closed: a missing profile row, or any error looking it up, is always
@@ -895,6 +1216,8 @@ app.post('/api/deals/:id/details', async (req, res) => {
 const NEEDS_ATTENTION_CHASE_DAYS = 3;
 const NEEDS_ATTENTION_REVIEW_DAYS = 14;
 const NEEDS_ATTENTION_REFINANCE_DAYS = 60;
+const NEEDS_ATTENTION_FIX_END_MONTHS = 6;
+const NEEDS_ATTENTION_TENANCY_DAYS = 60;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // viewing_date is a plain date column (no time) — parsed as a UTC midnight
@@ -936,9 +1259,10 @@ app.get('/api/needs-attention', async (req, res) => {
     supabase.from('deals').select('id, deal_data, pipeline_stage, updated_at, viewing_date'),
     supabase.from('deal_offers').select('id, deal_id, created_at, outcome').in('outcome', ['Pending', 'Countered']),
     supabase.from('deal_notes').select('deal_id, created_at'),
-    // Failure-tolerant on purpose: refinance_date only exists once db/041
-    // has been run, and a missing column must not break the other alerts.
-    supabase.from('portfolio_properties').select('id, address, refinance_date').not('refinance_date', 'is', null),
+    // Failure-tolerant on purpose: a missing column (db/041 or db/046 not
+    // run) must not break the other alerts. select('*') takes whatever
+    // columns exist; normaliseLegacyPortfolioRow fills in the rest.
+    supabase.from('portfolio_properties').select('*'),
     // Failure-tolerant too: deal_reminders only exists once db/045 is run.
     supabase.from('deal_reminders').select('id, deal_id, remind_on, note').eq('done', false).lte('remind_on', todayStr).order('remind_on', { ascending: true }),
   ]);
@@ -1025,24 +1349,62 @@ app.get('/api/needs-attention', async (req, res) => {
     flaggedDealIds.add(deal.id);
   }
 
-  // (iv) refinance — portfolio property, refinance window opens within 60
-  // days (or opened today). Soonest first. A date already past isn't
-  // flagged: the window is open, there's nothing new coming up.
-  const refiRows = refiRes.error ? [] : (refiRes.data || []);
+  // (iv) portfolio dates, soonest first within each kind:
+  //   refinance  a BRRR property still to be refinanced, window opens
+  //              within 60 days (or today). A date already past isn't
+  //              flagged: the window is open, nothing new is coming up.
+  //   fix_end    fixed rate ends within 6 months: time to speak to a broker.
+  //   compliance an item overdue or due within 60 days (db/046), one row
+  //              per property, overdue first.
+  //   tenancy    tenancy ends within 60 days.
+  const propertyRows = refiRes.error ? [] : (refiRes.data || []).map(normaliseLegacyPortfolioRow);
   const refiResults = [];
-  for (const p of refiRows) {
-    const refiMs = parseDateOnlyUTCms(p.refinance_date);
-    const days = Math.round((refiMs - todayUTCms) / MS_PER_DAY);
-    if (days < 0 || days > NEEDS_ATTENTION_REFINANCE_DAYS) continue;
-    refiResults.push({
-      property_id: p.id,
-      deal_name: p.address,
-      reason: 'refinance',
-      days,
-      detail: days === 0 ? 'Refinance window opens today' : `Refinance window opens in ${days} day${days === 1 ? '' : 's'}`,
-    });
+  const fixResults = [];
+  const complianceResults = [];
+  const tenancyResults = [];
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const sixMonthsOut = addMonthsDateStr(todayStr, NEEDS_ATTENTION_FIX_END_MONTHS);
+  for (const p of propertyRows) {
+    if (p.refinance_date) {
+      const days = daysUntilDateStr(p.refinance_date, todayStr);
+      if (days >= 0 && days <= NEEDS_ATTENTION_REFINANCE_DAYS) {
+        refiResults.push({ property_id: p.id, deal_name: p.address, reason: 'refinance', days,
+          detail: days === 0 ? 'Refinance window opens today' : `Refinance window opens in ${plural(days, 'day')}` });
+      }
+    }
+    if (p.fixed_rate_end_date && p.fixed_rate_end_date >= todayStr && p.fixed_rate_end_date <= sixMonthsOut) {
+      const days = daysUntilDateStr(p.fixed_rate_end_date, todayStr);
+      const when = new Date(parseDateOnlyUTCms(p.fixed_rate_end_date)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+      fixResults.push({ property_id: p.id, deal_name: p.address, reason: 'fix_end', days,
+        detail: `Fixed rate ends ${when}. Speak to a broker now.` });
+    }
+    if (p.tenancy_end) {
+      const days = daysUntilDateStr(p.tenancy_end, todayStr);
+      if (days >= 0 && days <= NEEDS_ATTENTION_TENANCY_DAYS) {
+        tenancyResults.push({ property_id: p.id, deal_name: p.address, reason: 'tenancy', days,
+          detail: days === 0 ? 'Tenancy ends today' : `Tenancy ends in ${plural(days, 'day')}` });
+      }
+    }
+    const cs = computeComplianceStatus(p.compliance, todayStr);
+    const flagged = cs.items.filter((i) => i.status === 'overdue' || i.status === 'due_soon')
+      .sort((a, b) => (a.days == null ? -Infinity : a.days) - (b.days == null ? -Infinity : b.days));
+    if (flagged.length) {
+      const first = flagged[0];
+      const firstText = first.status === 'overdue'
+        ? (first.key === 'deposit' ? 'Deposit not protected' : `${first.label} overdue`)
+        : `${first.label} due in ${plural(first.days, 'day')}`;
+      complianceResults.push({ property_id: p.id, deal_name: p.address, reason: 'compliance',
+        severity: cs.overdue ? 'overdue' : 'due_soon',
+        days: first.days == null ? -Infinity : first.days,
+        detail: flagged.length === 1 ? firstText : `${firstText}, plus ${plural(flagged.length - 1, 'other item')}` });
+    }
   }
-  refiResults.sort((a, b) => a.days - b.days);
+  const byDays = (a, b) => a.days - b.days;
+  refiResults.sort(byDays);
+  fixResults.sort(byDays);
+  complianceResults.sort(byDays);
+  tenancyResults.sort(byDays);
+  for (const r of complianceResults) if (!Number.isFinite(r.days)) r.days = null;
 
   // (v) reminder: a "Remind me" the user set on a deal (db/045) that is
   // due today or overdue and not ticked off. Shown first, oldest first,
@@ -1063,7 +1425,7 @@ app.get('/api/needs-attention', async (req, res) => {
     });
   }
 
-  res.json([...reminderResults, ...refiResults, ...results]);
+  res.json([...reminderResults, ...complianceResults.filter((r) => r.severity === 'overdue'), ...refiResults, ...fixResults, ...complianceResults.filter((r) => r.severity !== 'overdue'), ...tenancyResults, ...results]);
 });
 
 app.post('/api/deals/:id/name', async (req, res) => {
@@ -1896,14 +2258,11 @@ app.post('/api/portfolio', async (req, res) => {
   const { value, error: validationError } = validatePortfolioInput(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
 
-  const { data, error } = await supabase
-    .from('portfolio_properties')
-    .insert(value)
-    .select()
-    .single();
+  const { data, error, schemaPending } = await writePortfolioProperty(supabase, value, null);
 
   if (error) return res.status(400).json({ error: error.message });
-  res.json({ ...data, ...computePropertyFigures(data) });
+  const row = schemaPending ? normaliseLegacyPortfolioRow(data) : data;
+  res.json({ ...row, ...computePropertyFigures(row), schema_pending: !!schemaPending });
 });
 
 app.get('/api/portfolio', async (req, res) => {
@@ -1915,18 +2274,45 @@ app.get('/api/portfolio', async (req, res) => {
     return res.status(403).json({ error: 'Upgrade to unlock the portfolio.' });
   }
 
-  const { data, error } = await supabase
-    .from('portfolio_properties')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data: userData } = await supabase.auth.getUser(getBearerToken(req));
+  const userId = userData && userData.user ? userData.user.id : null;
+
+  const [listRes, targetLtv, probeRes] = await Promise.all([
+    supabase
+      .from('portfolio_properties')
+      .select('*')
+      .order('created_at', { ascending: false }),
+    getTargetLtv(supabase, userId),
+    // Is db/046 in? Selecting one of its columns errors if not.
+    supabase.from('portfolio_properties').select('compliance').limit(1),
+  ]);
+  const { data, error } = listRes;
 
   if (error) return res.status(400).json({ error: error.message });
 
-  const properties = data.map((p) => ({ ...p, ...computePropertyFigures(p) }));
-  const totals = computePortfolioTotals(data);
-  await recordPortfolioSnapshot(supabase, data.length, totals);
-  res.json({ properties, totals });
+  const schemaReady = !probeRes.error;
+  const rows = schemaReady ? data : data.map(normaliseLegacyPortfolioRow);
+  const photoUrls = await signPropertyPhotoUrls(supabase, rows);
+  const properties = rows.map((p) => ({ ...p, ...computePropertyFigures(p, targetLtv), photo_url: photoUrls.get(p.photo_path) || null }));
+  const totals = computePortfolioTotals(rows, targetLtv);
+  await recordPortfolioSnapshot(supabase, rows.length, totals);
+  res.json({ properties, totals, target_ltv: targetLtv, schema_ready: schemaReady });
 });
+
+// Property photos (db/046, private 'property-photos' bucket): short-lived
+// signed URLs, so nothing is ever public. Never fails the portfolio load.
+const PROPERTY_PHOTO_URL_SECONDS = 60 * 60;
+async function signPropertyPhotoUrls(supabase, rows) {
+  const paths = rows.map((p) => p.photo_path).filter(Boolean);
+  if (!paths.length) return new Map();
+  try {
+    const { data, error } = await supabase.storage.from('property-photos').createSignedUrls(paths, PROPERTY_PHOTO_URL_SECONDS);
+    if (error) return new Map();
+    return new Map((data || []).filter((s) => s.signedUrl).map((s) => [s.path, s.signedUrl]));
+  } catch (e) {
+    return new Map();
+  }
+}
 
 // Monthly snapshot for the equity growth chart (db/043). At most one row
 // per user per calendar month: the unique (user_id, month) key plus
@@ -1984,12 +2370,43 @@ app.delete('/api/portfolio/:id', async (req, res) => {
     return res.status(403).json({ error: 'Upgrade to unlock the portfolio.' });
   }
 
+  // Photo path first (if db/046 is in), so the file can be tidied up after.
+  let photoPath = null;
+  try {
+    const { data: row } = await supabase.from('portfolio_properties').select('photo_path').eq('id', req.params.id).single();
+    photoPath = row ? row.photo_path : null;
+  } catch (e) {}
+
   const { error } = await supabase
     .from('portfolio_properties')
     .delete()
     .eq('id', req.params.id);
 
   if (error) return res.status(400).json({ error: error.message });
+  if (photoPath) {
+    const { error: rmErr } = await supabase.storage.from('property-photos').remove([photoPath]);
+    if (rmErr) console.error('Property photo: could not remove', photoPath, rmErr.message);
+  }
+  res.json({ deleted: true });
+});
+
+app.delete('/api/portfolio/:id/photo', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the portfolio.' });
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the portfolio.' });
+
+  const { data: row, error: fetchErr } = await supabase
+    .from('portfolio_properties')
+    .select('id, photo_path')
+    .eq('id', req.params.id)
+    .single();
+  if (fetchErr && isMissingSchemaError(fetchErr)) return res.status(409).json({ needs_migration: true, error: 'Photos need a quick database update (db/046) first.' });
+  if (fetchErr || !row) return res.status(404).json({ error: 'Property not found.' });
+
+  const { error } = await supabase.from('portfolio_properties').update({ photo_path: null }).eq('id', req.params.id);
+  if (error) return res.status(400).json({ error: 'The photo could not be removed. Try again.' });
+  if (row.photo_path) await supabase.storage.from('property-photos').remove([row.photo_path]);
   res.json({ deleted: true });
 });
 
@@ -2005,15 +2422,12 @@ app.put('/api/portfolio/:id', async (req, res) => {
   const { value, error: validationError } = validatePortfolioInput(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
 
-  const { data, error } = await supabase
-    .from('portfolio_properties')
-    .update(value)
-    .eq('id', req.params.id)
-    .select()
-    .single();
+  const { data, error, schemaPending, schemaBlocked } = await writePortfolioProperty(supabase, value, req.params.id);
 
+  if (schemaBlocked) return res.status(400).json({ error: error.message });
   if (error || !data) return res.status(404).json({ error: 'Property not found.' });
-  res.json({ ...data, ...computePropertyFigures(data) });
+  const row = schemaPending ? normaliseLegacyPortfolioRow(data) : data;
+  res.json({ ...row, ...computePropertyFigures(row), schema_pending: !!schemaPending });
 });
 
 const REFURB_MODES = ['detailed', 'quick'];
@@ -2530,7 +2944,41 @@ app.get('/api/profile', async (req, res) => {
     if (!progressError && progressRow) progress = { ...progressRow, progress_available: true };
   } catch (e) {}
 
-  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals, ...progress });
+  // Target LTV for "available to release" (db/046): same decoupled query.
+  // target_ltv_available tells Settings whether it can be saved yet.
+  let targetLtv = { target_ltv: DEFAULT_TARGET_LTV, target_ltv_available: false };
+  try {
+    const { data: ltvRow, error: ltvError } = await supabase.from('profiles').select('target_ltv').eq('user_id', userId).single();
+    if (!ltvError && ltvRow) targetLtv = { target_ltv: ltvRow.target_ltv != null ? Number(ltvRow.target_ltv) : DEFAULT_TARGET_LTV, target_ltv_available: true };
+  } catch (e) {}
+
+  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals, ...progress, ...targetLtv });
+});
+
+// Target LTV (db/046), used by the Portfolio's "available to release".
+// A narrow update of this one column, same reason as /api/profile/goals.
+// Not plan-gated: it's a harmless setting, and the portfolio itself is.
+app.post('/api/profile/target-ltv', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to save settings.' });
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to save settings.' });
+
+  const raw = (req.body || {}).target_ltv;
+  const n = (raw === null || raw === undefined || raw === '') ? DEFAULT_TARGET_LTV : Number(raw);
+  if (!Number.isFinite(n) || n <= 0 || n > 100) return res.status(400).json({ error: 'Target LTV must be a number above 0 and up to 100.' });
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ target_ltv: n })
+    .eq('user_id', userData.user.id)
+    .select('target_ltv')
+    .single();
+  if (error) {
+    if (isMissingSchemaError(error)) return res.status(409).json({ needs_migration: true, error: 'This setting needs a quick database update (db/046) before it can be saved.' });
+    return res.status(400).json({ error: 'Target LTV could not be saved. Try again.' });
+  }
+  res.json({ target_ltv: Number(data.target_ltv) });
 });
 
 // Home progress (db/044), so the setup checklist, milestones and "last
@@ -2938,6 +3386,15 @@ app.post('/api/account/delete', async (req, res) => {
       if (rmErr) console.error('Account deletion: deal photo files not removed for user', userId, ':', rmErr.message, '(needs manual cleanup in Storage)');
     }
   } catch (e) { /* no deal_photos table yet */ }
+
+  // Property photo files (db/046), same best-effort treatment.
+  try {
+    const { data: props } = await supabase.from('portfolio_properties').select('photo_path').eq('user_id', userId).not('photo_path', 'is', null);
+    if (props && props.length) {
+      const { error: rmErr } = await supabase.storage.from('property-photos').remove(props.map((p) => p.photo_path));
+      if (rmErr) console.error('Account deletion: property photo files not removed for user', userId, ':', rmErr.message, '(needs manual cleanup in Storage)');
+    }
+  } catch (e) { /* no photo_path column yet */ }
 
   const dbDeleteSteps = [
     ['portfolio_properties', () => supabase.from('portfolio_properties').delete().eq('user_id', userId)],

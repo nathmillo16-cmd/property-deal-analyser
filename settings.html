@@ -158,6 +158,17 @@
         <p class="save-msg" id="goals-msg"></p>
       </div>
 
+      <!-- PORTFOLIO -->
+      <div class="card settings-card" id="portfolio-settings">
+        <h2>Portfolio</h2>
+        <p class="hint" style="margin-bottom:1rem">Used for "available to release" on your Portfolio: the equity you could pull out by remortgaging to this loan to value, before fees.</p>
+        <div class="investment-defaults-grid">
+          <div class="field"><label for="set-target-ltv">Target LTV (%)</label><input type="number" id="set-target-ltv" min="1" max="100" step="1" inputmode="decimal" placeholder="75"/></div>
+        </div>
+        <button class="btn-primary" id="btn-save-target-ltv" onclick="saveTargetLtv()">Save target LTV</button>
+        <p class="save-msg" id="target-ltv-msg"></p>
+      </div>
+
       <!-- HELP -->
       <div class="card settings-card">
         <h2>Help</h2>
@@ -317,6 +328,11 @@ async function loadProfile(){
     document.getElementById('set-plan-free-cta').style.display=isPaid?'none':'block';
 
     populateInvestmentDefaults(d);
+
+    // Target LTV (db/046). 75 until saved; can't be saved before the
+    // migration is run (target_ltv_available false).
+    targetLtvAvailable=!!d.target_ltv_available;
+    document.getElementById('set-target-ltv').value=d.target_ltv!=null?d.target_ltv:75;
   }catch(e){
     document.getElementById('set-plan-badge').textContent='Unavailable';
   }
@@ -394,6 +410,32 @@ let goalsAvailable=false;
 function updateMottoCount(){
   const n=document.getElementById('goal-motto').value.length;
   document.getElementById('goal-motto-count').textContent=n+' of 80 characters';
+}
+
+let targetLtvAvailable=false;
+async function saveTargetLtv(){
+  const btn=document.getElementById('btn-save-target-ltv');
+  const msg=document.getElementById('target-ltv-msg');
+  msg.textContent='';msg.className='save-msg';
+  if(!targetLtvAvailable){
+    msg.textContent='Target LTV can be changed once a quick database update has been run. Until then, 75% is used.';msg.className='save-msg error';
+    return;
+  }
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    const res=await fetch(API_BASE+'/api/profile/target-ltv',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({target_ltv:document.getElementById('set-target-ltv').value})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not save.');
+    document.getElementById('set-target-ltv').value=body.target_ltv;
+    msg.textContent='Saved. Your Portfolio uses '+body.target_ltv+'% now.';msg.className='save-msg success';
+  }catch(e){
+    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;btn.textContent='Save target LTV';
 }
 
 async function saveGoals(){

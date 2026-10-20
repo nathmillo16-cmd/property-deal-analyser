@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>PROPulsion · Property</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/portfolio.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/onboarding-tutorial.js"></script>
+<!-- calc-engine.js only for its mort() and mortRepay() functions, used by
+     the rate check. Nothing on this page calls its calculators. -->
+<script src="/calc-engine.js"></script>
+<script src="/portfolio-shared.js"></script>
+<style>
+.hint{font-size:12.5px;color:var(--muted);font-style:italic}
+.locked-panel{text-align:center;padding:3.5rem 1rem}
+.locked-panel h2{font-size:22px;margin:0 0 .75rem}
+.locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
+
+.pp-back{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;margin:0 0 var(--space-4)}
+.pp-back:hover{text-decoration:underline}
+
+/* ---------- header ---------- */
+.pp-header{display:grid;grid-template-columns:240px minmax(0,1fr);gap:var(--space-6);align-items:start;
+  background:var(--surface);border:1px solid rgba(0,0,0,.09);border-radius:16px;padding:var(--space-5);
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);margin-bottom:var(--space-5)}
+.pp-photo{position:relative;aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:var(--surface-2);display:flex;align-items:center;justify-content:center}
+.pp-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.pp-photo svg{width:56px;height:56px;fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.45}
+.pp-photo-btn{position:absolute;right:8px;bottom:8px;font-family:var(--font-body);font-size:11.5px;font-weight:600;border:none;border-radius:999px;padding:6px 11px;
+  background:rgba(255,255,255,.92);color:var(--ink);cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.pp-photo-btn:hover{background:#fff}
+.pp-photo-remove{position:absolute;left:8px;bottom:8px;font-size:11.5px;font-weight:600;border:none;border-radius:999px;padding:6px 11px;background:rgba(0,0,0,.5);color:#fff;cursor:pointer}
+.pp-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.pp-title{font-family:var(--font-head);font-weight:600;font-size:24px;line-height:1.25;color:var(--ink);margin:0 0 var(--space-3);word-break:break-word}
+.pp-meta{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-5)}
+.pp-figs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4);padding:var(--space-4) 0;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+.pp-fig{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pp-fig-label{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pp-fig-value{font-family:var(--font-body);font-weight:700;font-size:19px;color:var(--ink);font-variant-numeric:tabular-nums}
+.pp-actions{display:flex;gap:var(--space-3);align-items:center;margin-top:var(--space-4)}
+.pp-actions .btn-secondary{border-radius:10px;padding:8px 18px}
+.pp-delete{background:none;border:none;color:var(--muted);font-family:var(--font-body);font-size:13px;font-weight:600;cursor:pointer;padding:8px 4px}
+.pp-delete:hover{color:var(--danger)}
+.pp-msg{font-size:12.5px;margin:var(--space-3) 0 0;color:var(--muted)}
+.pp-msg.error{color:var(--danger)}
+@media(max-width:760px){
+  .pp-header{grid-template-columns:1fr;padding:var(--space-4);gap:var(--space-4)}
+  .pp-photo{aspect-ratio:16/9}
+  .pp-figs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pp-title{font-size:21px}
+}
+
+/* ---------- sections (accordions, closed by default) ---------- */
+.pp-sections{display:flex;flex-direction:column;gap:10px}
+.pp-sec{background:var(--surface);border:1px solid rgba(0,0,0,.09);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.pp-sec summary{list-style:none;display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr) auto;align-items:center;gap:var(--space-4);padding:16px 18px;cursor:pointer}
+.pp-sec summary::-webkit-details-marker{display:none}
+.pp-sec-title{font-weight:700;font-size:14.5px;color:var(--ink)}
+.pp-sec-sum{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;min-width:0;justify-content:flex-end;text-align:right}
+.pp-sec-sum span.pp-sum-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pp-chev{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s ease}
+.pp-sec[open] .pp-chev{transform:rotate(180deg)}
+.pp-sec-body{padding:0 18px 18px}
+@media(max-width:520px){
+  .pp-sec summary{grid-template-columns:minmax(0,1fr) auto;gap:4px var(--space-3);padding:14px 16px}
+  .pp-sec-sum{grid-column:1;grid-row:2;justify-content:flex-start;text-align:left}
+  .pp-chev{grid-column:2;grid-row:1 / span 2}
+  .pp-sec-body{padding:0 16px 16px}
+}
+
+.pp-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--space-4) var(--space-5);padding:var(--space-4) 0;border-top:1px solid var(--hairline)}
+.pp-row{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pp-row-label{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pp-row-value{font-size:14.5px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;word-break:break-word}
+.pp-row-value.empty{color:var(--muted);font-weight:500}
+.pp-sec-foot{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin-top:var(--space-2)}
+.pp-edit{font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:6px 16px;cursor:pointer}
+.pp-edit:hover{background:rgba(75,69,178,.06)}
+.pp-note{font-size:12.5px;color:var(--muted);margin:0}
+
+.pp-callout{background:var(--surface-2);border-radius:12px;padding:14px 16px;margin:0 0 var(--space-4);font-size:14px;line-height:1.55;color:var(--ink)}
+.pp-callout strong{font-variant-numeric:tabular-nums}
+.pp-rate{display:inline-flex;align-items:center;gap:2px;vertical-align:baseline}
+.pp-rate input{width:64px;font-family:var(--font-body);font-size:14px;font-weight:700;color:var(--ink);border:1.5px solid var(--input-hairline);border-radius:8px;padding:3px 6px;background:var(--input-surface);text-align:right}
+.pp-rate input:focus{outline:none;border-color:var(--accent)}
+.pp-callout .pp-callout-sub{display:block;font-size:12.5px;color:var(--muted);margin-top:4px}
+
+.pp-comp{list-style:none;margin:0;padding:0;border-top:1px solid var(--hairline)}
+.pp-comp li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--space-3);padding:12px 0;border-bottom:1px solid var(--hairline)}
+.pp-comp-name{font-weight:600;font-size:14px;color:var(--ink)}
+.pp-comp-detail{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+.pp-status{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;background:var(--surface-2);color:var(--muted)}
+.pp-status.ok{background:var(--success-bg);color:var(--success-ink)}
+.pp-status.due_soon{background:var(--warn-bg);color:var(--warn-ink)}
+.pp-status.overdue{background:var(--danger-bg);color:var(--danger-ink)}
+</style>
+</head>
+<body class="theme-light">
+
+<div class="shell">
+  <div id="nav-root" data-active="portfolio" data-subscribe="true"></div>
+  <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
+
+  <a class="pp-back" href="/portfolio.html">‹ Portfolio</a>
+
+  <div id="state-loading"><p class="hint">Loading…</p></div>
+
+  <div id="state-locked" hidden>
+    <div class="locked-panel">
+      <h2>The Portfolio is a paid feature</h2>
+      <p>Track properties you've actually bought: cashflow, equity, mortgage dates, tenancies and compliance in one place.</p>
+      <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
+    </div>
+  </div>
+
+  <div id="state-missing" hidden>
+    <p class="hint" id="missing-text">This property couldn't be found. It may have been deleted.</p>
+  </div>
+
+  <div id="state-page" hidden>
+    <section class="pp-header" aria-label="Property">
+      <div class="pp-photo" id="pp-photo">
+        <span id="pp-photo-inner"></span>
+        <button type="button" class="pp-photo-remove" id="pp-photo-remove" onclick="removePhoto()" hidden>Remove</button>
+        <label class="pp-photo-btn" for="pp-photo-input" id="pp-photo-label">Add photo</label>
+        <input type="file" id="pp-photo-input" class="pp-file" accept="image/*" onchange="uploadPhoto(this.files)"/>
+      </div>
+      <div>
+        <h1 class="pp-title" id="pp-address"></h1>
+        <div class="pp-meta"><span class="pf-pill" id="pp-strategy"></span><span class="pf-badge" id="pp-compliance-badge"></span></div>
+        <div class="pp-figs">
+          <div class="pp-fig"><span class="pp-fig-label">Value</span><span class="pp-fig-value" id="pp-value"></span></div>
+          <div class="pp-fig"><span class="pp-fig-label">Equity</span><span class="pp-fig-value" id="pp-equity"></span></div>
+          <div class="pp-fig"><span class="pp-fig-label">Cashflow /mo</span><span class="pp-fig-value" id="pp-cashflow"></span></div>
+          <div class="pp-fig"><span class="pp-fig-label">Net yield</span><span class="pp-fig-value" id="pp-yield"></span></div>
+        </div>
+        <div class="pp-actions">
+          <button type="button" class="btn-secondary" onclick="openEdit('overview')">Edit</button>
+          <button type="button" class="pp-delete" id="pp-delete" onclick="deleteProperty()">Delete</button>
+        </div>
+        <p class="pp-msg" id="pp-msg" hidden></p>
+      </div>
+    </section>
+
+    <div class="pp-sections" id="pp-sections"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pp-edit-overlay" onclick="if(event.target===this)closeEdit()">
+  <div class="card modal-card" role="dialog" aria-modal="true" aria-labelledby="pp-edit-title">
+    <div class="modal-header">
+      <h2 id="pp-edit-title">Edit</h2>
+      <button class="modal-close" onclick="closeEdit()" aria-label="Close">×</button>
+    </div>
+    <p class="pf-modal-note" id="pp-edit-note" hidden></p>
+    <div id="pp-edit-fields"></div>
+    <p class="save-msg" id="pp-edit-msg"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="pp-edit-save" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null, currentPlan=null;
+let property=null, targetLtv=75, schemaReady=false, editingSection=null;
+const propertyId=new URLSearchParams(location.search).get('id');
+const CHEVRON='<svg class="pp-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+const NEEDS_DB_NOTE='Some of these details can only be saved once a quick database update has been run. Until then, they won\'t be kept.';
+
+async function logout(){ await sbClient.auth.signOut(); window.location.href='/'; }
+
+async function upgradeNow(){
+  if(!currentSession)return;
+  const btn=document.getElementById('upgrade-btn');
+  btn.disabled=true;btn.textContent='Redirecting…';
+  try{
+    const res=await fetch(API_BASE+'/api/create-checkout-session',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}});
+    const body=await res.json();
+    if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
+    window.location.href=body.url;
+  }catch(e){
+    alert('Could not start checkout: '+e.message);
+    btn.disabled=false;btn.textContent='Subscribe / Upgrade · £29/mo';
+  }
+}
+
+function updateTopbar(){
+  const loggedIn=!!currentSession;
+  const authLink=document.getElementById('auth-link');
+  if(authLink){
+    authLink.textContent=loggedIn?'Log out':'Log in';
+    authLink.href=loggedIn?'#':'/login.html';
+    authLink.onclick=loggedIn?function(e){e.preventDefault();logout();}:null;
+  }
+  const email=loggedIn&&currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  const menuEmail=document.getElementById('user-menu-email');
+  const itemEmail=document.getElementById('user-menu-item-email');
+  if(menuEmail)menuEmail.textContent=email||'Account';
+  if(itemEmail)itemEmail.textContent=email||'';
+  const subLink=document.getElementById('subscribe-link');
+  if(subLink){
+    const show=loggedIn&&currentPlan==='free';
+    subLink.style.display=show?'':'none';
+    subLink.onclick=show?function(e){e.preventDefault();upgradeNow();}:null;
+  }
+}
+
+function showState(state){
+  ['loading','locked','missing','page'].forEach(s=>{ document.getElementById('state-'+s).hidden = s!==state; });
+}
+
+function authHeaders(json){
+  const h={'Authorization':'Bearer '+currentSession.access_token};
+  if(json)h['Content-Type']='application/json';
+  return h;
+}
+
+async function init(){
+  const auth=await requireAuth();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+  try{
+    const prof=await (await fetch(API_BASE+'/api/profile',{headers:authHeaders()})).json();
+    currentPlan=prof.plan==='paid'?'paid':'free';
+  }catch(e){ currentPlan='free'; }
+  updateTopbar();
+  if(currentPlan!=='paid'){ showState('locked'); return; }
+  if(!propertyId){ showState('missing'); return; }
+  await loadProperty();
+  sbClient.auth.onAuthStateChange((_event, session)=>{
+    currentSession=session;
+    if(!currentSession){window.location.href='/';return;}
+    updateTopbar();
+  });
+}
+
+// The property comes from the same GET /api/portfolio the list uses, so
+// every figure matches the Portfolio page exactly.
+async function loadProperty(){
+  try{
+    const res=await fetch(API_BASE+'/api/portfolio',{headers:authHeaders()});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not load this property.');
+    property=(d.properties||[]).find(p=>p.id===propertyId)||null;
+    targetLtv=d.target_ltv||75;
+    schemaReady=!!d.schema_ready;
+    if(!property){ showState('missing'); return; }
+    render();
+    showState('page');
+  }catch(e){
+    document.getElementById('missing-text').textContent=e.message;
+    showState('missing');
+  }
+}
+
+// ---------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------
+function row(label, value){
+  const empty=value==null||value===''||value==='Not set';
+  return `<div class="pp-row"><span class="pp-row-label">${PF.esc(label)}</span><span class="pp-row-value${empty?' empty':''}">${empty?'Not added':PF.esc(value)}</span></div>`;
+}
+function moneyOrNull(v){ return v!=null&&v!==''?PF.gbp(v):null; }
+
+function render(){
+  const p=property;
+  document.title='PROPulsion · '+p.address;
+  document.getElementById('pp-address').textContent=p.address;
+  document.getElementById('pp-strategy').textContent=p.property_type;
+  const cs=PF.complianceSummary(p.compliance_status);
+  const badge=document.getElementById('pp-compliance-badge');
+  badge.className='pf-badge '+cs.level;
+  badge.innerHTML=PF.statusDot(cs.level,cs.text)+PF.esc(cs.text==='Not set up'?'Compliance not set up':cs.text);
+  document.getElementById('pp-value').textContent=PF.gbp(p.current_value!=null?p.current_value:p.price_paid);
+  document.getElementById('pp-equity').textContent=PF.gbp(p.equity);
+  const cf=document.getElementById('pp-cashflow');
+  cf.textContent=PF.gbp(p.monthly_cashflow);
+  cf.classList.toggle('pf-neg',p.monthly_cashflow<0);
+  document.getElementById('pp-yield').textContent=PF.pct(p.yield);
+  renderPhoto();
+
+  const open=new Set([...document.querySelectorAll('.pp-sec[open]')].map(el=>el.dataset.sec));
+  const sections=[
+    ['overview','Overview',overviewSummary(),overviewBody()],
+    ['mortgage','Mortgage',mortgageSummary(),mortgageBody()],
+    ['equity','Equity',equitySummary(),equityBody()],
+    ['tenancy','Tenancy',tenancySummary(),tenancyBody()],
+    ['compliance','Compliance',complianceSummaryHtml(),complianceBody()],
+  ];
+  document.getElementById('pp-sections').innerHTML=sections.map(([key,title,sum,body])=>
+    `<details class="pp-sec" data-sec="${key}"${open.has(key)?' open':''}>
+      <summary><span class="pp-sec-title">${title}</span><span class="pp-sec-sum">${sum}</span>${CHEVRON}</summary>
+      <div class="pp-sec-body">${body}</div>
+    </details>`).join('');
+  updateRateCheck();
+}
+
+function sumText(t){ return `<span class="pp-sum-text">${PF.esc(t)}</span>`; }
+function editBtn(section, label){ return `<button type="button" class="pp-edit" onclick="openEdit('${section}')">${label||'Edit'}</button>`; }
+
+// Overview
+function overviewSummary(){
+  const p=property;
+  return sumText(`${PF.gbp(p.monthly_rent)} rent, ${PF.gbp(p.monthly_cashflow)} cashflow a month`);
+}
+function overviewBody(){
+  const p=property;
+  return `<div class="pp-rows">
+    ${row('Strategy',p.property_type)}
+    ${row('Price paid',PF.gbp(p.price_paid))}
+    ${row('Current value',moneyOrNull(p.current_value))}
+    ${row('Cash invested',moneyOrNull(p.cash_invested))}
+    ${row('Monthly rent',PF.gbp(p.monthly_rent))}
+    ${row('Running costs /mo',PF.gbp(p.monthly_running_costs))}
+    ${row('Mortgage payment /mo',moneyOrNull(p.monthly_mortgage))}
+    ${row('Monthly cashflow',PF.gbp(p.monthly_cashflow))}
+    ${row('Net yield',PF.pct(p.yield))}
+  </div>
+  <div class="pp-sec-foot"><p class="pp-note">Net yield excludes the mortgage. Cashflow includes it.</p>${editBtn('overview')}</div>`;
+}
+
+// Mortgage
+const TYPE_LABEL={interest_only:'Interest-only',repayment:'Repayment'};
+function hasMortgage(p){ return Number(p.mortgage_balance)>0||Number(p.monthly_mortgage)>0||!!p.lender; }
+function mortgageSummary(){
+  const p=property;
+  const parts=[];
+  if(p.property_type==='BRRR'&&p.refinance_date)parts.push('Refinance due '+PF.date(p.refinance_date));
+  if(p.fixed_rate_end_date)parts.push('Fix ends '+PF.monthYear(p.fixed_rate_end_date));
+  if(p.interest_rate!=null)parts.push(Number(p.interest_rate)+'%');
+  if(!parts.length)return sumText(hasMortgage(p)?(p.lender?p.lender:PF.gbp(p.monthly_mortgage)+' a month'):'No mortgage added');
+  return sumText(parts.join(', '));
+}
+function mortgageBody(){
+  const p=property;
+  return `${rateCheckHtml()}
+  <div class="pp-rows">
+    ${row('Lender',p.lender)}
+    ${row('Interest rate',p.interest_rate!=null?Number(p.interest_rate)+'%':null)}
+    ${row('Mortgage type',TYPE_LABEL[p.mortgage_type])}
+    ${p.property_type==='BRRR'?row('Refinance date',p.refinance_date?PF.date(p.refinance_date):null):''}
+    ${row('Fixed rate ends',p.fixed_rate_end_date?PF.date(p.fixed_rate_end_date):null)}
+    ${row('Mortgage balance',moneyOrNull(p.mortgage_balance))}
+    ${row('Monthly payment',moneyOrNull(p.monthly_mortgage))}
+    ${p.mortgage_type==='repayment'?row('Remaining term',(p.remaining_term_years!=null?Number(p.remaining_term_years):PF.DEFAULT_REMAINING_TERM)+' years'):''}
+  </div>
+  <div class="pp-sec-foot"><p class="pp-note">Home reminds you 6 months before the fixed rate ends${p.property_type==='BRRR'?', and 60 days before the refinance date':''}.</p>${editBtn('mortgage')}</div>`;
+}
+
+// Rate check: "At a new rate of X%, your payment could be £Y a month".
+// Uses calc-engine.js's mort() / mortRepay(), the calculator's own
+// mortgage functions.
+function rateCheckHtml(){
+  const p=property;
+  if(!(Number(p.mortgage_balance)>0)||!p.mortgage_type){
+    return `<div class="pp-callout">Add the mortgage balance and type to see what a new rate would cost you.</div>`;
+  }
+  return `<div class="pp-callout" id="pp-rate-check">
+    At a new rate of <span class="pp-rate"><input type="number" id="pp-new-rate" inputmode="decimal" step="0.05" min="0" max="25" value="${PF.RATE_CHECK_DEFAULT}" oninput="updateRateCheck()" aria-label="New interest rate"/>%</span>,
+    your payment could be <strong id="pp-rate-new"></strong> a month<span id="pp-rate-current"></span>.
+    <span class="pp-callout-sub" id="pp-rate-sub"></span>
+  </div>`;
+}
+function updateRateCheck(){
+  const input=document.getElementById('pp-new-rate');
+  if(!input||!property)return;
+  const p=property;
+  const balance=Number(p.mortgage_balance);
+  const term=p.remaining_term_years!=null?Number(p.remaining_term_years):PF.DEFAULT_REMAINING_TERM;
+  const rate=parseFloat(input.value);
+  const next=isFinite(rate)?PF.monthlyPayment(balance,rate,p.mortgage_type,term):null;
+  document.getElementById('pp-rate-new').textContent=next!=null?PF.gbp(next):'Not set';
+  let current=Number(p.monthly_mortgage)>0?Number(p.monthly_mortgage):null;
+  if(current==null&&p.interest_rate!=null)current=PF.monthlyPayment(balance,Number(p.interest_rate),p.mortgage_type,term);
+  document.getElementById('pp-rate-current').textContent=current!=null?` (currently ${PF.gbp(current)})`:'';
+  const sub=document.getElementById('pp-rate-sub');
+  const basis=`Based on a ${PF.gbp(balance)} ${p.mortgage_type==='repayment'?'repayment mortgage over '+term+' years':'interest-only mortgage'}.`;
+  if(next!=null&&current!=null){
+    const diff=Math.round(next-current);
+    sub.textContent=(diff===0?'About the same as now. ':`That's ${PF.gbp(Math.abs(diff))} a month ${diff>0?'more':'less'}. `)+basis;
+  }else sub.textContent=basis;
+}
+
+// Equity
+function equitySummary(){
+  const p=property;
+  if(p.equity==null)return sumText('Add current value to see equity');
+  return sumText(`${PF.gbp(p.equity)} equity, ${PF.gbp(p.available_to_release)} available to release`);
+}
+function equityBody(){
+  const p=property;
+  return `<div class="pp-rows">
+    ${row('Current value',moneyOrNull(p.current_value))}
+    ${row('Mortgage balance',p.mortgage_balance!=null?PF.gbp(p.mortgage_balance):(p.current_value!=null?'£0':null))}
+    ${row('Equity',p.equity!=null?PF.gbp(p.equity):null)}
+    ${row('Loan to value',p.ltv!=null?PF.pct(p.ltv,0):null)}
+    ${row('Available to release',p.available_to_release!=null?PF.gbp(p.available_to_release):null)}
+  </div>
+  <div class="pp-sec-foot"><p class="pp-note">Available to release is equity you could pull out by remortgaging to ${Number(targetLtv)}% LTV, before fees. <a href="/settings.html#portfolio-settings">Change target LTV</a></p>${editBtn('equity')}</div>`;
+}
+
+// Tenancy
+function tenancySummary(){
+  const p=property;
+  if(!p.tenant_names&&!p.tenancy_start&&!p.tenancy_end)return sumText('No tenancy added');
+  const parts=[];
+  if(p.tenant_names)parts.push(p.tenant_names);
+  if(p.tenancy_end){
+    const d=PF.daysUntil(p.tenancy_end);
+    parts.push(d<0?'ended '+PF.date(p.tenancy_end):'ends '+PF.date(p.tenancy_end));
+  }else if(p.tenancy_start)parts.push('since '+PF.date(p.tenancy_start));
+  return sumText(parts.join(', '));
+}
+function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function tenancyBody(){
+  const p=property;
+  return `<div class="pp-rows">
+    ${row('Tenant name(s)',p.tenant_names)}
+    ${row('Tenancy start',p.tenancy_start?PF.date(p.tenancy_start):null)}
+    ${row('Tenancy end',p.tenancy_end?PF.date(p.tenancy_end):null)}
+    ${row('Rent due',p.rent_due_day?ordinal(Number(p.rent_due_day))+' of the month':null)}
+    ${row('Deposit',moneyOrNull(p.deposit_amount))}
+  </div>
+  <div class="pp-sec-foot"><p class="pp-note">Home reminds you 60 days before the tenancy ends.</p>${editBtn('tenancy')}</div>`;
+}
+
+// Compliance
+function complianceSummaryHtml(){
+  const cs=PF.complianceSummary(property.compliance_status);
+  return PF.statusDot(cs.level,cs.text)+sumText(cs.text);
+}
+function complianceDetail(i){
+  if(i.status==='na')return i.key==='licence'?'Not required':'Not applicable';
+  const bits=[];
+  if(i.key==='deposit'){
+    if(i.protected==='yes')bits.push('Protected'+(i.scheme?' with '+i.scheme:''));
+    else if(i.protected==='no')bits.push('Not protected');
+    if(i.date)bits.push('on '+PF.date(i.date));
+    return bits.join(' ')||'Not added';
+  }
+  if(i.key==='licence')return i.expiry?(i.status==='overdue'?'Expired ':'Expires ')+PF.date(i.expiry):'Not added';
+  if(i.date)bits.push('Done '+PF.date(i.date));
+  if(i.rating)bits.push('Rating '+i.rating);
+  if(i.expiry){
+    if(i.status==='overdue')bits.push('expired '+PF.date(i.expiry));
+    else if(i.status==='due_soon')bits.push('due in '+PF.plural(i.days,'day'));
+    else bits.push('due '+PF.date(i.expiry));
+  }
+  return bits.join(', ')||'Not added';
+}
+function complianceBody(){
+  const cs=property.compliance_status;
+  const items=(cs&&cs.items)||[];
+  const statusText=s=>s==='missing'?'Missing':PF.STATUS_LABEL[s];
+  return `<ul class="pp-comp">${items.map(i=>`<li>
+      ${PF.statusDot(i.status,statusText(i.status))}
+      <span><span class="pp-comp-name">${PF.esc(i.label)}</span><span class="pp-comp-detail">${PF.esc(complianceDetail(i))}</span></span>
+      <span class="pp-status ${i.status}">${PF.esc(statusText(i.status))}</span>
+    </li>`).join('')}</ul>
+  <div class="pp-sec-foot" style="margin-top:var(--space-4)"><p class="pp-note">Requirements vary by property and council. Check what applies to yours.</p>${editBtn('compliance','Update')}</div>`;
+}
+
+// ---------------------------------------------------------------------
+// Edit pop-up: one shell, filled per section.
+// ---------------------------------------------------------------------
+function editRoot(){ return document.getElementById('pp-edit-fields'); }
+
+function openEdit(section){
+  editingSection=section;
+  const root=editRoot();
+  const note=document.getElementById('pp-edit-note');
+  const needsNewSchema=section==='compliance'||(PF.SECTIONS[section]&&PF.SECTIONS[section].newSchema);
+  if(section==='compliance'){
+    document.getElementById('pp-edit-title').textContent='Compliance';
+    root.className='';
+    root.innerHTML=PF.renderComplianceForm(property.compliance);
+    root.querySelectorAll('.pfc-na input').forEach(cb=>cb.addEventListener('change',()=>{
+      cb.closest('.pfc-item').dataset.na=cb.checked?'1':'';
+    }));
+  }else{
+    document.getElementById('pp-edit-title').textContent=PF.SECTIONS[section].title;
+    root.className='pf-form-grid';
+    root.innerHTML=PF.renderFields(section,property,{schemaReady});
+    PF.applyVisibility(root,property);
+    root.oninput=root.onchange=()=>PF.applyVisibility(root,property);
+  }
+  note.hidden=!( !schemaReady && needsNewSchema );
+  note.className='pf-modal-note warn';
+  note.textContent=NEEDS_DB_NOTE;
+  const msg=document.getElementById('pp-edit-msg'); msg.textContent=''; msg.className='save-msg';
+  document.getElementById('pp-edit-overlay').classList.add('open');
+  const first=root.querySelector('input,select');
+  if(first&&window.matchMedia('(min-width:521px)').matches)setTimeout(()=>first.focus(),30);
+}
+function closeEdit(){ document.getElementById('pp-edit-overlay').classList.remove('open'); editingSection=null; }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeEdit(); });
+
+async function saveEdit(){
+  if(!editingSection)return;
+  const msg=document.getElementById('pp-edit-msg');
+  const btn=document.getElementById('pp-edit-save');
+  const payload=PF.basePayload(property);
+  if(editingSection==='compliance')payload.compliance=PF.readComplianceForm(editRoot());
+  else Object.assign(payload,PF.readVisibleFields(editRoot()));
+  PF.finalisePayload(payload);
+  if(!payload.address){ msg.textContent='Enter an address.'; msg.className='save-msg error'; return; }
+
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    const res=await fetch(API_BASE+'/api/portfolio/'+encodeURIComponent(property.id),{method:'PUT',headers:authHeaders(true),body:JSON.stringify(payload)});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not save changes.');
+    closeEdit();
+    await loadProperty();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;btn.textContent='Save changes';
+}
+
+async function deleteProperty(){
+  if(!confirm('Delete this property from your portfolio? This can\'t be undone.'))return;
+  const btn=document.getElementById('pp-delete');
+  btn.disabled=true;
+  try{
+    const res=await fetch(API_BASE+'/api/portfolio/'+encodeURIComponent(property.id),{method:'DELETE',headers:authHeaders()});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not delete property.');
+    window.location.href='/portfolio.html';
+  }catch(e){
+    setPageMsg('Could not delete property: '+e.message,true);
+    btn.disabled=false;
+  }
+}
+
+// ---------------------------------------------------------------------
+// Photo (one per property, private storage, db/046)
+// ---------------------------------------------------------------------
+function setPageMsg(text, isError){
+  const el=document.getElementById('pp-msg');
+  el.textContent=text||''; el.hidden=!text; el.className='pp-msg'+(isError?' error':'');
+}
+function renderPhoto(){
+  const inner=document.getElementById('pp-photo-inner');
+  inner.innerHTML=property.photo_url?`<img src="${PF.esc(property.photo_url)}" alt="Photo of ${PF.esc(property.address)}"/>`:PF.HOUSE_ICON;
+  inner.style.cssText=property.photo_url?'position:absolute;inset:0':'display:contents';
+  document.getElementById('pp-photo-label').textContent=property.photo_url?'Change photo':'Add photo';
+  document.getElementById('pp-photo-remove').hidden=!property.photo_url;
+}
+async function uploadPhoto(files){
+  const input=document.getElementById('pp-photo-input');
+  const file=files&&files[0];
+  if(!file)return;
+  const label=document.getElementById('pp-photo-label');
+  label.textContent='Uploading…';
+  setPageMsg('');
+  try{
+    const data=await PF.compressPhoto(file);
+    const res=await fetch(API_BASE+'/api/portfolio/'+encodeURIComponent(property.id)+'/photo',{method:'POST',headers:authHeaders(true),body:JSON.stringify({type:'image/jpeg',data})});
+    const body=await res.json().catch(()=>({}));
+    if(res.status===409&&body.needs_migration)throw new Error('Photos can be added once a quick database update has been run.');
+    if(!res.ok)throw new Error(body.error||'That photo could not be uploaded.');
+    property.photo_url=body.photo_url;
+    renderPhoto();
+  }catch(e){
+    setPageMsg(e.message,true);
+    renderPhoto();
+  }
+  input.value='';
+}
+async function removePhoto(){
+  if(!confirm('Remove this photo?'))return;
+  try{
+    const res=await fetch(API_BASE+'/api/portfolio/'+encodeURIComponent(property.id)+'/photo',{method:'DELETE',headers:authHeaders()});
+    const body=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(body.error||'The photo could not be removed.');
+    property.photo_url=null;
+    renderPhoto();
+  }catch(e){ setPageMsg(e.message,true); }
+}
+
+init();
+</script>
+</body>
+</html>

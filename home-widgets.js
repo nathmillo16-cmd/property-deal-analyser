@@ -243,7 +243,9 @@ var HomeWidgets = (function () {
     items.push({ id: 'save', label: 'Save a deal', href: '/index.html', done: deals.length > 0 });
     if (!st.pipelineLocked) items.push({ id: 'pipeline', label: 'Add a deal to your pipeline', href: '/saved-deals.html', done: (st.pipelineDeals || []).length > 0 || deals.some(function (d) { return !!d.pipeline_stage; }) });
     items.push({ id: 'brrr', label: 'Run a BRRR analysis', href: '/index.html', done: !!(st.progress && st.progress.brrrDone) || deals.some(function (d) { return d.deal_type === 'btl' && d.deal_data && d.deal_data.strategy === 'brrr'; }) });
-    if (!st.portfolioLocked) items.push({ id: 'refi', label: 'Add a refinance date', href: '/portfolio.html', done: props.some(function (p) { return !!p.refinance_date; }) });
+    // "Refinance date" now only applies to BRRR properties, so this step
+    // asks for mortgage dates in general (a fixed rate end or a refinance).
+    if (!st.portfolioLocked) items.push({ id: 'refi', label: 'Add your mortgage dates', href: '/portfolio.html', done: props.some(function (p) { return !!(p.refinance_date || p.fixed_rate_end_date); }) });
     return items;
   }
 
@@ -282,7 +284,7 @@ var HomeWidgets = (function () {
   function suggestion(st, f) {
     if (!st.portfolioLocked && f.refiSoon) {
       var d = f.refiSoon.days;
-      return { title: 'Refinance window opening', text: f.refiSoon.p.address + ': ' + (d === 0 ? 'opens today.' : 'opens in ' + d + (d === 1 ? ' day.' : ' days.')) + ' Line up a broker and a valuation.', cta: 'View portfolio', href: '/portfolio.html' };
+      return { title: 'Refinance window opening', text: f.refiSoon.p.address + ': ' + (d === 0 ? 'opens today.' : 'opens in ' + d + (d === 1 ? ' day.' : ' days.')) + ' Line up a broker and a valuation.', cta: 'View property', href: '/property.html?id=' + encodeURIComponent(f.refiSoon.p.id) };
     }
     if (!st.portfolioLocked) {
       var missing = f.props.filter(function (p) { return p.current_value == null || (p.mortgage_balance == null && Number(p.monthly_mortgage) > 0); });
@@ -321,11 +323,15 @@ var HomeWidgets = (function () {
     var urgent = st.pipelineLocked ? [] : (st.needsAttention || []);
     if (urgent.length) {
       title.textContent = 'Needs attention';
-      var LABEL = { chase: 'Chase', update: 'Update', review: 'Review', refinance: 'Refinance', reminder: 'Reminder' };
+      var LABEL = { chase: 'Chase', update: 'Update', review: 'Review', refinance: 'Refinance', reminder: 'Reminder', fix_end: 'Fixed rate', tenancy: 'Tenancy', compliance: 'Compliance' };
       list.innerHTML = urgent.map(function (n) {
-        var href = n.reason === 'refinance' ? '/portfolio.html' : (n.deal_id ? '/saved-deals.html?openDeal=' + encodeURIComponent(n.deal_id) : '/saved-deals.html');
+        // Portfolio alerts (refinance, fixed rate, tenancy, compliance) open
+        // that property's page; deal alerts open the deal.
+        var href = n.property_id ? '/property.html?id=' + encodeURIComponent(n.property_id)
+          : (n.deal_id ? '/saved-deals.html?openDeal=' + encodeURIComponent(n.deal_id) : '/saved-deals.html');
+        var tagClass = esc(n.reason) + (n.severity ? ' ' + esc(n.severity) : '');
         return '<a class="na-row" href="' + href + '"><span class="na-info"><span class="na-name">' + esc(n.deal_name || 'Untitled deal') + '</span>' +
-          '<span class="na-detail">' + esc(n.detail) + '</span></span><span class="na-tag ' + esc(n.reason) + '">' + esc(LABEL[n.reason] || n.reason) + '</span></a>';
+          '<span class="na-detail">' + esc(n.detail) + '</span></span><span class="na-tag ' + tagClass + '">' + esc(LABEL[n.reason] || n.reason) + '</span></a>';
       }).join('');
       return;
     }
