@@ -23,7 +23,7 @@ Verified calculation rules (do not alter without explicit instruction)
 Shared/reused across strategies:
 - Interest-only mortgage: Monthly = (loan × rate/100) / 12. This was the ONLY mortgage mode until repayment mode was added (see "Repayment mortgage mode" below) — a separate function, additive, this formula itself untouched.
 - Deposit is calculated against END MARKET VALUE (EMV), not purchase price.
-- Stamp duty (BTL surcharge bands): 3% up to £250k, 8% £250k–£925k, 13% £925k–£1.5m, 15% above £1.5m. Reused as-is by every strategy that references stamp duty; in BTL/HMO/SA it is informational/display-only and is not itself deducted anywhere in the yield/ROI/cashflow maths (this looks unusual but is the verified existing behavior — do not "fix" it).
+- Stamp duty: England and NI SDLT, additional property rates in force since 1 April 2025 (updated on the owner's explicit instruction, October 2026): 5% up to £125k, 7% £125k–£250k, 10% £250k–£925k, 15% £925k–£1.5m, 17% above £1.5m; under £40,000 no surcharge applies, so standard rates (0% at that price) are used. Rates live in STAMP_DUTY_CONFIG at the top of calc-engine.js, the one place to change them after a Budget. Verified: £100k = £5,000, £150k = £8,000, £200k = £11,500, £300k = £20,000. Old saved deals keep the stamp duty (and HMO/Flip totals) they were saved with. Reused as-is by every strategy that references stamp duty; in BTL/HMO/SA it is informational/display-only and is not itself deducted anywhere in the yield/ROI/cashflow maths (this looks unusual but is the verified existing behavior — do not "fix" it).
 
 BTL:
 - Mortgage loan = EMV − deposit.

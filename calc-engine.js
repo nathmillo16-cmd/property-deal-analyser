@@ -2,12 +2,52 @@
 // Shared by index.html (real calculator) and landing.html (free taster).
 // Do not edit formulas here without explicit instruction — see CLAUDE.md.
 
+// ---------------------------------------------------------------------
+// STAMP DUTY CONFIG: the one place to change rates after a Budget.
+// SDLT for England and Northern Ireland, additional property (higher)
+// rates, in force since 1 April 2025. Each band's rate applies only to the
+// part of the price inside that band.
+// Last verified: October 2026.
+// ---------------------------------------------------------------------
+const STAMP_DUTY_CONFIG={
+  region:'England and NI',
+  // Under this price the additional property surcharge doesn't apply, so
+  // standard rates are used instead, which are 0% at this price.
+  surchargeThreshold:40000,
+  belowThresholdTax:0,
+  bands:[
+    {upTo:125000,  rate:5},
+    {upTo:250000,  rate:7},
+    {upTo:925000,  rate:10},
+    {upTo:1500000, rate:15},
+    {upTo:Infinity,rate:17}
+  ]
+};
+
+function sdltAmount(n){
+  if(n>=1000000&&n%10000===0)return '£'+(n/1000000)+'m';
+  if(n>=1000&&n%1000===0)return '£'+(n/1000)+'k';
+  return '£'+Math.round(n).toLocaleString();
+}
+
 function stamp(p){
-  let tax=0,detail=[];
-  if(p<=250000){tax=p*0.03;detail.push(`£0–£250k @ 3% = £${Math.round(tax).toLocaleString()}`);}
-  else if(p<=925000){tax=(p-250000)*0.08+(250000*0.03);detail.push(`£0–£250k @ 3% = £${Math.round(250000*0.03).toLocaleString()}`,`£250k–£${Math.round(p/1000)}k @ 8% = £${Math.round((p-250000)*0.08).toLocaleString()}`);}
-  else if(p<=1500000){tax=(p-925000)*0.13+(925000-250000)*0.08+(250000*0.03);}
-  else{tax=(p-1500000)*0.15+(1500000-925000)*0.13+(925000-250000)*0.08+(250000*0.03);}
+  const cfg=STAMP_DUTY_CONFIG;
+  let tax=0;const detail=[];
+  if(!(p>0))return{total:0,detail};
+  if(p<cfg.surchargeThreshold){
+    tax=cfg.belowThresholdTax;
+    detail.push('under '+sdltAmount(cfg.surchargeThreshold)+', no surcharge, standard rates are 0% at this price');
+    return{total:Math.round(tax),detail};
+  }
+  let from=0;
+  for(const band of cfg.bands){
+    if(p<=from)break;
+    const to=Math.min(p,band.upTo);
+    const part=(to-from)*band.rate/100;
+    tax+=part;
+    detail.push(sdltAmount(from)+' to '+sdltAmount(to)+' @ '+band.rate+'% = £'+Math.round(part).toLocaleString());
+    from=band.upTo;
+  }
   return{total:Math.round(tax),detail};
 }
 function mort(loan,rate){return(loan*rate/100)/12;}
@@ -153,7 +193,7 @@ function cBTL(){
   s('br-roi',fP(rROI),cl(rROI,15,8));s('br-ti',fmt(mTI));
   s('br-mli',fmt(mMLI),mMLI<=0?'good':'');s('br-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
   s('br-loan',fmt(loan));s('br-rate',fP(mr));s('br-deposit',fmt(dep));s('br-mpay',fmt(rmm));s('br-term',term);
-  document.getElementById('b-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' ('+sd.detail.join(' · ')+')';
+  document.getElementById('b-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+(sd.detail.length?' ('+sd.detail.join(' · ')+')':'');
   document.getElementById('b-oy').textContent=fmt(oY);
   document.getElementById('b-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
   document.getElementById('b-or').textContent=oR>0&&oR<1900000?fmt(oR):'Cannot achieve at these inputs';
@@ -270,7 +310,7 @@ function cHMO(){
   s('hr-roi',fP(rROI),cl(rROI,15,8));s('hr-ti',fmt(mTI));
   s('hr-mli',fmt(mTI));s('hr-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
   s('hr-loan',fmt(loan));s('hr-rate',fP(mr));s('hr-deposit',fmt(dep));s('hr-mpay',fmt(rmm));s('hr-term',term);
-  document.getElementById('h-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' ('+sd.detail.join(' · ')+')';
+  document.getElementById('h-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+(sd.detail.length?' ('+sd.detail.join(' · ')+')':'');
   document.getElementById('h-oy').textContent=oY>0?fmt(oY):'Enter rooms first';
   if(oY>0){document.getElementById('h-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';}
 
@@ -486,7 +526,7 @@ function cSA(){
   s('sar-cfy',fmt(rCFy),cl(rCFy,3600,0));
   s('sar-loan',fmt(loan));s('sar-rate',fP(mr));s('sar-deposit',fmt(dep));s('sar-mpay',fmt(rmm));s('sar-term',term);
 
-  document.getElementById('sa-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+' ('+sd.detail.join(' · ')+')';
+  document.getElementById('sa-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+(sd.detail.length?' ('+sd.detail.join(' · ')+')':'');
 
   document.getElementById('sa-oy').textContent=oY>0?fmt(oY):'Cannot achieve at these inputs';
   if(oY>0)document.getElementById('sa-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
@@ -543,6 +583,8 @@ function cFlip(){
   s('fl-margin',fP(margin),cl(margin,15,8));
   s('fl-ti',fmt(ti));
   s('fl-sdout',fmt(sd.total));
+  const flSn=document.getElementById('fl-sn');
+  if(flSn)flSn.innerHTML='Stamp duty (Flip): £'+sd.total.toLocaleString()+(sd.detail.length?' ('+sd.detail.join(' · ')+')':'');
   s('fl-agentout',fmt(agentAmt));
   s('fl-contout',fmt(contAmt));
 
