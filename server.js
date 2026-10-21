@@ -29,6 +29,18 @@ const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABAS
 const app = express();
 app.use(cors());
 
+// Two-step sign in, enforced on the server (mfa-guard.js). Runs before
+// every API route, including the upload routes registered before
+// express.json(): a user with a verified MFA factor whose token is only
+// password-level (aal1) gets 401 { code: 'mfa_required' }. Requests with
+// no token pass through to each route's own auth check.
+const { createMfaGuard, supabaseVerifiedFactorLookup, supabaseTokenVerifier } = require('./mfa-guard');
+app.use(createMfaGuard({
+  listVerified: supabaseVerifiedFactorLookup(supabaseAdmin),
+  verifyToken: supabaseTokenVerifier(supabaseAdmin),
+  isGuardedPath: (p) => p.startsWith('/api/') || p === '/analyse',
+}));
+
 // Must be registered with express.raw(), and BEFORE app.use(express.json())
 // below, so Stripe's signature check gets the exact raw bytes it signed.
 // The handler responds without calling next(), so express.json() (mounted

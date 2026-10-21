@@ -399,6 +399,7 @@ body.theme-light .value-warning.error{background:var(--danger-bg);color:var(--da
 body.theme-light .save-btn:hover{background:rgba(75,69,178,.08)}
 .save-btn:disabled{opacity:.4;cursor:not-allowed}
 a.save-btn.defaults-link{display:block;text-align:center;text-decoration:none}
+.rc-line{display:flex;justify-content:space-between;gap:12px}
 /* "Save deal" (results-col) vs "Save as my defaults" (input-col, done in
    Stage 1 as a quiet outline button) share the same .save-btn class —
    scoped by ancestor so "Save deal" becomes filled indigo primary here
@@ -530,6 +531,9 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Insurance /mo (£)</label><input type="text" inputmode="decimal" id="b-ins" value="50" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Voids % of rent</label><input type="number" id="b-voids" value="0" step="0.5" min="0" max="100" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Letting fee a year (£)</label><input type="text" inputmode="decimal" id="b-letfee" value="0" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Safety certificates a year (£)</label><input type="text" inputmode="decimal" id="b-certs" value="0" oninput="markStaleBTL()"/></div>
         </div>
         <p class="hint">Stamp duty auto-calculated with the additional property surcharge. Deposit uses purchase price. Yields use end market value.</p>
         <p class="sl section-gap">Targets</p>
@@ -688,6 +692,7 @@ body.theme-light .dd-trigger::after{
           </div>
           <p class="hint">Refinance rate and term reuse the mortgage rate and term under Advanced. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
         </div>
+        <div class="xc-break" id="b-rc"></div>
         <div class="xc-break" id="b-xc"></div>
         <div id="b-sn" class="sn"></div>
         <p class="sn-note">England and NI rates. Scotland and Wales use different taxes.</p>
@@ -760,6 +765,9 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Council tax annual (£)</label><input type="text" inputmode="decimal" id="h-ct" value="2265" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="markStaleHMO()"/></div>
           <div class="f"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Voids % of rent</label><input type="number" id="h-voids" value="0" step="0.5" min="0" max="100" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Letting fee a year (£)</label><input type="text" inputmode="decimal" id="h-letfee" value="0" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Safety certificates a year (£)</label><input type="text" inputmode="decimal" id="h-certs" value="0" oninput="markStaleHMO()"/></div>
         </div>
         <p class="hint">Bills auto-calculated as 10% of total rent. Stamp duty auto-calculated. Council tax entered annually.</p>
         <p class="sl section-gap">Targets</p>
@@ -884,6 +892,7 @@ body.theme-light .dd-trigger::after{
           </div>
           <p class="hint">Refinance rate and term reuse the mortgage rate and term under Advanced. These figures show the position after refinancing. The refurb period itself is not modelled.</p>
         </div>
+        <div class="xc-break" id="h-rc"></div>
         <div id="h-sn" class="sn"></div>
         <p class="sn-note">England and NI rates. Scotland and Wales use different taxes.</p>
         <p class="sl section-gap">Recommended offer prices</p>
@@ -1500,8 +1509,8 @@ function switchFinTab(strategy,mode){
 // it. Never a substitute for Save deal / saved defaults.
 // ---------------------------------------------------------------------
 const DRAFT_FIELD_IDS={
-  btl:['b-pp','b-emv','b-rent','b-mr','b-term','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-ty','b-tr','bb-refi-ltv','bb-refi-months','b-lc-stress','b-lc-cover','b-br-ltv','b-br-rate','b-br-arr','b-br-exit','b-br-months','b-hc-months','b-hc-cost'],
-  hmo:['h-pp','h-emv','h-mr','h-term','h-dp','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-maint','h-mgmt','h-r1p','h-r1n','h-r2p','h-r2n','h-r3p','h-r3n','h-r4p','h-r4n','h-ty','h-troi','hb-refi-ltv'],
+  btl:['b-pp','b-emv','b-rent','b-mr','b-term','b-dp','b-ref','b-sol','b-mf','b-srch','b-ins','b-mgmt','b-maint','b-voids','b-letfee','b-certs','b-ty','b-tr','bb-refi-ltv','bb-refi-months','b-lc-stress','b-lc-cover','b-br-ltv','b-br-rate','b-br-arr','b-br-exit','b-br-months','b-hc-months','b-hc-cost'],
+  hmo:['h-pp','h-emv','h-mr','h-term','h-dp','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-maint','h-mgmt','h-voids','h-letfee','h-certs','h-r1p','h-r1n','h-r2p','h-r2n','h-r3p','h-r3n','h-r4p','h-r4n','h-ty','h-troi','hb-refi-ltv'],
   sa:['sa-rate','sa-occ','sa-pp','sa-emv','sa-mr','sa-term','sa-dp','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-mgmt','sa-util','sa-maint','sa-clean','sa-ins','sa-ct','sa-ty','sa-troi','sab-refi-ltv'],
   flip:['fl-pp','fl-bf','fl-ref','fl-sv','fl-agent','fl-cont','fl-troi','fl-hc-months','fl-hc-cost'],
 };
@@ -1527,8 +1536,8 @@ const REFI_TYPE_IDS={btl:'bb-refi-type',hmo:'hb-refi-type',sa:'sab-refi-type'};
 // the numeric keypad on mobile.
 // ---------------------------------------------------------------------
 const MONEY_FIELD_IDS={
-  btl:['b-pp','b-emv','b-rent','b-ref','b-sol','b-mf','b-srch','b-ins','b-hc-cost'],
-  hmo:['h-pp','h-emv','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-r1p','h-r2p','h-r3p','h-r4p'],
+  btl:['b-pp','b-emv','b-rent','b-ref','b-sol','b-mf','b-srch','b-ins','b-letfee','b-certs','b-hc-cost'],
+  hmo:['h-pp','h-emv','h-ref','h-sol','h-mf','h-lic','h-srch','h-ins','h-wifi','h-ct','h-letfee','h-certs','h-r1p','h-r2p','h-r3p','h-r4p'],
   sa:['sa-rate','sa-pp','sa-emv','sa-sol','sa-mf','sa-srch','sa-ref','sa-furn','sa-wg','sa-clean','sa-ins','sa-ct'],
   flip:['fl-pp','fl-bf','fl-ref','fl-sv','fl-hc-cost'],
 };
@@ -1979,6 +1988,9 @@ const FIELD_HELP={
   'b-mf':'Mortgage fees: lender arrangement and broker fees. Typical: £0 to £2,000.',
   'b-srch':'Searches: local authority and environmental searches. Typical: £250 to £400.',
   'b-ins':'Insurance: landlord buildings cover, per month. Typical: £20 to £50.',
+  'b-voids':'Voids: the share of the year the property sits empty between tenants. Comes off the rent before cashflow, yields and ROI. The lender check uses the full rent. 4% is about two weeks a year.',
+  'b-letfee':'Letting fee: what the agent charges to find a tenant, as a yearly average. A £600 fee every two years is £300 a year.',
+  'b-certs':'Safety certificates: gas safety, electrical (EICR) and similar, as a yearly total.',
   'b-mgmt':'Management: what a letting agent charges, as a % of rent. Typical: 10% to 15%, or 0% if you manage it yourself.',
   'b-maint':'Maintenance: money set aside for repairs, as a % of rent. Typical: 5% to 10%.',
   'b-ty':'Target yield: the yearly rent as a % of value that you are aiming for. Used for your offer price. Typical: 7% to 8%.',
@@ -1997,6 +2009,9 @@ const FIELD_HELP={
   'h-lic':'Licensing fee: the council fee for an HMO licence. Typical: £500 to £1,500.',
   'h-srch':'Searches: local authority and environmental searches. Typical: £250 to £400.',
   'h-ins':'Insurance: HMO landlord cover, per month. Typical: £30 to £80.',
+  'h-voids':'Voids: the share of the year rooms sit empty. Comes off the total rent before bills, cashflow, yields and ROI.',
+  'h-letfee':'Letting fee: what the agent charges to fill rooms, as a yearly average.',
+  'h-certs':'Safety certificates: gas, electrical, fire alarm and emergency lighting checks, as a yearly total.',
   'h-wifi':'WiFi: broadband for the tenants, per month. Typical: £30 to £50.',
   'h-ct':'Council tax: the yearly bill, which you pay in an HMO. Typical: £1,500 to £2,500.',
   'h-maint':'Maintenance: money set aside for repairs, as a % of rent. Typical: 5% to 10%.',
@@ -3682,6 +3697,7 @@ function applyPlanningDefaults(ud){
     Object.values(REFI_TYPE_IDS).forEach(id=>{ if(getDDValue(id)==='io'||!getDDValue(id))setDDValue(id,v,REFI_TYPE_LABELS[v]); });
   }
   F($('fl-bf'),ud.buyingFees);
+  ['b','h'].forEach(p=>{ F($(p+'-voids'),ud.voidsPct); F($(p+'-letfee'),ud.lettingFee); F($(p+'-certs'),ud.safetyCerts); });
   const stress=$('b-lc-stress');
   if(stress&&ud.stressRate!=null){ F(stress,ud.stressRate); stress.placeholder=String(ud.stressRate); }
   if(CFG&&ud.ownership&&CFG.lender.ownershipTypes[ud.ownership]){

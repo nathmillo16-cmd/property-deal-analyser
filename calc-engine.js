@@ -85,10 +85,32 @@ function moneyVal(id){
 
 let btlData={}, hmoData={}, saData={}, flipData={};
 
+// Voids, letting fee and safety certificates (BTL/BRRR and HMO), added on
+// the owner's explicit instruction, 2026-10-21. Display only: the lines
+// shown in the Full breakdown. Empty when none of the three is set.
+function runCostLines(grossYear,voidPct,letFee,certs){
+  if(!(voidPct>0||letFee>0||certs>0))return '';
+  const line=(l,v)=>'<p class="rc-line"><span>'+l+'</span><span>'+v+'</span></p>';
+  let h='<p><b>Rent and yearly costs</b></p>'+line('Rent a year',fmt(grossYear));
+  if(voidPct>0)h+=line('Voids, '+(+(voidPct*100).toFixed(2))+'% of rent','-'+fmt(grossYear*voidPct))+line('Rent after voids',fmt(grossYear*(1-voidPct)));
+  if(letFee>0)h+=line('Letting fee a year','-'+fmt(letFee));
+  if(certs>0)h+=line('Safety certificates a year','-'+fmt(certs));
+  return h+'<p class="xc-note">Voids come off the rent before running costs, cashflow, yields, ROI and max bid. The lender check uses the full rent.</p>';
+}
+
 function cBTL(){
   const pp=moneyVal('b-pp');
   const emv=moneyVal('b-emv');
-  const rent=moneyVal('b-rent');
+  // Voids come off the rent before every other figure, so from here on
+  // `rent` is the rent after voids. grossRent is kept for the lender check
+  // (saved as btlData.rent). Letting fee and certificates are yearly costs,
+  // taken monthly as annC. All three are 0 when blank, so every figure is
+  // exactly as before unless one is set (owner's instruction, 2026-10-21).
+  const grossRent=moneyVal('b-rent');
+  const voidPct=numOr('b-voids',0)/100;
+  const letFee=moneyVal('b-letfee'), certs=moneyVal('b-certs');
+  const rent=grossRent*(1-voidPct);
+  const annC=(letFee+certs)/12;
   const mr=+document.getElementById('b-mr').value||0;
   const dp=(numOr('b-dp',25))/100;
   const ref=moneyVal('b-ref');
@@ -105,8 +127,8 @@ function cBTL(){
 
   const dep=pp*dp, loan=pp-dep, mm=mort(loan,mr), sd=stamp(pp);
   const maintC=rent*maint, mgmtC=rent*mgmt;
-  const mNm=rent-ins-maintC-mgmtC-mm, mNy=mNm*12;
-  const cNm=rent-maintC-ins-mgmtC, cNy=cNm*12;
+  const mNm=rent-ins-annC-maintC-mgmtC-mm, mNy=mNm*12;
+  const cNm=rent-maintC-ins-annC-mgmtC, cNy=cNm*12;
   const ag=rent*12;
   // Stamp duty is part of the cash needed to buy, so it counts in total
   // investment, money left in, ROI and max bid (same as HMO and Flip).
@@ -127,14 +149,14 @@ function cBTL(){
   const bbRefiType=(typeof getDDValue==='function'&&getDDValue('bb-refi-type'))||'io';
   const bbRefiLoan=emv*bbRefiLtv;
   const bbRefiPay=bbRefiType==='repay'?mortRepay(bbRefiLoan,mr,term):mort(bbRefiLoan,mr);
-  const bbNm=rent-ins-maintC-mgmtC-bbRefiPay, bbNy=bbNm*12;
+  const bbNm=rent-ins-annC-maintC-mgmtC-bbRefiPay, bbNy=bbNm*12;
   const bbMLI=cTI-bbRefiLoan;
   const bbny=emv>0?(bbNy/emv)*100:0;
   const bbROI=bbMLI!==0?(bbNy/bbMLI)*100:0;
   const bbPB=bbNy!==0?bbMLI/bbNy:0;
 
   const rmm=mortRepay(loan,mr,term);
-  const rNm=rent-ins-maintC-mgmtC-rmm, rNy=rNm*12;
+  const rNm=rent-ins-annC-maintC-mgmtC-rmm, rNy=rNm*12;
   const rny=emv>0?(rNy/emv)*100:0;
   const rROI=mMLI!==0?(rNy/mMLI)*100:0;
   const rPB=rNy!==0?mMLI/rNy:0;
@@ -152,7 +174,7 @@ function cBTL(){
     for(let i=0;i<80;i++){
       const mid=(lo+hi)/2;
       const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
-      const mNyM=(rent-ins-maintC-mgmtC-mmM)*12;
+      const mNyM=(rent-ins-annC-maintC-mgmtC-mmM)*12;
       const mMLIM=(mid+sol+mf+srch+ref+stamp(mid).total)-loanM;
       const roiM=mMLIM!==0?(mNyM/mMLIM)*100:0;
       if(roiM>tr)lo=mid;else hi=mid;
@@ -166,7 +188,7 @@ function cBTL(){
     for(let i=0;i<80;i++){
       const mid=(lo+hi)/2;
       const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
-      const rNyM=(rent-ins-maintC-mgmtC-rmmM)*12;
+      const rNyM=(rent-ins-annC-maintC-mgmtC-rmmM)*12;
       const mMLIM=(mid+sol+mf+srch+ref+stamp(mid).total)-loanM;
       const roiM=mMLIM!==0?(rNyM/mMLIM)*100:0;
       if(roiM>tr)lo=mid;else hi=mid;
@@ -196,6 +218,8 @@ function cBTL(){
   s('br-roi',fP(rROI),cl(rROI,15,8));s('br-ti',fmt(mTI));
   s('br-mli',fmt(mMLI),mMLI<=0?'good':'');s('br-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
   s('br-loan',fmt(loan));s('br-rate',fP(mr));s('br-deposit',fmt(dep));s('br-mpay',fmt(rmm));s('br-term',term);
+  const bRcEl=document.getElementById('b-rc');
+  if(bRcEl)bRcEl.innerHTML=runCostLines(grossRent*12,voidPct,letFee,certs);
   document.getElementById('b-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+(sd.detail.length?' ('+sd.detail.join(' · ')+')':'');
   document.getElementById('b-oy').textContent=fmt(oY);
   document.getElementById('b-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';
@@ -208,7 +232,8 @@ function cBTL(){
     if(brornEl) brornEl.textContent=(roR-pp)<0?fmt(Math.abs(roR-pp))+' below asking':fmt(roR-pp)+' above asking';
   }
 
-  btlData={pp,emv,rent,mr,dp:dp*100,ref,sol,mf,srch,ins,mgmt:mgmt*100,maint:maint*100,ty,tr,term,
+  btlData={pp,emv,rent:grossRent,mr,dp:dp*100,
+    voids:+(voidPct*100).toFixed(2),letFee,certs,rentAfterVoids:+rent.toFixed(2),voidLossYearly:Math.round(grossRent*voidPct*12),ref,sol,mf,srch,ins,mgmt:mgmt*100,maint:maint*100,ty,tr,term,
     loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
     gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
@@ -254,13 +279,22 @@ function cHMO(){
   let totalRent=0;
   rooms.forEach(([price,num,id])=>{const t=price*num;totalRent+=t;document.getElementById(id).textContent='£'+t.toLocaleString();});
   document.getElementById('h-tr').textContent='£'+totalRent.toLocaleString();
+  // Voids, letting fee and certificates, same as BTL (owner's instruction,
+  // 2026-10-21): from here totalRent is the rent after voids, so bills,
+  // maintenance, management, cashflow, yields, ROI and max bid all use it.
+  // grossTotalRent is what's saved as hmoData.totalRent. All 0 when blank.
+  const hVoidPct=numOr('h-voids',0)/100;
+  const hLetFee=moneyVal('h-letfee'), hCerts=moneyVal('h-certs');
+  const hAnnC=(hLetFee+hCerts)/12;
+  const grossTotalRent=totalRent;
+  totalRent=grossTotalRent*(1-hVoidPct);
   const bills=totalRent*0.1;
   document.getElementById('h-bills').textContent='£'+Math.round(bills).toLocaleString();
 
   const sd=stamp(pp), dep=pp*dp, loan=pp-dep, mm=mort(loan,mr);
   const maintC=totalRent*maint, mgmtC=totalRent*mgmt;
-  const mNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC-mm, mNy=mNm*12;
-  const cNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC, cNy=cNm*12;
+  const mNm=totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-mm, mNy=mNm*12;
+  const cNm=totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC, cNy=cNm*12;
   const ag=totalRent*12;
   // Searches count in the mortgage total too, same as BTL and SA and the
   // HMO cash total. Added on the owner's explicit instruction, October 2026.
@@ -280,14 +314,14 @@ function cHMO(){
   const hbRefiType=(typeof getDDValue==='function'&&getDDValue('hb-refi-type'))||'io';
   const hbRefiLoan=emv*hbRefiLtv;
   const hbRefiPay=hbRefiType==='repay'?mortRepay(hbRefiLoan,mr,term):mort(hbRefiLoan,mr);
-  const hbNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC-hbRefiPay, hbNy=hbNm*12;
+  const hbNm=totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-hbRefiPay, hbNy=hbNm*12;
   const hbMLI=cTI-hbRefiLoan;
   const hbny=emv>0?(hbNy/emv)*100:0;
   const hbROI=hbMLI!==0?(hbNy/hbMLI)*100:0;
   const hbPB=hbNy!==0?hbMLI/hbNy:0;
 
   const rmm=mortRepay(loan,mr,term);
-  const rNm=totalRent-bills-ins-wifi-ct-maintC-mgmtC-rmm, rNy=rNm*12;
+  const rNm=totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-rmm, rNy=rNm*12;
   const rny=emv>0?(rNy/emv)*100:0;
   const rROI=mTI!==0?(rNy/mTI)*100:0;
   const rPB=rNy!==0?mTI/rNy:0;
@@ -315,6 +349,8 @@ function cHMO(){
   s('hr-roi',fP(rROI),cl(rROI,15,8));s('hr-ti',fmt(mTI));
   s('hr-mli',fmt(mTI));s('hr-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
   s('hr-loan',fmt(loan));s('hr-rate',fP(mr));s('hr-deposit',fmt(dep));s('hr-mpay',fmt(rmm));s('hr-term',term);
+  const hRcEl=document.getElementById('h-rc');
+  if(hRcEl)hRcEl.innerHTML=runCostLines(grossTotalRent*12,hVoidPct,hLetFee,hCerts);
   document.getElementById('h-sn').innerHTML='Stamp duty (BTL): £'+sd.total.toLocaleString()+(sd.detail.length?' ('+sd.detail.join(' · ')+')':'');
   document.getElementById('h-oy').textContent=oY>0?fmt(oY):'Enter rooms first';
   if(oY>0){document.getElementById('h-oyn').textContent=(oY-pp)<0?fmt(Math.abs(oY-pp))+' below asking':fmt(oY-pp)+' above asking';}
@@ -330,7 +366,7 @@ function cHMO(){
       const mid=(lo+hi)/2;
       const sdM=stamp(mid).total;
       const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
-      const mNyM=(totalRent-bills-ins-wifi-ct-maintC-mgmtC-mmM)*12;
+      const mNyM=(totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-mmM)*12;
       const tiM=depM+sol+mf+lic+ref+sdM+srch;
       const roiM=tiM!==0?(mNyM/tiM)*100:0;
       if(roiM>troi)lo=mid;else hi=mid;
@@ -347,7 +383,7 @@ function cHMO(){
       const mid=(rlo+rhi)/2;
       const sdM=stamp(mid).total;
       const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
-      const rNyM=(totalRent-bills-ins-wifi-ct-maintC-mgmtC-rmmM)*12;
+      const rNyM=(totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-rmmM)*12;
       const tiM=depM+sol+mf+lic+ref+sdM+srch;
       const roiM=tiM!==0?(rNyM/tiM)*100:0;
       if(roiM>troi)rlo=mid;else rhi=mid;
@@ -361,7 +397,8 @@ function cHMO(){
     if(hrornEl) hrornEl.textContent=(roR-pp)<0?fmt(Math.abs(roR-pp))+' below asking':fmt(roR-pp)+' above asking';
   }
 
-  hmoData={pp,emv,totalRent,mr,dp:dp*100,ref,sol,mf,lic,srch,ins,wifi,ctMonthly:Math.round(ct),maint:maint*100,mgmt:mgmt*100,ty,troi,term,
+  hmoData={pp,emv,totalRent:grossTotalRent,mr,
+    voids:+(hVoidPct*100).toFixed(2),letFee:hLetFee,certs:hCerts,rentAfterVoids:+totalRent.toFixed(2),voidLossYearly:Math.round(grossTotalRent*hVoidPct*12),dp:dp*100,ref,sol,mf,lic,srch,ins,wifi,ctMonthly:Math.round(ct),maint:maint*100,mgmt:mgmt*100,ty,troi,term,
     loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
     gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),

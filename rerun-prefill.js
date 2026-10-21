@@ -28,6 +28,9 @@ function buildRerunFields(deal, newRef){
       'b-pp':d.pp,'b-emv':d.emv,'b-rent':d.rent,'b-mr':d.mr,'b-dp':d.dp,
       'b-ref':newRef,'b-sol':d.sol,'b-mf':d.mf,'b-srch':d.srch,'b-ins':d.ins,
       'b-mgmt':d.mgmt,'b-maint':d.maint,'b-ty':d.ty,'b-tr':d.tr,'b-term':d.term,
+      // A deal saved before voids/letting fee/certificates existed reopens
+      // with 0, never the user's Settings defaults, so its figures don't move.
+      'b-voids':d.voids!=null?d.voids:0,'b-letfee':d.letFee!=null?d.letFee:0,'b-certs':d.certs!=null?d.certs:0,
     });
     if(d.brrrLtv!=null)fields['bb-refi-ltv']=d.brrrLtv;
     if(d.brrrType)fields['__dd_bb-refi-type']=d.brrrType;
@@ -41,6 +44,7 @@ function buildRerunFields(deal, newRef){
       'h-pp':d.pp,'h-emv':d.emv,'h-mr':d.mr,'h-dp':d.dp,'h-ref':newRef,'h-sol':d.sol,'h-mf':d.mf,
       'h-lic':d.lic,'h-srch':d.srch,'h-ins':d.ins,'h-wifi':d.wifi,'h-ct':(d.ctMonthly||0)*12,
       'h-maint':d.maint,'h-mgmt':d.mgmt,'h-ty':d.ty,'h-troi':d.troi,'h-term':d.term,
+      'h-voids':d.voids!=null?d.voids:0,'h-letfee':d.letFee!=null?d.letFee:0,'h-certs':d.certs!=null?d.certs:0,
       'h-r1p':rooms[0].price,'h-r1n':rooms[0].count,'h-r2p':rooms[1].price,'h-r2n':rooms[1].count,
       'h-r3p':rooms[2].price,'h-r3n':rooms[2].count,'h-r4p':rooms[3].price,'h-r4n':rooms[3].count,
     });

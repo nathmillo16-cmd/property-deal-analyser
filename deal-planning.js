@@ -340,7 +340,9 @@
 
   function projectionRows(st, mode, d, a) {
     var years = CFG.projection.years;
-    var gross1 = st === 'sa' ? d.annualRevenue : (st === 'hmo' ? d.totalRent : d.rent) * 12;
+    // Rent after voids where the deal has them (BTL/HMO), so a fixed-costs
+    // projection grows the rent actually collected.
+    var gross1 = st === 'sa' ? d.annualRevenue : (d.rentAfterVoids != null ? d.rentAfterVoids : (st === 'hmo' ? d.totalRent : d.rent)) * 12;
     var net1 = st === 'sa' ? d.cCFy : d.cNy; // before any mortgage
     var costs1 = gross1 - net1;
     var cf1 = d[CF_ANNUAL[st][mode]];

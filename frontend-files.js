@@ -26,6 +26,7 @@ const BACKEND_FILES = new Set([
   'crm-thresholds.js',
   'admin-users.js',
   'weekly-digest.js',
+  'mfa-guard.js',
 ]);
 
 // Website-only: the PWA service worker and its offline fallback page. The
