@@ -79,16 +79,43 @@ body.theme-light .empty-card{
 .hero-fig-label{font-size:11px;color:rgba(255,255,255,.65);letter-spacing:.02em}
 .hero-fig-value{font-family:var(--font-body);font-weight:600;font-size:18px;color:#ffffff;font-variant-numeric:tabular-nums}
 
-.kanban-wrap{
-  overflow-x:auto;padding-bottom:.85rem;
-  scrollbar-width:thin;scrollbar-color:var(--hairline-strong) transparent; /* Firefox */
+/* No sideways scrolling: every column fits the page width. Columns with
+   cards share the space (--tpl, set per render in renderBoard()); empty
+   columns collapse to a narrow labelled strip. When there isn't room for
+   the columns side by side (phones, narrow windows, see fitBoard()) the
+   board stacks: one full-width column per stage, empty ones as a one-line
+   strip. */
+.kanban-wrap{padding-bottom:.85rem}
+.kanban{display:grid;grid-template-columns:var(--tpl,repeat(7,minmax(0,1fr)));gap:.5rem;align-items:start}
+.kanban>.kanban-col{min-width:0}
+.kanban-col.is-collapsed{padding:.6rem 0;align-self:stretch;min-height:160px}
+.kanban-col.is-collapsed .col-title{
+  writing-mode:vertical-rl;margin:0 auto;padding:0;border:none;gap:6px;white-space:nowrap;
 }
-.kanban-wrap::-webkit-scrollbar{height:7px} /* Chrome/Safari/Edge */
-.kanban-wrap::-webkit-scrollbar-track{background:transparent}
-.kanban-wrap::-webkit-scrollbar-thumb{background:var(--hairline-strong);border-radius:999px}
-.kanban-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-.kanban{display:grid;grid-template-columns:repeat(var(--cols,7),minmax(215px,1fr));gap:.75rem}
-@media(max-width:1600px){.kanban{grid-template-columns:repeat(var(--cols,7),235px)}}
+.kanban-col.is-collapsed .stage-dot{margin:0}
+.kanban-col.is-collapsed .col-count{margin:0;color:var(--muted)}
+.kanban-col.is-collapsed .col-cards{display:none}
+.kanban.is-stacked{grid-template-columns:minmax(0,1fr)}
+.kanban.is-stacked .kanban-col.is-collapsed{min-height:0;padding:.55rem .85rem}
+.kanban.is-stacked .kanban-col.is-collapsed .col-title{writing-mode:horizontal-tb;margin:0}
+.kanban.is-stacked .kanban-col.is-collapsed .col-count{margin-left:auto}
+.kanban .col-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:.6rem;align-items:start}
+.kanban:not(.is-stacked) .kanban-col:not(.is-collapsed){padding:.65rem}
+.kanban:not(.is-stacked) .pipeline-card{padding:.65rem .7rem}
+.card-actions .mini-btn{white-space:normal}
+
+/* Pipeline stats row (item counts per stage), directly above the board. */
+.board-stats{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin:0 0 var(--space-3);font-size:13px;color:var(--muted)}
+.board-stat strong{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.board-stage-counts{display:flex;flex-wrap:wrap;gap:6px}
+.board-stage-chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--ink);background:var(--surface);border:1px solid var(--hairline);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.board-stage-chip .stage-dot{margin:0}
+.board-stage-chip span.n{font-variant-numeric:tabular-nums;color:var(--muted)}
+.board-hint{font-size:13px;color:var(--muted);margin:0 0 var(--space-3)}
+.board-stats[hidden],.compare-bar[hidden],.kanban-wrap[hidden]{display:none}
+
+/* 30-day nudge on old Saved cards. */
+.card-nudge{font-size:11.5px;line-height:1.4;color:var(--warn-ink);background:var(--warn-bg);border-radius:6px;padding:5px 8px;margin:0 0 .5rem}
 .kanban-col[data-stage="lost"]{background:var(--surface-2)}
 body.theme-light .kanban-col[data-stage="lost"] .pipeline-card{opacity:.8}
 .kanban-col[data-stage="saved"]{border-style:dashed}
@@ -315,7 +342,6 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
         <a href="/saved-deals.html" role="tab" aria-selected="false">List</a>
         <a href="/pipeline.html" role="tab" aria-selected="true" class="active">Board</a>
       </div>
-      <p class="view-switch-help">List: all deals. Board: your buying pipeline.</p>
     </div>
   </div>
 
@@ -339,20 +365,24 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
          message on the page. -->
     <div class="hero-panel dc-stats" id="deals-stats" hidden></div>
 
+    <!-- Only shown when the user has no deals at all. -->
     <div class="card empty-card" id="pipeline-empty-state" style="display:none">
-      <h2 id="pipeline-empty-title">No deals in your pipeline yet</h2>
-      <p id="pipeline-empty-text">Drag a deal from the Saved column into Analysing to start tracking it, stage by stage.</p>
+      <h2>No deals yet</h2>
+      <p>Analyse a deal in the calculator and save it. It appears in the Saved column, ready to move through your pipeline.</p>
       <a class="btn-primary" href="/index.html">Analyse a deal</a>
     </div>
 
     <div class="dc-toolbar" id="deals-toolbar"></div>
     <p class="hint" id="board-filter-note" hidden></p>
 
-    <div class="kanban-wrap">
+    <div class="board-stats" id="board-stats" hidden></div>
+    <p class="board-hint" id="board-hint" hidden>Drag a deal from Saved into Analysing to start tracking it, stage by stage.</p>
+
+    <div class="kanban-wrap" id="kanban-wrap">
       <div class="kanban" id="kanban"></div>
     </div>
 
-    <div class="compare-bar">
+    <div class="compare-bar" id="board-compare-bar">
       <p id="compare-hint">Select 2 or more deals to compare them side by side.</p>
       <button class="btn-primary" id="compare-btn" disabled onclick="compareSelected()">Compare selected</button>
     </div>
@@ -601,16 +631,15 @@ function renderBoard(){
   // stage), not per-column. The 5 kanban columns still render underneath
   // regardless, each with its own quiet "No deals" — this is the one
   // element that's meant to guide.
-  document.getElementById('deals-toolbar').hidden=(pipelineDeals.length+savedOnlyDeals.length)===0;
-  const emptyEl=document.getElementById('pipeline-empty-state');
-  emptyEl.style.display = pipelineDeals.length===0 ? 'block' : 'none';
-  if(pipelineDeals.length===0){
-    const noDeals=savedOnlyDeals.length===0;
-    document.getElementById('pipeline-empty-title').textContent=noDeals?'No deals yet':'No deals in your pipeline yet';
-    document.getElementById('pipeline-empty-text').textContent=noDeals
-      ?'Analyse a deal in the calculator and save it. It appears in the Saved column, ready to move through your pipeline.'
-      :'Drag a deal from the Saved column into Analysing to start tracking it, stage by stage.';
-  }
+  // The big empty card only when there are no deals at all. Deals saved but
+  // none moved past Saved yet: a one-line hint above the board instead.
+  const totalDeals=pipelineDeals.length+savedOnlyDeals.length;
+  document.getElementById('deals-toolbar').hidden=totalDeals===0;
+  document.getElementById('pipeline-empty-state').style.display = totalDeals===0 ? 'block' : 'none';
+  document.getElementById('board-hint').hidden=!(totalDeals>0&&pipelineDeals.length===0);
+  document.getElementById('kanban-wrap').hidden=totalDeals===0;
+  document.getElementById('board-compare-bar').hidden=totalDeals===0;
+  renderBoardStats();
   // Filters (deal-cards.js): strategy and verdict filter the cards; the
   // stage filter shows just that column.
   const f=DealCards.filters();
@@ -622,27 +651,71 @@ function renderBoard(){
   note.hidden=!(hiddenCount>0);
   note.textContent=hiddenCount>0?`${hiddenCount} deal${hiddenCount===1?' is':'s are'} hidden by your filters.`:'';
   const kanban=document.getElementById('kanban');
-  const cols=[SAVED_COL,...STAGES].filter(showCol);
-  kanban.style.setProperty('--cols', cols.length);
-  const savedCards=filteredSaved.length
-    ? filteredSaved.map(cardHtml).join('')
-    : `<p class="col-empty">${savedOnlyDeals.length?'No matching deals':'No other saved deals'}</p>`;
-  const savedCol=showCol(SAVED_COL)?`<div class="kanban-col" data-stage="${SAVED_COL}"
-      ondragover="onColumnDragOver(event)" ondragleave="onColumnDragLeave(event)" ondrop="onColumnDrop(event,'${SAVED_COL}')">
-      <p class="col-title"><span class="stage-dot" style="background:var(--hairline-strong)"></span>Saved<span class="col-count">${filteredSaved.length}</span></p>
-      <div class="col-cards">${savedCards}</div>
-    </div>`:'';
-  kanban.innerHTML=savedCol+STAGES.filter(showCol).map(stage=>{
-    const dealsInStage=filteredPipe.filter(d=>d.pipeline_stage===stage);
-    const cards=dealsInStage.length
-      ? dealsInStage.map(cardHtml).join('')
-      : '<p class="col-empty">No deals</p>';
-    return `<div class="kanban-col" data-stage="${stage}"
-      ondragover="onColumnDragOver(event)" ondragleave="onColumnDragLeave(event)" ondrop="onColumnDrop(event,'${stage}')">
-      <p class="col-title"><span class="stage-dot" style="background:${STAGE_COLORS[stage]}"></span>${STAGE_LABELS[stage]}<span class="col-count">${dealsInStage.length}</span></p>
+  const cols=[SAVED_COL,...STAGES].filter(showCol).map(stage=>{
+    const deals=stage===SAVED_COL?filteredSaved:filteredPipe.filter(d=>d.pipeline_stage===stage);
+    const empty=stage===SAVED_COL?(savedOnlyDeals.length?'No matching deals':'No other saved deals'):'No deals';
+    return {stage, deals, empty,
+      label:stage===SAVED_COL?'Saved':STAGE_LABELS[stage],
+      color:stage===SAVED_COL?'var(--hairline-strong)':STAGE_COLORS[stage]};
+  });
+  // Empty columns collapse to a narrow strip, unless it's the only column
+  // showing (stage filter), where the full "No deals" column reads better.
+  const canCollapse=cols.length>1;
+  kanban.innerHTML=cols.map(c=>{
+    const collapsed=canCollapse&&c.deals.length===0;
+    const cards=c.deals.length?c.deals.map(cardHtml).join(''):`<p class="col-empty">${c.empty}</p>`;
+    return `<div class="kanban-col${collapsed?' is-collapsed':''}" data-stage="${c.stage}"${collapsed?` aria-label="${c.label}: no deals"`:''}
+      ondragover="onColumnDragOver(event)" ondragleave="onColumnDragLeave(event)" ondrop="onColumnDrop(event,'${c.stage}')">
+      <p class="col-title"><span class="stage-dot" style="background:${c.color}"></span>${c.label}<span class="col-count">${c.deals.length}</span></p>
       <div class="col-cards">${cards}</div>
     </div>`;
   }).join('');
+  kanban.style.setProperty('--tpl', cols.map(c=>canCollapse&&c.deals.length===0?'40px':'minmax(0,1fr)').join(' '));
+  fitBoard();
+}
+
+// Side by side when every column with cards gets at least MIN_COL_PX;
+// otherwise stack the columns vertically. Never scrolls sideways.
+const MIN_COL_PX=150;
+function fitBoard(){
+  const kanban=document.getElementById('kanban');
+  if(!kanban)return;
+  const colsEls=[...kanban.children];
+  if(!colsEls.length)return;
+  const collapsed=colsEls.filter(c=>c.classList.contains('is-collapsed')).length;
+  const open=colsEls.length-collapsed;
+  const gap=8;
+  const width=kanban.clientWidth;
+  const perCol=open?(width-collapsed*40-(colsEls.length-1)*gap)/open:Infinity;
+  kanban.classList.toggle('is-stacked', perCol<MIN_COL_PX);
+}
+window.addEventListener('resize', fitBoard);
+
+// Stats row above the board: total deals, purchase value of everything in
+// Analysing to Agreed, and a count per stage. All deals, ignoring filters.
+// Purchase value sums the deal_data.pp each card already shows.
+function renderBoardStats(){
+  const el=document.getElementById('board-stats');
+  const all=[...savedOnlyDeals,...pipelineDeals];
+  el.hidden=all.length===0;
+  if(!all.length){el.innerHTML='';return;}
+  const inPlay=['analysing','viewing','offered','agreed'];
+  const value=pipelineDeals.filter(d=>inPlay.includes(d.pipeline_stage))
+    .reduce((s,d)=>s+(d.deal_data&&Number(d.deal_data.pp)>0?Number(d.deal_data.pp):0),0);
+  const chip=(label,color,n)=>`<span class="board-stage-chip"><span class="stage-dot" style="background:${color}"></span>${label} <span class="n">${n}</span></span>`;
+  const chips=[chip('Saved','var(--hairline-strong)',savedOnlyDeals.length)]
+    .concat(STAGES.map(s=>chip(STAGE_LABELS[s],STAGE_COLORS[s],pipelineDeals.filter(d=>d.pipeline_stage===s).length)));
+  el.innerHTML=`<span class="board-stat"><strong>${all.length}</strong> deal${all.length===1?'':'s'}</span>
+    <span class="board-stat"><strong>${fmtC(value)}</strong> in Analysing to Agreed</span>
+    <span class="board-stage-counts">${chips.join('')}</span>`;
+}
+
+// Deals saved over 30 days ago and still sitting in Saved get a nudge.
+const NUDGE_DAYS=30;
+function isStaleSaved(d){
+  if(d.pipeline_stage)return false;
+  const t=Date.parse(d.created_at);
+  return isFinite(t)&&(Date.now()-t)>NUDGE_DAYS*24*60*60*1000;
 }
 
 // Custom stage dropdown — a native <select>'s open popup is rendered by the
@@ -886,6 +959,7 @@ function cardHtml(d){
         ontouchstart="onHandleTouchStart(event,'${d.id}')">⠿⠿</span>
     </div>
     <div class="card-body">${DealCards.cardBody(d,{showStage:false})}</div>
+    ${isStaleSaved(d)?'<p class="card-nudge">Still interested? Move it on or mark Lost.</p>':''}
     <div class="stage-dd" data-deal-id="${d.id}">
       <button type="button" class="stage-dd-trigger" aria-haspopup="listbox" aria-expanded="false"
         onclick="toggleStageDD(event,'${d.id}')" onkeydown="stageDDKeydown(event,'${d.id}')">

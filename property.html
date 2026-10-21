@@ -314,11 +314,23 @@ async function loadProperty(){
     if(!property){ showState('missing'); return; }
     render();
     showState('page');
+    openSectionFromHash();
     loadExtras();
   }catch(e){
     document.getElementById('missing-text').textContent=e.message;
     showState('missing');
   }
+}
+
+// Links from the Portfolio page land on a section: #compliance ("Set up
+// compliance") or #photos (a card's "Add photo"). Open it and scroll to it.
+function openSectionFromHash(){
+  const key=(location.hash||'').slice(1);
+  if(!['compliance','photos'].includes(key))return;
+  const sec=document.querySelector(`.pp-sec[data-sec="${key}"]`);
+  if(!sec)return;
+  sec.open=true;
+  setTimeout(()=>sec.scrollIntoView({behavior:'smooth',block:'start'}),50);
 }
 
 // ---------------------------------------------------------------------
@@ -343,8 +355,10 @@ function render(){
   document.getElementById('pp-strategy').textContent=p.property_type;
   const cs=PF.complianceSummary(p.compliance_status);
   const badge=document.getElementById('pp-compliance-badge');
-  badge.className='pf-badge '+cs.level;
-  badge.innerHTML=PF.statusDot(cs.level,cs.text)+PF.esc(cs.text==='Not set up'?'Compliance not set up':cs.text);
+  // Not set up yet shows amber, same as the Portfolio page.
+  const badgeLevel=cs.level==='none'?'due_soon':cs.level;
+  badge.className='pf-badge '+badgeLevel;
+  badge.innerHTML=PF.statusDot(badgeLevel,cs.text)+PF.esc(cs.text==='Not set up'?'Compliance not set up':cs.text);
   document.getElementById('pp-value').textContent=PF.gbp(p.current_value!=null?p.current_value:p.price_paid);
   document.getElementById('pp-equity').textContent=PF.gbp(p.equity);
   renderCashflowFigure();
@@ -467,7 +481,7 @@ function updateRateCheck(){
 function equitySummary(){
   const p=property;
   if(p.equity==null)return sumText('Add current value to see equity');
-  return sumText(`${PF.gbp(p.equity)} equity, ${PF.gbp(p.available_to_release)} available to release`);
+  return sumText(`${PF.gbp(p.equity)} equity, ${PF.gbp(p.available_to_release)} available to release${PF.fixedUntil(p)?' (fixed until '+PF.fixedUntil(p)+')':''}`);
 }
 function equityBody(){
   const p=property;
@@ -478,7 +492,8 @@ function equityBody(){
     ${row('Loan to value',p.ltv!=null?PF.pct(p.ltv,0):null)}
     ${row('Available to release',p.available_to_release!=null?PF.gbp(p.available_to_release):null)}
   </div>
-  <div class="pp-sec-foot"><p class="pp-note">Available to release is equity you could pull out by remortgaging to ${Number(targetLtv)}% LTV, before fees. <a href="/settings.html#portfolio-settings">Change target LTV</a></p>${editBtn('equity')}</div>`;
+  ${PF.fixedUntil(p)?`<p class="pp-erc-note">Fixed until ${PF.esc(PF.fixedUntil(p))}: early repayment charges likely <button type="button" class="pf-tip" aria-label="${PF.esc(PF.ERC_TIP)}" data-tip="${PF.esc(PF.ERC_TIP)}">?</button></p>`:''}
+  <div class="pp-sec-foot"><p class="pp-note">Available to release is equity you could pull out by remortgaging to ${Number(targetLtv)}% LTV, before fees and any early repayment charges. <a href="/settings.html#portfolio-settings">Change target LTV</a></p>${editBtn('equity')}</div>`;
 }
 
 // Tenancy

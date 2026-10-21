@@ -34,6 +34,22 @@ var PF = (function () {
   function daysUntil(d) { return Math.round((parseDate(d) - parseDate(todayStr())) / 86400000); }
   function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
 
+  // ---------- fixed rate and early repayment charges ----------
+  // A property on a fixed rate that ends in the future can't usually have
+  // equity released without an early repayment charge. Returns the end
+  // date as "March 2028", or null when there's no fix still running or
+  // nothing to release.
+  function fixedUntil(p) {
+    var d = p && p.fixed_rate_end_date;
+    if (!d || d <= todayStr()) return null;
+    if (!(Number(p.available_to_release) > 0)) return null;
+    return parseDate(d).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  }
+  var ERC_TIP = 'An early repayment charge (ERC) is a fee your lender charges if you pay off or remortgage before the fixed rate ends, often 1% to 5% of the loan. Releasing equity during the fix usually means paying it. Check your mortgage offer for the exact charge.';
+  var RELEASE_TIP = 'Equity you could pull out by remortgaging to your target LTV, before fees and any early repayment charges. Not money you can take out today.';
+  var NET_YIELD_TIP = 'Net yield = (monthly rent minus monthly running costs) × 12, divided by price paid. Running costs are what you entered: management, insurance, maintenance and so on. The mortgage is not deducted. It is worked out on price paid, not current value. Across the portfolio: total net rent divided by total price paid.';
+  var COC_TIP = 'Cash-on-cash return = monthly cashflow × 12, divided by cash invested. Cashflow is rent minus running costs and the mortgage payment. It shows what your own money earns each year. Only properties with cash invested entered are counted.';
+
   var HOUSE_ICON = '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 22 24 9l16 13"/><path d="M12 19v19h24V19"/><path d="M20 38V28h8v10"/></svg>';
 
   // ---------- compliance ----------
@@ -448,6 +464,7 @@ var PF = (function () {
 
   return {
     gbp2: gbp2, monthLabel: monthLabel, fileSize: fileSize, todayStr: todayStr,
+    fixedUntil: fixedUntil, ERC_TIP: ERC_TIP, RELEASE_TIP: RELEASE_TIP, NET_YIELD_TIP: NET_YIELD_TIP, COC_TIP: COC_TIP,
     EXPENSE_CATEGORIES: EXPENSE_CATEGORIES, EXPENSE_LABEL: EXPENSE_LABEL, DOC_TYPES: DOC_TYPES, DOC_LABEL: DOC_LABEL,
     DOC_SUGGESTS_COMPLIANCE: DOC_SUGGESTS_COMPLIANCE, COMPLIANCE_OPTIONS: COMPLIANCE_OPTIONS,
     prepareUpload: prepareUpload, expenseFormHtml: expenseFormHtml, wireExpenseForm: wireExpenseForm, readExpenseForm: readExpenseForm, saveExpense: saveExpense,

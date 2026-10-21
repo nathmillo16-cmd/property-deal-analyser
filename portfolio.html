@@ -83,16 +83,21 @@ body.theme-light .empty-card{border:1px solid rgba(0,0,0,.09);border-radius:14px
     <section class="pf-summary" id="pf-summary-grid" hidden aria-label="Portfolio summary">
       <div class="pf-summary-top">
         <p class="hero-label">Portfolio value · <span id="pf-count"></span></p>
-        <span class="pf-badge" id="pf-compliance-badge" hidden></span>
+        <div class="pf-badge-wrap">
+          <span class="pf-badge" id="pf-compliance-badge" hidden></span>
+          <a class="pf-setup-btn" id="pf-compliance-setup" href="#" hidden>Set up compliance</a>
+        </div>
       </div>
       <p class="hero-number" id="pf-portfolio-value"></p>
       <div class="pf-summary-figs">
         <div class="pf-fig"><span class="pf-fig-label">Total equity</span><span class="pf-fig-value" id="pf-total-equity"></span></div>
         <div class="pf-fig"><span class="pf-fig-label">Cash invested</span><span class="pf-fig-value" id="pf-total-cash"></span></div>
         <div class="pf-fig"><span class="pf-fig-label">Monthly cashflow</span><span class="pf-fig-value" id="pf-total-cashflow"></span></div>
-        <div class="pf-fig"><span class="pf-fig-label">Net yield</span><span class="pf-fig-value" id="pf-blended-yield"></span></div>
+        <div class="pf-fig"><span class="pf-fig-label">Cash-on-cash <span class="pf-tip-slot" data-tip-key="COC_TIP"></span></span><span class="pf-fig-value" id="pf-coc"></span></div>
+        <div class="pf-fig"><span class="pf-fig-label">Net yield <span class="pf-tip-slot" data-tip-key="NET_YIELD_TIP"></span></span><span class="pf-fig-value" id="pf-blended-yield"></span></div>
         <div class="pf-fig"><span class="pf-fig-label">Overall LTV</span><span class="pf-fig-value" id="pf-overall-ltv"></span></div>
-        <div class="pf-fig"><span class="pf-fig-label">Available to release <button type="button" class="pf-tip" aria-label="Equity you could pull out by remortgaging, before fees." data-tip="Equity you could pull out by remortgaging, before fees.">?</button></span><span class="pf-fig-value" id="pf-total-release"></span></div>
+        <div class="pf-fig pf-fig-release"><span class="pf-fig-label">Available to release <span class="pf-tip-slot" data-tip-key="RELEASE_TIP"></span></span><span class="pf-fig-value" id="pf-total-release"></span>
+          <span class="pf-fig-note" id="pf-release-fixed" hidden><span id="pf-release-fixed-text"></span> <span class="pf-tip-slot" data-tip-key="ERC_TIP"></span></span></div>
       </div>
       <p class="hero-note" id="pf-partial-note" hidden></p>
     </section>
@@ -357,12 +362,16 @@ async function init(){
 function propertyCard(p){
   const cs=PF.complianceSummary(p.compliance_status);
   const next=PF.nextKeyDate(p);
+  // No photo yet: the house icon, with "Add photo" on hover (always shown
+  // on touch screens). Clicking it opens the property's Photos section.
   const photo=p.photo_url
     ? `<img src="${PF.esc(p.photo_url)}" alt="" loading="lazy"/>`
-    : PF.HOUSE_ICON;
-  const fig=(value,label,neg)=>`<div class="pf-cfig"><span class="pf-cfig-value${neg?' pf-neg':''}">${value}</span><span class="pf-cfig-label">${label}</span></div>`;
+    : PF.HOUSE_ICON+'<span class="pf-photo-add">Add photo</span>';
+  const photoClick=p.photo_url?'':` onclick="event.preventDefault();event.stopPropagation();location.href='/property.html?id=${encodeURIComponent(p.id)}#photos'" title="Add photo"`;
+  const fixedUntil=PF.fixedUntil(p);
+  const fig=(value,label,neg,note)=>`<div class="pf-cfig"><span class="pf-cfig-value${neg?' pf-neg':''}">${value}</span><span class="pf-cfig-label">${label}</span>${note?`<span class="pf-cfig-note">${note}</span>`:''}</div>`;
   return `<a class="pf-card" href="/property.html?id=${encodeURIComponent(p.id)}">
-    <div class="pf-photo">${photo}</div>
+    <div class="pf-photo${p.photo_url?'':' pf-photo-empty'}"${photoClick}>${photo}</div>
     <div class="pf-card-main">
       <span class="pf-card-address"><span class="pf-addr-text">${PF.esc(p.address)}</span>${PF.statusDot(cs.level,'Compliance: '+cs.text)}</span>
       <span class="pf-card-meta"><span class="pf-pill">${PF.esc(p.property_type)}</span>${next?'<span>'+PF.esc(next.text)+'</span>':''}</span>
@@ -371,7 +380,7 @@ function propertyCard(p){
       ${fig(PF.pct(p.yield),'Net yield')}
       ${fig(PF.gbp(p.monthly_cashflow),'Cashflow /mo',p.monthly_cashflow<0)}
       ${fig(PF.gbp(p.equity),'Equity')}
-      ${fig(PF.gbp(p.available_to_release),'To release')}
+      ${fig(PF.gbp(p.available_to_release),'To release',false,fixedUntil?'Fixed until '+PF.esc(fixedUntil)+': early repayment charges likely':'')}
     </div>
   </a>`;
 }
@@ -413,6 +422,26 @@ async function loadPortfolio(){
     document.getElementById('pf-overall-ltv').textContent=PF.pct(t.overall_ltv,0);
     document.getElementById('pf-total-release').textContent=PF.gbp(t.total_available_to_release);
 
+    // Cash-on-cash = annual cashflow / cash invested, over the properties
+    // that have cash invested entered (both figures already come from the
+    // server per property). e.g. £250/mo on £35,000 = 3,000 / 35,000 = 8.6%.
+    const withCash=portfolioProperties.filter(p=>p.cash_invested!=null&&Number(p.cash_invested)>0);
+    const cashIn=withCash.reduce((s,p)=>s+Number(p.cash_invested),0);
+    const annualCf=withCash.reduce((s,p)=>s+Number(p.monthly_cashflow)*12,0);
+    document.getElementById('pf-coc').textContent=cashIn>0?PF.pct(annualCf/cashIn*100):'Not set';
+
+    // Fixed rate still running on a property with equity to release: say
+    // when the fix ends and that early repayment charges are likely.
+    const fixed=portfolioProperties.map(p=>({p,until:PF.fixedUntil(p)})).filter(x=>x.until);
+    const fixedEl=document.getElementById('pf-release-fixed');
+    if(fixed.length){
+      fixed.sort((a,b)=>a.p.fixed_rate_end_date<b.p.fixed_rate_end_date?1:-1);
+      document.getElementById('pf-release-fixed-text').textContent=fixed.length===1
+        ?`Fixed until ${fixed[0].until}: early repayment charges likely`
+        :`${fixed.length} properties fixed, the last until ${fixed[0].until}: early repayment charges likely`;
+    }
+    fixedEl.hidden=!fixed.length;
+
     // Compliance badge: "All compliant" or "N items due". Until any
     // compliance has been entered it says so rather than claiming
     // everything is fine.
@@ -423,8 +452,16 @@ async function loadPortfolio(){
     else if(!t.compliance_started){ level='none'; text='Compliance not set up'; }
     else if(t.compliance_missing){ level='incomplete'; text=PF.plural(t.compliance_missing,'item')+' to add'; }
     else { level='ok'; text='All compliant'; }
+    // Not set up yet: amber, with a button to the first property's
+    // compliance tracker (the Compliance section on its property page).
+    const notSetUp=level==='none';
+    if(notSetUp)level='due_soon';
+    badge.className='pf-badge'+(notSetUp?' pf-badge-setup':'');
     badge.innerHTML=PF.statusDot(level,text)+PF.esc(text);
     badge.hidden=false;
+    const setup=document.getElementById('pf-compliance-setup');
+    setup.hidden=t.compliance_started;
+    setup.href='/property.html?id='+encodeURIComponent(portfolioProperties[0].id)+'#compliance';
 
     // Older properties won't have every optional figure, so say plainly
     // when a total only covers some of them.
@@ -469,6 +506,13 @@ async function addProperty(){
   }
   btn.disabled=false;btn.textContent='Add property';
 }
+
+// "?" explainers: text lives in portfolio-shared.js so the property page
+// uses the same wording.
+document.querySelectorAll('.pf-tip-slot').forEach(el=>{
+  const tip=PF[el.dataset.tipKey];
+  el.outerHTML=`<button type="button" class="pf-tip" aria-label="${PF.esc(tip)}" data-tip="${PF.esc(tip)}">?</button>`;
+});
 
 init();
 </script>

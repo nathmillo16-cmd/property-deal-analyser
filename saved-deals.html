@@ -305,7 +305,6 @@ body.theme-light .dd-trigger::after{
         <a href="/saved-deals.html" role="tab" aria-selected="true" class="active">List</a>
         <a href="/pipeline.html" role="tab" aria-selected="false">Board</a>
       </div>
-      <p class="view-switch-help">List: all deals. Board: your buying pipeline.</p>
     </div>
   </div>
 
@@ -321,10 +320,10 @@ body.theme-light .dd-trigger::after{
         <label class="select-all-label"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"/> Select all</label>
       </div>
       <div class="compare-bar" id="compare-bar" style="display:none">
-        <span class="hint" id="bulk-count">0 selected</span>
+        <span class="hint" id="bulk-count" hidden>0 selected</span>
         <p class="hint" id="compare-hint">Select 2 or more deals to compare them side by side.</p>
-        <button class="btn-primary" id="compare-btn" disabled onclick="compareSelected()">Compare selected</button>
-        <button class="mini-btn danger" id="bulk-delete-btn" disabled onclick="deleteSelected()">Delete selected</button>
+        <button class="btn-primary" id="compare-btn" disabled hidden onclick="compareSelected()">Compare selected</button>
+        <button class="mini-btn danger" id="bulk-delete-btn" disabled hidden onclick="deleteSelected()">Delete selected</button>
       </div>
     </div>
     <div id="saved-list"><p class="hint">Loading…</p></div>
@@ -871,6 +870,10 @@ function toggleSelectAll(checked){
 function updateBulkBar(){
   const count=selectedForDelete.size;
   document.getElementById('bulk-count').textContent=count+' selected';
+  // Compare and Delete only appear once at least one deal is ticked.
+  document.getElementById('bulk-count').hidden=count===0;
+  document.getElementById('bulk-delete-btn').hidden=count===0;
+  document.getElementById('compare-btn').hidden=count===0;
   document.getElementById('bulk-delete-btn').disabled=count===0;
 
   document.getElementById('compare-btn').disabled=count<2;
