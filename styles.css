@@ -213,6 +213,41 @@ p{margin:0}
 .nav-tools.open .nav-tools-list{display:block}
 .nav-tools.open .user-menu-caret{transform:rotate(180deg)}
 .nav-tools-list{left:auto;right:0}
+/* Grouped Tools panel: Calculators | Planning on the left and right,
+   Outreach under Calculators. Each item has a one-line description. */
+.nav-tools .nav-tools-list{width:560px;max-width:calc(100vw - 2rem);padding:10px}
+.nav-tools-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px}
+.nav-tools-group:nth-child(3){grid-column:1}
+.nav-tools-group:nth-child(2){grid-row:span 2}
+.nav-tools-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:6px 10px 4px}
+.nav-tool{display:block;padding:8px 10px;border-radius:var(--radius-sm);text-decoration:none;color:var(--ink)}
+.auth-bar a.nav-tool{text-transform:none;letter-spacing:0;font-size:inherit;font-weight:inherit;color:var(--ink)}
+.nav-tool-name{display:block;font-family:var(--font-body);font-size:13.5px;font-weight:600;line-height:1.35}
+.nav-tool-desc{display:block;font-size:12px;font-weight:400;color:var(--muted);line-height:1.4;margin-top:1px}
+a.nav-tool:hover,.auth-bar a.nav-tool:hover{background:var(--surface-2);color:var(--accent)}
+a.nav-tool.active,.auth-bar a.nav-tool.active{color:var(--accent)}
+.nav-tool.is-soon{cursor:default;opacity:.55}
+.soon-pill{display:inline-block;vertical-align:1px;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);background:var(--surface-2);border:1px solid var(--hairline);border-radius:999px;padding:1px 6px;margin-left:4px;white-space:nowrap}
+.user-menu-item.is-disabled{cursor:default;opacity:.55;white-space:nowrap}
+.user-menu-item.is-disabled:hover{background:transparent;color:var(--ink)}
+.user-menu-item.is-disabled:hover .user-menu-icon{color:var(--muted)}
+.nav-tools-sheet-head,.nav-tools-backdrop{display:none}
+/* Phones: the Tools menu opens as a full-width sheet from the bottom. */
+@media(max-width:760px){
+  .nav-tools .nav-tools-list{
+    position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;z-index:470;
+    max-height:85vh;overflow-y:auto;border-radius:16px 16px 0 0;border-left:0;border-right:0;border-bottom:0;
+    padding:6px 12px calc(16px + env(safe-area-inset-bottom,0px));
+  }
+  .nav-tools-groups{display:block}
+  .nav-tools-sheet-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:-6px;background:var(--surface);padding:12px 10px 8px;margin:0 -2px 2px;border-bottom:1px solid var(--hairline);z-index:1}
+  .nav-tools-sheet-head span{font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--ink)}
+  .nav-tools-close{font-size:26px;line-height:1;background:none;border:0;color:var(--muted);cursor:pointer;width:44px;height:44px;margin:-10px -10px -10px 0}
+  .nav-tools-label{margin-top:12px}
+  .nav-tool{padding:11px 10px}
+  .nav-tools.open .nav-tools-backdrop{display:block;position:fixed;inset:0;z-index:465;background:rgba(20,20,40,.35)}
+  body.nav-tools-sheet-open{overflow:hidden}
+}
 
 /* ---------- Deals page List / Board switch ----------
    saved-deals.html (List) and pipeline.html (Board) are the two views of

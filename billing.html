@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>PROPulsion · Plan &amp; billing</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="billing" data-subscribe="false"></div>
+  <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
+
+  <main class="page-narrow">
+    <p class="tool-eyebrow" data-native-text="Plan">Plan &amp; billing</p>
+    <h1 class="tool-title" id="bl-title">Your plan</h1>
+    <p class="tool-lede" id="bl-lede">Loading your plan…</p>
+
+    <section class="tool-card">
+      <div class="kv"><span>Current plan</span><span id="bl-plan">…</span></div>
+      <div class="kv web-only"><span>Price</span><span id="bl-price">…</span></div>
+      <div class="kv web-only"><span>Renews on</span><span id="bl-renew">…</span></div>
+
+      <div class="btn-row web-only">
+        <button type="button" class="btn-primary" id="bl-upgrade" hidden>Upgrade · £29/month</button>
+        <button type="button" class="btn-secondary" id="bl-cancel" hidden>Cancel subscription</button>
+      </div>
+      <p class="inline-msg web-only" id="bl-msg" hidden>Billing is being set up. You'll be able to manage your plan here soon. In the meantime, use Contact us in the account menu and we'll sort it for you.</p>
+    </section>
+
+    <details class="tool-work">
+      <summary><span><span class="t">What's included</span><span class="s" id="bl-inc-sum">Free and paid, side by side</span></span></summary>
+      <div class="tool-work-body">
+        <div class="tool-table-wrap"><table class="tool-table">
+          <thead><tr><th>Feature</th><th>Free</th><th>Paid</th></tr></thead>
+          <tbody>
+            <tr><td>Deal calculator and Tools calculators</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Saved deals</td><td>2</td><td>Unlimited</td></tr>
+            <tr><td>Deal board and workspace notes</td><td>No</td><td>Yes</td></tr>
+            <tr><td>Portfolio</td><td>No</td><td>Yes</td></tr>
+            <tr><td>Refurb Estimator and Letter Templates</td><td>No</td><td>Yes</td></tr>
+            <tr><td>Comps and area data</td><td>No</td><td>Yes</td></tr>
+            <tr><td>AI verdict</td><td>No</td><td>50 a month</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </details>
+  </main>
+</div>
+
+<script>
+(async function () {
+  var auth = await requireAuth();
+  if (!auth) return;
+  var session = auth.session;
+  var email = (session.user && session.user.email) || '';
+  var a = document.getElementById('user-menu-email'); if (a) a.textContent = email;
+  var b = document.getElementById('user-menu-item-email'); if (b) b.textContent = email;
+  document.getElementById('auth-link').onclick = async function (e) {
+    e.preventDefault();
+    try { await auth.client.auth.signOut(); } catch (err) {}
+    window.location.href = '/';
+  };
+
+  var profile = null;
+  try {
+    var res = await fetch(API_BASE + '/api/profile', { headers: { 'Authorization': 'Bearer ' + session.access_token } });
+    if (res.ok) profile = await res.json();
+  } catch (e) {}
+
+  function set(id, t) { document.getElementById(id).textContent = t; }
+  if (!profile) {
+    set('bl-lede', 'We couldn\'t load your plan just now. Refresh to try again.');
+    set('bl-plan', 'Unknown'); set('bl-price', '-'); set('bl-renew', '-');
+    return;
+  }
+  var paid = profile.plan === 'paid';
+  set('bl-title', paid ? 'You\'re on the paid plan' : 'You\'re on the free plan');
+  var inApp = typeof IS_NATIVE_APP !== 'undefined' && IS_NATIVE_APP; // no purchasing prompts in the iOS app
+  set('bl-lede', paid ? 'Everything is unlocked. Thanks for being a member.' : (inApp ? 'Your current plan and what it includes.' : 'Upgrade for unlimited saved deals, the deal board, Portfolio and more.'));
+  set('bl-plan', paid ? 'Paid' : 'Free');
+  set('bl-price', paid ? '£29 a month' : '£0');
+  // The renewal date isn't stored anywhere yet. It needs a Stripe lookup
+  // on the server (see the note in CLAUDE.md under Plan & billing).
+  set('bl-renew', paid ? 'Not available yet' : 'No subscription');
+
+  var msg = document.getElementById('bl-msg');
+  var show = function () { msg.hidden = false; };
+  var up = document.getElementById('bl-upgrade'), cancel = document.getElementById('bl-cancel');
+  if (paid) { cancel.hidden = false; cancel.onclick = show; }
+  else { up.hidden = false; up.onclick = show; }
+})();
+</script>
+</body>
+</html>

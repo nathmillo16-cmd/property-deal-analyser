@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>BRRR Refinance Calculator · PROPulsion</title>
+<meta name="description" content="Work out how much cash a BRRR refinance pulls out, how much money is left in the deal, and the return on what's left in.">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/calc-engine.js"></script>
+<script src="/deal-assumptions.js"></script>
+<script src="/tools-calc.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="tool-brrr" data-subscribe="false"></div>
+  <script src="/tools-shell.js"></script>
+
+  <main class="tool">
+    <p class="tool-eyebrow">Calculator</p>
+    <h1 class="tool-title">Refinance (BRRR)</h1>
+    <p class="tool-lede">Buy, refurbish, refinance. See how much cash comes back out and what's left in the deal.</p>
+
+    <section class="tool-card tool-inputs" aria-label="Inputs">
+      <div class="tf">
+        <label for="br-pp">Purchase price</label>
+        <span class="tf-affix pre"><span>£</span><input id="br-pp" type="text" inputmode="decimal" data-money value="120000" autocomplete="off"></span>
+      </div>
+      <div class="tf">
+        <label for="br-ref">Refurb</label>
+        <span class="tf-affix pre"><span>£</span><input id="br-ref" type="text" inputmode="decimal" data-money value="25000" autocomplete="off"></span>
+      </div>
+      <div class="tf">
+        <label for="br-costs">Purchase costs</label>
+        <span class="tf-affix pre"><span>£</span><input id="br-costs" type="text" inputmode="decimal" data-money value="2500" autocomplete="off"></span>
+        <p class="tf-hint">Legals, survey, searches. Stamp duty is added for you.</p>
+      </div>
+      <div class="tf">
+        <label for="br-ev">End value</label>
+        <span class="tf-affix pre"><span>£</span><input id="br-ev" type="text" inputmode="decimal" data-money value="180000" autocomplete="off"></span>
+      </div>
+      <div class="tf">
+        <label for="br-ltv">Refinance LTV</label>
+        <span class="tf-affix post"><span>%</span><input id="br-ltv" type="number" inputmode="decimal" value="75" step="0.5" min="0" max="90"></span>
+      </div>
+      <div class="tf">
+        <label for="br-fee">Arrangement fee</label>
+        <span class="tf-affix pre"><span>£</span><input id="br-fee" type="text" inputmode="decimal" data-money value="1500" autocomplete="off"></span>
+      </div>
+      <div class="tf">
+        <label for="br-rent">Monthly rent</label>
+        <span class="tf-affix pre"><span>£</span><input id="br-rent" type="text" inputmode="decimal" data-money value="1100" autocomplete="off"></span>
+      </div>
+      <div class="tf">
+        <label for="br-rate">Mortgage rate</label>
+        <span class="tf-affix post"><span>%</span><input id="br-rate" type="number" inputmode="decimal" value="5.5" step="0.1" min="0"></span>
+      </div>
+      <div class="tf wide">
+        <label for="br-run">Monthly running costs <span class="tool-optional">(insurance, repairs, letting)</span></label>
+        <span class="tf-affix pre"><span>£</span><input id="br-run" type="text" inputmode="decimal" data-money value="150" autocomplete="off"></span>
+      </div>
+    </section>
+
+    <section class="tool-answer" aria-live="polite">
+      <p class="tool-answer-label">Money left in the deal</p>
+      <p class="tool-answer-value" id="br-left">£0</p>
+      <p class="tool-answer-sub" id="br-sub"></p>
+      <div class="tool-answer-grid">
+        <div><p class="k">New loan</p><p class="v" id="br-loan">£0</p></div>
+        <div><p class="k">Cash pulled out</p><p class="v" id="br-out">£0</p></div>
+        <div><p class="k">ROI on money left in</p><p class="v" id="br-roi">0%</p></div>
+      </div>
+    </section>
+
+    <details class="tool-work">
+      <summary><span><span class="t">How this is worked out</span><span class="s" id="br-work-sum"></span></span></summary>
+      <div class="tool-work-body" id="br-work"></div>
+    </details>
+
+    <div class="tool-cta">
+      <button type="button" class="btn-primary" id="tool-full">Run a full analysis</button>
+      <p class="hint">Opens the BRRR calculator with these figures.</p>
+    </div>
+    <div class="tool-signup" id="tool-signup" hidden>
+      <p><strong>Create a free account to run the full analysis.</strong> You'll get yields, a lender check, stress test and your maximum bid on this deal.</p>
+      <div class="row"><a class="btn-primary" href="/login.html?mode=signup">Sign up free</a><a href="/login.html">Log in</a></div>
+    </div>
+
+    <p class="tool-disclaimer results-disclaimer"></p>
+    <p class="tool-more">More calculators: <a href="/stamp-duty-calculator.html">Stamp duty</a> · <a href="/lender-affordability-calculator.html">Lender affordability</a> · <a href="/bridging-cost-calculator.html">Bridging cost</a> · <a href="/personal-vs-ltd-calculator.html">Personal vs Ltd</a></p>
+  </main>
+</div>
+
+<script src="/results-disclaimer.js"></script>
+<script>
+(function () {
+  var T = ToolShell;
+  function inputs() {
+    return { price: T.num('br-pp'), refurb: T.num('br-ref'), costs: T.num('br-costs'), endValue: T.num('br-ev'),
+      ltv: T.num('br-ltv'), fee: T.num('br-fee'), rent: T.num('br-rent'), rate: T.num('br-rate'), running: T.num('br-run') };
+  }
+
+  function run() {
+    var r = ToolsCalc.brrr(inputs());
+    T.set('br-left', r.allOut ? T.money(0) : T.money(r.left));
+    T.set('br-loan', T.money(r.loan));
+    T.set('br-out', T.money(r.cashOut));
+    T.set('br-roi', r.allOut ? 'All out' : T.pct(r.roi, 1));
+    var share = r.cashIn > 0 ? Math.max(0, r.left) / r.cashIn * 100 : 0;
+    T.set('br-sub', r.allOut
+      ? 'Every penny comes back out' + (r.left < 0 ? ', with ' + T.money(-r.left) + ' to spare' : '') + '. Cashflow after the new mortgage: ' + T.money(r.monthly) + ' a month.'
+      : T.pct(share, 0) + ' of the ' + T.money(r.cashIn) + ' you put in stays in. Cashflow after the new mortgage: ' + T.money(r.monthly) + ' a month.');
+    T.set('br-work-sum', T.money(r.cashIn) + ' in, ' + T.money(r.cashOut) + ' back out on a ' + T.pct(r.ltv, 1) + ' refinance');
+
+    T.html('br-work',
+      '<p>What you put in before the refinance</p>' +
+      T.line('Purchase price', T.money(r.price)) +
+      T.line('Stamp duty (additional property rates)', T.money(r.stampDuty)) +
+      T.line('Purchase costs', T.money(r.costs)) +
+      T.line('Refurb', T.money(r.refurb)) +
+      T.line('Cash in', T.money(r.cashIn), 'total') +
+      '<p style="margin-top:.9rem">The refinance</p>' +
+      T.line('New loan: ' + T.money(r.endValue) + ' end value x ' + T.pct(r.ltv, 1), T.money(r.loan)) +
+      T.line('Less arrangement fee', '-' + T.money(r.fee)) +
+      T.line('Cash pulled out', T.money(r.cashOut), 'total') +
+      T.line('Money left in: cash in less cash pulled out', T.money(r.left), 'total') +
+      '<p style="margin-top:.9rem">The return</p>' +
+      T.line('Rent', T.money(r.rent) + ' a month') +
+      T.line('Running costs', '-' + T.money(r.running) + ' a month') +
+      T.line('Mortgage, interest only: ' + T.money(r.loan) + ' x ' + T.pct(r.rate, 2) + ' / 12', '-' + T.money(r.payment) + ' a month') +
+      T.line('Cashflow', T.money(r.monthly) + ' a month, ' + T.money(r.annual) + ' a year', 'total') +
+      T.line('ROI: yearly cashflow / money left in', r.allOut ? 'All money out' : T.pct(r.roi, 2), 'total') +
+      '<p class="tool-note">Shows the position the day the refinance completes, the same as the calculator\'s BRRR tab. Bridging and holding costs while you refurb are not included; the Bridging cost calculator covers those. Lenders usually want you to own the property for about 6 months before refinancing at the new value.</p>');
+  }
+  T.bind(run);
+
+  document.getElementById('tool-full').addEventListener('click', function () {
+    var i = inputs();
+    T.runFull({ strategy: 'brrr', planning: { v: 1 },
+      fields: { 'b-pp': i.price, 'b-emv': i.endValue, 'b-ref': i.refurb, 'b-sol': i.costs, 'b-mf': i.fee, 'b-srch': 0,
+        'b-rent': i.rent, 'b-mr': i.rate, 'b-ins': i.running, 'b-maint': 0, 'b-mgmt': 0, 'bb-refi-ltv': i.ltv, '__dd_bb-refi-type': 'io' },
+      note: 'Filled in from the Refinance (BRRR) calculator. Purchase costs went into Solicitor fees, the arrangement fee into Mortgage fees and running costs into Insurance, with maintenance and management at 0%.' });
+  });
+})();
+</script>
+</body>
+</html>

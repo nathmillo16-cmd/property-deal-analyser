@@ -2130,6 +2130,34 @@ function initFieldHelp(){
 // loadDefaults() has already run. null means either no rerun is in
 // progress, or autoSaveRerun() has already consumed it.
 let pendingRerun=null;
+// A prefill from one of the standalone calculators (Tools > Calculators,
+// via tools-shell.js). Applied on load like any other payload, then once
+// more after loadDefaults() has run, because the user's saved defaults
+// (fees, mortgage rate, insurance, maintenance %) would otherwise replace
+// figures the user just typed into the tool. Never saves anything.
+let pendingToolPrefill=null;
+function reapplyToolPrefill(){
+  if(!pendingToolPrefill)return;
+  const p=pendingToolPrefill;
+  pendingToolPrefill=null;
+  try{
+    Object.keys(p.fields||{}).forEach(key=>{
+      const val=p.fields[key];
+      if(val==null)return;
+      if(key.indexOf('__dd_')===0){
+        const ddId=key.slice('__dd_'.length);
+        setDDValue(ddId,val,REFI_TYPE_LABELS[val]||val);
+      }else{
+        const el=document.getElementById(key);
+        if(el)el.value=val;
+      }
+    });
+    if(window.DealRealistic)DealRealistic.applyDealState(p.strategy,p.planning||null);
+    switchTab(p.strategy);
+    formatAllMoneyFields();
+    refreshAll('now');
+  }catch(e){ /* leave the page as it is */ }
+}
 
 function applyRerunPayload(){
   let payload;
@@ -2168,6 +2196,7 @@ function applyRerunPayload(){
     }else if(typeof payload.note==='string'&&payload.note){
       // e.g. Quick analyse on Home: its own short explanation.
       note.textContent=payload.note;
+      if(payload.fromTool)pendingToolPrefill=payload;
     }else{
       // Defensive fallback only — every payload rerun-prefill.js builds now
       // carries a dealId. Covers a payload written by an old cached tab
@@ -3682,6 +3711,7 @@ initAuth().finally(function(){
   attachScrollSaver('index');
   if(currentSession)Tutorial.resumeIfActive(currentSession.access_token);
   autoSaveRerun();
+  reapplyToolPrefill();
 });
 </script>
 </body>

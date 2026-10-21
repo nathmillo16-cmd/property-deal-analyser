@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Bridging Cost Calculator · PROPulsion</title>
+<meta name="description" content="Work out the full cost of a bridging loan: monthly interest, arrangement and exit fees, valuation and legals, and the cost per month.">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/calc-engine.js"></script>
+<script src="/deal-assumptions.js"></script>
+<script src="/tools-calc.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="tool-bridging" data-subscribe="false"></div>
+  <script src="/tools-shell.js"></script>
+
+  <main class="tool">
+    <p class="tool-eyebrow">Calculator</p>
+    <h1 class="tool-title">Bridging cost</h1>
+    <p class="tool-lede">What short-term finance really costs, all in, from first draw to exit.</p>
+
+    <section class="tool-card tool-inputs" aria-label="Inputs">
+      <div class="tf">
+        <label for="bc-loan">Loan</label>
+        <span class="tf-affix pre"><span>£</span><input id="bc-loan" type="text" inputmode="decimal" data-money value="84000" autocomplete="off"></span>
+      </div>
+      <div class="tf">
+        <label for="bc-rate">Monthly interest rate</label>
+        <span class="tf-affix post"><span>%</span><input id="bc-rate" type="number" inputmode="decimal" step="0.01" min="0"></span>
+      </div>
+      <div class="tf">
+        <label for="bc-months">Months</label>
+        <input id="bc-months" type="number" inputmode="numeric" step="1" min="0" value="6">
+      </div>
+      <div class="tf">
+        <label for="bc-arr">Arrangement fee</label>
+        <span class="tf-affix post"><span>%</span><input id="bc-arr" type="number" inputmode="decimal" step="0.1" min="0"></span>
+      </div>
+      <div class="tf">
+        <label for="bc-exit">Exit fee</label>
+        <span class="tf-affix post"><span>%</span><input id="bc-exit" type="number" inputmode="decimal" step="0.1" min="0"></span>
+      </div>
+      <div class="tf">
+        <label for="bc-val">Valuation</label>
+        <span class="tf-affix pre"><span>£</span><input id="bc-val" type="text" inputmode="decimal" data-money value="500" autocomplete="off"></span>
+      </div>
+      <div class="tf wide">
+        <label for="bc-legal">Legals <span class="tool-optional">(lender's and yours)</span></label>
+        <span class="tf-affix pre"><span>£</span><input id="bc-legal" type="text" inputmode="decimal" data-money value="1500" autocomplete="off"></span>
+      </div>
+    </section>
+
+    <section class="tool-answer" aria-live="polite">
+      <p class="tool-answer-label">Total cost of the bridge</p>
+      <p class="tool-answer-value" id="bc-total">£0</p>
+      <p class="tool-answer-sub" id="bc-sub"></p>
+      <div class="tool-answer-grid">
+        <div><p class="k">Cost per month</p><p class="v" id="bc-pm">£0</p></div>
+        <div><p class="k">Interest</p><p class="v" id="bc-int">£0</p></div>
+        <div><p class="k">Fees</p><p class="v" id="bc-fees">£0</p></div>
+      </div>
+    </section>
+
+    <details class="tool-work">
+      <summary><span><span class="t">How this is worked out</span><span class="s" id="bc-work-sum"></span></span></summary>
+      <div class="tool-work-body" id="bc-work"></div>
+    </details>
+
+    <div class="tool-cta">
+      <button type="button" class="btn-primary" id="tool-full">Run a full analysis</button>
+      <p class="hint">Opens the BRRR calculator with the bridge switched on.</p>
+    </div>
+    <div class="tool-signup" id="tool-signup" hidden>
+      <p><strong>Create a free account to run the full analysis.</strong> See how the bridge changes money left in, ROI and your maximum bid on a BRRR deal.</p>
+      <div class="row"><a class="btn-primary" href="/login.html?mode=signup">Sign up free</a><a href="/login.html">Log in</a></div>
+    </div>
+
+    <p class="tool-disclaimer results-disclaimer"></p>
+    <p class="tool-more">More calculators: <a href="/stamp-duty-calculator.html">Stamp duty</a> · <a href="/brrr-refinance-calculator.html">Refinance (BRRR)</a> · <a href="/lender-affordability-calculator.html">Lender affordability</a> · <a href="/personal-vs-ltd-calculator.html">Personal vs Ltd</a></p>
+  </main>
+</div>
+
+<script src="/results-disclaimer.js"></script>
+<script>
+(function () {
+  var T = ToolShell;
+  var B = DEAL_ASSUMPTIONS.bridge;
+  document.getElementById('bc-rate').value = B.monthlyRate;
+  document.getElementById('bc-arr').value = B.arrangementFee;
+  document.getElementById('bc-exit').value = B.exitFee;
+
+  function inputs() {
+    return { loan: T.num('bc-loan'), rate: T.num('bc-rate'), months: T.num('bc-months'), arrPct: T.num('bc-arr'),
+      exitPct: T.num('bc-exit'), valuation: T.num('bc-val'), legals: T.num('bc-legal') };
+  }
+
+  function run() {
+    var r = ToolsCalc.bridging(inputs());
+    var fees = r.arrangement + r.exit + r.valuation + r.legals;
+    T.set('bc-total', T.money(r.total));
+    T.set('bc-pm', T.money(r.perMonth));
+    T.set('bc-int', T.money(r.interest));
+    T.set('bc-fees', T.money(fees));
+    T.set('bc-sub', r.loan > 0 ? T.pct(r.pctOfLoan, 1) + ' of the loan, over ' + r.months + (r.months === 1 ? ' month.' : ' months.') : 'Enter the loan to see the cost.');
+    T.set('bc-work-sum', T.money(r.interest) + ' interest plus ' + T.money(fees) + ' in fees');
+    T.html('bc-work',
+      T.line('Interest: ' + T.money(r.loan) + ' x ' + T.pct(r.rate, 2) + ' x ' + r.months + ' months', T.money(r.interest)) +
+      T.line('Arrangement fee: ' + T.pct(r.arrPct, 2) + ' of the loan', T.money(r.arrangement)) +
+      T.line('Exit fee: ' + T.pct(r.exitPct, 2) + ' of the loan', T.money(r.exit)) +
+      T.line('Valuation', T.money(r.valuation)) +
+      T.line('Legals', T.money(r.legals)) +
+      T.line('Total cost', T.money(r.total), 'total') +
+      T.line('Per month: total / ' + r.months + ' months', T.money(r.perMonth), 'total') +
+      '<p class="tool-note">Interest is charged on the full loan for every month, the way most bridges with rolled up or retained interest work. Some lenders charge a minimum term, so check the smallest number of months you\'ll pay for. Typical terms when last checked (October 2026): ' +
+      B.monthlyRate + '% a month, ' + B.arrangementFee + '% arrangement fee. Not a quote.</p>');
+  }
+  T.bind(run);
+
+  document.getElementById('tool-full').addEventListener('click', function () {
+    var i = inputs();
+    var ltv = B.ltv;
+    var price = Math.round(i.loan / (ltv / 100));
+    T.runFull({ strategy: 'brrr',
+      fields: { 'b-pp': price },
+      planning: { v: 1, bridge: { on: true, ltv: String(ltv), monthlyRate: String(i.rate), arrangementFee: String(i.arrPct), exitFee: String(i.exitPct), months: String(i.months) } },
+      note: 'Bridge switched on from the Bridging cost calculator. Purchase price set to ' + T.money(price) + ' so a ' + ltv + '% bridge gives your ' +
+        T.money(i.loan) + ' loan. Change it to the real price. Valuation and legals are not part of the bridge cost here, so add them to your fees.' });
+  });
+})();
+</script>
+</body>
+</html>

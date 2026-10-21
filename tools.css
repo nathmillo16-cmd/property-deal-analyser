@@ -1,0 +1,143 @@
+/* tools.css: the standalone calculator pages (Tools > Calculators), plus
+   help.html and billing.html. Light theme tokens come from styles.css
+   (body.theme-light); this file only adds layout for these pages. */
+
+.tool{max-width:760px;margin:0 auto}
+.tool-eyebrow{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
+.tool-title{font-size:clamp(26px,5vw,34px);line-height:1.15;margin:0 0 8px}
+.tool-lede{font-size:15px;color:var(--muted);line-height:1.55;margin:0 0 var(--space-5);max-width:600px}
+
+.tool-card{
+  background:var(--surface);border:1px solid var(--hairline);border-radius:14px;
+  padding:var(--space-5);box-shadow:0 1px 2px rgba(0,0,0,.03);margin-bottom:var(--space-4);
+}
+
+/* inputs */
+.tool-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4) var(--space-4)}
+.tool-inputs .tf{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tool-inputs .tf.wide{grid-column:1 / -1}
+.tool-inputs label{font-size:12.5px;font-weight:600;color:var(--ink)}
+.tool-inputs .tf-hint{font-size:12px;color:var(--muted);margin:0}
+.tool-inputs input,.tool-inputs select{
+  font-family:var(--font-body);font-size:16px;color:var(--input-ink);
+  background-color:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:10px;
+  padding:11px 12px;width:100%;min-width:0;
+}
+.tool-inputs select{padding-right:34px}
+.tool-inputs input:focus,.tool-inputs select:focus{outline:none;border-color:var(--accent)}
+.tf-affix{position:relative;display:block}
+.tf-affix>span{position:absolute;top:50%;transform:translateY(-50%);font-size:15px;color:var(--muted);pointer-events:none}
+.tf-affix.pre>span{left:12px}
+.tf-affix.pre input{padding-left:26px}
+.tf-affix.post>span{right:12px}
+.tf-affix.post input{padding-right:34px}
+.tool-optional{font-weight:500;color:var(--muted)}
+
+/* segmented choice (buyer type, tax band) */
+.tool-seg{display:flex;flex-wrap:wrap;gap:6px}
+.tool-seg label{
+  display:inline-flex;align-items:center;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--muted);
+  border:1.5px solid var(--input-hairline);border-radius:999px;padding:8px 14px;background:var(--input-surface);
+}
+.tool-seg input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.tool-seg label:has(input:checked){color:var(--accent);border-color:var(--accent);background:rgba(75,69,178,.06)}
+.tool-seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+
+/* the answer */
+.tool-answer{
+  background:linear-gradient(135deg,var(--accent),#37317f);color:#fff;border-radius:16px;
+  padding:var(--space-5) var(--space-5);margin-bottom:var(--space-4);box-shadow:0 4px 20px rgba(75,69,178,.22);
+}
+.tool-answer-label{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.75);margin:0 0 6px}
+.tool-answer-value{font-family:var(--font-head);font-size:clamp(34px,8vw,48px);font-weight:700;line-height:1.05;margin:0;overflow-wrap:anywhere}
+.tool-answer-sub{font-size:14px;color:rgba(255,255,255,.85);margin:8px 0 0;line-height:1.5}
+.tool-answer-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3);margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid rgba(255,255,255,.18)}
+.tool-answer-grid p{margin:0}
+.tool-answer-grid .k{font-size:12px;color:rgba(255,255,255,.72)}
+.tool-answer-grid .v{font-size:18px;font-weight:700;overflow-wrap:anywhere}
+.tool-answer.is-bad{background:linear-gradient(135deg,#8a2d2d,#5c1f1f)}
+.tool-answer.is-good .tool-answer-pill,.tool-answer.is-bad .tool-answer-pill{display:inline-block}
+.tool-answer-pill{display:none;font-size:12.5px;font-weight:700;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 10px;margin-top:10px}
+
+/* side by side (Personal vs Ltd) */
+.tool-vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-3);margin-top:var(--space-2)}
+.tool-vs-col{background:rgba(255,255,255,.1);border-radius:12px;padding:var(--space-4);border:1.5px solid transparent}
+.tool-vs-col.win{border-color:rgba(255,255,255,.7);background:rgba(255,255,255,.16)}
+.tool-vs-col .k{font-size:12.5px;font-weight:600;color:rgba(255,255,255,.8);margin:0 0 4px}
+.tool-vs-col .v{font-family:var(--font-head);font-size:clamp(24px,6vw,32px);font-weight:700;margin:0;line-height:1.1;overflow-wrap:anywhere}
+.tool-vs-col .s{font-size:12.5px;color:rgba(255,255,255,.75);margin:4px 0 0}
+
+/* "How this is worked out" and other collapsible sections */
+.tool-work{background:var(--surface);border:1px solid var(--hairline);border-radius:14px;margin-bottom:var(--space-4)}
+.tool-work>summary{
+  list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding:var(--space-4) var(--space-5);min-height:52px;
+}
+.tool-work>summary::-webkit-details-marker{display:none}
+.tool-work>summary .t{font-weight:700;font-size:14.5px;color:var(--ink)}
+.tool-work>summary .s{display:block;font-size:13px;color:var(--muted);margin-top:2px;font-weight:500}
+.tool-work>summary::after{content:'+';color:var(--accent);font-size:22px;font-weight:600;line-height:1;flex-shrink:0}
+.tool-work[open]>summary::after{content:'\2212'}
+.tool-work-body{padding:0 var(--space-5) var(--space-5);font-size:14px;line-height:1.6}
+.tool-work-body p{margin:0 0 .6rem;color:var(--muted)}
+.tool-line{display:flex;justify-content:space-between;gap:var(--space-3);padding:7px 0;border-bottom:1px solid var(--hairline);font-size:14px}
+.tool-line span:last-child{font-weight:600;text-align:right;white-space:nowrap}
+.tool-line.total{border-bottom:none;font-weight:700}
+.tool-line.total span{font-weight:700}
+.tool-line.sub{color:var(--muted);font-size:13px;padding-left:12px}
+.tool-line.dim{color:var(--muted)}
+.tool-note{font-size:13px;color:var(--muted);margin:.75rem 0 0;line-height:1.55}
+.tool-table-wrap{overflow-x:auto}
+.tool-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.tool-table th,.tool-table td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--hairline)}
+.tool-table th:first-child,.tool-table td:first-child{text-align:left}
+.tool-table th{font-size:12px;font-weight:600;color:var(--muted)}
+.tool-table tr.dim td{color:var(--muted)}
+.tool-table tfoot td{font-weight:700;border-bottom:none}
+
+/* Run a full analysis */
+.tool-cta{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-3);margin:var(--space-5) 0 var(--space-3)}
+.tool-cta .hint{font-size:13px;color:var(--muted);margin:0}
+.tool-signup{background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:var(--space-4) var(--space-5);margin-bottom:var(--space-4)}
+.tool-signup[hidden]{display:none}
+.tool-signup p{margin:0 0 var(--space-3);font-size:14px;line-height:1.55}
+.tool-signup .row{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}
+.tool-signup .row a:not(.btn-primary){font-size:14px;font-weight:600;color:var(--accent)}
+.tool-disclaimer{font-size:12.5px;color:var(--muted);margin:var(--space-4) 0 0;line-height:1.5}
+.tool-more{margin-top:var(--space-6);font-size:13.5px;color:var(--muted)}
+.tool-more a{color:var(--accent);font-weight:600;text-decoration:none}
+
+/* public header when logged out */
+.tool-public-bar .auth-bar{gap:var(--space-4)}
+
+@media(max-width:600px){
+  .tool-inputs{grid-template-columns:minmax(0,1fr)}
+  .tool-card{padding:var(--space-4)}
+  .tool-answer{padding:var(--space-5) var(--space-4)}
+  .tool-answer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tool-work>summary{padding:var(--space-4)}
+  .tool-work-body{padding:0 var(--space-4) var(--space-4)}
+  .tool-vs{gap:var(--space-2)}
+  .tool-vs-col{padding:var(--space-3)}
+  .tool-cta .btn-primary{width:100%}
+  .tool-public-bar{flex-wrap:nowrap}
+  .tool-public-bar .wordmark-logo{height:40px}
+  .tool-public-bar .auth-bar{gap:var(--space-3)}
+  .tool-public-bar .auth-bar a:not(.btn-primary){font-size:12px}
+  .tool-public-bar .btn-primary{padding:9px 12px;font-size:12.5px;white-space:nowrap}
+}
+
+/* Help and Plan & billing pages */
+.page-narrow{max-width:760px;margin:0 auto}
+.kv{display:flex;justify-content:space-between;gap:var(--space-3);padding:10px 0;border-bottom:1px solid var(--hairline);font-size:14.5px}
+.kv:last-of-type{border-bottom:none}
+.kv span:first-child{color:var(--muted)}
+.kv span:last-child{font-weight:600;text-align:right}
+.inline-msg{font-size:13.5px;margin:var(--space-3) 0 0;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn-ink)}
+.inline-msg[hidden]{display:none}
+.btn-row{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-4)}
+.faq-group summary .s{font-weight:500}
+.faq-q{border-top:1px solid var(--hairline);padding:12px 0}
+.faq-q:first-child{border-top:none;padding-top:0}
+.faq-q h3{font-family:var(--font-body);font-size:14.5px;font-weight:700;margin:0 0 4px;color:var(--ink)}
+.faq-q p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}

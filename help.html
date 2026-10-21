@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>PROPulsion · Help</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/onboarding-tutorial.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="help" data-subscribe="false"></div>
+  <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
+
+  <main class="page-narrow">
+    <p class="tool-eyebrow">Help</p>
+    <h1 class="tool-title">Help &amp; tutorial</h1>
+    <p class="tool-lede">Take the tour again, find a quick answer, or get in touch.</p>
+
+    <section class="tool-card">
+      <h2 style="font-size:18px;margin:0 0 6px">Take the tour again</h2>
+      <p class="hint" style="margin:0 0 var(--space-4);color:var(--muted);font-size:14px">A short walk through Home, Analyse, Deals and Portfolio. It takes about two minutes.</p>
+      <button type="button" class="btn-primary" onclick="navReplayTutorial()">Replay tutorial</button>
+    </section>
+
+    <h2 style="font-size:18px;margin:var(--space-6) 0 var(--space-3)">Questions by section</h2>
+
+    <details class="tool-work faq-group">
+      <summary><span><span class="t">Home</span><span class="s">Your dashboard and what needs attention</span></span></summary>
+      <div class="tool-work-body">
+        <div class="faq-q"><h3>What does Home show?</h3><p>Your deals analysed, what's in your pipeline, recent saved deals and anything that needs a nudge, such as an offer waiting for a reply.</p></div>
+        <div class="faq-q"><h3>What is Quick analyse?</h3><p>Type a price and a rent for a fast yield and a rough maximum bid. Open it in the full calculator when you want the detail.</p></div>
+      </div>
+    </details>
+
+    <details class="tool-work faq-group">
+      <summary><span><span class="t">Analyse</span><span class="s">The deal calculator: BTL, BRRR, HMO, SA and Flip</span></span></summary>
+      <div class="tool-work-body">
+        <div class="faq-q"><h3>Which figures do I need?</h3><p>Purchase price, end value and rent (or nightly rate for SA, or sale value for Flip). Everything else has a sensible starting figure you can change.</p></div>
+        <div class="faq-q"><h3>What is the maximum bid?</h3><p>The most you can pay and still hit your target yield or ROI. Set your targets on the calculator or in Settings.</p></div>
+        <div class="faq-q"><h3>Why are there Cash, Interest-only, Repayment and BRRR tabs?</h3><p>They are the different ways to pay for the same deal. Flick between them to see how each changes your cashflow and return.</p></div>
+        <div class="faq-q"><h3>Is stamp duty included?</h3><p>Yes, at additional property rates for England and Northern Ireland. It counts in your total investment and ROI. The Stamp duty calculator in Tools shows the band breakdown.</p></div>
+      </div>
+    </details>
+
+    <details class="tool-work faq-group">
+      <summary><span><span class="t">Deals</span><span class="s">Saving deals, the board and the deal workspace</span></span></summary>
+      <div class="tool-work-body">
+        <div class="faq-q"><h3>How do I save a deal?</h3><p>Press Save deal under the results and give it a name or address. Free accounts can save 2 deals; paid accounts can save as many as they like.</p></div>
+        <div class="faq-q"><h3>What is the board?</h3><p>Your pipeline. Move deals from Analysing to Viewing, Offered, Agreed and Completed, by dragging or with the stage menu.</p></div>
+        <div class="faq-q"><h3>Where do notes and offers go?</h3><p>Open any saved deal to see its workspace: the figures, comps, seller position, notes, calls, viewings and offers, all in one place.</p></div>
+      </div>
+    </details>
+
+    <details class="tool-work faq-group">
+      <summary><span><span class="t">Portfolio</span><span class="s">Properties you own, rent and costs</span></span></summary>
+      <div class="tool-work-body">
+        <div class="faq-q"><h3>How do I add a property?</h3><p>Add it on the Portfolio page, or open a saved deal and choose Move to portfolio once you've bought it.</p></div>
+        <div class="faq-q"><h3>Can I get figures for my accountant?</h3><p>Yes. Log rent and expenses on each property, then download the tax year summary as a PDF or CSV.</p></div>
+      </div>
+    </details>
+
+    <details class="tool-work faq-group">
+      <summary><span><span class="t">Tools</span><span class="s">Calculators, refurb costs and letters</span></span></summary>
+      <div class="tool-work-body">
+        <div class="faq-q"><h3>What are the calculators for?</h3><p>Quick answers to one question each: stamp duty, a BRRR refinance, what a lender will lend on the rent, bridging costs, and owning personally or through a company. Run a full analysis from any of them to carry the figures into the main calculator.</p></div>
+        <div class="faq-q"><h3>How do I cost a refurb?</h3><p>Use the Refurb Estimator, line by line or trade by trade. Save it and link it to a deal to update that deal's figures.</p></div>
+        <div class="faq-q"><h3>What are Letter Templates?</h3><p>Ready-made letters for empty properties, probate, follow-ups and direct offers. Fill in the details, then copy or download a PDF.</p></div>
+      </div>
+    </details>
+
+    <details class="tool-work faq-group">
+      <summary><span><span class="t">Plan &amp; account</span><span class="s">What's included, billing and your details</span></span></summary>
+      <div class="tool-work-body">
+        <div class="faq-q"><h3>What does the paid plan add?</h3><p>Unlimited saved deals, the deal board, Portfolio, the Refurb Estimator, Letter Templates, comps and area data, and the AI verdict.</p></div>
+        <div class="faq-q"><h3>Where is my plan?</h3><p>Plan &amp; billing in the account menu shows your current plan.</p></div>
+        <div class="faq-q"><h3>How do I change my email or password?</h3><p>In Settings. Forgotten your password? Use Forgot password on the log in page.</p></div>
+      </div>
+    </details>
+
+    <section class="tool-card" style="margin-top:var(--space-6)">
+      <h2 style="font-size:18px;margin:0 0 6px">Still stuck?</h2>
+      <p style="margin:0 0 var(--space-4);color:var(--muted);font-size:14px">Tell us what you were trying to do and we'll get back to you. You can attach a screenshot.</p>
+      <div class="btn-row" style="margin-top:0">
+        <button type="button" class="btn-primary" onclick="if(window.openSupportModal)openSupportModal(event)">Contact us</button>
+        <a class="btn-secondary" href="/support.html">Support page</a>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(async function () {
+  var auth = await requireAuth();
+  if (!auth) return;
+  var email = (auth.session.user && auth.session.user.email) || '';
+  var a = document.getElementById('user-menu-email'); if (a) a.textContent = email;
+  var b = document.getElementById('user-menu-item-email'); if (b) b.textContent = email;
+  document.getElementById('auth-link').onclick = async function (e) {
+    e.preventDefault();
+    try { await auth.client.auth.signOut(); } catch (err) {}
+    window.location.href = '/';
+  };
+})();
+</script>
+</body>
+</html>

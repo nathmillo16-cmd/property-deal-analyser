@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Stamp Duty Calculator · PROPulsion</title>
+<meta name="description" content="Work out UK stamp duty (SDLT) for England and Northern Ireland on an additional property, a first property or a company purchase, with the full band breakdown.">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/calc-engine.js"></script>
+<script src="/deal-assumptions.js"></script>
+<script src="/tools-calc.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="tool-stamp-duty" data-subscribe="false"></div>
+  <script src="/tools-shell.js"></script>
+
+  <main class="tool">
+    <p class="tool-eyebrow">Calculator</p>
+    <h1 class="tool-title">Stamp duty</h1>
+    <p class="tool-lede">Stamp duty land tax for England and Northern Ireland, at the rates the main calculator uses.</p>
+
+    <section class="tool-card tool-inputs" aria-label="Inputs">
+      <div class="tf wide">
+        <label for="sd-price">Purchase price</label>
+        <span class="tf-affix pre"><span>£</span><input id="sd-price" type="text" inputmode="decimal" data-money value="200000" autocomplete="off"></span>
+      </div>
+      <div class="tf wide">
+        <label id="sd-buyer-label">Buying as</label>
+        <div class="tool-seg" role="radiogroup" aria-labelledby="sd-buyer-label">
+          <label><input type="radio" name="sd-buyer" value="additional" checked>Additional property</label>
+          <label><input type="radio" name="sd-buyer" value="first">First property</label>
+          <label><input type="radio" name="sd-buyer" value="company">Company</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="tool-answer" aria-live="polite">
+      <p class="tool-answer-label">Stamp duty to pay</p>
+      <p class="tool-answer-value" id="sd-total">£0</p>
+      <p class="tool-answer-sub" id="sd-sub"></p>
+    </section>
+
+    <details class="tool-work">
+      <summary><span><span class="t">How this is worked out</span><span class="s" id="sd-work-sum"></span></span></summary>
+      <div class="tool-work-body" id="sd-work"></div>
+    </details>
+
+    <div class="tool-cta">
+      <button type="button" class="btn-primary" id="tool-full">Run a full analysis</button>
+      <p class="hint">Opens the deal calculator with this price filled in.</p>
+    </div>
+    <div class="tool-signup" id="tool-signup" hidden>
+      <p><strong>Create a free account to run the full analysis.</strong> You'll get yields, cashflow, ROI and your maximum bid on this deal.</p>
+      <div class="row"><a class="btn-primary" href="/login.html?mode=signup">Sign up free</a><a href="/login.html">Log in</a></div>
+    </div>
+
+    <p class="tool-disclaimer results-disclaimer"></p>
+    <p class="tool-more">More calculators: <a href="/brrr-refinance-calculator.html">Refinance (BRRR)</a> · <a href="/lender-affordability-calculator.html">Lender affordability</a> · <a href="/bridging-cost-calculator.html">Bridging cost</a> · <a href="/personal-vs-ltd-calculator.html">Personal vs Ltd</a></p>
+  </main>
+</div>
+
+<script src="/results-disclaimer.js"></script>
+<script>
+(function () {
+  var T = ToolShell;
+  var BUYER = {
+    additional: 'Additional property rates',
+    first: 'Standard rates (first property)',
+    company: 'Company rates (same as additional property)'
+  };
+  function buyer() { var r = document.querySelector('input[name="sd-buyer"]:checked'); return r ? r.value : 'additional'; }
+  function band(n) { return n === Infinity ? 'and above' : T.money(n); }
+
+  function run() {
+    var price = T.num('sd-price'), b = buyer();
+    var r = ToolsCalc.stampDuty(price, b);
+    T.set('sd-total', T.money(r.total));
+    T.set('sd-sub', price > 0 ? T.pct(r.effectiveRate || 0) + ' of the price. ' + BUYER[b] + ', England and NI.' : 'Enter a price to see the stamp duty.');
+
+    var used = r.bands.filter(function (x) { return x.taxed > 0; });
+    var body = '';
+    if (!(price > 0)) {
+      T.set('sd-work-sum', 'Enter a price');
+      T.html('sd-work', '<p>Enter a purchase price above.</p>');
+      return;
+    }
+    if (r.belowThreshold) {
+      T.set('sd-work-sum', 'Under £40,000, nothing to pay');
+      body = '<p>Purchases under £40,000 don\'t pay the additional property surcharge, and standard rates are 0% at this price.</p>';
+    } else {
+      var rates = used.map(function (x) { return x.rate; });
+      T.set('sd-work-sum', T.money(r.total) + ' across ' + used.length + (used.length === 1 ? ' band' : ' bands') +
+        (rates.length ? ', ' + Math.min.apply(null, rates) + '% to ' + Math.max.apply(null, rates) + '%' : ''));
+      body = '<p>Each rate only applies to the part of the price inside its band.</p>' +
+        '<div class="tool-table-wrap"><table class="tool-table"><thead><tr><th>Band</th><th>Rate</th><th>Taxed</th><th>Tax</th></tr></thead><tbody>' +
+        r.bands.map(function (x) {
+          return '<tr' + (x.taxed > 0 ? '' : ' class="dim"') + '><td>' + T.money(x.from) + ' to ' + band(x.to) + '</td><td>' + x.rate + '%</td><td>' +
+            T.money(x.taxed) + '</td><td>' + T.money(x.tax) + '</td></tr>';
+        }).join('') +
+        '</tbody><tfoot><tr><td>Total</td><td></td><td>' + T.money(price) + '</td><td>' + T.money(r.total) + '</td></tr></tfoot></table></div>';
+    }
+    var notes = {
+      additional: 'Additional property rates apply when you already own a home anywhere, or you are buying to let. They are the standard rates plus 5% in every band.',
+      first: 'Standard rates, for someone who will own no other property after this purchase. First-time buyer relief is not included, so a first-time buyer buying their own home may pay less.',
+      company: 'Companies pay the additional property rates on every purchase, even their first. Assumes the company is buying to let, so the 17% flat rate for companies on homes over £500,000 does not apply.'
+    };
+    body += '<p class="tool-note">' + notes[b] + ' Rates in force since 1 April 2025, last checked October 2026. Scotland and Wales have their own taxes.</p>';
+    T.html('sd-work', body);
+  }
+
+  document.querySelectorAll('input[name="sd-buyer"]').forEach(function (el) { el.addEventListener('change', run); });
+  T.bind(run);
+
+  document.getElementById('tool-full').addEventListener('click', function () {
+    var price = T.num('sd-price');
+    var fields = {};
+    if (price > 0) { fields['b-pp'] = price; fields['b-emv'] = price; }
+    T.runFull({ strategy: 'btl', fields: fields, planning: { v: 1 },
+      note: 'Price filled in from the Stamp duty calculator. The deal calculator uses additional property rates. Add the rent, end value and costs for the full picture.' });
+  });
+})();
+</script>
+</body>
+</html>

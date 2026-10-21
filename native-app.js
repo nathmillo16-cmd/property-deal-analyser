@@ -13,8 +13,8 @@
 //      from nav.js, same as on phone-width websites. In the app the top
 //      link row and account bar are hidden, and the same round initials
 //      avatar the website uses sits in the header. Tapping it opens a sheet
-//      with the user's name and email, Tools (Refurb, Letters), Settings,
-//      Your goals, Replay tutorial, Contact us, help pages and Log out.
+//      with the user's name and email, the Tools groups (from nav.js),
+//      Settings, Plan, Your goals, Help & tutorial, Contact us and Log out.
 //
 // Elements can also carry data-native-text="..." to show different wording
 // in the app (e.g. "Subscription" becomes "Plan").
@@ -83,7 +83,9 @@
     '.nt-item.active{color:#4b45b2;font-weight:600}' +
     '.nt-item::after{content:"\\203A";color:var(--muted,#999);font-size:20px}' +
     '.nt-item.nt-danger{color:var(--danger,#c0392b)}' +
-    '.nt-item.nt-danger::after{content:none}';
+    '.nt-item.nt-danger::after{content:none}' +
+    '.nt-item.nt-soon{opacity:.55}' +
+    '.nt-item.nt-soon::after{content:none}';
   var style = document.createElement('style');
   style.id = 'native-app-styles';
   style.textContent = css;
@@ -145,10 +147,13 @@
   // ---------- header menu + sheet ----------
   // The bottom tab bar is rendered by nav.js. This adds the sheet for
   // everything that isn't one of its four tabs.
-  var MORE_PAGES = [
-    { key: 'refurb', href: '/refurb.html', label: 'Refurb Estimator', icon: 'refurb' },
-    { key: 'letters', href: '/letters.html', label: 'Letter Templates', icon: 'letters' }
-  ];
+  // Tools come from nav.js's NAV_TOOL_GROUPS (same groups as the website's
+  // Tools menu). Fallback only if that's missing for some reason.
+  var TOOL_GROUPS = window.NAV_TOOL_GROUPS || [{ label: 'Tools', items: [
+    { key: 'refurb', href: '/refurb.html', label: 'Refurb Estimator' },
+    { key: 'letters', href: '/letters.html', label: 'Letter Templates' }
+  ] }];
+  var TOOL_ICONS = { refurb: 'refurb', letters: 'letters' };
 
   // Same line icons as the website's account menu (nav.js).
   function ic(name) {
@@ -188,18 +193,20 @@
       '<div class="nt-handle"></div>' +
       '<div class="nt-head"><span class="user-avatar" data-account-initials aria-hidden="true"></span>' +
         '<div class="nt-who"><p class="nt-name" data-account-name>Your account</p><p class="nt-email" data-account-email></p></div></div>' +
-      '<p class="nt-label">Tools</p>' +
-      '<div class="nt-group">' +
-        MORE_PAGES.map(function (p) {
-          return '<a class="nt-item' + (p.key === active ? ' active' : '') + '" href="' + p.href + '">' + label(p.icon, p.label) + '</a>';
-        }).join('') +
-      '</div>' +
+      TOOL_GROUPS.map(function (g) {
+        return '<p class="nt-label">' + g.label + '</p><div class="nt-group">' +
+          g.items.map(function (p) {
+            var icon = TOOL_ICONS[p.key] || 'calculator';
+            if (p.soon) return '<span class="nt-item nt-soon" aria-disabled="true">' + label(icon, p.label + ' <span class="soon-pill">Coming soon</span>') + '</span>';
+            return '<a class="nt-item' + (p.key === active ? ' active' : '') + '" href="' + p.href + '">' + label(icon, p.label) + '</a>';
+          }).join('') + '</div>';
+      }).join('') +
       '<div class="nt-group">' +
         '<a class="nt-item' + (active === 'settings' ? ' active' : '') + '" href="/settings.html">' + label('settings', 'Settings') + '</a>' +
+        '<a class="nt-item' + (active === 'billing' ? ' active' : '') + '" href="/billing.html">' + label('billing', 'Plan') + '</a>' +
         '<a class="nt-item" href="/settings.html#goals" id="nt-goals">' + label('goals', 'Your goals') + '</a>' +
-        '<button type="button" class="nt-item" id="nt-tutorial">' + label('replay', 'Replay tutorial') + '</button>' +
+        '<a class="nt-item' + (active === 'help' ? ' active' : '') + '" href="/help.html">' + label('help', 'Help &amp; tutorial') + '</a>' +
         '<button type="button" class="nt-item" id="nt-contact">' + label('contact', 'Contact us') + '</button>' +
-        '<a class="nt-item" href="/support.html">' + label('help', 'Help &amp; support') + '</a>' +
         '<a class="nt-item" href="/privacy.html">' + label('privacy', 'Privacy policy') + '</a>' +
       '</div>' +
       '<div class="nt-group">' +
@@ -226,10 +233,6 @@
     backdrop.addEventListener('click', closeSheet);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
 
-    document.getElementById('nt-tutorial').addEventListener('click', function () {
-      closeSheet();
-      if (typeof window.navReplayTutorial === 'function') window.navReplayTutorial();
-    });
 
     // Already on Settings: the link only changes the #hash, so close the sheet.
     document.getElementById('nt-goals').addEventListener('click', closeSheet);

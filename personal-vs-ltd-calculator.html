@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Personal vs Ltd Calculator · PROPulsion</title>
+<meta name="description" content="Compare after-tax rental profit owned personally or through a limited company, with the Section 24 mortgage interest tax credit applied.">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/calc-engine.js"></script>
+<script src="/deal-assumptions.js"></script>
+<script src="/tools-calc.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="tool-tax" data-subscribe="false"></div>
+  <script src="/tools-shell.js"></script>
+
+  <main class="tool">
+    <p class="tool-eyebrow">Calculator</p>
+    <h1 class="tool-title">Personal vs Ltd</h1>
+    <p class="tool-lede">After-tax profit from the same property, owned in your own name or through a limited company.</p>
+
+    <section class="tool-card tool-inputs" aria-label="Inputs">
+      <div class="tf">
+        <label for="tx-rent">Monthly rent</label>
+        <span class="tf-affix pre"><span>£</span><input id="tx-rent" type="text" inputmode="decimal" data-money value="1000" autocomplete="off"></span>
+      </div>
+      <div class="tf">
+        <label for="tx-int">Monthly mortgage interest</label>
+        <span class="tf-affix pre"><span>£</span><input id="tx-int" type="text" inputmode="decimal" data-money value="450" autocomplete="off"></span>
+      </div>
+      <div class="tf wide">
+        <label for="tx-costs">Other monthly costs <span class="tool-optional">(insurance, repairs, letting fees)</span></label>
+        <span class="tf-affix pre"><span>£</span><input id="tx-costs" type="text" inputmode="decimal" data-money value="150" autocomplete="off"></span>
+      </div>
+      <div class="tf wide">
+        <label id="tx-band-label">Your personal tax band</label>
+        <div class="tool-seg" role="radiogroup" aria-labelledby="tx-band-label" id="tx-bands"></div>
+      </div>
+    </section>
+
+    <section class="tool-answer" aria-live="polite">
+      <p class="tool-answer-label">After-tax profit a year</p>
+      <div class="tool-vs">
+        <div class="tool-vs-col" id="tx-col-p"><p class="k">Personal</p><p class="v" id="tx-p">£0</p><p class="s" id="tx-p-s"></p></div>
+        <div class="tool-vs-col" id="tx-col-c"><p class="k">Limited company</p><p class="v" id="tx-c">£0</p><p class="s" id="tx-c-s"></p></div>
+      </div>
+      <p class="tool-answer-sub" id="tx-sub"></p>
+    </section>
+
+    <p class="tool-note" style="margin:0 0 var(--space-4);font-weight:600;color:var(--ink)">Illustration only. Speak to an accountant before choosing a structure.</p>
+
+    <details class="tool-work">
+      <summary><span><span class="t">How this is worked out</span><span class="s" id="tx-work-sum"></span></span></summary>
+      <div class="tool-work-body" id="tx-work"></div>
+    </details>
+
+    <div class="tool-cta">
+      <button type="button" class="btn-primary" id="tool-full">Run a full analysis</button>
+      <p class="hint">Opens the deal calculator with after-tax switched on.</p>
+    </div>
+    <div class="tool-signup" id="tool-signup" hidden>
+      <p><strong>Create a free account to run the full analysis.</strong> See after-tax cashflow alongside yields, ROI and your maximum bid on a real deal.</p>
+      <div class="row"><a class="btn-primary" href="/login.html?mode=signup">Sign up free</a><a href="/login.html">Log in</a></div>
+    </div>
+
+    <p class="tool-disclaimer results-disclaimer"></p>
+    <p class="tool-more">More calculators: <a href="/stamp-duty-calculator.html">Stamp duty</a> · <a href="/brrr-refinance-calculator.html">Refinance (BRRR)</a> · <a href="/lender-affordability-calculator.html">Lender affordability</a> · <a href="/bridging-cost-calculator.html">Bridging cost</a></p>
+  </main>
+</div>
+
+<script src="/results-disclaimer.js"></script>
+<script>
+(function () {
+  var T = ToolShell;
+  var TX = DEAL_ASSUMPTIONS.tax;
+  document.getElementById('tx-bands').innerHTML = Object.keys(TX.personalBands).map(function (k) {
+    return '<label><input type="radio" name="tx-band" value="' + k + '"' + (k === TX.defaultBand ? ' checked' : '') + '>' + T.esc(TX.personalBands[k].label) + '</label>';
+  }).join('');
+  function band() { var r = document.querySelector('input[name="tx-band"]:checked'); return r ? r.value : TX.defaultBand; }
+
+  function run() {
+    var r = ToolsCalc.tax({ rent: T.num('tx-rent'), interest: T.num('tx-int'), costs: T.num('tx-costs'), band: band() });
+    T.set('tx-p', T.money(r.pAfter));
+    T.set('tx-c', T.money(r.cAfter));
+    T.set('tx-p-s', T.money(r.pTax) + ' tax, ' + T.money(r.pAfter / 12) + ' a month');
+    T.set('tx-c-s', T.money(r.cTax) + ' tax, ' + T.money(r.cAfter / 12) + ' a month');
+    document.getElementById('tx-col-p').classList.toggle('win', r.winner === 'personal');
+    document.getElementById('tx-col-c').classList.toggle('win', r.winner === 'ltd');
+    T.set('tx-sub', !r.winner ? 'Both come out the same on these figures.'
+      : (r.winner === 'ltd' ? 'A limited company' : 'Owning personally') + ' keeps ' + T.money(Math.abs(r.diff)) + ' a year more, before taking money out of the company.');
+    T.set('tx-work-sum', 'Personal pays ' + T.money(r.pTax) + ', company pays ' + T.money(r.cTax));
+
+    T.html('tx-work',
+      '<p>Both start from the same figures</p>' +
+      T.line('Rent a year', T.money(r.rentYear)) +
+      T.line('Other costs a year', '-' + T.money(r.costsYear)) +
+      T.line('Profit before mortgage interest', T.money(r.profit), 'total') +
+      T.line('Mortgage interest a year', '-' + T.money(r.interest)) +
+      T.line('Profit before tax', T.money(r.pre), 'total') +
+      '<p style="margin-top:.9rem">Personal, ' + T.esc(TX.personalBands[r.band].label.toLowerCase()) + '</p>' +
+      T.line('Tax on profit before interest: ' + T.money(Math.max(0, r.profit)) + ' x ' + r.rate + '%', T.money(r.gross)) +
+      T.line('Less Section 24 credit: ' + r.creditRate + '% of ' + T.money(r.creditBase), '-' + T.money(r.credit)) +
+      T.line('Tax to pay', T.money(r.pTax), 'total') +
+      T.line('After tax: ' + T.money(r.pre) + ' - ' + T.money(r.pTax), T.money(r.pAfter), 'total') +
+      '<p style="margin-top:.9rem">Limited company</p>' +
+      T.line('Corporation tax: ' + T.money(Math.max(0, r.pre)) + ' x ' + r.ctRate + '%', T.money(r.cTax)) +
+      T.line('After tax: ' + T.money(r.pre) + ' - ' + T.money(r.cTax), T.money(r.cAfter), 'total') +
+      '<p class="tool-note">Section 24: owned personally, mortgage interest can\'t be taken off the profit. Instead you get a tax credit of ' + r.creditRate +
+      '% of the interest, capped at ' + r.creditRate + '% of the property profit (any unused part carries forward to next year). A company takes the interest off before tax.</p>' +
+      '<p class="tool-note">Kept simple: all of the profit is taxed at your chosen band, the company pays the ' + r.ctRate + '% small profits rate' +
+      (r.overSmallProfits ? ' (profit is over £' + TX.smallProfitsLimit.toLocaleString('en-GB') + ', so the real rate will be higher)' : '') +
+      ', and taking money out of a company as salary or dividends is taxed again. Buying through a company also means different mortgages and costs. Same rules as the calculator\'s after-tax section, last checked ' +
+      T.esc(r.lastVerified) + ' for the 2026 to 2027 tax year. From April 2027 property income is taxed at 22%, 42% and 47%.</p>');
+  }
+  document.getElementById('tx-bands').addEventListener('change', run);
+  T.bind(run);
+
+  document.getElementById('tool-full').addEventListener('click', function () {
+    T.runFull({ strategy: 'btl',
+      fields: { 'b-rent': T.num('tx-rent'), 'b-ins': T.num('tx-costs'), 'b-maint': 0, 'b-mgmt': 0 },
+      planning: { v: 1, tax: { on: true, band: band() } },
+      note: 'Filled in from the Personal vs Ltd calculator, with after-tax switched on. Other costs went into Insurance, with maintenance and management at 0%. Add the purchase price and mortgage so the interest matches ' +
+        T.money(T.num('tx-int')) + ' a month.' });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Lender Affordability · PROPulsion</title>
+<meta name="description" content="Buy-to-let rental stress test: the biggest mortgage a lender is likely to offer on the rent, using the stress rate and interest cover ratio (ICR).">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/calc-engine.js"></script>
+<script src="/deal-assumptions.js"></script>
+<script src="/tools-calc.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="tool-lender" data-subscribe="false"></div>
+  <script src="/tools-shell.js"></script>
+
+  <main class="tool">
+    <p class="tool-eyebrow">Calculator</p>
+    <h1 class="tool-title">Lender affordability</h1>
+    <p class="tool-lede">Buy-to-let lenders test the rent against a higher stress rate. This is the biggest loan the rent will support.</p>
+
+    <section class="tool-card tool-inputs" aria-label="Inputs">
+      <div class="tf">
+        <label for="la-rent">Monthly rent</label>
+        <span class="tf-affix pre"><span>£</span><input id="la-rent" type="text" inputmode="decimal" data-money value="950" autocomplete="off"></span>
+      </div>
+      <div class="tf">
+        <label for="la-own">Owned by</label>
+        <select id="la-own"></select>
+      </div>
+      <div class="tf">
+        <label for="la-stress">Stress rate</label>
+        <span class="tf-affix post"><span>%</span><input id="la-stress" type="number" inputmode="decimal" step="0.1" min="0"></span>
+      </div>
+      <div class="tf">
+        <label for="la-icr">Interest cover (ICR)</label>
+        <span class="tf-affix post"><span>%</span><input id="la-icr" type="number" inputmode="decimal" step="1" min="0"></span>
+        <p class="tf-hint">Set by ownership type. You can change it.</p>
+      </div>
+      <div class="tf wide">
+        <label for="la-loan">Loan you want <span class="tool-optional">(optional)</span></label>
+        <span class="tf-affix pre"><span>£</span><input id="la-loan" type="text" inputmode="decimal" data-money value="150000" autocomplete="off"></span>
+      </div>
+    </section>
+
+    <section class="tool-answer" id="la-answer" aria-live="polite">
+      <p class="tool-answer-label">Maximum loan the rent supports</p>
+      <p class="tool-answer-value" id="la-max">£0</p>
+      <p class="tool-answer-sub" id="la-sub"></p>
+      <span class="tool-answer-pill" id="la-pill"></span>
+    </section>
+
+    <details class="tool-work">
+      <summary><span><span class="t">How this is worked out</span><span class="s" id="la-work-sum"></span></span></summary>
+      <div class="tool-work-body" id="la-work"></div>
+    </details>
+
+    <div class="tool-cta">
+      <button type="button" class="btn-primary" id="tool-full">Run a full analysis</button>
+      <p class="hint">Opens the deal calculator with this rent and lender test.</p>
+    </div>
+    <div class="tool-signup" id="tool-signup" hidden>
+      <p><strong>Create a free account to run the full analysis.</strong> You'll get yields, cashflow, ROI and your maximum bid, with this lender check built in.</p>
+      <div class="row"><a class="btn-primary" href="/login.html?mode=signup">Sign up free</a><a href="/login.html">Log in</a></div>
+    </div>
+
+    <p class="tool-disclaimer results-disclaimer"></p>
+    <p class="tool-more">More calculators: <a href="/stamp-duty-calculator.html">Stamp duty</a> · <a href="/brrr-refinance-calculator.html">Refinance (BRRR)</a> · <a href="/bridging-cost-calculator.html">Bridging cost</a> · <a href="/personal-vs-ltd-calculator.html">Personal vs Ltd</a></p>
+  </main>
+</div>
+
+<script src="/results-disclaimer.js"></script>
+<script>
+(function () {
+  var T = ToolShell;
+  var L = DEAL_ASSUMPTIONS.lender;
+  var own = document.getElementById('la-own'), icr = document.getElementById('la-icr'), stress = document.getElementById('la-stress');
+  own.innerHTML = Object.keys(L.ownershipTypes).map(function (k) {
+    return '<option value="' + k + '">' + T.esc(L.ownershipTypes[k].label) + ' (' + L.ownershipTypes[k].rentCover + '%)</option>';
+  }).join('');
+  own.value = L.defaultOwnership;
+  icr.value = L.ownershipTypes[own.value].rentCover;
+  stress.value = L.stressRate;
+  // Changing ownership resets the ICR to that type's usual figure.
+  own.addEventListener('change', function () { icr.value = L.ownershipTypes[own.value].rentCover; });
+
+  function run() {
+    var r = ToolsCalc.lender({ rent: T.num('la-rent'), stress: T.num('la-stress'), cover: T.num('la-icr'), loan: T.num('la-loan') });
+    var ans = document.getElementById('la-answer');
+    ans.classList.toggle('is-good', r.passes === true);
+    ans.classList.toggle('is-bad', r.passes === false);
+    T.set('la-max', T.money(r.max));
+    if (!(r.max > 0)) {
+      T.set('la-sub', 'Enter the rent, stress rate and ICR.');
+    } else if (r.hasLoan) {
+      T.set('la-sub', r.passes
+        ? 'Your ' + T.money(r.loan) + ' loan passes, with ' + T.money(r.headroom) + ' to spare.'
+        : 'Your ' + T.money(r.loan) + ' loan is ' + T.money(-r.headroom) + ' over. It needs about ' + T.money(r.rentNeeded) + ' a month in rent.');
+    } else {
+      T.set('la-sub', 'Add the loan you want to check it.');
+    }
+    T.set('la-pill', r.passes ? 'Passes the rent test' : 'Fails the rent test');
+    T.set('la-work-sum', T.money(r.annual) + ' a year / ' + T.pct(r.cover, 0) + ' ICR / ' + T.pct(r.stress, 2) + ' stress rate');
+    T.html('la-work',
+      '<p>The lender wants the rent to cover the interest at the stress rate, with room to spare (the ICR).</p>' +
+      T.line('Rent a year: ' + T.money(r.rent) + ' x 12', T.money(r.annual)) +
+      T.line('Divide by ICR ' + T.pct(r.cover, 0), T.money(r.cover > 0 ? r.annual / (r.cover / 100) : 0)) +
+      T.line('Divide by stress rate ' + T.pct(r.stress, 2), T.money(r.max)) +
+      T.line('Maximum loan by rent', T.money(r.max), 'total') +
+      (r.hasLoan
+        ? T.line('Your loan', T.money(r.loan)) +
+          T.line(r.passes ? 'Headroom' : 'Over by', T.money(Math.abs(r.headroom)), 'total') +
+          T.line('Rent needed for your loan: loan x stress x ICR / 12', T.money(r.rentNeeded) + ' a month')
+        : '') +
+      '<p class="tool-note">Typical figures: 125% ICR for limited companies and basic rate taxpayers, 145% for higher rate taxpayers, stress tested at about ' +
+      L.stressRate + '%. Lenders also cap the loan by value (LTV), usually 75%. The lower of the two is what you can borrow. Check with your broker.</p>');
+  }
+  T.bind(run);
+
+  document.getElementById('tool-full').addEventListener('click', function () {
+    var loan = T.num('la-loan');
+    var fields = { 'b-rent': T.num('la-rent') };
+    var note = 'Rent and lender test filled in from the Lender affordability calculator. Add the purchase price, end value and costs for the full picture.';
+    if (loan > 0) {
+      // A 75% mortgage of this loan, so the lender check compares the same loan.
+      var price = Math.round(loan / 0.75);
+      fields['b-pp'] = price; fields['b-emv'] = price; fields['b-dp'] = 25;
+      note = 'Rent and lender test filled in from the Lender affordability calculator. Purchase price set to ' + T.money(price) +
+        ' so a 25% deposit gives your ' + T.money(loan) + ' loan. Change it to the real price.';
+    }
+    T.runFull({ strategy: 'btl', fields: fields, note: note,
+      planning: { v: 1, ownership: own.value, lenderStress: String(T.num('la-stress')), rentCover: String(T.num('la-icr')) } });
+  });
+})();
+</script>
+</body>
+</html>
