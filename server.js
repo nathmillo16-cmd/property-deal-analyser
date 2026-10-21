@@ -1812,6 +1812,19 @@ const NEEDS_ATTENTION_FIX_END_MONTHS = 6;
 const NEEDS_ATTENTION_TENANCY_DAYS = 60;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+// Labels for deal_key_dates' six non-viewing milestones (Deal Workspace
+// Phase 2 rebuild) — 'viewing' is deliberately excluded here, since
+// Cameron's own viewing_date check below already covers that one and this
+// is additive, not a replacement.
+const KEY_DATE_LABELS = {
+  offer_accepted: 'Offer accepted',
+  memorandum_of_sale: 'Memorandum of sale',
+  survey: 'Survey',
+  mortgage_offer: 'Mortgage offer',
+  exchange: 'Exchange',
+  completion: 'Completion',
+};
+
 // viewing_date is a plain date column (no time) — parsed as a UTC midnight
 // timestamp so "has it passed" / "days ago" math is exact and independent
 // of the server's own local timezone, the same way created_at/updated_at
@@ -1828,7 +1841,16 @@ function parseDateOnlyUTCms(dateStr) {
 //                    time-sensitive as a plain pending one — the ball's
 //                    back on the sourcer either way.
 //   (ii)  "update" — a Viewing-stage deal whose viewing_date has passed
-//                    with no note logged on or after that date.
+//                    with no note logged on or after that date, OR
+//                    (Deal Workspace Phase 2 rebuild) any deal with an
+//                    overdue deal_key_dates milestone other than viewing
+//                    (target_date passed, actual_date still null) — the
+//                    most overdue one if there's more than one. Both
+//                    share this one reason key deliberately: no new
+//                    home.html styling needed, and both are genuinely the
+//                    same kind of alert ("a date-based item passed
+//                    unresolved"). viewing_date keeps first claim on a
+//                    deal via flaggedDealIds — this is purely additive.
 //   (iii) "review" — any deal still in the pipeline (any stage except
 //                    Completed) whose updated_at is 14+ days old.
 //   (iv)  "refinance" — a portfolio property whose refinance_date (db/041)
@@ -1847,7 +1869,7 @@ app.get('/api/needs-attention', async (req, res) => {
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const [dealsRes, offersRes, notesRes, refiRes, remindersRes, rentRes] = await Promise.all([
+  const [dealsRes, offersRes, notesRes, refiRes, remindersRes, rentRes, keyDatesRes] = await Promise.all([
     supabase.from('deals').select('id, deal_data, pipeline_stage, updated_at, viewing_date'),
     supabase.from('deal_offers').select('id, deal_id, created_at, outcome').in('outcome', ['Pending', 'Countered']),
     supabase.from('deal_notes').select('deal_id, created_at'),
@@ -1861,6 +1883,11 @@ app.get('/api/needs-attention', async (req, res) => {
     supabase.from('deal_reminders').select('*').eq('done', false).lte('remind_on', todayStr).order('remind_on', { ascending: true }),
     // And the rent log (db/047): months marked late or missed.
     supabase.from('property_rent_log').select('property_id, month, status, expected_amount, amount_received').in('status', ['late', 'missed']).order('month', { ascending: true }),
+    // Key dates (db/055, Deal Workspace Phase 2 rebuild): overdue milestones
+    // feed the deal-level "update" rule below, alongside Cameron's own
+    // viewing_date check. Failure-tolerant, same convention as the other
+    // newer tables above.
+    supabase.from('deal_key_dates').select('deal_id, milestone, target_date, actual_date').is('actual_date', null).not('target_date', 'is', null),
   ]);
 
   if (dealsRes.error) return res.status(400).json({ error: dealsRes.error.message });
@@ -1927,6 +1954,38 @@ app.get('/api/needs-attention', async (req, res) => {
       detail: `Viewing was ${days} day${days === 1 ? '' : 's'} ago`,
     });
     flaggedDealIds.add(deal.id);
+  }
+
+  // (ii continued) update — most overdue non-viewing key-date milestone
+  // per deal (Deal Workspace Phase 2 rebuild). 'viewing' is excluded from
+  // this query already (deal_key_dates rows with that milestone are left
+  // alone here) — Cameron's own viewing_date check above is the one and
+  // only place "is the viewing overdue" is answered, so there's no
+  // double-tracking of the same date. A deal already flagged above (by
+  // viewing_date) keeps that result; this only adds NEW flags.
+  const overdueKeyDates = keyDatesRes.error ? [] : (keyDatesRes.data || []).filter((kd) => kd.milestone !== 'viewing');
+  const mostOverdueKeyDateByDeal = new Map();
+  for (const kd of overdueKeyDates) {
+    const targetMs = parseDateOnlyUTCms(kd.target_date);
+    if (targetMs >= todayUTCms) continue; // hasn't passed yet
+    const existing = mostOverdueKeyDateByDeal.get(kd.deal_id);
+    if (!existing || targetMs < existing.targetMs) {
+      mostOverdueKeyDateByDeal.set(kd.deal_id, { milestone: kd.milestone, targetMs });
+    }
+  }
+  for (const [dealId, info] of mostOverdueKeyDateByDeal) {
+    if (flaggedDealIds.has(dealId)) continue;
+    const deal = dealsById.get(dealId);
+    if (!deal) continue; // key date's deal was deleted or isn't this user's (RLS already scopes both, defensive guard)
+    const days = Math.floor((todayUTCms - info.targetMs) / MS_PER_DAY);
+    const label = KEY_DATE_LABELS[info.milestone] || info.milestone;
+    results.push({
+      deal_id: dealId,
+      deal_name: dealName(deal),
+      reason: 'update',
+      detail: `${label} ${days} day${days === 1 ? '' : 's'} overdue`,
+    });
+    flaggedDealIds.add(dealId);
   }
 
   // (iii) review — in the pipeline (not Completed), untouched 14+ days.
@@ -2372,6 +2431,251 @@ async function dealBelongsToRequester(supabase, dealId) {
   return !error && !!data;
 }
 
+// ---------------------------------------------------------------------
+// Contacts (Deal Workspace Phase 2) — a per-user contact book
+// (deal_contacts, db/053), entirely separate from Cameron's own
+// superuser-only crm_contacts (db/022). Standalone CRUD here; role
+// assignment onto a specific deal (deal_contact_roles, db/054) is its own
+// group further down, alongside the other deal-scoped endpoints.
+// ---------------------------------------------------------------------
+function validateContactInput(body) {
+  const { name, company, phone, email, notes } = body;
+  if (typeof name !== 'string' || !name.trim()) return { error: 'Enter a name.' };
+  const clean = (v) => (v ? String(v).trim() || null : null);
+  return { value: { name: name.trim(), company: clean(company), phone: clean(phone), email: clean(email), notes: clean(notes) } };
+}
+
+app.get('/api/contacts', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use your contacts.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock contacts.' });
+
+  const { data, error } = await supabase.from('deal_contacts').select('*').order('name', { ascending: true });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/contacts', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use your contacts.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock contacts.' });
+
+  const { value, error: validationError } = validateContactInput(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const { data, error } = await supabase.from('deal_contacts').insert(value).select().single();
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.put('/api/contacts/:id', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use your contacts.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock contacts.' });
+
+  const { value, error: validationError } = validateContactInput(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  const { data, error } = await supabase.from('deal_contacts').update(value).eq('id', req.params.id).select().single();
+  if (error || !data) return res.status(404).json({ error: 'Contact not found.' });
+  res.json(data);
+});
+
+app.delete('/api/contacts/:id', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use your contacts.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock contacts.' });
+
+  // Role assignments cascade on delete (db/054 — contact_id references
+  // deal_contacts(id) on delete cascade), so removing a contact silently
+  // un-assigns them from every deal rather than being blocked. No
+  // confirmation beyond the client's own confirm() — matches how this
+  // app already treats cascading deletes elsewhere (deleting a refurb
+  // estimate silently unlinks it from any deal via on delete set null).
+  const { error } = await supabase.from('deal_contacts').delete().eq('id', req.params.id);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ deleted: true });
+});
+
+// GET /api/contacts/:id/deals — the reverse lookup ("on a contact, list
+// the deals they're assigned to"). Two plain queries + a JS merge rather
+// than a PostgREST embedded join, same approach the Activity Timeline's
+// own merge already uses — easier to reason about without a live
+// database to verify an embedded-join query against.
+app.get('/api/contacts/:id/deals', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use your contacts.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock contacts.' });
+
+  const { data: roles, error } = await supabase.from('deal_contact_roles').select('deal_id, role').eq('contact_id', req.params.id);
+  if (error) return res.status(400).json({ error: error.message });
+  if (!roles.length) return res.json([]);
+
+  const dealIds = roles.map((r) => r.deal_id);
+  const { data: deals, error: dealsErr } = await supabase.from('deals').select('id, deal_type, deal_data').in('id', dealIds);
+  if (dealsErr) return res.status(400).json({ error: dealsErr.message });
+
+  const dealsById = new Map(deals.map((d) => [d.id, d]));
+  const result = roles
+    .map((r) => {
+      const deal = dealsById.get(r.deal_id);
+      if (!deal) return null; // deal deleted or not this user's — RLS already scopes both, defensive guard
+      return { deal_id: r.deal_id, role: r.role, deal_type: deal.deal_type, deal_name: (deal.deal_data && deal.deal_data.name) || null };
+    })
+    .filter(Boolean);
+  res.json(result);
+});
+
+// agent / your_solicitor / their_solicitor deliberately not offered —
+// Cameron's own flat Agent fields and free-text solicitor field on the
+// deal are the single place for those, not duplicated here. See the
+// CLAUDE.md backlog note on migrating those into Contacts properly later.
+const CONTACT_ROLES = ['vendor', 'broker', 'surveyor'];
+
+// GET /api/deals/:dealId/contacts — the up-to-three role assignments for
+// one deal, each with its full contact record attached. Sparse: a role
+// with nothing assigned yet simply has no entry in the response (same
+// convention as deal_key_dates below).
+app.get('/api/deals/:dealId/contacts', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  const { data: roleRows, error } = await supabase.from('deal_contact_roles').select('*').eq('deal_id', req.params.dealId);
+  if (error) return res.status(400).json({ error: error.message });
+  if (!roleRows.length) return res.json([]);
+
+  const contactIds = roleRows.map((r) => r.contact_id);
+  const { data: contacts, error: contactsErr } = await supabase.from('deal_contacts').select('*').in('id', contactIds);
+  if (contactsErr) return res.status(400).json({ error: contactsErr.message });
+
+  const contactsById = new Map(contacts.map((c) => [c.id, c]));
+  const result = roleRows
+    .map((r) => ({ role: r.role, contact: contactsById.get(r.contact_id) || null }))
+    .filter((r) => r.contact);
+  res.json(result);
+});
+
+// POST /api/deals/:dealId/contacts — assigns (contact_id set) or
+// unassigns (contact_id null) a role on this deal. Assigning upserts on
+// the (deal_id, role) unique constraint (db/054), so re-assigning an
+// already-filled role just replaces it — no separate "unassign first"
+// step needed. Unassigning deletes the row entirely rather than setting
+// contact_id to null (the column is NOT NULL, and deleting keeps the
+// table sparse, same convention as deal_key_dates).
+app.post('/api/deals/:dealId/contacts', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  if (!(await dealBelongsToRequester(supabase, req.params.dealId))) {
+    return res.status(404).json({ error: 'Deal not found.' });
+  }
+
+  const { role, contact_id } = req.body;
+  if (!CONTACT_ROLES.includes(role)) {
+    return res.status(400).json({ error: `role must be one of ${CONTACT_ROLES.join(', ')}.` });
+  }
+
+  if (contact_id === null || contact_id === undefined || contact_id === '') {
+    const { error } = await supabase
+      .from('deal_contact_roles')
+      .delete()
+      .eq('deal_id', req.params.dealId)
+      .eq('role', role);
+    if (error) return res.status(400).json({ error: error.message });
+    return res.json({ role, contact: null });
+  }
+
+  // RLS-scoped select — a hit here means the contact genuinely belongs to
+  // this user, same trick dealBelongsToRequester uses for deals.
+  const { data: contact, error: contactErr } = await supabase.from('deal_contacts').select('*').eq('id', contact_id).single();
+  if (contactErr || !contact) return res.status(404).json({ error: 'Contact not found.' });
+
+  const { error } = await supabase
+    .from('deal_contact_roles')
+    .upsert({ deal_id: req.params.dealId, role, contact_id }, { onConflict: 'deal_id,role' });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ role, contact });
+});
+
+// ---------------------------------------------------------------------
+// Key Dates (Deal Workspace Phase 2) — target/actual dates for six fixed
+// milestones (deal_key_dates, db/055). Viewing deliberately excluded —
+// Cameron's own viewing_date (deals table) owns that one, not duplicated
+// here. Sparse, same convention as deal_contact_roles above: a milestone
+// with nothing set yet simply has no row. Setting actual_date logs to
+// the Activity Timeline via a trigger (deal_key_date_log, db/056), not
+// from here — this endpoint just upserts the dates themselves.
+// ---------------------------------------------------------------------
+const KEY_DATE_MILESTONES = ['offer_accepted', 'memorandum_of_sale', 'survey', 'mortgage_offer', 'exchange', 'completion'];
+
+function validDateOrNull(v) {
+  if (v === undefined || v === null || v === '') return { value: null };
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { error: true };
+  return { value: v };
+}
+
+app.get('/api/deals/:dealId/key-dates', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  const { data, error } = await supabase.from('deal_key_dates').select('*').eq('deal_id', req.params.dealId);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/deals/:dealId/key-dates', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to use the pipeline.' });
+
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+
+  if (!(await dealBelongsToRequester(supabase, req.params.dealId))) {
+    return res.status(404).json({ error: 'Deal not found.' });
+  }
+
+  const { milestone } = req.body;
+  if (!KEY_DATE_MILESTONES.includes(milestone)) {
+    return res.status(400).json({ error: `milestone must be one of ${KEY_DATE_MILESTONES.join(', ')}.` });
+  }
+  const target = validDateOrNull(req.body.target_date);
+  if (target.error) return res.status(400).json({ error: 'target_date must be a YYYY-MM-DD string, or blank to clear.' });
+  const actual = validDateOrNull(req.body.actual_date);
+  if (actual.error) return res.status(400).json({ error: 'actual_date must be a YYYY-MM-DD string, or blank to clear.' });
+
+  const { data, error } = await supabase
+    .from('deal_key_dates')
+    .upsert(
+      { deal_id: req.params.dealId, milestone, target_date: target.value, actual_date: actual.value },
+      { onConflict: 'deal_id,milestone' }
+    )
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+
 const NOTE_TYPES = ['note', 'call', 'viewing'];
 
 // note_type backs the Activity Timeline's quick-add chips (Deal Workspace
@@ -2613,17 +2917,19 @@ app.get('/api/deals/:dealId/activity', async (req, res) => {
   const plan = await getUserPlan(supabase);
   if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
 
-  const [notesRes, offersRes, stageRes, refurbRes] = await Promise.all([
+  const [notesRes, offersRes, stageRes, refurbRes, keyDateLogRes] = await Promise.all([
     supabase.from('deal_notes').select('*').eq('deal_id', req.params.dealId),
     supabase.from('deal_offers').select('*').eq('deal_id', req.params.dealId),
     supabase.from('deal_stage_log').select('*').eq('deal_id', req.params.dealId),
     supabase.from('deal_refurb_log').select('*').eq('deal_id', req.params.dealId),
+    supabase.from('deal_key_date_log').select('*').eq('deal_id', req.params.dealId),
   ]);
 
   if (notesRes.error) return res.status(400).json({ error: notesRes.error.message });
   if (offersRes.error) return res.status(400).json({ error: offersRes.error.message });
   if (stageRes.error) return res.status(400).json({ error: stageRes.error.message });
   if (refurbRes.error) return res.status(400).json({ error: refurbRes.error.message });
+  if (keyDateLogRes.error) return res.status(400).json({ error: keyDateLogRes.error.message });
 
   const entries = [
     ...(notesRes.data || []).map((n) => ({
@@ -2657,6 +2963,13 @@ app.get('/api/deals/:dealId/activity', async (req, res) => {
       created_at: r.created_at,
       estimate_name: r.estimate_name || null,
       refurb_cost: r.refurb_cost,
+    })),
+    ...(keyDateLogRes.data || []).map((k) => ({
+      type: 'milestone_reached',
+      id: k.id,
+      created_at: k.created_at,
+      milestone: k.milestone,
+      actual_date: k.actual_date,
     })),
   ];
 

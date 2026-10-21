@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>PROPulsion · Contacts</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Propulsion">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/draft-state.js"></script>
+<style>
+/* page-specific layout only — colours/fonts/radius all come from styles.css.
+   Structure and most classes lifted straight from portfolio.html (full
+   CRUD + list + detail modal, same shape this page needs) — duplicated
+   per this app's existing per-page CSS convention, not shared. No hero
+   panel here: unlike portfolio, there's no aggregate figure (total
+   invested, blended yield) worth a headline number for a contact book. */
+.hint{font-size:12.5px;color:var(--muted);font-style:italic}
+
+.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
+
+.empty-card{text-align:center;padding:var(--space-6) var(--space-4);margin-bottom:var(--space-5)}
+.empty-card h2{font-size:22px;font-weight:600;margin:0 0 var(--space-3)}
+.empty-card p{font-size:13.5px;color:var(--muted);margin:0 0 var(--space-5);max-width:44ch;margin-left:auto;margin-right:auto}
+body.theme-light .empty-card{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
+
+.locked-panel{text-align:center;padding:3.5rem 1rem}
+.locked-panel h2{font-size:22px;margin:0 0 .75rem}
+.locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
+
+.split-panel{display:grid;grid-template-columns:1fr 1.3fr;gap:16px;align-items:start}
+@media(max-width:860px){.split-panel{grid-template-columns:1fr}}
+
+.add-contact-card h2{font-size:18px;margin:0 0 1.25rem}
+body.theme-light .add-contact-card{
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,.09);
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+}
+body.theme-light .add-contact-card .btn-primary{
+  border-radius:10px;
+  box-shadow:0 1px 2px rgba(75,69,178,.3);
+}
+
+.save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
+.save-msg.success{color:var(--accent-2)}
+.save-msg.error{color:#E8746B}
+
+.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap;cursor:pointer;transition:border-color .15s ease}
+.saved-item:hover{border-color:var(--hairline-strong)}
+.saved-info{display:flex;flex-direction:column;gap:2px}
+.saved-name{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
+.saved-detail{font-size:12px;color:var(--muted)}
+.saved-chevron{color:var(--muted);font-size:18px;line-height:1}
+
+body.theme-light .saved-item{
+  border:1px solid rgba(0,0,0,.09);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
+  transition:background-color .15s ease;
+}
+body.theme-light .saved-item:hover{background:var(--surface-2)}
+body.theme-light .saved-chevron{color:var(--accent)}
+
+.mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.mini-btn:hover{background:rgba(75,69,178,.08)}
+.mini-btn:disabled{opacity:.4;cursor:not-allowed}
+.mini-btn.danger{color:var(--danger);border-color:var(--danger)}
+.mini-btn.danger:hover{background:var(--danger-bg)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal-card{max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem}
+.modal-header h2{font-size:18px;margin:0;word-break:break-word}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
+.modal-close:hover{color:var(--ink)}
+.modal-section{margin:1.25rem 0}
+.modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:1rem}
+
+.deal-link-item{display:flex;justify-content:space-between;align-items:center;padding:.5rem .65rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:6px;background:var(--surface-2);font-size:13px}
+.deal-link-item a{color:var(--accent);text-decoration:underline;font-weight:600}
+.deal-link-role{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+</style>
+</head>
+<body class="theme-light">
+
+<div class="shell" id="app">
+  <div id="nav-root" data-active="contacts" data-subscribe="true"></div>
+  <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
+
+  <p class="page-title">Contacts</p>
+
+  <div id="state-loading"><p class="hint">Loading…</p></div>
+
+  <div id="state-loggedout" style="display:none">
+    <p class="hint">Log in to use Contacts: <a href="/login.html">log in</a></p>
+  </div>
+
+  <div id="state-locked" style="display:none">
+    <div class="locked-panel">
+      <h2>Contacts is a paid feature</h2>
+      <p>Keep a book of agents, solicitors, brokers and surveyors, and assign them to roles on your deals from the Deal Workspace.</p>
+      <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
+    </div>
+  </div>
+
+  <div id="state-board" style="display:none">
+    <div class="card empty-card" id="ct-empty-state" style="display:none">
+      <h2>No contacts yet</h2>
+      <p>Add agents, solicitors, brokers and surveyors here, then assign them to roles on a deal from its workspace.</p>
+      <button type="button" class="btn-primary" onclick="focusAddContactForm()">Add your first contact</button>
+    </div>
+
+    <div class="split-panel">
+      <div class="card add-contact-card">
+        <h2>Add contact</h2>
+        <div class="field"><label>Name</label><input type="text" id="ct-name"/></div>
+        <div class="field"><label>Company</label><input type="text" id="ct-company"/></div>
+        <div class="field"><label>Phone</label><input type="text" id="ct-phone"/></div>
+        <div class="field"><label>Email</label><input type="text" id="ct-email"/></div>
+        <div class="field"><label>Notes</label><textarea id="ct-notes" rows="2"></textarea></div>
+        <button class="btn-primary" onclick="addContact()" id="btn-add-contact">Add contact</button>
+        <p class="save-msg" id="ct-msg"></p>
+      </div>
+
+      <div>
+        <div id="ct-list"><p class="hint">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ct-modal-overlay" onclick="handleCtOverlayClick(event)">
+  <div class="card modal-card">
+    <div class="modal-header">
+      <h2 id="ct-modal-name">—</h2>
+      <button class="modal-close" onclick="closeContactDetail()" aria-label="Close">×</button>
+    </div>
+
+    <div class="field"><label>Name</label><input type="text" id="ctm-name"/></div>
+    <div class="field"><label>Company</label><input type="text" id="ctm-company"/></div>
+    <div class="field"><label>Phone</label><input type="text" id="ctm-phone"/></div>
+    <div class="field"><label>Email</label><input type="text" id="ctm-email"/></div>
+    <div class="field"><label>Notes</label><textarea id="ctm-notes" rows="2"></textarea></div>
+    <p class="save-msg" id="ct-modal-msg"></p>
+
+    <div class="modal-section">
+      <p class="hint" style="margin-bottom:.5rem">Deals this contact is on</p>
+      <div id="ct-modal-deals"><p class="hint">Loading…</p></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="mini-btn danger" onclick="deleteContact()">Delete</button>
+      <button class="btn-primary" onclick="saveContactChanges()" id="ct-modal-save-btn">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null, currentPlan=null;
+let contacts=[], editingId=null;
+
+const CONTACT_ROLE_LABELS={agent:'Agent',vendor:'Vendor',your_solicitor:'Your solicitor',their_solicitor:'Their solicitor',broker:'Broker',surveyor:'Surveyor'};
+
+function escapeHtml(s){
+  const div=document.createElement('div');
+  div.textContent=s;
+  return div.innerHTML;
+}
+
+async function logout(){
+  await sbClient.auth.signOut();
+  window.location.href='/';
+}
+
+async function upgradeNow(){
+  if(!currentSession)return;
+  const btn=document.getElementById('upgrade-btn');
+  const original=btn.textContent;
+  btn.disabled=true;btn.textContent='Redirecting…';
+  try{
+    const res=await fetch(API_BASE+'/api/create-checkout-session',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
+    });
+    const body=await res.json();
+    if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
+    window.location.href=body.url;
+  }catch(e){
+    alert('Could not start checkout: '+e.message);
+    btn.disabled=false;btn.textContent=original;
+  }
+}
+
+function updateTopbar(){
+  const loggedIn=!!currentSession;
+  const authLink=document.getElementById('auth-link');
+  if(loggedIn){
+    authLink.textContent='Log out';
+    authLink.href='#';
+    authLink.onclick=function(e){e.preventDefault();logout();};
+  }else{
+    authLink.textContent='Log in';
+    authLink.href='/login.html';
+    authLink.onclick=null;
+  }
+  const email=loggedIn&&currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  const menuEmail=document.getElementById('user-menu-email');
+  const itemEmail=document.getElementById('user-menu-item-email');
+  if(menuEmail)menuEmail.textContent=email||'Account';
+  if(itemEmail)itemEmail.textContent=email||'—';
+  const subLink=document.getElementById('subscribe-link');
+  if(loggedIn&&currentPlan==='free'){
+    subLink.style.display='';
+    subLink.onclick=function(e){e.preventDefault();upgradeNow();};
+  }else{
+    subLink.style.display='none';
+    subLink.onclick=null;
+  }
+}
+
+function showState(state){
+  ['loading','loggedout','locked','board'].forEach(s=>{
+    document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
+  });
+}
+
+function focusAddContactForm(){
+  document.getElementById('ct-name').focus();
+}
+
+async function loadContacts(){
+  const listEl=document.getElementById('ct-list');
+  const emptyEl=document.getElementById('ct-empty-state');
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  emptyEl.style.display='none';
+  try{
+    const res=await fetch(API_BASE+'/api/contacts',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not load your contacts.');
+    contacts=d;
+
+    if(contacts.length===0){
+      emptyEl.style.display='block';
+      listEl.innerHTML='';
+      return;
+    }
+
+    listEl.innerHTML=contacts.map(c=>`<div class="saved-item" onclick="openContactDetail('${c.id}')">
+      <div class="saved-info">
+        <span class="saved-name">${escapeHtml(c.name)}</span>
+        <span class="saved-detail">${[c.company,c.phone,c.email].filter(Boolean).map(escapeHtml).join(' · ')||'No details yet'}</span>
+      </div>
+      <span class="saved-chevron">›</span>
+    </div>`).join('');
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+async function addContact(){
+  const msg=document.getElementById('ct-msg');
+  const btn=document.getElementById('btn-add-contact');
+  msg.className='save-msg';msg.textContent='';
+
+  const name=document.getElementById('ct-name').value.trim();
+  if(!name){msg.textContent='Enter a name.';msg.className='save-msg error';return;}
+
+  const payload={
+    name,
+    company:document.getElementById('ct-company').value.trim()||null,
+    phone:document.getElementById('ct-phone').value.trim()||null,
+    email:document.getElementById('ct-email').value.trim()||null,
+    notes:document.getElementById('ct-notes').value.trim()||null,
+  };
+
+  btn.disabled=true;btn.textContent='Adding...';
+  try{
+    const res=await fetch(API_BASE+'/api/contacts',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not add contact.');
+
+    ['ct-name','ct-company','ct-phone','ct-email','ct-notes'].forEach(id=>document.getElementById(id).value='');
+    msg.textContent='Contact added.';msg.className='save-msg success';
+    await loadContacts();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;btn.textContent='Add contact';
+}
+
+function openContactDetail(id){
+  const c=contacts.find(x=>x.id===id);
+  if(!c)return;
+  editingId=id;
+
+  document.getElementById('ct-modal-name').textContent=c.name;
+  document.getElementById('ctm-name').value=c.name;
+  document.getElementById('ctm-company').value=c.company||'';
+  document.getElementById('ctm-phone').value=c.phone||'';
+  document.getElementById('ctm-email').value=c.email||'';
+  document.getElementById('ctm-notes').value=c.notes||'';
+
+  const msg=document.getElementById('ct-modal-msg');
+  msg.textContent='';msg.className='save-msg';
+
+  document.getElementById('ct-modal-overlay').classList.add('open');
+  loadContactDeals(id);
+}
+
+function closeContactDetail(){
+  document.getElementById('ct-modal-overlay').classList.remove('open');
+  editingId=null;
+}
+
+function handleCtOverlayClick(e){
+  if(e.target.id==='ct-modal-overlay')closeContactDetail();
+}
+
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape')closeContactDetail();
+});
+
+// "Deals this contact is on" — the reverse lookup (GET /api/contacts/:id/
+// deals), each linking straight to that deal's Deal Workspace via the
+// same ?openDeal= deep link the Refurb section's "Open" link already
+// uses on saved-deals.html.
+async function loadContactDeals(contactId){
+  const el=document.getElementById('ct-modal-deals');
+  el.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch(API_BASE+`/api/contacts/${contactId}/deals`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const rows=await res.json();
+    if(!res.ok)throw new Error(rows.error||'Could not load this contact\'s deals.');
+    if(rows.length===0){
+      el.innerHTML='<p class="hint">Not assigned to any deal yet.</p>';
+      return;
+    }
+    el.innerHTML=rows.map(r=>`<div class="deal-link-item">
+      <span class="deal-link-role">${escapeHtml(CONTACT_ROLE_LABELS[r.role]||r.role)}</span>
+      <a href="saved-deals.html?openDeal=${encodeURIComponent(r.deal_id)}">${escapeHtml(r.deal_name||(r.deal_type||'').toUpperCase()||'Untitled deal')}</a>
+    </div>`).join('');
+  }catch(e){
+    el.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+async function saveContactChanges(){
+  if(!editingId)return;
+  const msg=document.getElementById('ct-modal-msg');
+  const btn=document.getElementById('ct-modal-save-btn');
+  msg.className='save-msg';msg.textContent='';
+
+  const name=document.getElementById('ctm-name').value.trim();
+  if(!name){msg.textContent='Enter a name.';msg.className='save-msg error';return;}
+
+  const payload={
+    name,
+    company:document.getElementById('ctm-company').value.trim()||null,
+    phone:document.getElementById('ctm-phone').value.trim()||null,
+    email:document.getElementById('ctm-email').value.trim()||null,
+    notes:document.getElementById('ctm-notes').value.trim()||null,
+  };
+
+  btn.disabled=true;btn.textContent='Saving...';
+  try{
+    const res=await fetch(API_BASE+`/api/contacts/${editingId}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not save changes.');
+    document.getElementById('ct-modal-name').textContent=d.name;
+    msg.textContent='Saved.';msg.className='save-msg success';
+    await loadContacts();
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+  btn.disabled=false;btn.textContent='Save changes';
+}
+
+// Deletion cascades deal_contact_roles (db/042, on delete cascade) — this
+// contact silently drops off every deal it was assigned to, no separate
+// warning beyond this confirm(). Matches how this app already treats
+// cascading deletes elsewhere (e.g. deleting a refurb estimate silently
+// unlinks it from any deal).
+async function deleteContact(){
+  if(!editingId)return;
+  if(!confirm('Delete this contact? This also removes them from any deal they\'re assigned to.'))return;
+  try{
+    const res=await fetch(API_BASE+`/api/contacts/${editingId}`,{
+      method:'DELETE',
+      headers:{'Authorization':'Bearer '+currentSession.access_token}
+    });
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error||'Could not delete contact.');
+    closeContactDetail();
+    await loadContacts();
+  }catch(e){
+    alert('Could not delete contact: '+e.message);
+  }
+}
+
+async function init(){
+  const auth=await requireAuth();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+
+  try{
+    const profRes=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const prof=await profRes.json();
+    currentPlan=prof.plan==='paid'?'paid':'free';
+  }catch(e){
+    currentPlan='free';
+  }
+  updateTopbar();
+
+  if(currentPlan!=='paid'){
+    showState('locked');
+    return;
+  }
+
+  showState('board');
+  loadContacts().finally(function(){
+    restoreScrollPosition('contacts');
+    attachScrollSaver('contacts');
+  });
+
+  sbClient.auth.onAuthStateChange((_event, session)=>{
+    currentSession=session;
+    if(!currentSession){window.location.href='/';return;}
+    updateTopbar();
+  });
+}
+
+init();
+</script>
+</body>
+</html>
