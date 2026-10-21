@@ -239,6 +239,28 @@ body.theme-light .dd-trigger::after{
 .activity-conditions{font-size:11.5px;color:var(--muted);margin-top:4px}
 .activity-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
 
+/* Deal Workspace Contacts + Key Dates. Fresh classes, light-theme only.
+   Single-column stacked rows throughout (not a grid) — tel:/mailto: links
+   and date inputs need real width, not a cramped grid cell. */
+.contact-role-row{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.65rem .85rem;margin-bottom:8px}
+.contact-role-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap}
+.contact-role-label{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.contact-role-name{font-size:14px;font-weight:700;color:var(--ink);margin-top:2px}
+.contact-role-company{font-size:12px;color:var(--muted)}
+.contact-role-links{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;font-size:12.5px}
+.contact-role-links a{color:var(--accent);text-decoration:underline}
+.contact-picker{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.75rem;margin-top:.65rem}
+.contact-picker-item{display:flex;justify-content:space-between;align-items:center;padding:.5rem .65rem;border-radius:var(--radius-sm);cursor:pointer;font-size:13px}
+.contact-picker-item:hover{background:var(--surface-2)}
+.contact-picker-new{border-top:1px solid var(--hairline);margin-top:.5rem;padding-top:.65rem}
+
+.keydate-row{background:var(--surface-2);border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:.65rem .85rem;margin-bottom:8px}
+.keydate-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:.5rem}
+.keydate-label{font-size:13px;font-weight:700;color:var(--ink)}
+.keydate-overdue{font-size:11px;font-weight:700;color:var(--danger-ink);text-transform:uppercase;letter-spacing:.03em}
+.keydate-fields{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.keydate-fields .field{flex:1;min-width:130px;margin-bottom:0}
+
 /* Pipeline stats card — same hero panel as pipeline.html/home.html,
    duplicated per page as this app does. Content comes from deal-cards.js. */
 .hero-panel{
@@ -386,6 +408,7 @@ body.theme-light .dd-trigger::after{
       <h2 id="workspace-modal-title">—</h2>
       <button class="modal-close" onclick="closeDealWorkspace()" aria-label="Close">×</button>
     </div>
+    <p class="hint" id="workspace-next-milestone" style="display:none;margin:-.5rem 0 1rem"></p>
 
     <!-- Property details: free. Saved via POST /api/deals/:id/details (db/045). -->
     <div class="modal-section">
@@ -428,6 +451,23 @@ body.theme-light .dd-trigger::after{
           <button class="btn-primary" id="ws-comps-go" onclick="runWorkspaceComps()">Run</button>
         </div>
         <div id="ws-comps-result"></div>
+      </div>
+    </div>
+
+    <!-- Contacts: a per-user reusable contact book (contacts.html), assigned
+         by role on this deal (deal_contact_roles, db/054). Distinct from the
+         Agent fields above and the deals.solicitor text field (db/045) —
+         those are quick, deal-specific free-text fields Cameron built
+         separately; Contacts is a fuller, reusable-across-deals system.
+         Known overlap, not reconciled — see chat. -->
+    <div class="modal-section">
+      <div id="workspace-contacts-gated">
+        <p class="subhead">Contacts</p>
+        <div id="workspace-contacts-list"><p class="hint">Loading…</p></div>
+      </div>
+      <div class="workspace-lock" id="workspace-contacts-lock" style="display:none">
+        <p>Contacts are a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
       </div>
     </div>
 
@@ -604,6 +644,23 @@ body.theme-light .dd-trigger::after{
       </div>
       <div class="workspace-lock" id="workspace-activity-lock" style="display:none">
         <p>Seller position and the activity timeline are a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
+      </div>
+    </div>
+
+    <!-- Key dates: target/actual per fixed milestone (deal_key_dates,
+         db/055) — six milestones, deliberately NOT including Viewing.
+         Cameron's own deals.viewing_date (Stage section, kept unchanged)
+         is the single place that one is tracked. Reaching an actual date
+         logs to the Activity Timeline above via a database trigger
+         (deal_key_date_log, db/056). -->
+    <div class="modal-section">
+      <div id="workspace-keydates-gated">
+        <p class="subhead">Key dates</p>
+        <div id="workspace-keydates-list"><p class="hint">Loading…</p></div>
+      </div>
+      <div class="workspace-lock" id="workspace-keydates-lock" style="display:none">
+        <p>Key dates are a paid feature.</p>
         <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
       </div>
     </div>
@@ -1599,12 +1656,19 @@ function updateWorkspaceGating(deal){
 
   document.getElementById('workspace-refurb-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-refurb-lock').style.display=paid?'none':'block';
+  document.getElementById('workspace-contacts-gated').style.display=paid?'block':'none';
+  document.getElementById('workspace-contacts-lock').style.display=paid?'none':'block';
+  document.getElementById('workspace-keydates-gated').style.display=paid?'block':'none';
+  document.getElementById('workspace-keydates-lock').style.display=paid?'none':'block';
   document.getElementById('workspace-activity-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-activity-lock').style.display=paid?'none':'block';
   document.getElementById('workspace-stage-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-stage-lock').style.display=paid?'none':'block';
   document.getElementById('workspace-extras-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-extras-lock').style.display=paid?'none':'block';
+
+  const nextMilestoneEl=document.getElementById('workspace-next-milestone');
+  if(nextMilestoneEl)nextMilestoneEl.style.display='none';
 
   if(!paid)return;
 
@@ -1616,8 +1680,11 @@ function updateWorkspaceGating(deal){
   closeAllQuickAdd();
   resetOfferForm();
   document.getElementById('sp-msg').textContent='';document.getElementById('sp-msg').className='save-msg';
+  closeContactPicker();
 
   loadRefurbSection(deal);
+  loadWorkspaceContacts(workspaceDealId);
+  loadWorkspaceKeyDates(workspaceDealId);
   loadSellerPosition(deal);
   loadActivity(workspaceDealId);
   renderWorkspaceStageControl(deal);
@@ -1625,6 +1692,268 @@ function updateWorkspaceGating(deal){
 
 
 // ---------------------------------------------------------------------
+
+// Agent / Your solicitor / Their solicitor deliberately NOT offered here —
+// Cameron's own flat Agent fields (name/agency/phone/email, on the deal
+// itself) and free-text solicitor field are the single place for those,
+// not duplicated into Contacts. See the CLAUDE.md backlog note on
+// migrating those into Contacts properly later.
+const CONTACT_ROLE_LABELS={vendor:'Vendor',broker:'Broker',surveyor:'Surveyor'};
+const CONTACT_ROLES_ORDER=['vendor','broker','surveyor'];
+
+let cachedContacts=null; // cleared whenever a new contact is added, so the next picker open refetches
+let openContactPickerRole=null;
+let workspaceContactsByRole={};
+
+async function loadWorkspaceContacts(dealId){
+  const listEl=document.getElementById('workspace-contacts-list');
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/contacts`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const rows=await res.json();
+    if(!res.ok)throw new Error(rows.error||'Could not load contacts.');
+    workspaceContactsByRole={};
+    rows.forEach(r=>{workspaceContactsByRole[r.role]=r.contact;});
+    renderWorkspaceContacts();
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+function renderWorkspaceContacts(){
+  const listEl=document.getElementById('workspace-contacts-list');
+  listEl.innerHTML=CONTACT_ROLES_ORDER.map(role=>{
+    const c=workspaceContactsByRole[role];
+    const pickerHtml=openContactPickerRole===role?'<div id="contact-picker-body"><p class="hint">Loading…</p></div>':'';
+    return `<div class="contact-role-row">
+      <div class="contact-role-head">
+        <div>
+          <span class="contact-role-label">${CONTACT_ROLE_LABELS[role]}</span>
+          ${c?`<p class="contact-role-name">${escapeHtml(c.name)}</p>`:'<p class="hint">Not assigned</p>'}
+          ${c&&c.company?`<p class="contact-role-company">${escapeHtml(c.company)}</p>`:''}
+          ${c?`<div class="contact-role-links">
+            ${c.phone?`<a href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a>`:''}
+            ${c.email?`<a href="mailto:${escapeHtml(c.email)}">${escapeHtml(c.email)}</a>`:''}
+          </div>`:''}
+        </div>
+        <div class="activity-controls">
+          <button type="button" class="mini-btn" onclick="toggleContactPicker('${role}')">${c?'Change':'Assign'}</button>
+          ${c?`<button type="button" class="mini-btn danger" onclick="unassignContactRole('${role}')">Unassign</button>`:''}
+        </div>
+      </div>
+      ${pickerHtml}
+    </div>`;
+  }).join('');
+  if(openContactPickerRole)renderContactPicker(openContactPickerRole);
+}
+
+async function fetchContacts(){
+  if(cachedContacts)return cachedContacts;
+  const res=await fetch(API_BASE+'/api/contacts',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+  const d=await res.json();
+  if(!res.ok)throw new Error(d.error||'Could not load your contacts.');
+  cachedContacts=d;
+  return cachedContacts;
+}
+
+function toggleContactPicker(role){
+  openContactPickerRole = openContactPickerRole===role ? null : role;
+  renderWorkspaceContacts();
+}
+
+function closeContactPicker(){
+  openContactPickerRole=null;
+}
+
+async function renderContactPicker(role){
+  const bodyEl=document.getElementById('contact-picker-body');
+  if(!bodyEl)return;
+  try{
+    const contacts=await fetchContacts();
+    const existingHtml=contacts.length
+      ? contacts.map(c=>`<div class="contact-picker-item" onclick="assignContactRole('${role}','${c.id}')">
+          <span>${escapeHtml(c.name)}${c.company?' · '+escapeHtml(c.company):''}</span>
+        </div>`).join('')
+      : '<p class="hint">No contacts saved yet.</p>';
+    bodyEl.innerHTML=`${existingHtml}
+      <div class="contact-picker-new">
+        <button type="button" class="mini-btn" onclick="toggleNewContactForm()">+ Add new contact</button>
+        <div id="new-contact-form" style="display:none;margin-top:.65rem">
+          <div class="field"><label>Name</label><input type="text" id="nc-name"/></div>
+          <div class="field"><label>Company</label><input type="text" id="nc-company"/></div>
+          <div class="field"><label>Phone</label><input type="text" id="nc-phone"/></div>
+          <div class="field"><label>Email</label><input type="text" id="nc-email"/></div>
+          <div class="field"><label>Notes</label><textarea id="nc-notes" rows="2"></textarea></div>
+          <button type="button" class="btn-primary" onclick="addNewContactAndAssign('${role}')">Add and assign</button>
+          <p class="save-msg" id="nc-msg"></p>
+        </div>
+      </div>
+      <button type="button" class="mini-btn" onclick="closeContactPicker();renderWorkspaceContacts()" style="margin-top:.65rem">Cancel</button>`;
+  }catch(e){
+    bodyEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+function toggleNewContactForm(){
+  const el=document.getElementById('new-contact-form');
+  if(el)el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+async function assignContactRole(role, contactId){
+  if(!workspaceDealId)return;
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${workspaceDealId}/contacts`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({role, contact_id:contactId})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not assign this contact.');
+    closeContactPicker();
+    await loadWorkspaceContacts(workspaceDealId);
+  }catch(e){
+    alert('Could not assign this contact: '+e.message);
+  }
+}
+
+async function unassignContactRole(role){
+  if(!confirm('Unassign this contact from this role? The contact itself is not deleted.'))return;
+  await assignContactRole(role, null);
+}
+
+async function addNewContactAndAssign(role){
+  const msg=document.getElementById('nc-msg');
+  const name=document.getElementById('nc-name').value.trim();
+  if(!name){msg.textContent='Enter a name.';msg.className='save-msg error';return;}
+  const payload={
+    name,
+    company:document.getElementById('nc-company').value.trim()||null,
+    phone:document.getElementById('nc-phone').value.trim()||null,
+    email:document.getElementById('nc-email').value.trim()||null,
+    notes:document.getElementById('nc-notes').value.trim()||null,
+  };
+  msg.className='save-msg';msg.textContent='';
+  try{
+    const res=await fetch(API_BASE+'/api/contacts',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify(payload)
+    });
+    const contact=await res.json();
+    if(!res.ok)throw new Error(contact.error||'Could not add this contact.');
+    cachedContacts=null;
+    await assignContactRole(role, contact.id);
+  }catch(e){
+    msg.textContent=e.message;msg.className='save-msg error';
+  }
+}
+
+// ---------------------------------------------------------------------
+// Key Dates (Deal Workspace Phase 2) — target/actual dates for six fixed
+// transaction milestones (Viewing excluded — Cameron's own viewing_date
+// owns that one). Sparse rows from the server are merged onto a fixed,
+// hardcoded ordered list (same approach WORKSPACE_STAGES already uses
+// for the five pipeline stages) so all six always render, whether or not
+// a row exists yet for this deal. Setting an actual date logs to the
+// Activity Timeline via a database trigger (deal_key_date_log,
+// db/056) — nothing to do here beyond reloading the feed afterward.
+// ---------------------------------------------------------------------
+// Viewing deliberately NOT in this editable list — Cameron's own
+// viewing_date (Stage section) owns that milestone, not duplicated here.
+// KEY_DATE_LABELS keeps a 'viewing' entry regardless, purely so any
+// historical Activity Timeline entry logged before this change (a
+// deal_key_date_log row with milestone='viewing') still renders with a
+// readable label rather than a raw key — that log is immutable and
+// unrelated rows aren't touched by removing the milestone from here.
+const KEY_DATE_MILESTONES_ORDER=['offer_accepted','memorandum_of_sale','survey','mortgage_offer','exchange','completion'];
+const KEY_DATE_LABELS={viewing:'Viewing',offer_accepted:'Offer accepted',memorandum_of_sale:'Memorandum of sale',survey:'Survey',mortgage_offer:'Mortgage offer',exchange:'Exchange',completion:'Completion'};
+
+let workspaceKeyDatesByMilestone={};
+
+function todayDateStr(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+async function loadWorkspaceKeyDates(dealId){
+  const listEl=document.getElementById('workspace-keydates-list');
+  listEl.innerHTML='<p class="hint">Loading…</p>';
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/key-dates`,{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const rows=await res.json();
+    if(!res.ok)throw new Error(rows.error||'Could not load key dates.');
+    workspaceKeyDatesByMilestone={};
+    rows.forEach(r=>{workspaceKeyDatesByMilestone[r.milestone]=r;});
+    renderWorkspaceKeyDates();
+    updateWorkspaceNextMilestone();
+  }catch(e){
+    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+  }
+}
+
+// String comparison of two YYYY-MM-DD dates is a safe, correct proxy for
+// date comparison (lexicographic order matches chronological order for
+// this fixed-width ISO format) — no Date parsing needed for this check.
+function renderWorkspaceKeyDates(){
+  const listEl=document.getElementById('workspace-keydates-list');
+  const today=todayDateStr();
+  listEl.innerHTML=KEY_DATE_MILESTONES_ORDER.map(m=>{
+    const row=workspaceKeyDatesByMilestone[m]||{};
+    const overdue=row.target_date && !row.actual_date && row.target_date<today;
+    return `<div class="keydate-row">
+      <div class="keydate-head">
+        <span class="keydate-label">${KEY_DATE_LABELS[m]}</span>
+        ${overdue?'<span class="keydate-overdue">Overdue</span>':''}
+      </div>
+      <div class="keydate-fields">
+        <div class="field"><label>Target</label><input type="date" id="kd-target-${m}" value="${row.target_date||''}"/></div>
+        <div class="field"><label>Actual</label><input type="date" id="kd-actual-${m}" value="${row.actual_date||''}"/></div>
+        <button type="button" class="mini-btn" onclick="saveWorkspaceKeyDate('${m}')">Save</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function saveWorkspaceKeyDate(milestone){
+  if(!workspaceDealId)return;
+  const target=document.getElementById(`kd-target-${milestone}`).value;
+  const actual=document.getElementById(`kd-actual-${milestone}`).value;
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${workspaceDealId}/key-dates`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
+      body:JSON.stringify({milestone, target_date:target||null, actual_date:actual||null})
+    });
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not save this date.');
+    await loadWorkspaceKeyDates(workspaceDealId);
+    await loadActivity(workspaceDealId); // actual-date changes log to the timeline via a DB trigger — just reflect it
+  }catch(e){
+    alert('Could not save this date: '+e.message);
+  }
+}
+
+// Workspace header — the soonest upcoming (or most overdue) milestone
+// that has a target date and no actual yet, picked by target_date value,
+// not the fixed milestone display order.
+function updateWorkspaceNextMilestone(){
+  const el=document.getElementById('workspace-next-milestone');
+  if(!el)return;
+  const today=todayDateStr();
+  let next=null;
+  KEY_DATE_MILESTONES_ORDER.forEach(m=>{
+    const row=workspaceKeyDatesByMilestone[m];
+    if(!row||!row.target_date||row.actual_date)return;
+    if(!next||row.target_date<next.target_date)next={milestone:m,target_date:row.target_date};
+  });
+  if(!next){el.style.display='none';return;}
+  const diffDays=Math.round((new Date(next.target_date+'T00:00:00Z')-new Date(today+'T00:00:00Z'))/(24*60*60*1000));
+  const when=diffDays===0?'today':diffDays>0?`in ${diffDays} day${diffDays===1?'':'s'}`:`${Math.abs(diffDays)} day${Math.abs(diffDays)===1?'':'s'} overdue`;
+  el.textContent=`Next: ${KEY_DATE_LABELS[next.milestone]} · ${when}`;
+  el.style.display='block';
+}
+
+
 // Deal page additions (db/045). Property details are free; everything in
 // the "extras" block (listing reader, photos, checklist, reminders) is
 // paid. Each one fails gently before db/045 is run: the server answers
@@ -2396,7 +2725,7 @@ function stageLabel(stage){
   return stage?(WORKSPACE_STAGE_LABELS[stage]||stage):'Not in pipeline';
 }
 
-const ACTIVITY_TYPE_TAGS={note:'Note',call:'Call',viewing:'Viewing',offer:'Offer',stage_changed:'Stage',refurb_linked:'Refurb',refurb_unlinked:'Refurb',refurb_rerun_saved:'Refurb'};
+const ACTIVITY_TYPE_TAGS={note:'Note',call:'Call',viewing:'Viewing',offer:'Offer',stage_changed:'Stage',refurb_linked:'Refurb',refurb_unlinked:'Refurb',refurb_rerun_saved:'Refurb',milestone_reached:'Milestone'};
 
 function renderActivityEntry(e, deal){
   const tag=ACTIVITY_TYPE_TAGS[e.type]||e.type;
@@ -2446,6 +2775,13 @@ function renderActivityEntry(e, deal){
     return `<div class="activity-item">
       <div class="activity-head"><span class="activity-type-tag">${tag}</span><span class="activity-date">${date}</span></div>
       <p class="activity-body">${escapeHtml(stageLabel(e.from_stage))} → ${escapeHtml(stageLabel(e.to_stage))}</p>
+    </div>`;
+  }
+
+  if(e.type==='milestone_reached'){
+    return `<div class="activity-item">
+      <div class="activity-head"><span class="activity-type-tag">${tag}</span><span class="activity-date">${date}</span></div>
+      <p class="activity-body">${escapeHtml(KEY_DATE_LABELS[e.milestone]||e.milestone)} reached (${fmtDateOnly(e.actual_date)})</p>
     </div>`;
   }
 

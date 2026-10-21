@@ -122,7 +122,8 @@ var NAV_MENU_ICONS = {
   calculator: '<rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M8.5 6.5h7"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01M8.5 18h.01M12 18h.01M15.5 18h.01"/>',
   refurb: '<path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8-1.3-1.3a4 4 0 0 0-5-5z"/><path d="M3 21l6-6"/>',
   letters: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
-  logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/>'
+  logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/>',
+  contacts: '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8 16.5a4 4 0 0 1 8 0"/>'
 };
 function menuIcon(name) {
   return '<svg class="user-menu-icon" viewBox="0 0 24 24" aria-hidden="true">' + (NAV_MENU_ICONS[name] || '') + '</svg>';
@@ -189,6 +190,7 @@ function menuItem(href, icon, label, extraClass) {
         menuItem('/settings.html', 'settings', 'Settings', active === 'settings' ? ' active' : '') +
         menuItem('/billing.html', 'billing', 'Plan &amp; billing', active === 'billing' ? ' active' : '') +
         menuItem('/settings.html#goals', 'goals', 'Your goals', '') +
+        menuItem('/contacts.html', 'contacts', 'Contacts', active === 'contacts' ? ' active' : '') +
         menuItem('/help.html', 'help', 'Help &amp; tutorial', active === 'help' ? ' active' : '') +
         '<span class="user-menu-item is-disabled web-only" role="menuitem" aria-disabled="true">' + menuIcon('sourcing') + 'Deal Sourcing <span class="soon-pill">Coming soon</span></span>' +
         '<a href="#" id="contact-us-link" class="user-menu-item" role="menuitem" onclick="closeUserMenu();if(window.openSupportModal)openSupportModal(event);return false;">' + menuIcon('contact') + 'Contact us</a>' +
