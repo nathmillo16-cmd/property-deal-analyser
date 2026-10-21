@@ -163,7 +163,7 @@ details[open]>summary .chev{transform:rotate(-135deg)}
 .rate-hint{font-size:10.5px;color:var(--muted);text-align:right;min-height:1em}
 .rate-hint.yours{color:var(--success)}
 .rate-hint .rh-range{display:block}
-.rate-hint .rh-note{display:block;opacity:.85}
+.guide-note{margin:0 0 .75rem}
 .li-total.need-rate{color:var(--warn-ink,var(--muted));font-weight:600;font-size:12px}
 .total-range{font-size:12px;opacity:.85;margin:.2rem 0 0}
 .li-total{font-weight:700;font-size:13px;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;padding-top:9px}
@@ -468,6 +468,7 @@ details[open]>summary .chev{transform:rotate(-135deg)}
         <div class="rf-layout">
           <div>
             <div id="rf-detailed-panel">
+              <p class="hint guide-note" id="rf-guide-note" hidden></p>
               <div id="rf-sections"></div>
             </div>
             <div id="rf-rooms-panel" hidden></div>
@@ -868,11 +869,20 @@ async function refreshGuideRegion(){
   }
   if(region===guideRegion)return;
   guideRegion=region;
+  updateGuideNote();
   refurbItemList().forEach(x=>updateRateHint(x.key));
   if(currentView==='rooms')renderRoomsPanel();
   recalcSummary();
 }
 function lineGuide(key){ return RefurbRateCard.guide(key,guideRegion); }
+// One note above the line items, shown only when guide rates are in use
+// for this region.
+function updateGuideNote(){
+  const el=document.getElementById('rf-guide-note');
+  if(!el)return;
+  el.textContent=RefurbRateCard.GUIDE_NOTE;
+  el.hidden=!refurbItemList().some(x=>lineGuide(x.key));
+}
 
 function prefillRate(key){
   const el=document.getElementById('di-'+domId(key)+'-rate');
@@ -896,7 +906,7 @@ function updateRateHint(key){
   if(el.value===''&&g){
     hint.className='rate-hint';
     const range=g.low!=null&&g.high!=null?`<span class="rh-range">${escapeHtml(fmtRate(g.low))} to ${escapeHtml(fmtRate(g.high))}</span>`:'';
-    hint.innerHTML=escapeHtml(RefurbRateCard.guideLabel(g))+`<span class="rh-note">${escapeHtml(RefurbRateCard.GUIDE_NOTE)}</span>`+range;
+    hint.innerHTML=escapeHtml(RefurbRateCard.guideLabel(g))+range;
     return;
   }
   hint.className='rate-hint'; hint.textContent='';
@@ -1840,6 +1850,7 @@ async function init(){
   if(currentPlan!=='paid'){ showState('locked'); return; }
 
   buildDetailedPanel();
+  updateGuideNote();
   buildQuickPanel();
   switchView('detailed',true);
   switchVat(20,true);
