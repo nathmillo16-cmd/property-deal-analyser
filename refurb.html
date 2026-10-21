@@ -278,6 +278,16 @@ details[open]>summary .chev{transform:rotate(-135deg)}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--ink);margin:0 0 .85rem;cursor:pointer;line-height:1.4}
 .check input{margin-top:3px;width:18px;height:18px;flex-shrink:0}
 .check small{display:block;color:var(--muted);font-size:12px}
+.buffer-row{margin:-.25rem 0 .75rem 28px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center}
+.buffer-row label{font-size:13px;font-weight:600;color:var(--ink)}
+.buffer-input{font-size:13px;color:var(--muted)}
+.buffer-input input{width:64px;font-family:var(--font-body);font-size:14px;padding:7px 8px;border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);text-align:right;margin-right:4px}
+.buffer-row .hint{grid-column:1 / -1;margin:0}
+.buffer-row.disabled{opacity:.45;pointer-events:none}
+.upd-breakdown{margin:0 0 .85rem 28px;padding:.6rem .8rem;border-radius:8px;background:rgba(75,69,178,.07);font-size:13px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+.upd-breakdown:empty{display:none}
+.q-vat{font-size:11.5px;font-weight:500;color:var(--muted);white-space:nowrap;margin-top:2px}
+.vat-rate-select{font-family:var(--font-body);font-size:13px;padding:8px 10px;border:1.5px solid var(--hairline-strong);border-radius:10px;background:var(--surface);min-height:44px}
 .pick-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:1px solid var(--hairline);border-radius:12px;margin-bottom:8px;background:var(--surface);cursor:pointer}
 .pick-row:hover{border-color:var(--accent)}
 
@@ -359,7 +369,7 @@ details[open]>summary .chev{transform:rotate(-135deg)}
   <div id="state-board" style="display:none">
 
     <div class="notice info" id="rf-calc-banner" hidden>
-      Opened from the Calculator. Saving this estimate sends its grand total back to the Refurb field.
+      Opened from the Calculator. Saving this estimate sends its grand total, including contingency, back to the Refurb field.
       <button type="button" class="link-btn" onclick="backToCalculator()">Back without changes</button>
     </div>
 
@@ -470,6 +480,12 @@ details[open]>summary .chev{transform:rotate(-135deg)}
               <div class="cont-pct" id="rf-cont-pct-wrap"><input type="number" id="rf-cont-pct" value="10" min="0" inputmode="decimal" oninput="recalcSummary()"/><span>% of subtotal</span></div>
             </div>
             <div class="sl"><span>Contingency</span><span class="v" id="rf-contingency-amt">£0</span></div>
+            <p class="sum-sub">Your rates are</p>
+            <div class="vat-tabs">
+              <button type="button" class="tab-btn active" id="pv-ex" onclick="setPricesIncVat(false)">Ex VAT</button>
+              <button type="button" class="tab-btn" id="pv-inc" onclick="setPricesIncVat(true)">Inc VAT</button>
+            </div>
+            <div id="rf-vat-add">
             <p class="sum-sub">VAT</p>
             <div class="vat-tabs">
               <button type="button" class="tab-btn" id="vat-btn-0" onclick="switchVat(0)">No VAT</button>
@@ -477,6 +493,8 @@ details[open]>summary .chev{transform:rotate(-135deg)}
               <button type="button" class="tab-btn" id="vat-btn-5" onclick="switchVat(5)">5%</button>
             </div>
             <p class="hint" style="margin:0 0 .4rem">The 5% reduced rate can apply to renovations of properties empty 2+ years, or certain conversions. Check eligibility before relying on it.</p>
+            </div>
+            <p class="hint" id="rf-vat-inc-note" hidden style="margin:0 0 .4rem">Your rates already include VAT, so none is added. Quotes are compared including VAT too.</p>
             <div class="sl"><span>VAT</span><span class="v" id="rf-vat-amt">£0</span></div>
 
             <div class="offer-box" style="margin-top:1rem">
@@ -541,7 +559,15 @@ details[open]>summary .chev{transform:rotate(-135deg)}
     <div class="modal-header"><h2>Update the deal</h2><button class="modal-close" onclick="closeUpdateDeal()" aria-label="Close">×</button></div>
     <p class="hint" id="upd-intro" style="margin-bottom:1rem"></p>
     <label class="check"><input type="checkbox" id="upd-ref" checked/><span id="upd-ref-label"></span></label>
-    <label class="check" id="upd-dur-wrap"><input type="checkbox" id="upd-dur"/><span id="upd-dur-label"></span></label>
+    <div id="upd-dur-wrap">
+      <label class="check"><input type="checkbox" id="upd-dur" onchange="updBreakdown()"/><span id="upd-dur-label"></span></label>
+      <div class="buffer-row" id="upd-buffer-wrap">
+        <label for="upd-buffer">Refinance buffer</label>
+        <span class="buffer-input"><input type="number" id="upd-buffer" value="3" min="0" max="24" step="1" inputmode="numeric" oninput="updBreakdown()"/> months</span>
+        <p class="hint">Valuation and the new lender's wait. Many lenders need 3 to 6 months after purchase.</p>
+      </div>
+      <p class="upd-breakdown" id="upd-breakdown"></p>
+    </div>
     <p class="hint">The calculator re-runs the deal and saves it. Nothing else about the deal changes.</p>
     <div class="modal-actions">
       <button type="button" class="btn-secondary" onclick="closeUpdateDeal()">Not now</button>
@@ -586,6 +612,26 @@ const CALC_FIELDS=['b-ref','h-ref','sa-ref','fl-ref'];
 
 let currentView='detailed';      // 'detailed' | 'rooms' | 'quick'
 let currentVatRate=20;
+// "Your rates are Inc VAT": no VAT is added on top (saved with vat_rate 0,
+// so every total elsewhere stays right), and the chosen rate is remembered
+// for switching back. Kept in the estimate's details.
+let pricesIncVat=false;
+function effectiveVat(){ return pricesIncVat?0:currentVatRate; }
+function setPricesIncVat(inc, skipRecalc){
+  pricesIncVat=!!inc;
+  document.getElementById('pv-ex').classList.toggle('active',!pricesIncVat);
+  document.getElementById('pv-inc').classList.toggle('active',pricesIncVat);
+  document.getElementById('rf-vat-add').hidden=pricesIncVat;
+  document.getElementById('rf-vat-inc-note').hidden=!pricesIncVat;
+  if(!skipRecalc)recalcSummary();
+}
+// For the Quotes comparison: what the estimate's total includes.
+function estimateVatInfo(){
+  if(pricesIncVat)return { label:'inc VAT (in your rates)', likeForLike:true };
+  if(effectiveVat()>0)return { label:'inc '+effectiveVat()+'% VAT', likeForLike:true };
+  return { label:'no VAT added', likeForLike:false,
+    warning:'Your estimate has no VAT added, but quotes are compared including VAT. If your rates are ex VAT, pick 20% under VAT on the Estimate. If they already include VAT, set Your rates are to Inc VAT.' };
+}
 let entry=null;                   // how this estimate was started: 'template'|'rooms'|'lines'|'quick'; null = start screen
 let savedEstimates=[], editingId=null;
 let savedDeals=null;
@@ -1143,7 +1189,7 @@ function readQuickLineItems(){
 function saveMode(){ return currentView==='quick'?'quick':'detailed'; }
 function currentLineItems(){ return saveMode()==='quick'?readQuickLineItems():readDetailedLineItems(); }
 function currentTotals(){
-  return computeTotals(saveMode(),currentLineItems(),document.getElementById('rf-cont-on').checked,parseFloat(document.getElementById('rf-cont-pct').value)||0,currentVatRate);
+  return computeTotals(saveMode(),currentLineItems(),document.getElementById('rf-cont-on').checked,parseFloat(document.getElementById('rf-cont-pct').value)||0,effectiveVat());
 }
 function currentDurationWeeks(){ return numOrNull(document.getElementById('rf-duration').value); }
 
@@ -1170,7 +1216,7 @@ function recalcSummary(){
   const totals=currentTotals();
   document.getElementById('rf-subtotal').textContent=fmtGBP(totals.subtotal);
   document.getElementById('rf-contingency-amt').textContent=fmtGBP(totals.contingencyAmt);
-  document.getElementById('rf-vat-amt').textContent=fmtGBP(totals.vatAmt);
+  document.getElementById('rf-vat-amt').textContent=pricesIncVat?'In your rates':fmtGBP(totals.vatAmt);
   const gt=document.getElementById('rf-grand-total');
   const note=document.getElementById('rf-total-note');
   const noRates=saveMode()==='detailed'&&counted>0&&totals.subtotal===0;
@@ -1254,6 +1300,8 @@ function currentDetails(){
     epc: (epc.current||epc.target)?epc:null,
     durationWeeks: currentDurationWeeks(),
     suggestedWeeks,
+    pricesIncVat,
+    vatRateEx: currentVatRate,
   };
 }
 
@@ -1270,6 +1318,8 @@ function applyDetails(d){
   document.getElementById('rf-duration').value=d.durationWeeks!=null?d.durationWeeks:'';
   suggestedWeeks=d.suggestedWeeks||null;
   entry=d.entry||null;
+  if(d.vatRateEx===0||d.vatRateEx===5||d.vatRateEx===20)switchVat(d.vatRateEx,true);
+  setPricesIncVat(!!d.pricesIncVat,true);
   updateSuggestLink();
 }
 
@@ -1364,6 +1414,7 @@ function resetForm(){
   document.getElementById('rf-cont-pct').value=10;
   onContingencyToggle();
   switchVat(20,true);
+  setPricesIncVat(false,true);
   showWorkNote('');
 }
 
@@ -1468,7 +1519,7 @@ async function saveEstimate(opts){
     name, mode:saveMode(), line_items:currentLineItems(),
     contingency_enabled:document.getElementById('rf-cont-on').checked,
     contingency_pct:parseFloat(document.getElementById('rf-cont-pct').value)||0,
-    vat_rate:currentVatRate,
+    vat_rate:effectiveVat(),
     details:currentDetails(),
   };
   const isUpdate=!!editingId;
@@ -1524,7 +1575,10 @@ function onEstimateRowUpdated(row){
 function sendToCalculator(){
   const totals=currentTotals();
   try{
-    sessionStorage.setItem('dny-refurb-to-calc',JSON.stringify({ field:fromCalc.field, tab:fromCalc.tab, value:Math.round(totals.grandTotal), name:document.getElementById('rf-name').value.trim(), estimateId:editingId }));
+    // The grand total already includes contingency (and VAT); the label
+    // travels with it so the calculator can say so.
+    const on=document.getElementById('rf-cont-on').checked, pct=parseFloat(document.getElementById('rf-cont-pct').value)||0;
+    sessionStorage.setItem('dny-refurb-to-calc',JSON.stringify({ field:fromCalc.field, tab:fromCalc.tab, value:Math.round(totals.grandTotal), contingencyPct:on?pct:0, name:document.getElementById('rf-name').value.trim(), estimateId:editingId }));
   }catch(e){ /* the calculator just won't be updated */ }
   window.location.href='index.html';
 }
@@ -1571,7 +1625,16 @@ function estimateWeeks(est){
   if(est.id===editingId)return currentDurationWeeks();
   return est.details&&est.details.durationWeeks!=null?Number(est.details.durationWeeks):null;
 }
-function weeksToMonths(w){ return Math.max(1,Math.min(36,Math.ceil(w/4.345))); }
+// Weeks of works as whole months (rounded up). The calculator's bridge and
+// holding months go up to 36.
+const CALC_MAX_MONTHS=36;
+const REFI_BUFFER_DEFAULT=3;
+function weeksToMonths(w){ return Math.max(1,Math.min(CALC_MAX_MONTHS,Math.ceil(w/4.345))); }
+function contingencyLabel(enabled,pct){ return enabled&&pct>0?`inc. ${pct}% contingency`:'no contingency'; }
+function estimateContingency(est){
+  if(est.id===editingId)return { enabled:document.getElementById('rf-cont-on').checked, pct:parseFloat(document.getElementById('rf-cont-pct').value)||0 };
+  return { enabled:!!est.contingency_enabled, pct:Number(est.contingency_pct)||0 };
+}
 
 let updDeal=null, updEstimateId=null;
 function openUpdateDeal(deal, estimateId){
@@ -1582,21 +1645,50 @@ function openUpdateDeal(deal, estimateId){
   const weeks=estimateWeeks(est);
   const st=dealStrategy(deal);
   document.getElementById('upd-intro').textContent=`Linked to ${dealDisplayName(deal)}. Do you want to update the deal's figures from this estimate?`;
-  document.getElementById('upd-ref-label').textContent=`Use this estimate's total (${fmtGBP(total)}) as the deal's refurb cost`;
+  const ec=estimateContingency(est);
+  document.getElementById('upd-ref-label').textContent=`Use this estimate's total (${fmtGBP(total)}, ${contingencyLabel(ec.enabled,ec.pct)}) as the deal's refurb cost`;
   const durOk=weeks>0&&(st==='brrr'||st==='btl'||st==='flip');
   document.getElementById('upd-dur-wrap').hidden=!durOk;
   if(durOk){
-    const m=weeksToMonths(weeks);
     const what=st==='brrr'?'bridge months and holding cost months':'holding cost months';
     const pl=(deal.deal_data&&deal.deal_data.planning)||{};
     const on=(pl.holding&&pl.holding.on)||(st==='brrr'&&pl.bridge&&pl.bridge.on);
-    document.getElementById('upd-dur-label').innerHTML=escapeHtml(`Use the ${weeks} week timeline (about ${m} month${m===1?'':'s'}) for the ${what}`)+
+    document.getElementById('upd-dur-label').innerHTML=escapeHtml(`Use the ${weeks} week timeline for the ${what}`)+
       (on?'':'<small>These only count once Bought with a bridge or Holding costs is switched on under Make it realistic on the Calculator.</small>');
     document.getElementById('upd-dur').checked=true;
+    // A refinance buffer only applies to BRRR: a BTL or Flip has no refinance.
+    document.getElementById('upd-buffer-wrap').hidden=st!=='brrr';
+    document.getElementById('upd-buffer').value=REFI_BUFFER_DEFAULT;
   }else document.getElementById('upd-dur').checked=false;
+  updBreakdown();
   document.getElementById('upd-ref').checked=true;
   document.getElementById('upd-modal').classList.add('open');
 }
+// Months used for the deal's bridge and holding costs: the works (weeks
+// rounded up to months) plus, for BRRR, the refinance buffer. Shown before
+// it's applied. Returns the total, or null when the timeline isn't used.
+function updMonths(){
+  const est=savedEstimates.find(e=>e.id===updEstimateId);
+  if(!est||!updDeal||document.getElementById('upd-dur-wrap').hidden||!document.getElementById('upd-dur').checked)return null;
+  const works=weeksToMonths(estimateWeeks(est));
+  if(dealStrategy(updDeal)!=='brrr')return { works, buffer:0, total:works, capped:false };
+  let buffer=Math.round(Number(document.getElementById('upd-buffer').value));
+  if(!Number.isFinite(buffer)||buffer<0)buffer=0;
+  buffer=Math.min(24,buffer);
+  const raw=works+buffer;
+  return { works, buffer, total:Math.min(CALC_MAX_MONTHS,raw), capped:raw>CALC_MAX_MONTHS };
+}
+function updBreakdown(){
+  const el=document.getElementById('upd-breakdown');
+  const m=updMonths();
+  document.getElementById('upd-buffer-wrap').classList.toggle('disabled',!m);
+  if(!m){ el.textContent=''; return; }
+  const mo=n=>n+(n===1?' month':' months');
+  el.textContent=dealStrategy(updDeal)==='brrr'
+    ? `Works ${mo(m.works)} + refinance ${mo(m.buffer)} = ${mo(m.total)}${m.capped?' (the calculator\'s limit)':''}, for bridge and holding months`
+    : `Works ${mo(m.works)}, for holding months`;
+}
+
 function closeUpdateDeal(){
   document.getElementById('upd-modal').classList.remove('open');
   if(updDeal)setMsg('Linked to '+dealDisplayName(updDeal)+'.','success');
@@ -1608,9 +1700,9 @@ function confirmUpdateDeal(){
   const useDur=!document.getElementById('upd-dur-wrap').hidden&&document.getElementById('upd-dur').checked;
   if(!deal||!est||(!useRef&&!useDur)){ closeUpdateDeal(); return; }
   const ref=useRef?estimateGrandTotal(est):((deal.deal_data&&deal.deal_data.ref)||0);
-  const weeks=estimateWeeks(est);
+  const m=updMonths();
   updDeal=null;
-  goToRerun(deal,ref,useDur?{months:weeksToMonths(weeks)}:null);
+  goToRerun(deal,ref,useDur&&m?{months:m.total}:null);
 }
 
 function renderLinkedBox(){
@@ -1670,7 +1762,7 @@ async function downloadScopePdf(){
       includePrices:document.getElementById('pdf-prices').checked,
       includePhotos, photoUrls,
       totals:currentTotals(),
-      vatRate:currentVatRate,
+      vatRate:effectiveVat(), pricesIncVat,
       contingencyPct:document.getElementById('rf-cont-on').checked?(parseFloat(document.getElementById('rf-cont-pct').value)||0):0,
       durationWeeks:currentDurationWeeks(),
       epc,
@@ -1711,7 +1803,8 @@ async function init(){
     estimate:currentSavedEstimate,
     totals:currentTotals,
     lineItems:()=>({ mode:saveMode(), items:currentLineItems() }),
-    contingency:()=>({ enabled:document.getElementById('rf-cont-on').checked, pct:parseFloat(document.getElementById('rf-cont-pct').value)||0, vat:currentVatRate }),
+    contingency:()=>({ enabled:document.getElementById('rf-cont-on').checked, pct:parseFloat(document.getElementById('rf-cont-pct').value)||0, vat:effectiveVat() }),
+    estimateVat:estimateVatInfo,
     durationWeeks:currentDurationWeeks,
     onEstimateUpdated:onEstimateRowUpdated,
     goStage,

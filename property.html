@@ -807,11 +807,11 @@ function capitalBody(){
   const d=capital.data;
   const rows=d.payments.map(p=>`<li class="pr-item"><div class="pr-row pr-has-actions">
       <span class="pr-main"><span class="pr-title">${PF.esc(p.description||'Refurb payment')}</span>
-        <span class="pr-sub">${PF.date(p.paid_date)}${p.estimate_name?' · '+PF.esc(p.estimate_name):''}</span></span>
+        <span class="pr-sub">${PF.date(p.paid_date)}${p.estimate_name?' · '+PF.esc(p.estimate_name):''}${p.tax_tag==='unsure'?' · <strong>Not sure: check with accountant</strong>':''}</span></span>
       <span class="pr-amount">${PF.gbp2(p.amount)}</span>
       <span class="pr-actions">${p.receipt_url?`<a class="pr-btn" href="${PF.esc(p.receipt_url)}" target="_blank" rel="noopener" title="Open receipt (link lasts 1 hour)">${CLIP_ICON}<span class="sr-only">Receipt</span></a>`:''}</span>
     </div></li>`).join('');
-  return `<div class="pp-callout">Refurb spend is kept as capital costs, separate from day-to-day expenses and the tax year summary.<span class="pp-callout-sub">Refurb and improvement costs are usually treated differently for tax. Check with your accountant.</span></div>
+  return `<div class="pp-callout">Refurb spend tagged as a capital improvement, or not sure yet, is kept here as capital costs, separate from day-to-day expenses and the tax year summary. Repairs logged from the estimator are in Expenses.<span class="pp-callout-sub">Like-for-like repairs are usually deductible against rent. Improvements are usually capital. Your accountant decides.</span></div>
     <ul class="pr-list">${rows}</ul>
     <div class="pp-sec-foot"><p class="pp-note">Logged from the Refurbishment Estimator's Budget. Edit or delete them there.</p></div>`;
 }

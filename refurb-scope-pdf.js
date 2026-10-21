@@ -222,6 +222,7 @@
       const lines = [['Subtotal', money(t.subtotal)]];
       if (t.contingencyAmt > 0) lines.push(['Contingency (' + o.contingencyPct + '%)', money(t.contingencyAmt)]);
       if (t.vatAmt > 0) lines.push(['VAT (' + o.vatRate + '%)', money(t.vatAmt)]);
+      if (o.pricesIncVat) lines.push(['VAT', 'Included in prices']);
       const bx = M + CW / 2, bw = CW / 2;
       lines.forEach(([k, v]) => { set(10, false, MUTED); doc.text(k, bx, y); set(10, true, INK); doc.text(v, W - M, y, { align: 'right' }); y += 16; });
       doc.setFillColor(...INDIGO); doc.roundedRect(bx - 10, y - 4, bw + 10, 34, 6, 6, 'F');

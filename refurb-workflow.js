@@ -24,13 +24,21 @@
   // Quick-mode trades onto the categories payments are logged against.
   const QUICK_TO_SECTION = { electrics: 'electrics', plumbing: 'plumbing', bathroom: 'bathroom-kitchen-supply', kitchen: 'bathroom-kitchen-supply', plastering: 'plastering', painting: 'painting', flooring: 'flooring', roofing: 'roofing', 'windows-doors': 'windows-doors', masonry: 'masonry', garden: 'garden', demolition: 'demolition', epc: 'epc' };
   const TAX_NOTE = 'Refurb and improvement costs are usually treated differently for tax. Check with your accountant.';
+  // Per-payment tax tag (db/049). Default "Not sure".
+  const TAX_TAGS = { capital: 'Capital improvement', repair: 'Repair (like for like)', unsure: 'Not sure' };
+  const TAX_TAG_HINT = 'Like-for-like repairs are usually deductible against rent. Improvements are usually capital. Your accountant decides.';
+  function portfolioLabel(tag, address) {
+    if (tag === 'repair') return { main: 'Also log this in Portfolio for ' + address, sub: 'Added to the property\'s expenses as Repairs and maintenance.' };
+    if (tag === 'capital') return { main: 'Also log this in Portfolio for ' + address, sub: 'Added to the property\'s capital costs, separate from day-to-day expenses.' };
+    return { main: 'Also log this in Portfolio for ' + address, sub: 'Added to the property\'s capital costs, flagged "check with accountant".' };
+  }
   const DB_NOTE = 'This needs a quick database update (db/048) before it can be used. The rest of the estimator works as normal.';
 
   function headers(json) { const h = { Authorization: 'Bearer ' + ctx.session().access_token }; if (json) h['Content-Type'] = 'application/json'; return h; }
   async function api(method, path, body) {
     const res = await fetch(API_BASE + path, { method, headers: headers(!!body), body: body ? JSON.stringify(body) : undefined });
     const d = await res.json().catch(() => ({}));
-    if (res.status === 409 && d.needs_migration) { const e = new Error(DB_NOTE); e.needsDb = true; throw e; }
+    if (res.status === 409 && d.needs_migration) { const e = new Error(/db\/04[9]/.test(d.error || '') ? d.error : DB_NOTE); e.needsDb = !/db\/049/.test(d.error || ''); throw e; }
     if (!res.ok) throw new Error(d.error || 'That did not work. Try again.');
     return d;
   }
@@ -49,6 +57,15 @@
   const today = () => new Date().toISOString().slice(0, 10);
   const esc = s => ctx.esc(s);
   const fmt = v => ctx.fmt(v);
+  // A quote's figure including VAT (the server sends it as amount_inc_vat;
+  // worked out here too for a quote just edited on the page).
+  function incVat(q) { return q.amount_inc_vat != null ? q.amount_inc_vat : (q.vat_mode === 'plus' ? Math.round(q.amount * (1 + (q.vat_rate || 0) / 100) * 100) / 100 : q.amount); }
+  // "£18,000 + VAT = £21,600" or "£21,600 inc VAT".
+  function vatLine(q) {
+    if (q.vat_known === false) return fmt(q.amount) + ' as entered';
+    if (q.vat_mode === 'plus') return q.vat_rate ? `${fmt(q.amount)} + VAT = ${fmt(incVat(q))}` : `${fmt(q.amount)}, no VAT`;
+    return fmt(q.amount) + ' inc VAT';
+  }
   function signed(v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v)); }
   function weeksText(w) { return w == null || w === '' ? 'No timeline' : w + (Number(w) === 1 ? ' week' : ' weeks'); }
   function noticeHtml() { return notice ? `<div class="notice ${notice.cls}">${notice.html}</div>` : ''; }
@@ -74,16 +91,19 @@
     const est = ctx.estimate();
     if (!est) return;
     if (quotesState === 'needs_db') { el.innerHTML = `<div class="notice warn">${esc(DB_NOTE)}</div>`; return; }
+    // Your estimate's grand total. It includes VAT unless the estimate has
+    // "No VAT" picked with ex-VAT rates, which the row below says.
     const mine = Math.round(ctx.totals().grandTotal);
+    const ev = ctx.estimateVat();
     const myWeeks = ctx.durationWeeks();
-    const list = (quotes || []).slice().sort((a, b) => a.amount - b.amount);
+    const list = (quotes || []).slice().sort((a, b) => incVat(a) - incVat(b));
     const cheapest = list.length >= 2 ? list[0].id : null;
     const timed = list.filter(q => q.timeline_weeks != null);
     const fastest = timed.length >= 2 ? timed.slice().sort((a, b) => a.timeline_weeks - b.timeline_weeks)[0].id : null;
     const budgetFromEstimate = est.budget_source === 'estimate' && est.budget_amount != null;
 
     const rows = list.map(q => {
-      const diff = q.amount - mine;
+      const diff = incVat(q) - mine;
       const pct = mine > 0 ? Math.round(diff / mine * 100) : null;
       const sub = [q.contact, q.quote_date ? ctx.fmtDate(q.quote_date) : null].filter(Boolean).map(esc).join(' · ');
       return `<div class="qrow${q.accepted ? ' accepted' : ''}">
@@ -93,7 +113,7 @@
           <div class="q-badges">${q.accepted ? '<span class="badge acc">Accepted</span>' : ''}${q.id === cheapest ? '<span class="badge cheap">Cheapest</span>' : ''}${q.id === fastest ? '<span class="badge fast">Fastest</span>' : ''}</div></div>
         <div class="q-time">${esc(weeksText(q.timeline_weeks))}</div>
         <div class="q-diff ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}">${mine > 0 ? `${signed(diff)}${pct != null ? ' (' + (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct) + '%)' : ''}<br><span class="hint" style="font-style:normal">vs your estimate</span>` : ''}</div>
-        <div class="q-amt">${fmt(q.amount)}</div>
+        <div class="q-amt">${fmt(incVat(q))}<div class="q-vat">${esc(q.vat_known !== false && q.vat_mode === 'inc' ? 'inc VAT' : vatLine(q))}</div></div>
         <div class="q-actions">
           ${q.file_url ? `<a class="mini-btn" href="${esc(q.file_url)}" target="_blank" rel="noopener">View quote</a>` : ''}
           <button type="button" class="mini-btn" onclick="RefurbWorkflow.editQuote('${q.id}')">Edit</button>
@@ -107,13 +127,14 @@
     el.innerHTML = `${noticeHtml()}
       <div class="card" style="padding:1.25rem 1.25rem 1rem;margin-bottom:12px">
         <h2 style="font-size:16px;margin:0 0 .25rem">Compare quotes</h2>
-        <p class="hint" style="margin:0 0 1rem">Your estimate against each builder. Accept one to set your budget.</p>
+        <p class="hint" style="margin:0 0 1rem">Your estimate against each builder, all including VAT. Accept one to set your budget.</p>
+        ${ev.likeForLike ? '' : `<div class="notice warn">${esc(ev.warning)}</div>`}
         <div class="qrow mine">
           <div><div class="q-name">Your estimate</div><div class="q-sub">${esc(est.name)}</div>
             <div class="q-badges">${budgetFromEstimate ? '<span class="badge acc">Budget</span>' : ''}</div></div>
           <div class="q-time">${esc(weeksText(myWeeks))}</div>
           <div class="q-diff"></div>
-          <div class="q-amt">${mine > 0 ? fmt(mine) : 'No total yet'}</div>
+          <div class="q-amt">${mine > 0 ? fmt(mine) : 'No total yet'}<div class="q-vat">${esc(ev.label)}</div></div>
         </div>
         ${rows || '<p class="hint" style="margin:.5rem 0 0">No quotes yet. Add the first one below.</p>'}
       </div>
@@ -124,7 +145,14 @@
           <div class="field-grid">
             <div class="field"><label for="wq-name">Builder name</label><input type="text" id="wq-name" maxlength="120" value="${editing ? esc(editing.builder_name) : ''}"/></div>
             <div class="field"><label for="wq-contact">Contact (phone or email)</label><input type="text" id="wq-contact" maxlength="200" value="${editing && editing.contact ? esc(editing.contact) : ''}"/></div>
-            <div class="field"><label for="wq-amount">Quote amount (£)</label><input type="number" inputmode="decimal" min="0" step="any" id="wq-amount" value="${editing ? editing.amount : ''}"/></div>
+            <div class="field"><label for="wq-amount">Quote amount (£)</label><input type="number" inputmode="decimal" min="0" step="any" id="wq-amount" value="${editing ? editing.amount : ''}" oninput="RefurbWorkflow.vatPreview()"/></div>
+            <div class="field"><label>Is VAT included?</label>
+              <div class="choice-row" role="group" aria-label="VAT on this quote">
+                <button type="button" class="choice${formVat.mode === 'plus' ? ' active' : ''}" id="wq-vat-plus" onclick="RefurbWorkflow.setFormVat('plus')">+ VAT</button>
+                <button type="button" class="choice${formVat.mode === 'inc' ? ' active' : ''}" id="wq-vat-inc" onclick="RefurbWorkflow.setFormVat('inc')">Inc VAT</button>
+                <select id="wq-vat-rate" class="vat-rate-select" onchange="RefurbWorkflow.vatPreview()" aria-label="VAT rate"${formVat.mode === 'plus' ? '' : ' hidden'}>${[20, 5].map(v => `<option value="${v}"${formVat.rate === v ? ' selected' : ''}>${v}%</option>`).join('')}</select>
+              </div>
+              <span class="hint" id="wq-vat-preview"></span></div>
             <div class="field"><label for="wq-weeks">Timeline (weeks)</label><input type="number" inputmode="numeric" min="0" step="1" id="wq-weeks" value="${editing && editing.timeline_weeks != null ? editing.timeline_weeks : ''}"/></div>
             <div class="field"><label for="wq-date">Quote date</label><input type="date" id="wq-date" value="${editing ? (editing.quote_date || '') : today()}"/></div>
             ${editing ? '' : `<div class="field"><label for="wq-file">Quote file (optional PDF or photo)</label><input type="file" id="wq-file" accept="application/pdf,image/jpeg,image/png"/></div>`}
@@ -143,6 +171,7 @@
         <p class="hint" style="margin:0 0 .75rem">You can track spend against your own estimate instead.</p>
         <button type="button" class="btn-secondary" onclick="RefurbWorkflow.useEstimate()" ${mine > 0 ? '' : 'disabled'}>Use my estimate as budget${mine > 0 ? ' (' + fmt(mine) + ')' : ''}</button>
       </div>`;
+    vatPreview(); // the "£18,000 + VAT = £21,600" line under the form
   }
 
   async function saveQuote() {
@@ -154,6 +183,8 @@
       builder_name: document.getElementById('wq-name').value,
       contact: document.getElementById('wq-contact').value,
       amount: document.getElementById('wq-amount').value,
+      vat_mode: formVat.mode,
+      vat_rate: formVat.mode === 'plus' ? Number(document.getElementById('wq-vat-rate').value) : 20,
       timeline_weeks: document.getElementById('wq-weeks').value,
       quote_date: document.getElementById('wq-date').value || null,
       notes: document.getElementById('wq-notes').value,
@@ -165,15 +196,18 @@
       if (editingQuoteId) {
         const q = await api('PUT', '/api/refurb-quotes/' + editingQuoteId, body);
         quotes = quotes.map(x => x.id === q.id ? q : x);
-        if (q.accepted) { const e = ctx.estimate(); if (e) ctx.onEstimateUpdated({ ...e, budget_amount: q.amount, budget_source: 'quote' }); }
+        if (q.accepted) { const e = ctx.estimate(); if (e) ctx.onEstimateUpdated({ ...e, budget_amount: incVat(q), budget_source: 'quote' }); }
         editingQuoteId = null;
-        notice = { cls: 'success', html: 'Quote updated.' };
+        notice = { cls: q.vat_saved === false ? 'warn' : 'success', html: q.vat_saved === false ? 'Quote updated. Its VAT setting needs a quick database update (db/049), so the amount counts as entered.' : 'Quote updated.' };
       } else {
         const fileEl = document.getElementById('wq-file');
         body.file = await fileToUpload(fileEl && fileEl.files && fileEl.files[0]);
         const q = await api('POST', '/api/refurb-estimates/' + est.id + '/quotes', body);
         quotes.push(q);
-        notice = { cls: 'success', html: 'Quote from ' + esc(q.builder_name) + ' added.' };
+        formVat = { mode: 'plus', rate: 20 };
+        notice = q.vat_saved === false
+          ? { cls: 'warn', html: 'Quote from ' + esc(q.builder_name) + ' added. Its VAT setting needs a quick database update (db/049), so the amount counts as entered.' }
+          : { cls: 'success', html: 'Quote from ' + esc(q.builder_name) + ' added: ' + esc(vatLine(q)) + '.' };
       }
       renderQuotes();
     } catch (e) {
@@ -182,8 +216,28 @@
     }
   }
 
-  function editQuote(id) { editingQuoteId = id; notice = null; renderQuotes(); const f = document.getElementById('wf-quote-form'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-  function cancelEdit() { editingQuoteId = null; renderQuotes(); }
+  // VAT toggle on the quote form, "+ VAT" at 20% unless changed.
+  let formVat = { mode: 'plus', rate: 20 };
+  function setFormVat(mode) {
+    formVat.mode = mode;
+    document.getElementById('wq-vat-plus').classList.toggle('active', mode === 'plus');
+    document.getElementById('wq-vat-inc').classList.toggle('active', mode === 'inc');
+    document.getElementById('wq-vat-rate').hidden = mode !== 'plus';
+    vatPreview();
+  }
+  function vatPreview() {
+    const el = document.getElementById('wq-vat-preview');
+    if (!el) return;
+    const a = Number(document.getElementById('wq-amount').value);
+    formVat.rate = Number(document.getElementById('wq-vat-rate').value) || 20;
+    if (!(a > 0)) { el.textContent = ''; return; }
+    el.textContent = vatLine({ amount: a, vat_mode: formVat.mode, vat_rate: formVat.rate, vat_known: true });
+  }
+  function editQuote(id) {
+    const q = quotes.find(x => x.id === id);
+    formVat = q ? { mode: q.vat_mode === 'plus' ? 'plus' : 'inc', rate: q.vat_rate === 5 ? 5 : 20 } : { mode: 'plus', rate: 20 };
+    editingQuoteId = id; notice = null; renderQuotes(); const f = document.getElementById('wf-quote-form'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  function cancelEdit() { editingQuoteId = null; formVat = { mode: 'plus', rate: 20 }; renderQuotes(); }
 
   async function deleteQuote(id) {
     const q = quotes.find(x => x.id === id);
@@ -204,7 +258,7 @@
       const d = await api('POST', '/api/refurb-quotes/' + id + '/accept');
       quotes = quotes.map(x => ({ ...x, accepted: x.id === id }));
       ctx.onEstimateUpdated(d.estimate);
-      notice = { cls: 'success', html: `Accepted ${esc(q.builder_name)}. Your budget is now ${fmt(q.amount)}. <button type="button" class="link-btn" onclick="RefurbWorkflow.go('budget')">Track spend</button>` };
+      notice = { cls: 'success', html: `Accepted ${esc(q.builder_name)}. Your budget is now ${fmt(incVat(q))} inc VAT. <button type="button" class="link-btn" onclick="RefurbWorkflow.go('budget')">Track spend</button>` };
       renderQuotes();
     } catch (e) { alert(e.message); }
   }
@@ -279,6 +333,8 @@
     const accepted = (quotes || []).find(q => q.accepted);
     const sourceText = f.fromQuote ? (accepted ? 'Quote from ' + accepted.builder_name : 'Accepted quote') : 'Your estimate';
     const pctDone = Number(est.pct_complete) || 0;
+    // Tax tags need db/049; before it, payments log without one.
+    const tagsReady = !payData || payData.tags_ready !== false;
 
     let warn = '';
     if (f.B > 0 && f.spent > f.B) warn = `<div class="notice danger"><strong>Over budget by ${fmt(f.spent - f.B)}.</strong> You have spent ${Math.round(f.pctSpent)}% of the budget.</div>`;
@@ -298,7 +354,7 @@
 
     const payRows = payments.map(p => `<div class="pay-row">
       <div class="pay-main"><div class="pay-title">${esc(p.description || TRADE_LABELS[p.trade] || p.trade)}</div>
-        <div class="pay-sub">${ctx.fmtDate(p.paid_date)} · ${esc(TRADE_LABELS[p.trade] || p.trade)}${p.portfolio_property_id ? ' · In Portfolio' : ''}</div></div>
+        <div class="pay-sub">${ctx.fmtDate(p.paid_date)} · ${esc(TRADE_LABELS[p.trade] || p.trade)}${p.tax_tag ? ' · ' + esc(TAX_TAGS[p.tax_tag] || p.tax_tag) : ''}${p.portfolio_property_id ? ' · ' + (p.tax_tag === 'repair' ? 'In Portfolio expenses' : 'In Portfolio capital costs') : ''}</div></div>
       <span class="pay-amt">${fmt(p.amount)}</span>
       <span class="pay-actions">${p.receipt_url ? `<a class="mini-btn" href="${esc(p.receipt_url)}" target="_blank" rel="noopener">Receipt</a>` : ''}<button type="button" class="mini-btn danger" onclick="RefurbWorkflow.deletePayment('${p.id}')">Delete</button></span>
     </div>`).join('');
@@ -337,8 +393,11 @@
             <div class="field"><label for="wp-desc">What for</label><input type="text" id="wp-desc" maxlength="300" placeholder="e.g. First fix electrics"/></div>
             <div class="field"><label for="wp-receipt">Receipt (optional PDF or photo)</label><input type="file" id="wp-receipt" accept="application/pdf,image/jpeg,image/png"/></div>
           </div>
-          ${prop ? `<label class="check" style="margin-top:1rem"><input type="checkbox" id="wp-portfolio" checked/><span>Also log this in Portfolio for ${esc(prop.address)}<small>Logged as a capital cost, kept separate from day-to-day expenses.</small></span></label>` : ''}
-          <p class="tax-note">${esc(TAX_NOTE)}</p>
+          ${tagsReady ? `<div class="field" style="margin-top:12px"><label>Tax treatment</label>
+            <div class="choice-row" role="group" aria-label="Tax treatment">${Object.keys(TAX_TAGS).map(k => `<button type="button" class="choice${formTag === k ? ' active' : ''}" data-tag="${k}" onclick="RefurbWorkflow.setTag('${k}')">${esc(TAX_TAGS[k])}</button>`).join('')}</div>
+            <p class="tax-note">${esc(TAX_TAG_HINT)}</p></div>` : ''}
+          ${prop ? (() => { const pl = portfolioLabel(formTag, prop.address); return `<label class="check" style="margin-top:1rem"><input type="checkbox" id="wp-portfolio" ${tagsReady ? 'checked' : ''}/><span id="wp-portfolio-label">${esc(pl.main)}<small>${esc(pl.sub)}</small></span></label>`; })() : ''}
+          ${tagsReady ? '' : `<p class="tax-note">${esc(TAX_NOTE)}</p>`}
           <div class="sum-actions"><button type="button" class="btn-primary" id="wp-save" onclick="RefurbWorkflow.savePayment()">Log payment</button></div>
           <p class="save-msg" id="wp-msg"></p>
         </div>
@@ -372,11 +431,14 @@
         description: document.getElementById('wp-desc').value,
         receipt: await fileToUpload(document.getElementById('wp-receipt').files[0]),
         portfolio_property_id: portfolioEl && portfolioEl.checked && payData.portfolio_property ? payData.portfolio_property.id : null,
+        tax_tag: formTag,
       };
       const p = await api('POST', '/api/refurb-estimates/' + est.id + '/payments', body);
       payData.payments.unshift(p);
       payData.payments.sort((a, b) => (b.paid_date || '').localeCompare(a.paid_date || ''));
-      notice = { cls: 'success', html: `Logged ${fmt(p.amount)} for ${esc(TRADE_LABELS[p.trade] || p.trade)}${p.portfolio_property_id ? ', also in Portfolio as a capital cost' : ''}.` };
+      const where = !p.portfolio_property_id ? '' : p.tax_tag === 'repair' ? ', also in the property\'s Portfolio expenses' : p.tax_tag === 'unsure' ? ', also in Portfolio capital costs, flagged check with accountant' : ', also in Portfolio capital costs';
+      notice = { cls: 'success', html: `Logged ${fmt(p.amount)} for ${esc(TRADE_LABELS[p.trade] || p.trade)} ${p.tax_tag ? ' as ' + esc(TAX_TAGS[p.tax_tag].toLowerCase()) : ''}${where}.` };
+      formTag = 'unsure';
       renderBudget();
     } catch (e) {
       msg.className = 'save-msg error'; msg.textContent = e.message;
@@ -384,8 +446,18 @@
     }
   }
 
+  // Tax tag on the payment form, "Not sure" unless changed.
+  let formTag = 'unsure';
+  function setTag(tag) {
+    formTag = tag;
+    document.querySelectorAll('#wb-pay-form [data-tag]').forEach(b => b.classList.toggle('active', b.dataset.tag === tag));
+    const lab = document.getElementById('wp-portfolio-label');
+    if (lab && payData && payData.portfolio_property) { const pl = portfolioLabel(tag, payData.portfolio_property.address); lab.innerHTML = esc(pl.main) + '<small>' + esc(pl.sub) + '</small>'; }
+  }
+
   async function deletePayment(id) {
-    if (!confirm('Delete this payment?')) return;
+    const pay = (payData.payments || []).find(p => p.id === id);
+    if (!confirm('Delete this payment?' + (pay && pay.portfolio_expense_id ? ' It is also removed from the property\'s expenses in Portfolio.' : ''))) return;
     try {
       await api('DELETE', '/api/refurb-payments/' + id);
       payData.payments = payData.payments.filter(p => p.id !== id);
@@ -416,8 +488,8 @@
 
   window.RefurbWorkflow = {
     init(c) { ctx = c; },
-    showQuotes, showBudget, saveQuote, editQuote, cancelEdit, deleteQuote, acceptQuote, useEstimate,
-    savePayment, deletePayment, setPct, stopTracking,
+    showQuotes, showBudget, saveQuote, editQuote, cancelEdit, setFormVat, vatPreview, deleteQuote, acceptQuote, useEstimate,
+    savePayment, deletePayment, setPct, stopTracking, setTag,
     go(stage) { notice = null; ctx.goStage(stage); },
     budgetFigures,
   };

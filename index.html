@@ -2290,7 +2290,13 @@ function applyRefurbReturn(){
     const note=document.getElementById('rerun-note');
     if(note){
       note.className='value-warning success';
-      note.textContent='Refurb set to £'+Math.round(Number(p.value)).toLocaleString('en-GB')+' from your estimate'+(p.name?' "'+p.name+'"':'')+'.';
+      // The estimate's grand total already includes its contingency.
+      const cont=Number(p.contingencyPct)>0?'inc. '+Number(p.contingencyPct)+'% contingency':'no contingency';
+      let text='Refurb set to £'+Math.round(Number(p.value)).toLocaleString('en-GB')+' ('+cont+') from your estimate'+(p.name?' "'+p.name+'"':'')+'.';
+      // Flip has its own contingency on top of refurb: say so, so it isn't counted twice.
+      const flCont=document.getElementById('fl-cont');
+      if(p.field==='fl-ref'&&Number(p.contingencyPct)>0&&flCont&&Number(flCont.value)>0)text+=' Contingency % of refurb below adds more on top. Set it to 0 if the estimate\'s contingency is enough.';
+      note.textContent=text;
       note.style.display='block';
     }
   }catch(e){ /* leave the field as it was */ }

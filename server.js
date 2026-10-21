@@ -405,6 +405,30 @@ const REFURB_PAYMENTS_PER_ESTIMATE = 500;
 const REFURB_PAYMENT_TRADES = ['demolition', 'masonry', 'roofing', 'plastering', 'joinery', 'windows-doors', 'electrics', 'plumbing', 'flooring', 'bathroom-kitchen-supply', 'painting', 'garden', 'epc', 'other'];
 const REFURB_QUOTE_COLUMNS = 'id, estimate_id, builder_name, contact, amount, quote_date, timeline_weeks, notes, file_path, file_type, accepted, created_at';
 const REFURB_PAYMENT_COLUMNS = 'id, estimate_id, paid_date, trade, amount, description, receipt_path, receipt_type, portfolio_property_id, created_at';
+// db/049 columns. Every read/write tries these first and falls back to the
+// db/048 columns when the migration hasn't been run yet.
+const REFURB_QUOTE_COLUMNS_049 = REFURB_QUOTE_COLUMNS + ', vat_mode, vat_rate';
+const REFURB_PAYMENT_COLUMNS_049 = REFURB_PAYMENT_COLUMNS + ', tax_tag, portfolio_expense_id';
+const REFURB_QUOTE_VAT_RATES = [0, 5, 20];
+// Per-payment tax tag: capital improvement, like-for-like repair, not sure.
+const REFURB_TAX_TAGS = ['capital', 'repair', 'unsure'];
+
+// A quote's figure including VAT: amount + vat_rate% when vat_mode is
+// 'plus', the amount as entered when 'inc'. Quotes from before db/049 have
+// no vat_mode and were entered as a total, so they count as 'inc'.
+function quoteIncVat(q) {
+  const a = Number(q.amount) || 0;
+  if (q.vat_mode === 'plus') return Math.round(a * (1 + (Number(q.vat_rate) || 0) / 100) * 100) / 100;
+  return a;
+}
+
+// Runs a query with the db/049 columns, then again with the db/048 ones if
+// the migration isn't there. Returns the result plus pre049: true/false.
+async function withRefurb049(run049, run048) {
+  const first = await run049();
+  if (first.error && isMissingSchemaError(first.error)) return { ...(await run048()), pre049: true };
+  return { ...first, pre049: false };
+}
 
 function refurbNeedsMigration(res) {
   return res.status(409).json({ needs_migration: true, error: 'This needs a quick database update (db/048) first.' });
@@ -451,6 +475,12 @@ function validateQuoteInput(body) {
     weeks = Number(body.timeline_weeks);
     if (!Number.isFinite(weeks) || weeks < 0 || weeks > 520) return { error: 'Timeline must be a number of weeks.' };
   }
+  // VAT (db/049): defaults to "+ VAT" at 20%.
+  const vatRate = Number(body.vat_rate);
+  const vat = {
+    vat_mode: body.vat_mode === 'inc' ? 'inc' : 'plus',
+    vat_rate: REFURB_QUOTE_VAT_RATES.includes(vatRate) && body.vat_rate !== '' && body.vat_rate != null ? vatRate : 20,
+  };
   return { value: {
     builder_name: builder,
     contact: cleanText(body.contact, 200),
@@ -458,7 +488,7 @@ function validateQuoteInput(body) {
     quote_date: quoteDate,
     timeline_weeks: weeks,
     notes: cleanText(body.notes, 2000),
-  } };
+  }, vat };
 }
 
 app.post('/api/refurb-estimates/:id/quotes', express.json({ limit: '15mb' }), async (req, res) => {
@@ -468,7 +498,7 @@ app.post('/api/refurb-estimates/:id/quotes', express.json({ limit: '15mb' }), as
   if (!(await loadOwnEstimate(supabase, req.params.id))) return res.status(404).json({ error: 'Estimate not found.' });
 
   const body = req.body || {};
-  const { value, error: vErr } = validateQuoteInput(body);
+  const { value, vat, error: vErr } = validateQuoteInput(body);
   if (vErr) return res.status(400).json({ error: vErr });
 
   const { count, error: countErr } = await supabase.from('refurb_quotes')
@@ -490,21 +520,30 @@ app.post('/api/refurb-estimates/:id/quotes', express.json({ limit: '15mb' }), as
     value.file_path = filePath;
     value.file_type = file.type;
   }
-  const { data: row, error } = await supabase.from('refurb_quotes')
-    .insert({ ...value, estimate_id: req.params.id })
-    .select(REFURB_QUOTE_COLUMNS).single();
+  const { data: row, error, pre049 } = await withRefurb049(
+    () => supabase.from('refurb_quotes').insert({ ...value, ...vat, estimate_id: req.params.id }).select(REFURB_QUOTE_COLUMNS_049).single(),
+    () => supabase.from('refurb_quotes').insert({ ...value, estimate_id: req.params.id }).select(REFURB_QUOTE_COLUMNS).single());
   if (error) {
     if (filePath) await supabase.storage.from('refurb-quotes').remove([filePath]);
     if (isMissingSchemaError(error)) return refurbNeedsMigration(res);
     return res.status(400).json({ error: 'That quote could not be saved. Try again.' });
   }
   const urls = await signPaths(supabase, 'refurb-quotes', [row.file_path]);
-  res.json(publicQuoteRow(row, urls.get(row.file_path)));
+  res.json({ ...publicQuoteRow(row, urls.get(row.file_path)), vat_saved: !pre049 });
 });
 
 function publicQuoteRow(r, url) {
   const { file_path, ...rest } = r;
-  return { ...rest, amount: Number(r.amount), timeline_weeks: r.timeline_weeks == null ? null : Number(r.timeline_weeks), has_file: !!file_path, file_url: url || null };
+  return {
+    ...rest,
+    amount: Number(r.amount),
+    vat_mode: r.vat_mode || 'inc',
+    vat_rate: r.vat_rate == null ? null : Number(r.vat_rate),
+    amount_inc_vat: quoteIncVat(r),
+    vat_known: r.vat_mode !== undefined,
+    timeline_weeks: r.timeline_weeks == null ? null : Number(r.timeline_weeks),
+    has_file: !!file_path, file_url: url || null,
+  };
 }
 function publicPaymentRow(r, url) {
   const { receipt_path, ...rest } = r;
@@ -521,7 +560,7 @@ function validatePaymentInput(body) {
     trade: body.trade,
     amount: Math.round(amount * 100) / 100,
     description: cleanText(body.description, 300),
-  } };
+  }, taxTag: REFURB_TAX_TAGS.includes(body.tax_tag) ? body.tax_tag : 'unsure' };
 }
 
 app.post('/api/refurb-estimates/:id/payments', express.json({ limit: '15mb' }), async (req, res) => {
@@ -531,7 +570,7 @@ app.post('/api/refurb-estimates/:id/payments', express.json({ limit: '15mb' }), 
   if (!(await loadOwnEstimate(supabase, req.params.id))) return res.status(404).json({ error: 'Estimate not found.' });
 
   const body = req.body || {};
-  const { value, error: vErr } = validatePaymentInput(body);
+  const { value, taxTag, error: vErr } = validatePaymentInput(body);
   if (vErr) return res.status(400).json({ error: vErr });
 
   const { count, error: countErr } = await supabase.from('refurb_payments')
@@ -540,17 +579,26 @@ app.post('/api/refurb-estimates/:id/payments', express.json({ limit: '15mb' }), 
   if (!countErr && count >= REFURB_PAYMENTS_PER_ESTIMATE) return res.status(400).json({ error: `Up to ${REFURB_PAYMENTS_PER_ESTIMATE} payments per estimate.` });
 
   // "Also log in Portfolio": only a property of the caller's own (RLS),
-  // and the insert policy checks it again.
+  // and the insert policy checks it again. Where it goes depends on the
+  // tax tag (db/049): capital and "not sure" show as the property's capital
+  // costs; a repair is added to the property's expense log instead. Needs
+  // db/049, so the tag is known before anything is logged.
+  let propertyId = null;
   if (body.portfolio_property_id) {
     if (typeof body.portfolio_property_id !== 'string' || !(await loadOwnProperty(supabase, body.portfolio_property_id))) {
       return res.status(400).json({ error: 'That portfolio property was not found.' });
     }
-    value.portfolio_property_id = body.portfolio_property_id;
+    const { error: probeErr } = await supabase.from('refurb_payments').select('tax_tag, portfolio_expense_id').limit(1);
+    if (probeErr && isMissingSchemaError(probeErr)) {
+      return res.status(409).json({ needs_migration: true, error: 'Logging to Portfolio needs a quick database update (db/049) first. Untick it to log the payment here only.' });
+    }
+    propertyId = body.portfolio_property_id;
+    value.portfolio_property_id = propertyId;
   }
 
-  let receiptPath = null;
+  let receiptPath = null, file = null;
   if (body.receipt && body.receipt.data) {
-    const file = decodeUploadedFile(body.receipt, REFURB_FILE_TYPES, REFURB_FILE_MAX_BYTES);
+    file = decodeUploadedFile(body.receipt, REFURB_FILE_TYPES, REFURB_FILE_MAX_BYTES);
     if (file.error) return res.status(400).json({ error: 'Receipt: ' + file.error.charAt(0).toLowerCase() + file.error.slice(1) });
     receiptPath = `${userId}/${req.params.id}/receipts/${crypto.randomUUID()}.${file.ext}`;
     const { error: uploadErr } = await supabase.storage.from('refurb-quotes')
@@ -562,16 +610,49 @@ app.post('/api/refurb-estimates/:id/payments', express.json({ limit: '15mb' }), 
     value.receipt_path = receiptPath;
     value.receipt_type = file.type;
   }
-  const { data: row, error } = await supabase.from('refurb_payments')
-    .insert({ ...value, estimate_id: req.params.id })
-    .select(REFURB_PAYMENT_COLUMNS).single();
-  if (error) {
+
+  // A repair logged to Portfolio: a "Repairs and maintenance" expense on
+  // that property, with its own copy of the receipt in property-docs.
+  let expenseId = null, expenseReceipt = null;
+  const cleanup = async () => {
     if (receiptPath) await supabase.storage.from('refurb-quotes').remove([receiptPath]);
+    if (expenseId) await supabase.from('property_expenses').delete().eq('id', expenseId);
+    if (expenseReceipt) await supabase.storage.from('property-docs').remove([expenseReceipt]);
+  };
+  if (propertyId && taxTag === 'repair') {
+    if (file) {
+      expenseReceipt = `${userId}/${propertyId}/receipts/${crypto.randomUUID()}.${file.ext}`;
+      const { error: upErr } = await supabase.storage.from('property-docs').upload(expenseReceipt, file.buffer, { contentType: file.type, upsert: false });
+      if (upErr) { expenseReceipt = null; console.error('Refurb repair: receipt copy to property-docs failed for', userId, upErr.message); }
+    }
+    const { data: exp, error: expErr } = await supabase.from('property_expenses').insert({
+      property_id: propertyId,
+      expense_date: value.paid_date,
+      amount: value.amount,
+      category: 'repairs',
+      description: value.description || 'Refurb repair',
+      receipt_path: expenseReceipt,
+      receipt_type: expenseReceipt ? file.type : null,
+    }).select('id').single();
+    if (expErr || !exp) {
+      await cleanup();
+      return res.status(400).json({ error: isMissingSchemaError(expErr) ? 'The property expense log needs a quick database update (db/047) first.' : 'The repair could not be added to the property\'s expenses. Try again.' });
+    }
+    expenseId = exp.id;
+    value.portfolio_expense_id = expenseId;
+  }
+
+  const { data: row, error, pre049 } = await withRefurb049(
+    () => supabase.from('refurb_payments').insert({ ...value, tax_tag: taxTag, estimate_id: req.params.id }).select(REFURB_PAYMENT_COLUMNS_049).single(),
+    // Only reached with nothing logged to Portfolio (checked above).
+    () => supabase.from('refurb_payments').insert({ ...value, estimate_id: req.params.id }).select(REFURB_PAYMENT_COLUMNS).single());
+  if (error) {
+    await cleanup();
     if (isMissingSchemaError(error)) return refurbNeedsMigration(res);
     return res.status(400).json({ error: 'That payment could not be saved. Try again.' });
   }
   const urls = await signPaths(supabase, 'refurb-quotes', [row.receipt_path]);
-  res.json(publicPaymentRow(row, urls.get(row.receipt_path)));
+  res.json({ ...publicPaymentRow(row, urls.get(row.receipt_path)), tag_saved: !pre049 });
 });
 
 // Room or line photo. Returns the storage path (kept in the estimate's
@@ -3614,8 +3695,9 @@ app.get('/api/refurb-estimates/:id/quotes', async (req, res) => {
   const ctx = await refurbRequest(req, res);
   if (!ctx) return;
   const { supabase } = ctx;
-  const { data, error } = await supabase.from('refurb_quotes')
-    .select(REFURB_QUOTE_COLUMNS).eq('estimate_id', req.params.id).order('created_at', { ascending: true });
+  const { data, error } = await withRefurb049(
+    () => supabase.from('refurb_quotes').select(REFURB_QUOTE_COLUMNS_049).eq('estimate_id', req.params.id).order('created_at', { ascending: true }),
+    () => supabase.from('refurb_quotes').select(REFURB_QUOTE_COLUMNS).eq('estimate_id', req.params.id).order('created_at', { ascending: true }));
   if (error && isMissingSchemaError(error)) return refurbNeedsMigration(res);
   if (error) return res.status(400).json({ error: 'Quotes could not be loaded. Try again.' });
   const urls = await signPaths(supabase, 'refurb-quotes', data.map((r) => r.file_path));
@@ -3626,15 +3708,17 @@ app.put('/api/refurb-quotes/:id', async (req, res) => {
   const ctx = await refurbRequest(req, res);
   if (!ctx) return;
   const { supabase } = ctx;
-  const { value, error: vErr } = validateQuoteInput(req.body || {});
+  const { value, vat, error: vErr } = validateQuoteInput(req.body || {});
   if (vErr) return res.status(400).json({ error: vErr });
-  const { data, error } = await supabase.from('refurb_quotes').update(value).eq('id', req.params.id).select(REFURB_QUOTE_COLUMNS).single();
+  const { data, error, pre049 } = await withRefurb049(
+    () => supabase.from('refurb_quotes').update({ ...value, ...vat }).eq('id', req.params.id).select(REFURB_QUOTE_COLUMNS_049).single(),
+    () => supabase.from('refurb_quotes').update(value).eq('id', req.params.id).select(REFURB_QUOTE_COLUMNS).single());
   if (error && isMissingSchemaError(error)) return refurbNeedsMigration(res);
   if (error || !data) return res.status(404).json({ error: 'Quote not found.' });
-  // An accepted quote's new amount becomes the budget too.
-  if (data.accepted) await supabase.from('refurb_estimates').update({ budget_amount: data.amount, budget_source: 'quote' }).eq('id', data.estimate_id);
+  // An accepted quote's new figure (inc VAT) becomes the budget too.
+  if (data.accepted) await supabase.from('refurb_estimates').update({ budget_amount: quoteIncVat(data), budget_source: 'quote' }).eq('id', data.estimate_id);
   const urls = await signPaths(supabase, 'refurb-quotes', [data.file_path]);
-  res.json(publicQuoteRow(data, urls.get(data.file_path)));
+  res.json({ ...publicQuoteRow(data, urls.get(data.file_path)), vat_saved: !pre049 });
 });
 
 app.delete('/api/refurb-quotes/:id', async (req, res) => {
@@ -3650,13 +3734,15 @@ app.delete('/api/refurb-quotes/:id', async (req, res) => {
   res.json({ deleted: true });
 });
 
-// "Accept quote": this quote becomes the only accepted one and its amount
-// becomes the estimate's budget.
+// "Accept quote": this quote becomes the only accepted one and its figure
+// including VAT becomes the estimate's budget.
 app.post('/api/refurb-quotes/:id/accept', async (req, res) => {
   const ctx = await refurbRequest(req, res);
   if (!ctx) return;
   const { supabase } = ctx;
-  const { data: q, error } = await supabase.from('refurb_quotes').select('id, estimate_id, amount').eq('id', req.params.id).single();
+  const { data: q, error } = await withRefurb049(
+    () => supabase.from('refurb_quotes').select('id, estimate_id, amount, vat_mode, vat_rate').eq('id', req.params.id).single(),
+    () => supabase.from('refurb_quotes').select('id, estimate_id, amount').eq('id', req.params.id).single());
   if (error && isMissingSchemaError(error)) return refurbNeedsMigration(res);
   if (error || !q) return res.status(404).json({ error: 'Quote not found.' });
   const { error: clearErr } = await supabase.from('refurb_quotes').update({ accepted: false }).eq('estimate_id', q.estimate_id).neq('id', q.id);
@@ -3664,7 +3750,7 @@ app.post('/api/refurb-quotes/:id/accept', async (req, res) => {
   const { error: accErr } = await supabase.from('refurb_quotes').update({ accepted: true }).eq('id', q.id);
   if (accErr) return res.status(400).json({ error: 'The quote could not be accepted. Try again.' });
   const { data: est, error: estErr } = await supabase.from('refurb_estimates')
-    .update({ budget_amount: Number(q.amount), budget_source: 'quote' }).eq('id', q.estimate_id).select('*').single();
+    .update({ budget_amount: quoteIncVat(q), budget_source: 'quote' }).eq('id', q.estimate_id).select('*').single();
   if (estErr || !est) return res.status(400).json({ error: 'The budget could not be set. Try again.' });
   res.json({ estimate: est });
 });
@@ -3722,27 +3808,47 @@ app.get('/api/refurb-estimates/:id/payments', async (req, res) => {
   const ctx = await refurbRequest(req, res);
   if (!ctx) return;
   const { supabase } = ctx;
-  const { data, error } = await supabase.from('refurb_payments')
-    .select(REFURB_PAYMENT_COLUMNS).eq('estimate_id', req.params.id)
-    .order('paid_date', { ascending: false }).order('created_at', { ascending: false });
+  const { data, error, pre049 } = await withRefurb049(
+    () => supabase.from('refurb_payments').select(REFURB_PAYMENT_COLUMNS_049).eq('estimate_id', req.params.id)
+      .order('paid_date', { ascending: false }).order('created_at', { ascending: false }),
+    () => supabase.from('refurb_payments').select(REFURB_PAYMENT_COLUMNS).eq('estimate_id', req.params.id)
+      .order('paid_date', { ascending: false }).order('created_at', { ascending: false }));
   if (error && isMissingSchemaError(error)) return refurbNeedsMigration(res);
   if (error) return res.status(400).json({ error: 'Payments could not be loaded. Try again.' });
   const urls = await signPaths(supabase, 'refurb-quotes', data.map((r) => r.receipt_path));
   const property = await portfolioPropertyForEstimate(supabase, req.params.id);
-  res.json({ payments: data.map((r) => publicPaymentRow(r, urls.get(r.receipt_path))), portfolio_property: property });
+  res.json({ payments: data.map((r) => publicPaymentRow(r, urls.get(r.receipt_path))), portfolio_property: property, tags_ready: !pre049 });
 });
 
 app.delete('/api/refurb-payments/:id', async (req, res) => {
   const ctx = await refurbRequest(req, res);
   if (!ctx) return;
   const { supabase } = ctx;
-  const { data: row, error } = await supabase.from('refurb_payments').select('id, receipt_path').eq('id', req.params.id).single();
+  const { data: row, error } = await withRefurb049(
+    () => supabase.from('refurb_payments').select('id, receipt_path, portfolio_expense_id').eq('id', req.params.id).single(),
+    () => supabase.from('refurb_payments').select('id, receipt_path').eq('id', req.params.id).single());
   if (error && isMissingSchemaError(error)) return refurbNeedsMigration(res);
   if (error || !row) return res.status(404).json({ error: 'Payment not found.' });
   const { error: delErr } = await supabase.from('refurb_payments').delete().eq('id', row.id);
   if (delErr) return res.status(400).json({ error: 'The payment could not be deleted. Try again.' });
   if (row.receipt_path) await removeRefurbFiles(supabase, [row.receipt_path], 'Refurb payment ' + row.id);
-  res.json({ deleted: true });
+  // A repair logged to the property's expenses goes with it (db/049).
+  let expenseRemoved = false;
+  if (row.portfolio_expense_id) {
+    const { data: exp } = await supabase.from('property_expenses').select('id, receipt_path').eq('id', row.portfolio_expense_id).single();
+    if (exp) {
+      const { error: expDelErr } = await supabase.from('property_expenses').delete().eq('id', exp.id);
+      if (expDelErr) console.error('Refurb payment', row.id, ': linked expense not deleted:', expDelErr.message);
+      else {
+        expenseRemoved = true;
+        if (exp.receipt_path) {
+          const { error: rmErr } = await supabase.storage.from('property-docs').remove([exp.receipt_path]);
+          if (rmErr) console.error('Refurb payment', row.id, ': expense receipt not removed:', rmErr.message);
+        }
+      }
+    }
+  }
+  res.json({ deleted: true, expense_removed: expenseRemoved });
 });
 
 // Signed URLs for the room and line photos an estimate refers to. Only
@@ -3806,15 +3912,20 @@ app.put('/api/refurb-rate-card', async (req, res) => {
   res.json(data);
 });
 
-// Refurb spend logged against a portfolio property, shown on the property
-// page as capital costs (kept apart from day-to-day expenses).
+// Refurb spend logged against a portfolio property and tagged capital or
+// "not sure", shown on the property page as capital costs (kept apart from
+// day-to-day expenses). Repairs go to the expense log instead.
 app.get('/api/portfolio/:id/capital-costs', async (req, res) => {
   const ctx = await propertyRequest(req, res);
   if (!ctx) return;
   const { supabase } = ctx;
-  const { data, error } = await supabase.from('refurb_payments')
-    .select(REFURB_PAYMENT_COLUMNS + ', refurb_estimates(name)').eq('portfolio_property_id', req.params.id)
-    .order('paid_date', { ascending: false });
+  // Capital and "not sure" payments only; repairs are in the expense log.
+  // Before db/049 there are no tags and everything logged here was capital.
+  const { data, error } = await withRefurb049(
+    () => supabase.from('refurb_payments').select(REFURB_PAYMENT_COLUMNS_049 + ', refurb_estimates(name)')
+      .eq('portfolio_property_id', req.params.id).neq('tax_tag', 'repair').order('paid_date', { ascending: false }),
+    () => supabase.from('refurb_payments').select(REFURB_PAYMENT_COLUMNS + ', refurb_estimates(name)')
+      .eq('portfolio_property_id', req.params.id).order('paid_date', { ascending: false }));
   if (error && isMissingSchemaError(error)) return refurbNeedsMigration(res);
   if (error) return res.status(400).json({ error: 'Capital costs could not be loaded. Try again.' });
   const urls = await signPaths(supabase, 'refurb-quotes', data.map((r) => r.receipt_path));
