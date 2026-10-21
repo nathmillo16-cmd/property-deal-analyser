@@ -80,6 +80,9 @@
     if (!m) return asOf || '';
     return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m[2]) - 1] + ' ' + m[1];
   }
+  // Shown under the indicative label wherever a guide rate is in use.
+  const GUIDE_NOTE = 'Based on homeowner price guides. Investors using regular trades often pay less. Add your own rates for accuracy.';
+
   function guideLabel(g) {
     const region = g ? g.region : getRegion();
     const asOf = g ? g.asOf : guideData().rates_as_of;
@@ -158,5 +161,5 @@
     return { rates };
   }
 
-  window.RefurbRateCard = { load, save, resolve, guide, guideRate, guideLabel, regions, baseRegion, getRegion, setRegion, regionFromPostcode, renderEditor, onEditorInput, readEditor, money };
+  window.RefurbRateCard = { load, save, resolve, guide, guideRate, guideLabel, GUIDE_NOTE, regions, baseRegion, getRegion, setRegion, regionFromPostcode, renderEditor, onEditorInput, readEditor, money };
 })();

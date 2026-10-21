@@ -163,6 +163,7 @@ details[open]>summary .chev{transform:rotate(-135deg)}
 .rate-hint{font-size:10.5px;color:var(--muted);text-align:right;min-height:1em}
 .rate-hint.yours{color:var(--success)}
 .rate-hint .rh-range{display:block}
+.rate-hint .rh-note{display:block;opacity:.85}
 .li-total.need-rate{color:var(--warn-ink,var(--muted));font-weight:600;font-size:12px}
 .total-range{font-size:12px;opacity:.85;margin:.2rem 0 0}
 .li-total{font-weight:700;font-size:13px;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;padding-top:9px}
@@ -895,7 +896,7 @@ function updateRateHint(key){
   if(el.value===''&&g){
     hint.className='rate-hint';
     const range=g.low!=null&&g.high!=null?`<span class="rh-range">${escapeHtml(fmtRate(g.low))} to ${escapeHtml(fmtRate(g.high))}</span>`:'';
-    hint.innerHTML=escapeHtml(RefurbRateCard.guideLabel(g))+range;
+    hint.innerHTML=escapeHtml(RefurbRateCard.guideLabel(g))+`<span class="rh-note">${escapeHtml(RefurbRateCard.GUIDE_NOTE)}</span>`+range;
     return;
   }
   hint.className='rate-hint'; hint.textContent='';
