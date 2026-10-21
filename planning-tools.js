@@ -483,19 +483,32 @@ var PlanningTools = (function () {
   // ---------------------------------------------------------------------
   // PRIVATE FINANCE: balance owed on one loan
   //
-  // Interest builds up day by day from the start date:
-  //   simple     on the principal still owed:  principal x rate x days / 365
-  //   compound   once a year on everything owed (principal plus unpaid
-  //              interest), worked out for part years as
-  //              owed x ((1 + rate) ^ (days / 365) - 1)
+  // Interest builds up day by day from the start date, always as simple
+  // interest on the balance earning interest:
+  //   balance x rate x days / 365
+  //   simple     the balance earning interest is the principal still owed.
+  //   compound   the same, plus on each anniversary of the start date any
+  //              interest still unpaid is added to that balance, so the
+  //              next year's interest is charged on it too. Within a year
+  //              the interest is simple on the balance at the start of that
+  //              year (less any repayments since), so in year one compound
+  //              and simple come out exactly the same.
   // Each repayment in the log pays off interest built up so far first, then
-  // the principal. Balance owed today = principal still owed + unpaid interest.
+  // the balance. Owed today = balance earning interest + unpaid interest.
   // "Interest this tax year" = interest built up since 6 April (or since
   // the start date, if later), whether or not it has been paid yet.
   // Payment type (monthly or rolled up) changes nothing in the sums: with
   // monthly payments the user logs each payment and the unpaid interest
   // stays small; rolled up, it builds until repaid.
   // ---------------------------------------------------------------------
+  // The same day and month n years on; 29 Feb becomes 28 Feb in a non-leap year.
+  function addYears(s, n) {
+    var a = s.split('-').map(Number);
+    var y = a[0] + n, m = a[1], d = a[2];
+    if (m === 2 && d === 29 && !((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0)) d = 28;
+    return y + '-' + pad(m) + '-' + pad(d);
+  }
+
   function loanLedger(loan, repayments, asOf) {
     asOf = asOf || todayStr();
     var principal = n0(loan.amount);
@@ -503,39 +516,44 @@ var PlanningTools = (function () {
     var compound = loan.interest_type === 'compound';
     var start = isDate(loan.start_date) ? loan.start_date : asOf;
     var taxStart = taxYearStart(asOf);
-    var unpaid = 0, interestTotal = 0, interestTaxYear = 0, paidTotal = 0, overpaid = 0;
+    var unpaid = 0, interestTotal = 0, interestTaxYear = 0, paidTotal = 0, overpaid = 0, capitalised = 0;
     var steps = [];
     var last = start;
+    var years = 1;
+    var nextAnniversary = addYears(start, 1);
 
+    // Simple interest on the balance earning interest, from one date to another.
     function accrue(from, to) {
       if (to <= from) return 0;
-      var days = daysBetween(from, to);
-      var add;
-      if (compound) {
-        var owed = principal + unpaid;
-        add = owed * (Math.pow(1 + rate, days / 365) - 1);
-      } else {
-        add = principal * rate * days / 365;
-      }
+      var add = principal * rate * daysBetween(from, to) / 365;
       unpaid += add;
       interestTotal += add;
+      if (from >= taxStart) interestTaxYear += add;
       return add;
     }
-    // Splits at 6 April so the tax-year figure is exact.
+    // Moves the ledger on to `to`, stopping at 6 April (so the tax-year
+    // figure is exact) and, for compound loans, at each anniversary to add
+    // the unpaid interest to the balance.
     function accrueTo(to) {
-      if (to <= last) return 0;
       var total = 0;
-      if (last < taxStart && to > taxStart) {
-        total += accrue(last, taxStart);
-        var part = accrue(taxStart, to);
-        interestTaxYear += part;
-        total += part;
-      } else {
-        var a = accrue(last, to);
-        if (last >= taxStart) interestTaxYear += a;
-        total += a;
+      while (last < to) {
+        var stop = to;
+        if (last < taxStart && taxStart < stop) stop = taxStart;
+        if (compound && nextAnniversary < stop) stop = nextAnniversary;
+        total += accrue(last, stop);
+        last = stop;
+        if (compound && last === nextAnniversary) {
+          if (unpaid > 0) {
+            steps.push({ kind: 'capitalise', date: last, interestBuilt: total, amount: unpaid, principalAfter: principal + unpaid, unpaidAfter: 0, year: years });
+            principal += unpaid;
+            capitalised += unpaid;
+            unpaid = 0;
+            total = 0;
+          }
+          years += 1;
+          nextAnniversary = addYears(start, years);
+        }
       }
-      last = to;
       return total;
     }
 
@@ -551,12 +569,12 @@ var PlanningTools = (function () {
       var toPrincipal = amt - toInterest;
       if (toPrincipal > principal) { overpaid += toPrincipal - principal; toPrincipal = principal; }
       principal -= toPrincipal;
-      steps.push({ date: r.paid_on, interestBuilt: built, amount: amt, toInterest: toInterest, toPrincipal: toPrincipal, principalAfter: principal, unpaidAfter: unpaid });
+      steps.push({ kind: 'repayment', date: r.paid_on, interestBuilt: built, amount: amt, toInterest: toInterest, toPrincipal: toPrincipal, principalAfter: principal, unpaidAfter: unpaid });
     });
     var builtSinceLast = accrueTo(asOf > start ? asOf : start);
     var owed = principal + unpaid;
     return {
-      principal: principal, unpaidInterest: unpaid, owed: owed, interestTotal: interestTotal,
+      principal: principal, unpaidInterest: unpaid, owed: owed, interestTotal: interestTotal, capitalised: capitalised,
       interestTaxYear: interestTaxYear, taxYearStart: taxStart, paidTotal: paidTotal, overpaid: overpaid,
       steps: steps, builtSinceLast: builtSinceLast, asOf: asOf, start: start,
       repaid: owed < 0.5 && paidTotal > 0,

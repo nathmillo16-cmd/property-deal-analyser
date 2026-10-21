@@ -72,7 +72,7 @@
           <div class="tf"><label for="pf-start">Start date</label><input id="pf-start" type="date"></div>
           <div class="tf"><label for="pf-rate">Interest rate a year</label><span class="tf-affix post"><span>%</span><input id="pf-rate" type="number" inputmode="decimal" step="0.1" min="0" max="100" placeholder="0"></span></div>
           <div class="tf"><label for="pf-itype">Interest type</label>
-            <select id="pf-itype"><option value="simple">Simple</option><option value="compound">Compound (yearly)</option></select></div>
+            <select id="pf-itype"><option value="simple">Simple</option><option value="compound">Compound (on each anniversary)</option></select></div>
           <div class="tf"><label for="pf-ptype">Payments</label>
             <select id="pf-ptype"><option value="rolled_up">Rolled up, paid at the end</option><option value="monthly">Interest paid monthly</option></select></div>
           <div class="tf"><label for="pf-repay">Repayment date <span class="tool-optional">(optional)</span></label><input id="pf-repay" type="date"></div>
@@ -95,10 +95,10 @@
         <summary><span><span class="t">How this is worked out</span><span class="s">Interest, repayments and the tax year</span></span></summary>
         <div class="tool-work-body">
           <div class="tool-line"><span>Simple interest</span><span>principal owed x rate x days / 365</span></div>
-          <div class="tool-line"><span>Compound interest</span><span>everything owed x ((1 + rate) ^ (days / 365) - 1)</span></div>
+          <div class="tool-line"><span>Compound interest</span><span>the same, and on each anniversary of the start date unpaid interest is added to the balance</span></div>
           <div class="tool-line"><span>Each repayment</span><span>pays interest built up first, then principal</span></div>
           <div class="tool-line total"><span>Owed today</span><span>principal owed + unpaid interest</span></div>
-          <p class="tool-note">Interest builds up day by day from the start date. Compound interest is added once a year on everything owed, including unpaid interest, and worked out for part years. "Interest this tax year" is the interest built up since 6 April, paid or not. If you pay interest monthly, log each payment so the balance stays right. Repayments due within 30 days, or overdue, show on Home under "Needs attention".</p>
+          <p class="tool-note">Interest builds up day by day from the start date, as simple interest on the balance at the start of each loan year (less any repayments since). With compound interest, interest still unpaid on each anniversary of the start date is added to the balance, so the next year's interest is charged on it too. In the first year, compound and simple are the same. "Interest this tax year" is the interest built up since 6 April, paid or not. If you pay interest monthly, log each payment so the balance stays right. Repayments due within 30 days, or overdue, show on Home under "Needs attention".</p>
         </div>
       </details>
 
@@ -170,6 +170,10 @@
     var meta = [REL[l.relationship] || 'Other', l.security === 'charge' ? 'Secured by a charge' : 'Unsecured', 'Started ' + T.longDate(l.start_date)];
     var reps = (l.repayments || []).slice().sort(function (a, b) { return a.paid_on < b.paid_on ? 1 : -1; });
     var work = led.steps.map(function (s) {
+      if (s.kind === 'capitalise') {
+        return P.line('To ' + T.longDate(s.date) + ': interest built up', P.money2(s.interestBuilt)) +
+          P.line('Anniversary ' + s.year + ': ' + P.money2(s.amount) + ' unpaid interest added to the balance', 'balance ' + P.money2(s.principalAfter), 'sub');
+      }
       return P.line('To ' + T.longDate(s.date) + ': interest built up', P.money2(s.interestBuilt)) +
         P.line('Repaid ' + P.money2(s.amount) + ': ' + P.money2(s.toInterest) + ' interest, ' + P.money2(s.toPrincipal) + ' principal', 'owed ' + P.money2(s.principalAfter + s.unpaidAfter), 'sub');
     }).join('');
@@ -212,7 +216,7 @@
       '<details><summary>Workings</summary>' +
         P.line('Borrowed ' + T.longDate(led.start), P.money2(Number(l.amount))) + work +
         P.line('Interest built up since ' + (led.steps.length ? 'last repayment' : 'the start'), P.money2(led.builtSinceLast)) +
-        P.line('Principal still owed', P.money2(led.principal)) +
+        P.line(l.interest_type === 'compound' ? 'Balance earning interest (includes interest added on anniversaries)' : 'Principal still owed', P.money2(led.principal)) +
         P.line('Unpaid interest', P.money2(led.unpaidInterest)) +
         P.line('Owed today', P.money2(led.owed), 'total') +
         P.line('Interest this tax year (since ' + T.longDate(led.taxYearStart) + ')', P.money2(led.interestTaxYear)) +

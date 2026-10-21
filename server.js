@@ -5188,6 +5188,55 @@ async function getStripeSubscriptionInfo(subscriptionId) {
   return info;
 }
 
+// Every private Storage bucket that holds a user's files, each under a
+// "<user_id>/..." folder. Account deletion empties the user's folder in
+// every one of these, so nothing is left behind even when a file's row is
+// already gone (a replaced upload, a failed clean-up) or the bucket has no
+// delete policy for users (support-screenshots).
+const USER_STORAGE_BUCKETS = ['deal-photos', 'property-photos', 'property-docs', 'refurb-quotes', 'loan-agreements', 'support-screenshots'];
+
+// Lists every file under prefix in a bucket, going into sub-folders
+// (Storage's list() is one level at a time; folders come back with id null).
+async function listStorageFolder(client, bucket, prefix) {
+  const out = [];
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await client.storage.from(bucket).list(prefix, { limit: PAGE, offset });
+    if (error) throw error;
+    const rows = data || [];
+    for (const item of rows) {
+      const path = prefix + '/' + item.name;
+      if (item.id === null || item.id === undefined) out.push(...await listStorageFolder(client, bucket, path));
+      else out.push(path);
+    }
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}
+
+// Empties the user's own folder in every bucket above. Uses the service-role
+// client because support-screenshots has no delete policy for users, but the
+// folder is always the authenticated user's own id, never anything from the
+// request. Best-effort: failures are logged with the bucket name for manual
+// clean-up and never block the deletion. Returns { bucket: count removed }.
+async function sweepUserStorage(userId) {
+  const removed = {};
+  if (!/^[0-9a-f-]{36}$/i.test(String(userId))) return removed;
+  for (const bucket of USER_STORAGE_BUCKETS) {
+    try {
+      const paths = await listStorageFolder(supabaseAdmin, bucket, userId);
+      for (let i = 0; i < paths.length; i += 100) {
+        const { error } = await supabaseAdmin.storage.from(bucket).remove(paths.slice(i, i + 100));
+        if (error) throw error;
+      }
+      removed[bucket] = paths.length;
+    } catch (e) {
+      console.error('Account deletion: files in', bucket, 'not removed for user', userId, ':', e.message, '(needs manual cleanup in Storage)');
+    }
+  }
+  return removed;
+}
+
 // Destructive, irreversible — deletes the requesting user's own account
 // only (userId always comes from the authed session below, never the
 // request body). Order matters and is deliberate:
@@ -5268,6 +5317,30 @@ app.post('/api/account/delete', async (req, res) => {
     const files = await collectRefurbFiles(supabase, (q) => q.eq('user_id', userId));
     await removeRefurbFiles(supabase, files, 'Account deletion for user ' + userId);
   } catch (e) { /* no db/048 tables yet */ }
+
+  // Private finance loan agreements (db/052), same best-effort treatment.
+  try {
+    const { data: loans } = await supabase.from('private_loans').select('agreement_path').eq('user_id', userId).not('agreement_path', 'is', null);
+    if (loans && loans.length) {
+      const { error: rmErr } = await supabase.storage.from('loan-agreements').remove(loans.map((l) => l.agreement_path));
+      if (rmErr) console.error('Account deletion: loan agreement files not removed for user', userId, ':', rmErr.message, '(needs manual cleanup in Storage)');
+    }
+  } catch (e) { /* no private_loans table yet */ }
+
+  // Then empty the user's folder in every bucket, which also catches any
+  // file the row-based steps above couldn't find, and support screenshots.
+  const swept = await sweepUserStorage(userId);
+  console.log('Account deletion: storage files removed for user', userId, swept);
+
+  // private_loans first (db/052): it points at portfolio_properties and
+  // deals. Its repayments cascade with it. Skipped if the table isn't there.
+  {
+    const { error } = await supabase.from('private_loans').delete().eq('user_id', userId);
+    if (error && !isMissingSchemaError(error)) {
+      console.error('Account deletion PARTIAL FAILURE for user', userId, '— failed deleting from private_loans :', error.message, '— Stripe subscription (if any) was already cancelled, no billing risk. Needs manual cleanup.');
+      return res.status(500).json({ error: 'Something went wrong deleting your data. Your subscription (if any) has already been cancelled. Please contact support to finish removing your account.' });
+    }
+  }
 
   const dbDeleteSteps = [
     ['portfolio_properties', () => supabase.from('portfolio_properties').delete().eq('user_id', userId)],
