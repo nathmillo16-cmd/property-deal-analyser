@@ -691,22 +691,17 @@ function fitBoard(){
 }
 window.addEventListener('resize', fitBoard);
 
-// Stats row above the board: total deals, purchase value of everything in
-// Analysing to Agreed, and a count per stage. All deals, ignoring filters.
-// Purchase value sums the deal_data.pp each card already shows.
+// Stats row above the board: total deals and a count per stage. All deals,
+// ignoring filters. (Value in play is in the purple panel above.)
 function renderBoardStats(){
   const el=document.getElementById('board-stats');
   const all=[...savedOnlyDeals,...pipelineDeals];
   el.hidden=all.length===0;
   if(!all.length){el.innerHTML='';return;}
-  const inPlay=['analysing','viewing','offered','agreed'];
-  const value=pipelineDeals.filter(d=>inPlay.includes(d.pipeline_stage))
-    .reduce((s,d)=>s+(d.deal_data&&Number(d.deal_data.pp)>0?Number(d.deal_data.pp):0),0);
   const chip=(label,color,n)=>`<span class="board-stage-chip"><span class="stage-dot" style="background:${color}"></span>${label} <span class="n">${n}</span></span>`;
   const chips=[chip('Saved','var(--hairline-strong)',savedOnlyDeals.length)]
     .concat(STAGES.map(s=>chip(STAGE_LABELS[s],STAGE_COLORS[s],pipelineDeals.filter(d=>d.pipeline_stage===s).length)));
   el.innerHTML=`<span class="board-stat"><strong>${all.length}</strong> deal${all.length===1?'':'s'}</span>
-    <span class="board-stat"><strong>${fmtC(value)}</strong> in Analysing to Agreed</span>
     <span class="board-stage-counts">${chips.join('')}</span>`;
 }
 

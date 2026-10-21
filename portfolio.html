@@ -452,16 +452,18 @@ async function loadPortfolio(){
     else if(!t.compliance_started){ level='none'; text='Compliance not set up'; }
     else if(t.compliance_missing){ level='incomplete'; text=PF.plural(t.compliance_missing,'item')+' to add'; }
     else { level='ok'; text='All compliant'; }
-    // Not set up yet: amber, with a button to the first property's
-    // compliance tracker (the Compliance section on its property page).
+    // Not set up yet: amber. The button opens the compliance tracker (the
+    // Compliance section on the property page) of the first property with
+    // no compliance set up, and shows whenever any property has none.
     const notSetUp=level==='none';
     if(notSetUp)level='due_soon';
     badge.className='pf-badge'+(notSetUp?' pf-badge-setup':'');
     badge.innerHTML=PF.statusDot(level,text)+PF.esc(text);
     badge.hidden=false;
     const setup=document.getElementById('pf-compliance-setup');
-    setup.hidden=t.compliance_started;
-    setup.href='/property.html?id='+encodeURIComponent(portfolioProperties[0].id)+'#compliance';
+    const firstUnset=portfolioProperties.find(p=>!p.compliance_status||p.compliance_status.level==='none');
+    setup.hidden=!firstUnset;
+    if(firstUnset)setup.href='/property.html?id='+encodeURIComponent(firstUnset.id)+'#compliance';
 
     // Older properties won't have every optional figure, so say plainly
     // when a total only covers some of them.
