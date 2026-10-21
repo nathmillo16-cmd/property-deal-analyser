@@ -166,7 +166,7 @@ const REFURB_GUIDE_RATES = {
     "epc.double-glazing": { low: 350, typical: 445, high: 535, unit: "each", source: "Standard white uPVC casement window, supplied and fitted. Derived: mean of sources' low/typical/high, converted to ex VAT. Sources: Checkatrade, 2026, national, £350-£520 (typ £435), VAT not stated, checkatrade.com/blog/cost-guides/new-windows-cost-guide-and-calculator/; MyJobQuote, 2026, national, £350-£550 (typ £450), VAT not stated, myjobquote.co.uk/costs/upvc-windows-cost" }, // Double glazing
     "epc.heating-upgrade": { low: null, typical: null, high: null, unit: "item", source: null }, // Heating system or boiler upgrade
     "epc.heating-controls": { low: null, typical: null, high: null, unit: "item", source: null }, // Heating controls (programmer, thermostat, TRVs)
-    "epc.led-lighting": { low: null, typical: null, high: null, unit: "room", source: null }, // LED lighting
+    "epc.led-lighting": { low: 215, typical: 360, high: 500, unit: "room", source: "LED downlights for one room, supplied and fitted. Swapping bulbs only costs far less. Derived: mean of sources' low/typical/high, converted to ex VAT. Sources: Checkatrade, Jul 2026, national, £300-£500 (typ £400), VAT not stated, checkatrade.com/blog/cost-guides/cost-install-downlights/; MyJobQuote, 2026, national, £100-£500 (typ £300), VAT not stated, myjobquote.co.uk/costs/installing-light-fittings; Fantastic Services (set of 6), 2026, rest of UK, £300-£600 (typ £450), inc VAT (÷1.2), fantasticservices.com/cost-guides/electrical/light-installation/" }, // LED lighting
     "epc.cylinder-insulation": { low: null, typical: null, high: null, unit: "item", source: null }, // Hot water cylinder insulation
   },
 };
