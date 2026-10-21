@@ -79,6 +79,7 @@ body.theme-light .card{
 
 /* "I'm buying directly" switch */
 .lt-toggle{display:flex;align-items:flex-start;gap:12px;cursor:pointer;margin:.25rem 0 0}
+.lt-toggle + .lt-toggle{margin-top:14px}
 .lt-toggle input{position:absolute;opacity:0;width:1px;height:1px}
 .lt-switch{flex-shrink:0;width:38px;height:22px;border-radius:999px;background:var(--hairline-strong);position:relative;transition:background .15s ease;margin-top:1px}
 .lt-switch::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .15s ease}
@@ -247,6 +248,11 @@ html.native-app .lt-jump{bottom:calc(64px + env(safe-area-inset-bottom, 0px) + 1
               <span class="lt-switch" aria-hidden="true"></span>
               <span class="lt-toggle-text"><strong>I'm buying directly</strong><span>Adds a line saying you're not an agent, so there are no fees.</span></span>
             </label>
+            <label class="lt-toggle" for="lt-cash">
+              <input type="checkbox" id="lt-cash" checked onchange="onSenderInput()"/>
+              <span class="lt-switch" aria-hidden="true"></span>
+              <span class="lt-toggle-text"><strong>I'm a cash buyer</strong><span>Adds "I'm a cash buyer" to the Direct offer letter.</span></span>
+            </label>
             <p class="lt-save-status" id="lt-save-status"></p>
           </div>
         </details>
@@ -397,19 +403,21 @@ function collectFieldValues(){
     yourPhone: val('lt-your-phone'),
     yourEmail: val('lt-your-email'),
     yourAddress: val('lt-your-address'),
-    buyingDirect: document.getElementById('lt-direct').checked
+    buyingDirect: document.getElementById('lt-direct').checked,
+    cashBuyer: document.getElementById('lt-cash').checked
   };
 }
 
 function collectSender(){
   const v=collectFieldValues();
-  return { name:v.yourName, area:v.yourArea, phone:v.yourPhone, email:v.yourEmail, address:v.yourAddress, buying_direct:v.buyingDirect };
+  return { name:v.yourName, area:v.yourArea, phone:v.yourPhone, email:v.yourEmail, address:v.yourAddress, buying_direct:v.buyingDirect, cash_buyer:v.cashBuyer };
 }
 
 function applySender(s){
   if(!s||typeof s!=='object')return;
   Object.keys(SENDER_FIELDS).forEach(k=>{ if(typeof s[k]==='string')document.getElementById(SENDER_FIELDS[k]).value=s[k]; });
   if(typeof s.buying_direct==='boolean')document.getElementById('lt-direct').checked=s.buying_direct;
+  if(typeof s.cash_buyer==='boolean')document.getElementById('lt-cash').checked=s.cash_buyer;
 }
 
 function senderComplete(){

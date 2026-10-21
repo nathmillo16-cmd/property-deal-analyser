@@ -4632,6 +4632,7 @@ app.post('/api/profile/letter-sender', async (req, res) => {
     email: cleanText(b.email, 200),
     address: cleanText(b.address, 400),
     buying_direct: b.buying_direct !== false,
+    cash_buyer: b.cash_buyer !== false,
   };
 
   const { data, error } = await supabase

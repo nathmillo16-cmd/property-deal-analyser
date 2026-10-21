@@ -10,7 +10,8 @@
 // as a placeholder such as [Your name] (LETTER_PLACEHOLDERS below), never
 // a blank gap, so the page can highlight it and warn before sending.
 // buyingDirect (default true) adds the "no agent fees" wording; when it's
-// false that wording is left out.
+// false that wording is left out. cashBuyer (default true) adds "I'm a
+// cash buyer" to the Direct offer letter; when it's false that's left out.
 //
 // agentOffer is the one exception: it is written to the estate agent
 // (not the homeowner), for the Deal page's "Email agent" button, and
@@ -59,6 +60,7 @@ function letterValues(v) {
   out.contact = phone && email ? phone + ' or ' + email
     : (phone || email || LETTER_PLACEHOLDERS.yourPhone + ' or ' + LETTER_PLACEHOLDERS.yourEmail);
   out.direct = !(v && v.buyingDirect === false);
+  out.cash = !(v && v.cashBuyer === false);
   return out;
 }
 
@@ -112,7 +114,7 @@ ${v.yourName}`; },
 
 Thank you for taking the time to speak with me about ${v.propertyAddress}. As promised, I'm putting my offer in writing so you have it clearly.
 
-I'd be pleased to offer ${v.offerAmount} for the property${v.direct ? ', as a direct purchase with no agent fees' : ''}. I'm a cash buyer and can move at whatever pace works best for you.
+I'd be pleased to offer ${v.offerAmount} for the property${v.direct ? ', as a direct purchase with no agent fees' : ''}. ${v.cash ? "I'm a cash buyer and can" : 'I can'} move at whatever pace works best for you.
 
 This is simply a starting point, and I'm very happy to discuss it. There's no pressure and no deadline from my side.
 

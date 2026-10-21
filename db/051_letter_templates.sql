@@ -12,7 +12,8 @@
 -- ---------- profiles.letter_sender ----------
 -- The "From you" block on the Letter Templates page, saved to the account
 -- so it follows the user across devices:
--- { name, area, phone, email, address, buying_direct }, all optional.
+-- { name, area, phone, email, address, buying_direct, cash_buyer }, all
+-- optional.
 -- Covered by the existing profiles RLS (own row only).
 alter table profiles add column if not exists letter_sender jsonb;
 
