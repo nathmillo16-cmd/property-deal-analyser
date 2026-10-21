@@ -21,7 +21,7 @@
 // Keys are "<sectionId>.<itemId>", matching REFURB_SECTIONS in
 // refurb-totals.js. Update rates_as_of whenever figures change.
 // scripts/export-refurb-guide-csv.js writes a blank CSV of every item to
-// /exports for builders to fill in.
+// scripts/output/ (never served) for builders to fill in.
 const REFURB_GUIDE_RATES = {
   rates_as_of: "Oct 2026",
   base_region: "UK average",

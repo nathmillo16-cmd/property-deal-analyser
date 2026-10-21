@@ -1,7 +1,8 @@
-// Writes exports/refurb-guide-rates-template.csv: every refurb line item
+// Writes scripts/output/refurb-guide-rates-template.csv: every refurb line item
 // (category, item, unit) with blank low / typical / high columns, to send
 // to builders. The "ref" column is the item's key in refurb-guide-rates.js,
-// so filled-in figures can be copied back to the right line.
+// so filled-in figures can be copied back to the right line. It lives under
+// scripts/, which the web server never serves.
 //
 // Run: node scripts/export-refurb-guide-csv.js
 const fs = require('fs');
@@ -20,7 +21,7 @@ const cell = v => {
 const rows = [['category', 'item', 'unit', 'low', 'typical', 'high', 'ref']];
 ctx.SECTIONS.forEach(s => s.items.forEach(it => rows.push([s.name, it.label, it.unit, '', '', '', s.id + '.' + it.id])));
 
-const out = path.join(root, 'exports', 'refurb-guide-rates-template.csv');
+const out = path.join(root, 'scripts', 'output', 'refurb-guide-rates-template.csv');
 fs.mkdirSync(path.dirname(out), { recursive: true });
 // BOM so Excel opens the £ and ² characters correctly.
 fs.writeFileSync(out, '﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n') + '\r\n');

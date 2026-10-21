@@ -53,6 +53,17 @@
   function money(v) { return '£' + Math.round(v || 0).toLocaleString('en-GB'); }
   function rateText(v) { const n = Number(v); return '£' + n.toLocaleString('en-GB', n % 1 ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : {}); }
   function qtyText(q, unit) { const n = Math.round(Number(q) * 100) / 100; return n.toLocaleString('en-GB') + ' ' + (unit || ''); }
+  // A line is priced at an indicative guide rate when the user hasn't set
+  // their own rate and the estimator saved a guide figure with it.
+  function isIndicative(l) { return !!(l && l.rate == null && refurbLineRate(l) != null); }
+  // "Indicative, East Midlands, Oct 2026". The date is always rates_as_of
+  // from refurb-guide-rates.js, never today's date; with no rates_as_of it
+  // is just "Indicative, East Midlands".
+  function indicativeLabel(region) {
+    const asOf = (typeof REFURB_GUIDE_RATES !== 'undefined' && REFURB_GUIDE_RATES.rates_as_of) || null;
+    if (window.RefurbRateCard && RefurbRateCard.guideLabel) return RefurbRateCard.guideLabel({ region, asOf });
+    return 'Indicative, ' + region + (asOf ? ', ' + asOf : '');
+  }
   function slug(s) { return String(s || 'scope-of-works').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'scope-of-works'; }
 
   async function generate(o) {
@@ -60,7 +71,16 @@
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     const FONT = await registerFonts(doc);
     const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-    const M = 40, CW = W - M * 2, FOOT = 46;
+    const prices = !!o.includePrices;
+    const li = o.lineItems || {};
+    // Indicative rates only matter when prices are shown (quick mode has no
+    // guide rates). The no-prices builder version is left exactly as it was.
+    const indicativeLines = prices && o.mode !== 'quick' ? Object.values(li).filter(isIndicative) : [];
+    const anyIndicative = indicativeLines.length > 0;
+    const indicativeRegion = anyIndicative
+      ? ((indicativeLines.find(l => l.guide && l.guide.region) || {}).guide || {}).region || (window.RefurbRateCard ? RefurbRateCard.getRegion() : 'UK average')
+      : null;
+    const M = 40, CW = W - M * 2, FOOT = anyIndicative ? 58 : 46;
     let y = M;
 
     const set = (size, bold, color) => { doc.setFont(FONT, bold ? 'bold' : 'normal'); doc.setFontSize(size); doc.setTextColor(...(color || INK)); };
@@ -83,9 +103,11 @@
     y += 6;
     doc.setFillColor(...INDIGO); doc.rect(M, y, CW, 3, 'F'); y += 22;
 
-    const prices = !!o.includePrices;
     // Columns: with prices  Item | Qty | Rate | Total ; without  Item | Qty
-    const COL = prices ? { label: 255, qty: M + 345, rate: M + 430, total: W - M } : { label: 380, qty: W - M };
+    // With indicative lines the rate column is widened to fit "(indicative)".
+    const COL = !prices ? { label: 380, qty: W - M }
+      : anyIndicative ? { label: 230, qty: M + 318, rate: M + 440, total: W - M }
+      : { label: 255, qty: M + 345, rate: M + 430, total: W - M };
 
     function tableHead() {
       set(8, true, MUTED);
@@ -110,7 +132,16 @@
       lines.forEach((l, i) => doc.text(l, M, y + i * 13));
       if (r.qty != null) doc.text(qtyText(r.qty, r.unit), COL.qty, y, { align: 'right' });
       if (prices) {
-        doc.text(r.rate != null ? rateText(r.rate) : (r.amount != null ? '' : 'No rate'), COL.rate, y, { align: 'right' });
+        if (r.rate != null && r.indicative) {
+          set(8, false, MUTED);
+          const tag = ' (indicative)';
+          doc.text(tag, COL.rate, y, { align: 'right' });
+          const tagW = doc.getTextWidth(tag);
+          set(10, false, INK);
+          doc.text(rateText(r.rate), COL.rate - tagW, y, { align: 'right' });
+        } else {
+          doc.text(r.rate != null ? rateText(r.rate) : (r.amount != null ? '' : 'No rate'), COL.rate, y, { align: 'right' });
+        }
         set(10, true, INK); doc.text(r.rate != null && r.qty != null ? money(r.rate * r.qty) : (r.amount != null ? money(r.amount) : '-'), COL.total, y, { align: 'right' });
       }
       let yy = y + lines.length * 13;
@@ -136,7 +167,6 @@
     }
     function sectionTotalText(items) { if (!prices) return null; const t = items.reduce((s, r) => s + (r.rate != null && r.qty != null ? r.rate * r.qty : (r.amount || 0)), 0); return money(t); }
 
-    const li = o.lineItems || {};
     const extras = o.lineExtras || {};
     const unitOf = key => (extras[key] && extras[key].unit) || (li[key] && li[key].unit) || ((refurbItemByKey(key) || {}).item || {}).unit || '';
     let anything = false;
@@ -162,7 +192,7 @@
           const x = refurbItemByKey(rule.key); if (!x) return;
           covered[rule.key] = (covered[rule.key] || 0) + q;
           const l = li[rule.key] || {};
-          items.push({ label: x.item.label, qty: q, unit: unitOf(rule.key), rate: refurbLineRate(l) });
+          items.push({ label: x.item.label, qty: q, unit: unitOf(rule.key), rate: refurbLineRate(l), indicative: prices && isIndicative(l) });
         });
         anything = true;
         heading(card.label + '  ·  ' + (ch.condition === 'replace' ? 'Replace' : 'Refresh'), sectionTotalText(items));
@@ -176,7 +206,7 @@
       refurbItemList().forEach(({ key, item }) => {
         const l = li[key]; if (!l || !(Number(l.qty) > 0)) return;
         const extra = Math.round((Number(l.qty) - (covered[key] || 0)) * 100) / 100;
-        if (extra > 0) other.push({ key, label: item.label, qty: extra, unit: unitOf(key), rate: refurbLineRate(l), note: (extras[key] || {}).note || l.note });
+        if (extra > 0) other.push({ key, label: item.label, qty: extra, unit: unitOf(key), rate: refurbLineRate(l), indicative: prices && isIndicative(l), note: (extras[key] || {}).note || l.note });
       });
       if (other.length) {
         anything = true;
@@ -188,7 +218,7 @@
         const items = s.items.map(it => {
           const key = s.id + '.' + it.id, l = li[key];
           if (!l || !(Number(l.qty) > 0)) return null;
-          return { key, label: it.label, qty: Number(l.qty), unit: unitOf(key), rate: refurbLineRate(l), note: (extras[key] || {}).note || l.note };
+          return { key, label: it.label, qty: Number(l.qty), unit: unitOf(key), rate: refurbLineRate(l), indicative: prices && isIndicative(l), note: (extras[key] || {}).note || l.note };
         }).filter(Boolean);
         if (!items.length) continue;
         anything = true;
@@ -241,10 +271,14 @@
     const pages = doc.getNumberOfPages();
     for (let i = 1; i <= pages; i++) {
       doc.setPage(i);
-      doc.setDrawColor(...RULE); doc.setLineWidth(.6); doc.line(M, H - 32, W - M, H - 32);
+      const top = anyIndicative ? H - 31 : H - 19;
+      doc.setDrawColor(...RULE); doc.setLineWidth(.6); doc.line(M, top - 13, W - M, top - 13);
       set(8, false, MUTED);
-      doc.text('Prepared with PROPulsion. Quantities are estimates and should be checked on site.', M, H - 19);
-      doc.text('Page ' + i + ' of ' + pages, W - M, H - 19, { align: 'right' });
+      doc.text('Prepared with PROPulsion. Quantities are estimates and should be checked on site.', M, top);
+      doc.text('Page ' + i + ' of ' + pages, W - M, top, { align: 'right' });
+      if (anyIndicative) {
+        doc.text('Indicative rates are web-sourced estimates, not quotes.   ·   ' + indicativeLabel(indicativeRegion), M, H - 19);
+      }
     }
 
     doc.save(slug(o.address || o.name) + '-scope-of-works' + (prices ? '' : '-no-prices') + '.pdf');

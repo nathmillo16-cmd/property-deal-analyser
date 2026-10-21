@@ -716,7 +716,31 @@ app.get('/deal-sourcing/apply', (req, res) => {
   res.sendFile(path.join(__dirname, 'deal-sourcing-apply.html'));
 });
 
-app.use(express.static('.'));
+// Static files: ONLY the frontend is public. This used to be
+// express.static('.'), which published the whole repo root (server.js,
+// db/ migrations, scripts/, CLAUDE.md, package.json, node_modules and .git).
+// Now a request is served only if the file is on the frontend list built at
+// startup from frontend-files.js (the same rules the iOS www/ build uses);
+// anything else falls through to the normal 404. The list is built once, so
+// a new page needs a server restart to become public (Render restarts on
+// every deploy anyway).
+const { listPublicFiles } = require('./frontend-files');
+const PUBLIC_FILES = listPublicFiles(__dirname);
+const serveFrontend = express.static(__dirname, { dotfiles: 'deny', index: false, redirect: false });
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  let rel;
+  try { rel = decodeURIComponent(req.path); } catch { return next(); }
+  rel = path.posix.normalize(rel).replace(/^\/+/, '');
+  // Folder URLs: /admin/ serves admin/index.html, /admin redirects to /admin/.
+  if (rel === '' || rel.endsWith('/')) rel += 'index.html';
+  else if (!PUBLIC_FILES.has(rel) && PUBLIC_FILES.has(rel + '/index.html')) {
+    return res.redirect(301, req.path + '/');
+  }
+  if (!PUBLIC_FILES.has(rel)) return next();
+  req.url = '/' + rel.split('/').map(encodeURIComponent).join('/');
+  serveFrontend(req, res, next);
+});
 
 app.get('/api/config', (req, res) => {
   res.json({
