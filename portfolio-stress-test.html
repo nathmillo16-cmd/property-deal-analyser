@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>PROPulsion · Portfolio stress test</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/calc-engine.js"></script>
+<script src="/planning-tools.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="tool-stress" data-subscribe="true"></div>
+  <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
+  <script src="/planning-page.js"></script>
+
+  <main class="tool tool-wide">
+    <p class="tool-eyebrow">Planning</p>
+    <h1 class="tool-title">Portfolio stress test</h1>
+    <p class="tool-lede">See how your whole portfolio copes if rates rise, rents fall, a property sits empty or a big repair lands. Uses the properties in your Portfolio.</p>
+
+    <div data-state="loading"><p class="tool-note">Loading your portfolio…</p></div>
+
+    <section class="tool-card pl-empty" data-state="locked" hidden>
+      <h2>The stress test is part of the paid plan</h2>
+      <p>It runs on the properties in your Portfolio, which is a paid feature. Upgrade to track what you own and test it against higher rates.</p>
+      <a class="btn-primary" href="/billing.html">See plans</a>
+    </section>
+
+    <section class="tool-card pl-empty" data-state="empty" hidden>
+      <h2>Add your properties first</h2>
+      <p>The stress test works from the properties in your Portfolio: rent, running costs and mortgage. Add them once and test them here any time.</p>
+      <a class="btn-primary" href="/portfolio.html">Go to Portfolio</a>
+    </section>
+
+    <section class="tool-card" data-state="error" hidden><p class="pl-msg error" id="st-error"></p></section>
+
+    <div data-state="ready" hidden>
+      <section class="tool-answer" aria-live="polite">
+        <p class="tool-answer-label">Verdict</p>
+        <p class="pl-verdict" id="st-verdict"></p>
+        <p class="tool-answer-sub" id="st-verdict-sub"></p>
+        <div class="tool-answer-grid">
+          <div><p class="k">Monthly cashflow now</p><p class="v" id="st-now">£0</p></div>
+          <div><p class="k">Stressed, today</p><p class="v" id="st-today">£0</p></div>
+          <div><p class="k">Stressed, when fixes end</p><p class="v" id="st-fix">£0</p></div>
+        </div>
+      </section>
+
+      <section class="tool-card" aria-label="Stress settings">
+        <div class="pl-sliders">
+          <div class="pl-slider">
+            <div class="pl-slider-top"><label for="st-rise">Rate rise</label><output id="st-rise-out" for="st-rise">+0%</output></div>
+            <input type="range" id="st-rise" min="0" max="4" step="0.25" value="2">
+            <div class="pl-slider-ends"><span>+0%</span><span>+4%</span></div>
+          </div>
+          <div class="pl-slider">
+            <div class="pl-slider-top"><label for="st-fall">Rent fall</label><output id="st-fall-out" for="st-fall">0%</output></div>
+            <input type="range" id="st-fall" min="0" max="20" step="1" value="0">
+            <div class="pl-slider-ends"><span>0%</span><span>20%</span></div>
+          </div>
+          <div class="pl-slider">
+            <div class="pl-slider-top"><label for="st-void">Empty months a year</label><output id="st-void-out" for="st-void">0</output></div>
+            <input type="range" id="st-void" min="0" max="3" step="1" value="0">
+            <div class="pl-slider-ends"><span>0</span><span>3 months</span></div>
+          </div>
+          <div class="pl-slider">
+            <div class="pl-slider-top"><label for="st-repair">One-off repair</label><output id="st-repair-out" for="st-repair">£0</output></div>
+            <input type="range" id="st-repair" min="0" max="10000" step="250" value="0">
+            <div class="pl-slider-ends"><span>£0</span><span>£10,000</span></div>
+          </div>
+        </div>
+      </section>
+
+      <p class="pl-section-title">Today and when fixes end</p>
+      <div class="pl-split">
+        <div class="pl-split-col"><p class="k">Now, no stress</p><p class="v" id="st-col-now"></p><p class="s" id="st-col-now-s"></p></div>
+        <div class="pl-split-col"><p class="k">Today</p><p class="v" id="st-col-today"></p><p class="s" id="st-col-today-s"></p></div>
+        <div class="pl-split-col"><p class="k">When fixes end</p><p class="v" id="st-col-fix"></p><p class="s" id="st-col-fix-s"></p></div>
+      </div>
+      <p class="tool-note" id="st-fix-note"></p>
+
+      <p class="pl-section-title">By property</p>
+      <div class="pl-rows" id="st-rows"></div>
+      <p class="pl-warn" id="st-missing" hidden></p>
+
+      <details class="tool-work" style="margin-top:var(--space-5)">
+        <summary><span><span class="t">How this is worked out</span><span class="s" id="st-work-sum"></span></span></summary>
+        <div class="tool-work-body" id="st-work"></div>
+      </details>
+
+      <p class="tool-disclaimer">A planning guide based on the figures in your Portfolio, not financial advice. Lenders, rates and rents vary: check with a broker before acting.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var P = PlanningPage, T = PlanningTools;
+  var props = [];
+  var SETTINGS_KEY = 'dny-stress-test';
+  var saved = P.loadLocal(SETTINGS_KEY, { rise: 2, rentFall: 0, voidMonths: 0, repair: 0 });
+  var el = function (id) { return document.getElementById(id); };
+  var sliders = { rise: 'st-rise', rentFall: 'st-fall', voidMonths: 'st-void', repair: 'st-repair' };
+
+  function settings() {
+    return { rise: +el('st-rise').value, rentFall: +el('st-fall').value, voidMonths: +el('st-void').value, repair: +el('st-repair').value };
+  }
+  function signed(v) { return (v > 0 ? '+' : '') + P.money(v); }
+  function cls(v) { return v < 0 ? 'neg' : ''; }
+  function riseText(r) { return '+' + P.pct(r, 2); }
+
+  function conditions(s) {
+    var parts = [];
+    if (s.rentFall) parts.push('rents ' + s.rentFall + '% lower');
+    if (s.voidMonths) parts.push(P.plural(s.voidMonths, 'empty month') + ' a year');
+    if (s.repair) parts.push('a ' + P.money(s.repair) + ' repair');
+    if (!parts.length) return '';
+    return ', with ' + (parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]);
+  }
+
+  function run() {
+    var s = settings();
+    P.saveLocal(SETTINGS_KEY, s);
+    el('st-rise-out').textContent = riseText(s.rise);
+    el('st-fall-out').textContent = s.rentFall + '%';
+    el('st-void-out').textContent = s.voidMonths === 0 ? 'None' : P.plural(s.voidMonths, 'month');
+    el('st-repair-out').textContent = P.money(s.repair);
+
+    var r = T.stress(props, s);
+    var bp = r.breakpoint;
+
+    // Verdict: the biggest rate rise the portfolio can take once every fix has ended.
+    var verdict;
+    if (bp.kind === 'never') {
+      verdict = (s.rentFall || s.voidMonths || s.repair) ? 'Your portfolio goes negative at these settings, even before any rate rise.' : 'Your portfolio already loses money each year, before any stress.';
+    } else if (bp.kind === 'always') {
+      verdict = 'Your portfolio stays positive even with a rate rise of 10% or more' + conditions(s) + '.';
+    } else {
+      verdict = 'Your portfolio stays positive up to a ' + P.pct(bp.rise, 2) + ' rate rise' + conditions(s) + '.';
+    }
+    el('st-verdict').textContent = verdict;
+    var negFix = r.negativeFix.length, negToday = r.negativeToday.length;
+    var sub = 'At ' + riseText(s.rise) + ', ';
+    if (!negFix) sub += 'every property stays positive, even once fixes end.';
+    else if (negToday < negFix) sub += P.plural(negToday, 'property', 'properties') + ' go' + (negToday === 1 ? 'es' : '') + ' negative today and ' + negFix + ' once fixes end.';
+    else sub += P.plural(negFix, 'property', 'properties') + ' go' + (negFix === 1 ? 'es' : '') + ' negative.';
+    el('st-verdict-sub').textContent = sub + ' Figures are a year after empty months and the repair.';
+
+    el('st-now').textContent = P.money(r.monthlyBefore) + '/mo';
+    el('st-today').textContent = P.money(r.monthlyToday) + '/mo';
+    el('st-fix').textContent = P.money(r.monthlyFix) + '/mo';
+    el('st-today').className = 'v' + (r.monthlyToday < 0 ? ' neg' : '');
+    el('st-fix').className = 'v' + (r.monthlyFix < 0 ? ' neg' : '');
+
+    function col(id, monthly, annual) {
+      el(id).textContent = P.money(annual) + ' a year';
+      el(id).className = 'v ' + cls(annual);
+      el(id + '-s').textContent = P.money(monthly) + ' in a normal month';
+    }
+    col('st-col-now', r.monthlyBefore, r.annualBefore);
+    col('st-col-today', r.monthlyToday, r.annualToday);
+    col('st-col-fix', r.monthlyFix, r.annualFix);
+    el('st-fix-note').textContent = r.onFixCount
+      ? 'Today: the rate rise only hits mortgages not on a fixed rate (' + P.plural(r.onFixCount, 'property is', 'properties are') + ' still fixed). When fixes end: it hits every mortgage. Yearly figures take off the empty months and the one-off repair.'
+      : 'None of your mortgages has a fixed rate still running, so the rate rise applies today. Yearly figures take off the empty months and the one-off repair.';
+
+    el('st-rows').innerHTML = r.rows.map(function (x) {
+      var icr = x.icr == null ? '<span class="pl-pill muted">' + (x.hasMortgage ? 'Add rate and balance' : 'No mortgage') + '</span>'
+        : '<span class="pl-pill ' + (x.icrPass ? 'ok' : 'bad') + '">ICR ' + P.pct(x.icr, 0) + (x.icrPass ? ' passes 125%' : ' below 125%') + '</span>';
+      var sub = !x.hasMortgage ? 'No mortgage' : (x.onFix ? 'Fixed at ' + P.pct(x.rate, 2) + ' until ' + T.monthYear(x.fixEnd) : (x.rate != null ? 'Not on a fix, ' + P.pct(x.rate, 2) : 'Rate not entered'));
+      return '<article class="pl-row' + (x.negativeFix ? ' is-neg' : '') + '">' +
+        '<div class="pl-row-head"><div><p class="pl-row-name">' + P.esc(x.address) + '</p><p class="pl-row-sub">' + P.esc(sub) + '</p></div>' + icr + '</div>' +
+        '<div class="pl-figs">' +
+          '<div class="pl-fig"><span class="k">Now</span><span class="v ' + cls(x.before) + '">' + P.money(x.before) + '/mo</span></div>' +
+          '<div class="pl-fig"><span class="k">Today, stressed</span><span class="v ' + cls(x.annualToday) + '">' + P.money(x.monthlyToday) + '/mo</span></div>' +
+          '<div class="pl-fig"><span class="k">When fix ends</span><span class="v ' + cls(x.annualFix) + '">' + P.money(x.monthlyFix) + '/mo</span></div>' +
+        '</div>' +
+        (x.negativeFix ? '<p class="pl-row-sub neg" style="margin-top:8px">Negative over a year' + (x.negativeToday ? '' : ' once the fix ends') + ': ' + P.money(x.negativeToday ? x.annualToday : x.annualFix) + '</p>' : '') +
+        '<details><summary>Workings</summary>' +
+          P.line('Rent ' + P.money(x.rent) + (s.rentFall ? ' less ' + s.rentFall + '%' : ''), P.money(x.stressedRent) + '/mo') +
+          P.line('Running costs', '-' + P.money(x.costs) + '/mo') +
+          P.line('Mortgage payment now', '-' + P.money2(x.payment) + '/mo') +
+          (x.canStress ? P.line('Rate rise: ' + P.pct(x.rate, 2) + ' to ' + P.pct(x.stressedRate, 2) + (x.type === 'repayment' ? ' (repayment)' : ' (interest only)'), '-' + P.money2(x.riseCost) + '/mo') : '') +
+          P.line('Normal month, today' + (x.onFix ? ' (fixed, no rise yet)' : ''), P.money2(x.monthlyToday), 'total') +
+          P.line('Normal month, when fix ends', P.money2(x.monthlyFix), 'total') +
+          (s.voidMonths ? P.line(P.plural(s.voidMonths, 'empty month') + ' x ' + P.money(x.stressedRent), '-' + P.money(x.voidLoss) + ' a year') : '') +
+          P.line('Year, today', P.money(x.annualToday), 'total') +
+          P.line('Year, when fix ends', P.money(x.annualFix), 'total') +
+          (x.icr != null ? P.line('ICR: ' + P.money(x.stressedRent * 12) + ' rent / (' + P.money(x.balance) + ' x ' + P.pct(x.stressedRate, 2) + ')', P.pct(x.icr, 1)) : '') +
+        '</details>' +
+      '</article>';
+    }).join('');
+
+    var miss = r.missingRate;
+    el('st-missing').hidden = !miss.length;
+    if (miss.length) el('st-missing').textContent = 'Add the interest rate and mortgage balance on the property page so the rate rise can be tested: ' + miss.map(function (x) { return x.address; }).join(', ') + '. Until then their mortgage payment stays as it is.';
+
+    el('st-work-sum').textContent = P.plural(r.rows.length, 'property', 'properties') + ', ' + riseText(s.rise) + ', rents -' + s.rentFall + '%, ' + s.voidMonths + ' empty, ' + P.money(s.repair) + ' repair';
+    el('st-work').innerHTML =
+      '<p>For each property, a normal month:</p>' +
+      P.line('Stressed rent', 'rent x (1 - rent fall)') +
+      P.line('Rate rise cost (interest only)', 'balance x rise / 12') +
+      P.line('Rate rise cost (repayment)', 'payment at new rate - payment now') +
+      P.line('Monthly cashflow', 'stressed rent - running costs - payment') +
+      '<p style="margin-top:.9rem">A year:</p>' +
+      P.line('Yearly cashflow', 'monthly x 12 - empty months x stressed rent') +
+      P.line('Portfolio year', 'sum of properties - one-off repair') +
+      P.line('ICR', 'yearly stressed rent / yearly interest at the stressed rate') +
+      '<p style="margin-top:.9rem">Your portfolio at these settings:</p>' +
+      P.line('Monthly cashflow now', P.money(r.monthlyBefore)) +
+      P.line('Year now', P.money(r.annualBefore)) +
+      P.line('Year, stressed today', P.money(r.annualToday), 'total') +
+      P.line('Year, stressed when fixes end', P.money(r.annualFix), 'total') +
+      '<p class="tool-note">"Now" is the same cashflow the Portfolio page shows: rent minus running costs minus the monthly payment you entered. A fixed rate never rises before it ends; a property with no fixed rate end date is treated as not fixed. Repayment mortgages use your remaining term (25 years if not entered). The verdict is the largest rate rise, in steps of 0.05%, at which the portfolio\'s yearly cashflow stays at £0 or more once every fix has ended, with your other settings applied.</p>';
+  }
+
+  async function init() {
+    var ctx = await P.start();
+    if (!ctx) return;
+    Object.keys(sliders).forEach(function (k) {
+      var input = el(sliders[k]);
+      input.value = saved[k];
+      input.addEventListener('input', run);
+    });
+    if (!ctx.paid) { P.show('locked'); return; }
+    var res = await P.api('/api/portfolio');
+    if (res.status === 403) { P.show('locked'); return; }
+    if (!res.ok) { el('st-error').textContent = res.body.error || 'Could not load your portfolio.'; P.show('error'); return; }
+    props = res.body.properties || [];
+    if (!props.length) { P.show('empty'); return; }
+    P.show('ready');
+    run();
+  }
+  init();
+})();
+</script>
+</body>
+</html>

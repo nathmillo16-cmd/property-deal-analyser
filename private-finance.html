@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>PROPulsion · Private finance</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/planning-tools.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="tool-private" data-subscribe="true"></div>
+  <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
+  <script src="/planning-page.js"></script>
+
+  <main class="tool tool-wide">
+    <p class="tool-eyebrow">Planning</p>
+    <h1 class="tool-title">Private finance</h1>
+    <p class="tool-lede">Money borrowed from family, friends and JV partners, in one place: what you owe today including interest, and when each loan is due back.</p>
+
+    <div data-state="loading"><p class="tool-note">Loading your loans…</p></div>
+
+    <section class="tool-card pl-empty" data-state="locked" hidden>
+      <h2>Private finance is part of the paid plan</h2>
+      <p>Keep a register of every private loan, log repayments and see what you owe today, with reminders on Home before each one is due.</p>
+      <a class="btn-primary" href="/billing.html">See plans</a>
+    </section>
+
+    <section class="tool-card" data-state="error" hidden><p class="pl-msg error" id="pf-error"></p></section>
+
+    <div data-state="ready" hidden>
+      <section class="tool-answer" aria-live="polite" id="pf-hero" hidden>
+        <p class="tool-answer-label">Total owed today</p>
+        <p class="tool-answer-value" id="pf-owed">£0</p>
+        <p class="tool-answer-sub" id="pf-owed-sub"></p>
+        <div class="tool-answer-grid">
+          <div><p class="k">Total borrowed</p><p class="v" id="pf-borrowed">£0</p></div>
+          <div><p class="k">Interest this tax year</p><p class="v" id="pf-taxyear">£0</p></div>
+          <div><p class="k">Next repayment due</p><p class="v" id="pf-next">-</p></div>
+        </div>
+      </section>
+
+      <p class="pl-note">Keep a signed loan agreement for every loan. Interest you pay is usually taxable income for the lender.</p>
+
+      <section class="tool-card pl-empty" id="pf-empty" hidden>
+        <h2>No private loans yet</h2>
+        <p>Add a loan to see what you owe today including interest, log repayments as you make them, and get a reminder on Home 30 days before it's due.</p>
+        <button type="button" class="btn-primary" data-open-form>Add a loan</button>
+      </section>
+
+      <div class="pl-actions" id="pf-add-row" hidden style="margin:0 0 var(--space-4)"><button type="button" class="btn-primary" data-open-form>Add a loan</button></div>
+
+      <section class="tool-card" id="pf-form-card" hidden aria-labelledby="pf-form-title">
+        <h2 id="pf-form-title" style="font-size:18px;margin:0 0 var(--space-4)">Add a loan</h2>
+        <form class="pl-form" id="pf-form" novalidate>
+          <div class="tf"><label for="pf-lender">Lender name</label><input id="pf-lender" type="text" autocomplete="off" maxlength="120"></div>
+          <div class="tf"><label for="pf-rel">Relationship</label>
+            <select id="pf-rel"><option value="family">Family</option><option value="friend">Friend</option><option value="jv_partner">JV partner</option><option value="other">Other</option></select></div>
+          <div class="tf"><label for="pf-amount">Amount borrowed</label><span class="tf-affix pre"><span>£</span><input id="pf-amount" type="text" inputmode="decimal" data-money autocomplete="off"></span></div>
+          <div class="tf"><label for="pf-start">Start date</label><input id="pf-start" type="date"></div>
+          <div class="tf"><label for="pf-rate">Interest rate a year</label><span class="tf-affix post"><span>%</span><input id="pf-rate" type="number" inputmode="decimal" step="0.1" min="0" max="100" placeholder="0"></span></div>
+          <div class="tf"><label for="pf-itype">Interest type</label>
+            <select id="pf-itype"><option value="simple">Simple</option><option value="compound">Compound (yearly)</option></select></div>
+          <div class="tf"><label for="pf-ptype">Payments</label>
+            <select id="pf-ptype"><option value="rolled_up">Rolled up, paid at the end</option><option value="monthly">Interest paid monthly</option></select></div>
+          <div class="tf"><label for="pf-repay">Repayment date <span class="tool-optional">(optional)</span></label><input id="pf-repay" type="date"></div>
+          <div class="tf"><label for="pf-sec">Security</label>
+            <select id="pf-sec"><option value="unsecured">Unsecured</option><option value="charge">Charge over a property</option></select></div>
+          <div class="tf"><label for="pf-link">Linked property or deal <span class="tool-optional">(optional)</span></label><select id="pf-link"><option value="">Not linked</option></select></div>
+          <div class="tf wide"><label for="pf-notes">Notes <span class="tool-optional">(optional)</span></label><textarea id="pf-notes" maxlength="2000"></textarea></div>
+          <div class="tf wide" id="pf-file-wrap"><label for="pf-file">Signed agreement <span class="tool-optional">(optional, PDF, JPEG or PNG up to 10MB)</span></label><input id="pf-file" type="file" accept="application/pdf,image/jpeg,image/png"></div>
+        </form>
+        <div class="pl-actions">
+          <button type="button" class="btn-primary" id="pf-save">Save loan</button>
+          <button type="button" class="pl-link" id="pf-cancel">Cancel</button>
+        </div>
+        <p class="pl-msg" id="pf-msg" role="status"></p>
+      </section>
+
+      <div class="pl-rows" id="pf-loans"></div>
+
+      <details class="tool-work" style="margin-top:var(--space-5)" id="pf-how" hidden>
+        <summary><span><span class="t">How this is worked out</span><span class="s">Interest, repayments and the tax year</span></span></summary>
+        <div class="tool-work-body">
+          <div class="tool-line"><span>Simple interest</span><span>principal owed x rate x days / 365</span></div>
+          <div class="tool-line"><span>Compound interest</span><span>everything owed x ((1 + rate) ^ (days / 365) - 1)</span></div>
+          <div class="tool-line"><span>Each repayment</span><span>pays interest built up first, then principal</span></div>
+          <div class="tool-line total"><span>Owed today</span><span>principal owed + unpaid interest</span></div>
+          <p class="tool-note">Interest builds up day by day from the start date. Compound interest is added once a year on everything owed, including unpaid interest, and worked out for part years. "Interest this tax year" is the interest built up since 6 April, paid or not. If you pay interest monthly, log each payment so the balance stays right. Repayments due within 30 days, or overdue, show on Home under "Needs attention".</p>
+        </div>
+      </details>
+
+      <p class="tool-disclaimer">A record to help you keep track, not legal or tax advice. Your signed loan agreement is what counts: check figures against it.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var P = PlanningPage, T = PlanningTools;
+  var el = function (id) { return document.getElementById(id); };
+  var loans = [], properties = [], deals = [], editingId = null;
+  var REL = { family: 'Family', friend: 'Friend', jv_partner: 'JV partner', other: 'Other' };
+
+  function linkLabel(l) {
+    if (l.property_id) { var p = properties.find(function (x) { return x.id === l.property_id; }); return p ? p.address : 'A property'; }
+    if (l.deal_id) { var d = deals.find(function (x) { return x.id === l.deal_id; }); return d ? ((d.deal_data && d.deal_data.name) || 'A deal') : 'A deal'; }
+    return '';
+  }
+  function linkHref(l) {
+    if (l.property_id) return '/property.html?id=' + encodeURIComponent(l.property_id);
+    if (l.deal_id) return '/saved-deals.html?openDeal=' + encodeURIComponent(l.deal_id);
+    return null;
+  }
+
+  function fillLinkOptions() {
+    var sel = el('pf-link');
+    var html = '<option value="">Not linked</option>';
+    if (properties.length) html += '<optgroup label="Portfolio">' + properties.map(function (p) { return '<option value="p:' + P.esc(p.id) + '">' + P.esc(p.address) + '</option>'; }).join('') + '</optgroup>';
+    if (deals.length) html += '<optgroup label="Deals">' + deals.map(function (d) { return '<option value="d:' + P.esc(d.id) + '">' + P.esc((d.deal_data && d.deal_data.name) || 'Untitled deal') + '</option>'; }).join('') + '</optgroup>';
+    sel.innerHTML = html;
+  }
+
+  // ---------- totals ----------
+  function renderTotals(sum) {
+    el('pf-hero').hidden = !loans.length;
+    el('pf-empty').hidden = !!loans.length || !el('pf-form-card').hidden;
+    el('pf-add-row').hidden = !loans.length || !el('pf-form-card').hidden;
+    el('pf-how').hidden = !loans.length;
+    if (!loans.length) return;
+    el('pf-owed').textContent = P.money(sum.owed);
+    el('pf-borrowed').textContent = P.money(sum.borrowed);
+    el('pf-taxyear').textContent = P.money(sum.interestTaxYear);
+    var active = sum.loans.filter(function (x) { return !x.ledger.repaid; }).length;
+    el('pf-owed-sub').textContent = 'Across ' + P.plural(active, 'open loan') + (sum.loans.length > active ? ' (' + (sum.loans.length - active) + ' repaid)' : '') + ', including interest built up to today. Tax year from ' + T.longDate(sum.taxYearStart) + '.';
+    if (sum.next) {
+      el('pf-next').textContent = T.longDate(sum.next.date);
+      el('pf-next').className = 'v' + (sum.next.overdue ? ' neg' : '');
+    } else {
+      el('pf-next').textContent = 'None set';
+      el('pf-next').className = 'v';
+    }
+  }
+
+  // ---------- one loan ----------
+  function dueText(l, led) {
+    if (led.repaid) return '<span class="pl-pill ok">Repaid</span>';
+    if (!l.repayment_date) return '<span class="pl-pill muted">No repayment date</span>';
+    var d = T.daysBetween(T.todayStr(), l.repayment_date);
+    if (d < 0) return '<span class="pl-pill bad">Overdue ' + P.plural(-d, 'day') + '</span>';
+    if (d <= 30) return '<span class="pl-pill warn">Due in ' + P.plural(d, 'day') + '</span>';
+    return '<span class="pl-pill muted">Due ' + T.longDate(l.repayment_date) + '</span>';
+  }
+
+  function loanHtml(x) {
+    var l = x.loan, led = x.ledger;
+    var link = linkLabel(l), href = linkHref(l);
+    var meta = [REL[l.relationship] || 'Other', l.security === 'charge' ? 'Secured by a charge' : 'Unsecured', 'Started ' + T.longDate(l.start_date)];
+    var reps = (l.repayments || []).slice().sort(function (a, b) { return a.paid_on < b.paid_on ? 1 : -1; });
+    var work = led.steps.map(function (s) {
+      return P.line('To ' + T.longDate(s.date) + ': interest built up', P.money2(s.interestBuilt)) +
+        P.line('Repaid ' + P.money2(s.amount) + ': ' + P.money2(s.toInterest) + ' interest, ' + P.money2(s.toPrincipal) + ' principal', 'owed ' + P.money2(s.principalAfter + s.unpaidAfter), 'sub');
+    }).join('');
+    return '<article class="pl-row" id="loan-' + P.esc(l.id) + '">' +
+      '<div class="pl-loan-top">' +
+        '<div style="min-width:0"><p class="pl-row-name">' + P.esc(l.lender_name) + '</p>' +
+          '<p class="pl-row-sub">' + P.esc(meta.join(' · ')) + '</p>' +
+          (link ? '<p class="pl-row-sub">Linked to ' + (href ? '<a href="' + href + '">' + P.esc(link) + '</a>' : P.esc(link)) + '</p>' : '') + '</div>' +
+        '<div class="pl-loan-owed"><span class="k">Owed today</span><span class="v">' + P.money(led.owed) + '</span><div style="margin-top:4px">' + dueText(l, led) + '</div></div>' +
+      '</div>' +
+      '<div class="pl-figs">' +
+        '<div class="pl-fig"><span class="k">Borrowed</span><span class="v">' + P.money(l.amount) + '</span></div>' +
+        '<div class="pl-fig"><span class="k">Rate</span><span class="v">' + P.pct(Number(l.interest_rate), 2) + ' ' + (l.interest_type === 'compound' ? 'compound' : 'simple') + '</span></div>' +
+        '<div class="pl-fig"><span class="k">Unpaid interest</span><span class="v">' + P.money(led.unpaidInterest) + '</span></div>' +
+        '<div class="pl-fig"><span class="k">Repaid so far</span><span class="v">' + P.money(led.paidTotal) + '</span></div>' +
+        '<div class="pl-fig"><span class="k">' + (l.payment_type === 'monthly' ? 'Interest a month' : 'Payments') + '</span><span class="v">' + (l.payment_type === 'monthly' ? 'about ' + P.money(led.monthlyInterest) : 'Rolled up') + '</span></div>' +
+        '<div class="pl-fig"><span class="k">Interest this tax year</span><span class="v">' + P.money(led.interestTaxYear) + '</span></div>' +
+      '</div>' +
+      (l.notes ? '<p class="pl-row-sub" style="margin-top:var(--space-3);white-space:pre-wrap">' + P.esc(l.notes) + '</p>' : '') +
+      '<details' + (reps.length ? '' : '') + '><summary>Repayments (' + reps.length + ')</summary>' +
+        (reps.length ? reps.map(function (r) {
+          return '<div class="pl-rep"><span>' + T.longDate(r.paid_on) + (r.note ? ' · ' + P.esc(r.note) : '') + '</span><span>' + P.money2(Number(r.amount)) + '</span>' +
+            '<button type="button" class="pl-link danger" data-del-rep="' + P.esc(r.id) + '" aria-label="Delete repayment of ' + P.money2(Number(r.amount)) + '">Delete</button></div>';
+        }).join('') : '<p class="pl-row-sub">No repayments logged yet.</p>') +
+        '<div class="pl-inline">' +
+          '<div class="tf"><label for="rep-date-' + l.id + '">Paid on</label><input type="date" id="rep-date-' + l.id + '" value="' + T.todayStr() + '" min="' + P.esc(l.start_date) + '"></div>' +
+          '<div class="tf"><label for="rep-amt-' + l.id + '">Amount</label><input type="text" inputmode="decimal" data-money id="rep-amt-' + l.id + '" autocomplete="off" placeholder="£"></div>' +
+          '<div class="tf"><label for="rep-note-' + l.id + '">Note <span class="tool-optional">(optional)</span></label><input type="text" id="rep-note-' + l.id + '" maxlength="300"></div>' +
+          '<button type="button" class="btn-secondary" data-add-rep="' + P.esc(l.id) + '">Log repayment</button>' +
+        '</div><p class="pl-msg" id="rep-msg-' + l.id + '" role="status"></p>' +
+      '</details>' +
+      '<details><summary>Agreement</summary>' +
+        (l.has_agreement
+          ? '<p class="pl-row-sub">' + (l.agreement_url ? '<a href="' + P.esc(l.agreement_url) + '" target="_blank" rel="noopener">' + P.esc(l.agreement_name || 'Loan agreement') + ' ↗</a>' : P.esc(l.agreement_name || 'Loan agreement')) + '</p>'
+          : '<p class="pl-row-sub">No signed agreement uploaded yet.</p>') +
+        '<div class="pl-inline"><div class="tf" style="max-width:none;flex:1 1 220px"><label for="agr-' + l.id + '">' + (l.has_agreement ? 'Replace' : 'Upload') + ' (PDF, JPEG or PNG, up to 10MB)</label><input type="file" id="agr-' + l.id + '" data-agreement-for="' + P.esc(l.id) + '" accept="application/pdf,image/jpeg,image/png"></div>' +
+        (l.has_agreement ? '<button type="button" class="pl-link danger" data-del-agr="' + P.esc(l.id) + '">Remove</button>' : '') + '</div>' +
+        '<p class="pl-msg" id="agr-msg-' + l.id + '" role="status"></p>' +
+      '</details>' +
+      '<details><summary>Workings</summary>' +
+        P.line('Borrowed ' + T.longDate(led.start), P.money2(Number(l.amount))) + work +
+        P.line('Interest built up since ' + (led.steps.length ? 'last repayment' : 'the start'), P.money2(led.builtSinceLast)) +
+        P.line('Principal still owed', P.money2(led.principal)) +
+        P.line('Unpaid interest', P.money2(led.unpaidInterest)) +
+        P.line('Owed today', P.money2(led.owed), 'total') +
+        P.line('Interest this tax year (since ' + T.longDate(led.taxYearStart) + ')', P.money2(led.interestTaxYear)) +
+        (led.overpaid > 0.005 ? '<p class="pl-warn">Repayments logged are ' + P.money2(led.overpaid) + ' more than was owed. Check the repayments log.</p>' : '') +
+      '</details>' +
+      '<div class="pl-actions" style="margin-top:var(--space-3)"><button type="button" class="pl-link" data-edit="' + P.esc(l.id) + '">Edit loan</button><button type="button" class="pl-link danger" data-del="' + P.esc(l.id) + '">Delete loan</button></div>' +
+    '</article>';
+  }
+
+  function render() {
+    var sum = T.loansSummary(loans);
+    renderTotals(sum);
+    var openState = {};
+    document.querySelectorAll('#pf-loans details').forEach(function (d, i) { if (d.open) openState[i] = true; });
+    el('pf-loans').innerHTML = sum.loans.map(loanHtml).join('');
+    document.querySelectorAll('#pf-loans details').forEach(function (d, i) { if (openState[i]) d.open = true; });
+    P.bindMoney(el('pf-loans'));
+  }
+
+  // ---------- form ----------
+  function openForm(loan) {
+    editingId = loan ? loan.id : null;
+    el('pf-form-title').textContent = loan ? 'Edit loan' : 'Add a loan';
+    el('pf-lender').value = loan ? loan.lender_name : '';
+    el('pf-rel').value = loan ? loan.relationship : 'family';
+    P.setMoney(el('pf-amount'), loan ? loan.amount : '');
+    el('pf-start').value = loan ? loan.start_date : T.todayStr();
+    el('pf-rate').value = loan ? loan.interest_rate : '';
+    el('pf-itype').value = loan ? loan.interest_type : 'simple';
+    el('pf-ptype').value = loan ? loan.payment_type : 'rolled_up';
+    el('pf-repay').value = loan && loan.repayment_date ? loan.repayment_date : '';
+    el('pf-sec').value = loan ? loan.security : 'unsecured';
+    el('pf-link').value = loan ? (loan.property_id ? 'p:' + loan.property_id : loan.deal_id ? 'd:' + loan.deal_id : '') : '';
+    el('pf-notes').value = loan && loan.notes ? loan.notes : '';
+    el('pf-file').value = '';
+    el('pf-file-wrap').hidden = !!loan;
+    el('pf-msg').textContent = ''; el('pf-msg').className = 'pl-msg';
+    el('pf-form-card').hidden = false;
+    el('pf-empty').hidden = true;
+    el('pf-add-row').hidden = true;
+    el('pf-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(function () { el('pf-lender').focus(); }, 250);
+  }
+  function closeForm() {
+    editingId = null;
+    el('pf-form-card').hidden = true;
+    render();
+  }
+
+  async function uploadAgreement(loanId, file, msgEl) {
+    if (file.size > 10 * 1024 * 1024) throw new Error('That file is too large (up to 10MB).');
+    var payload = await P.readFile(file);
+    var res = await P.api('/api/private-loans/' + encodeURIComponent(loanId) + '/agreement', { method: 'POST', body: payload });
+    if (!res.ok) throw new Error(res.body.error || 'Could not upload the agreement.');
+    var i = loans.findIndex(function (x) { return x.id === loanId; });
+    if (i !== -1) loans[i] = Object.assign({}, loans[i], res.body, { repayments: loans[i].repayments });
+  }
+
+  async function saveForm() {
+    var msg = el('pf-msg'), btn = el('pf-save');
+    var link = el('pf-link').value;
+    var body = {
+      lender_name: el('pf-lender').value.trim(), relationship: el('pf-rel').value,
+      amount: P.numVal(el('pf-amount')), start_date: el('pf-start').value,
+      interest_rate: el('pf-rate').value === '' ? 0 : Number(el('pf-rate').value),
+      interest_type: el('pf-itype').value, payment_type: el('pf-ptype').value,
+      repayment_date: el('pf-repay').value || null, security: el('pf-sec').value,
+      property_id: link.indexOf('p:') === 0 ? link.slice(2) : null,
+      deal_id: link.indexOf('d:') === 0 ? link.slice(2) : null,
+      notes: el('pf-notes').value.trim() || null
+    };
+    if (!body.lender_name) { msg.textContent = "Enter the lender's name."; msg.className = 'pl-msg error'; return; }
+    if (!(body.amount > 0)) { msg.textContent = 'Enter the amount borrowed.'; msg.className = 'pl-msg error'; return; }
+    if (!body.start_date) { msg.textContent = 'Enter the start date.'; msg.className = 'pl-msg error'; return; }
+    btn.disabled = true; msg.textContent = 'Saving…'; msg.className = 'pl-msg';
+    var res = editingId
+      ? await P.api('/api/private-loans/' + encodeURIComponent(editingId), { method: 'PUT', body: body })
+      : await P.api('/api/private-loans', { method: 'POST', body: body });
+    if (!res.ok) { btn.disabled = false; msg.textContent = res.body.error || 'Could not save the loan.'; msg.className = 'pl-msg error'; return; }
+    var saved = res.body;
+    if (editingId) {
+      var i = loans.findIndex(function (x) { return x.id === editingId; });
+      if (i !== -1) loans[i] = Object.assign({}, loans[i], saved, { repayments: loans[i].repayments, agreement_url: loans[i].agreement_url });
+    } else {
+      loans.push(saved);
+      var file = el('pf-file').files[0];
+      if (file) {
+        try { await uploadAgreement(saved.id, file); }
+        catch (e) { btn.disabled = false; closeForm(); var m = el('agr-msg-' + saved.id); if (m) { m.textContent = 'Loan saved, but the agreement did not upload: ' + e.message; m.className = 'pl-msg error'; m.closest('details').open = true; } return; }
+      }
+    }
+    btn.disabled = false;
+    var id = saved.id;
+    closeForm();
+    var card = document.getElementById('loan-' + id);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  async function addRepayment(loanId) {
+    var msg = el('rep-msg-' + loanId);
+    var amount = P.numVal(el('rep-amt-' + loanId));
+    var date = el('rep-date-' + loanId).value;
+    if (!date) { msg.textContent = 'Enter the date it was paid.'; msg.className = 'pl-msg error'; return; }
+    if (!(amount > 0)) { msg.textContent = 'Enter the amount paid.'; msg.className = 'pl-msg error'; return; }
+    msg.textContent = 'Saving…'; msg.className = 'pl-msg';
+    var res = await P.api('/api/private-loans/' + encodeURIComponent(loanId) + '/repayments', { method: 'POST', body: { paid_on: date, amount: amount, note: el('rep-note-' + loanId).value.trim() || null } });
+    if (!res.ok) { msg.textContent = res.body.error || 'Could not log the repayment.'; msg.className = 'pl-msg error'; return; }
+    var l = loans.find(function (x) { return x.id === loanId; });
+    l.repayments = (l.repayments || []).concat([res.body]);
+    render();
+    var m2 = el('rep-msg-' + loanId); if (m2) { m2.textContent = 'Repayment logged.'; m2.className = 'pl-msg success'; }
+  }
+
+  async function init() {
+    var ctx = await P.start();
+    if (!ctx) return;
+    P.bindMoney(document);
+    if (!ctx.paid) { P.show('locked'); return; }
+    var res = await P.api('/api/private-loans');
+    if (res.status === 403) { P.show('locked'); return; }
+    if (res.status === 409) { el('pf-error').textContent = 'Private finance needs a quick database update (db/052) before it can be used.'; P.show('error'); return; }
+    if (!res.ok) { el('pf-error').textContent = res.body.error || 'Could not load your loans.'; P.show('error'); return; }
+    loans = Array.isArray(res.body) ? res.body : [];
+    var pr = await P.api('/api/portfolio');
+    properties = pr.ok && pr.body.properties ? pr.body.properties : [];
+    var dr = await P.api('/api/deals');
+    deals = dr.ok && Array.isArray(dr.body) ? dr.body : [];
+    fillLinkOptions();
+    P.show('ready');
+    render();
+    if (location.hash) { var t = document.querySelector(location.hash.replace(/[^#\w-]/g, '')); if (t) t.scrollIntoView({ block: 'center' }); }
+
+    document.querySelectorAll('[data-open-form]').forEach(function (b) { b.addEventListener('click', function () { openForm(null); }); });
+    el('pf-cancel').addEventListener('click', closeForm);
+    el('pf-save').addEventListener('click', saveForm);
+
+    el('pf-loans').addEventListener('click', async function (e) {
+      var t = e.target, d = t.dataset || {};
+      if (d.addRep) return addRepayment(d.addRep);
+      if (d.edit) return openForm(loans.find(function (x) { return x.id === d.edit; }));
+      if (d.del) {
+        var l = loans.find(function (x) { return x.id === d.del; });
+        if (!confirm('Delete the loan from ' + (l ? l.lender_name : 'this lender') + '? Its repayments log and agreement go too. This cannot be undone.')) return;
+        var r = await P.api('/api/private-loans/' + encodeURIComponent(d.del), { method: 'DELETE' });
+        if (!r.ok) { alert(r.body.error || 'Could not delete the loan.'); return; }
+        loans = loans.filter(function (x) { return x.id !== d.del; });
+        render();
+        return;
+      }
+      if (d.delRep) {
+        if (!confirm('Delete this repayment from the log?')) return;
+        var r2 = await P.api('/api/private-loan-repayments/' + encodeURIComponent(d.delRep), { method: 'DELETE' });
+        if (!r2.ok) { alert(r2.body.error || 'Could not delete the repayment.'); return; }
+        loans.forEach(function (x) { x.repayments = (x.repayments || []).filter(function (rp) { return rp.id !== d.delRep; }); });
+        render();
+        return;
+      }
+      if (d.delAgr) {
+        if (!confirm('Remove the uploaded agreement?')) return;
+        var r3 = await P.api('/api/private-loans/' + encodeURIComponent(d.delAgr) + '/agreement', { method: 'DELETE' });
+        if (!r3.ok) { alert(r3.body.error || 'Could not remove the agreement.'); return; }
+        var lx = loans.find(function (x) { return x.id === d.delAgr; });
+        if (lx) { lx.has_agreement = false; lx.agreement_url = null; lx.agreement_name = null; }
+        render();
+      }
+    });
+    el('pf-loans').addEventListener('change', async function (e) {
+      var id = e.target.dataset && e.target.dataset.agreementFor;
+      if (!id || !e.target.files[0]) return;
+      var msg = el('agr-msg-' + id);
+      msg.textContent = 'Uploading…'; msg.className = 'pl-msg';
+      try {
+        await uploadAgreement(id, e.target.files[0]);
+        render();
+        var m = el('agr-msg-' + id); if (m) { m.textContent = 'Agreement saved.'; m.className = 'pl-msg success'; }
+      } catch (err) { msg.textContent = err.message; msg.className = 'pl-msg error'; }
+    });
+  }
+  init();
+})();
+</script>
+</body>
+</html>

@@ -81,10 +81,10 @@ var NAV_TOOL_GROUPS = [
   ] },
   { label: 'Planning', items: [
     { key: 'refurb', href: '/refurb.html', label: 'Refurb Estimator', desc: 'Cost a refurb line by line' },
-    { key: 'tool-stress', label: 'Portfolio stress test', desc: 'How your portfolio copes with higher rates', soon: true },
-    { key: 'tool-refi-plan', label: 'Refinance planner', desc: 'When and how to refinance each property', soon: true },
-    { key: 'tool-buy-box', label: 'Buy box', desc: 'The deals you are looking for, in one place', soon: true },
-    { key: 'tool-private', label: 'Private finance', desc: 'Model money from private lenders', soon: true }
+    { key: 'tool-stress', href: '/portfolio-stress-test.html', label: 'Portfolio stress test', desc: 'How your portfolio copes with higher rates' },
+    { key: 'tool-refi-plan', href: '/refinance-planner.html', label: 'Refinance planner', desc: 'When and how to refinance each property' },
+    { key: 'tool-buy-box', href: '/buy-box.html', label: 'Buy box', desc: 'Check every deal against what you buy' },
+    { key: 'tool-private', href: '/private-finance.html', label: 'Private finance', desc: 'Loans from private lenders, owed and due' }
   ] },
   { label: 'Outreach', items: [
     { key: 'letters', href: '/letters.html', label: 'Letter Templates', desc: 'Letters to owners and agents' }

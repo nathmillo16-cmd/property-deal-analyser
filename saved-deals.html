@@ -24,6 +24,7 @@
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
 <script src="/deal-verdict.js"></script>
+<script src="/planning-tools.js"></script>
 <script src="/deal-cards.js"></script>
 <script src="/deal-stage-prompts.js"></script>
 <script src="/results-disclaimer.js"></script>
@@ -394,6 +395,8 @@ body.theme-light .dd-trigger::after{
       <div class="ws-grid">
         <div class="field"><label for="ws-address">Address</label><input type="text" id="ws-address" autocomplete="off"/></div>
         <div class="field"><label for="ws-postcode">Postcode</label><input type="text" id="ws-postcode" autocomplete="off" autocapitalize="characters"/></div>
+        <div class="field"><label for="ws-ptype">Property type</label><select id="ws-ptype"><option value="">Not set</option><option value="detached">Detached</option><option value="semi-detached">Semi-detached</option><option value="terraced">Terraced</option><option value="end-terrace">End of terrace</option><option value="flat">Flat</option><option value="bungalow">Bungalow</option><option value="maisonette">Maisonette</option><option value="other">Other</option></select></div>
+        <div class="field"><label for="ws-beds">Bedrooms</label><input type="number" id="ws-beds" inputmode="numeric" min="0" max="50" step="1"/></div>
       </div>
       <p class="subhead" style="margin-top:.75rem">Agent</p>
       <div class="ws-grid">
@@ -426,6 +429,12 @@ body.theme-light .dd-trigger::after{
         </div>
         <div id="ws-comps-result"></div>
       </div>
+    </div>
+
+    <!-- Buy box (Tools > Buy box): how this deal fits, from planning-tools.js. -->
+    <div class="modal-section" id="ws-buybox" hidden>
+      <p class="subhead" id="ws-buybox-head">Buy box</p>
+      <div id="ws-buybox-body"></div>
     </div>
 
     <div class="modal-section">
@@ -1123,12 +1132,27 @@ function openDealWorkspace(dealId){
 
   document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
   renderWorkspaceDetails(deal);
+  renderWorkspaceBuyBox(deal);
   renderWorkspaceAnalysis(deal);
   renderWorkspaceComps(deal);
   updateWorkspaceGating(deal);
   if(window.NativeReminders)NativeReminders.render(deal, dealDisplayName(deal)); // iOS app only
 
   document.getElementById('workspace-modal-overlay').classList.add('open');
+}
+
+// Buy box: shown only once the user has set one (Tools > Buy box). Same
+// check as the deal cards (DealCards.buyBoxResult), with each criterion
+// listed as pass, fail or not known.
+function renderWorkspaceBuyBox(deal){
+  const wrap=document.getElementById('ws-buybox');
+  const r=deal?DealCards.buyBoxResult(deal):null;
+  wrap.hidden=!r||!r.total;
+  if(wrap.hidden)return;
+  document.getElementById('ws-buybox-head').innerHTML='Buy box '+PlanningTools.buyBox.badgeHtml(r);
+  document.getElementById('ws-buybox-body').innerHTML=PlanningTools.buyBox.listHtml(r)+
+    (r.unknown?'<p class="hint" style="margin:.5rem 0 0">Add the missing details above and save to complete the check.</p>':'')+
+    '<p class="hint" style="margin:.5rem 0 0"><a href="/buy-box.html">Edit your buy box</a></p>';
 }
 
 // Reads compare-deals.js's own COMPARE_FIELDS/fmtCompareField — the same
@@ -1638,6 +1662,8 @@ function renderWorkspaceDetails(deal){
   document.getElementById('ws-listing-url').value=deal.listing_url||'';
   document.getElementById('ws-address').value=deal.address||'';
   document.getElementById('ws-postcode').value=deal.postcode||'';
+  document.getElementById('ws-ptype').value=deal.property_type||'';
+  document.getElementById('ws-beds').value=deal.bedrooms!=null?deal.bedrooms:'';
   document.getElementById('ws-agent-name').value=a.name||'';
   document.getElementById('ws-agent-agency').value=a.agency||'';
   document.getElementById('ws-agent-phone').value=a.phone||'';
@@ -1666,6 +1692,8 @@ async function saveDealDetails(){
     listing_url:document.getElementById('ws-listing-url').value.trim()||null,
     address:document.getElementById('ws-address').value.trim()||null,
     postcode:document.getElementById('ws-postcode').value.trim()||null,
+    property_type:document.getElementById('ws-ptype').value||null,
+    bedrooms:document.getElementById('ws-beds').value===''?null:Number(document.getElementById('ws-beds').value),
     agent:{
       name:document.getElementById('ws-agent-name').value.trim(),
       agency:document.getElementById('ws-agent-agency').value.trim(),
@@ -1683,7 +1711,9 @@ async function saveDealDetails(){
     const merged=mergeDealIntoCache(out);
     document.getElementById('ws-postcode').value=merged.postcode||'';
     updateDetailsLinks(merged);
-    setMsg('ws-details-msg','Saved.','success');
+    renderWorkspaceBuyBox(merged);
+    renderSavedList();
+    setMsg('ws-details-msg',out.facts_pending?'Saved. Property type and bedrooms can be saved once a quick database update (db/052) has been run.':'Saved.',out.facts_pending?'error':'success');
   }catch(e){ setMsg('ws-details-msg',e.message,'error'); }
 }
 
@@ -1810,7 +1840,7 @@ function renderExtract(){
     <p class="hint" style="margin:0 0 .4rem">Check these against the listing before you use them.</p>
     ${rows.map(([l,v])=>`<div class="analysis-row"><span class="analysis-label">${escapeHtml(l)}</span><span class="analysis-value">${escapeHtml(v)}</span></div>`).join('')}
     <div class="ws-actions" style="margin-top:.75rem">
-      ${(f.address||f.postcode)?'<button class="mini-btn" onclick="useExtractDetails()">Use address and postcode</button>':''}
+      ${(f.address||f.postcode||f.property_type||f.bedrooms!=null)?'<button class="mini-btn" onclick="useExtractDetails()">Use these details</button>':''}
       ${(f.price!=null||canRent)?'<button class="btn-primary" onclick="useExtractInCalculator()">Fill the calculator</button>':''}
     </div>
     <p class="ws-note">"Fill the calculator" opens this deal in the calculator with the ${f.price!=null?'price':''}${f.price!=null&&canRent?' and ':''}${canRent?'monthly rent':''} filled in. Check it and save it from there.</p>
@@ -1820,6 +1850,8 @@ function useExtractDetails(){
   const f=lastExtract||{};
   if(f.address)document.getElementById('ws-address').value=f.address;
   if(f.postcode)document.getElementById('ws-postcode').value=f.postcode;
+  if(f.property_type)document.getElementById('ws-ptype').value=f.property_type;
+  if(f.bedrooms!=null)document.getElementById('ws-beds').value=f.bedrooms;
   saveDealDetails();
   document.getElementById('ws-address').scrollIntoView({behavior:'smooth',block:'center'});
 }
@@ -2773,6 +2805,9 @@ async function init(){
 
   // Scroll restore waits for the saved-deals list to finish loading and
   // render, since the list's length is what determines page height.
+  // Buy box badges and filter (deal-cards.js), once the profile has loaded.
+  DealCards.initBuyBox(function(){ renderSavedList(); const d=currentDeal(); if(d&&document.getElementById('workspace-modal-overlay').classList.contains('open'))renderWorkspaceBuyBox(d); });
+
   loadSavedDeals().finally(function(){
     restoreScrollPosition('saved-deals');
     attachScrollSaver('saved-deals');

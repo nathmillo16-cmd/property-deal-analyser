@@ -24,6 +24,7 @@
 <script src="/draft-state.js"></script>
 <script src="/onboarding-tutorial.js"></script>
 <script src="/calc-engine.js"></script>
+<script src="/planning-tools.js"></script>
 <script src="/home-widgets.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css
@@ -129,6 +130,8 @@
 .na-tag.rent{background:var(--warn-bg);color:var(--warn-ink)}
 .na-tag.rent.overdue{background:var(--danger-bg);color:var(--danger-ink)}
 .na-tag.reminder{background:rgba(75,69,178,.10);color:var(--accent)}
+.na-tag.loan{background:var(--warn-bg);color:var(--warn-ink)}
+.na-tag.loan.overdue{background:var(--danger-bg);color:var(--danger-ink)}
 .na-caught-up{margin:0}
 
 /* ---- pipeline: distribution bar + compact stage list ---- */
@@ -552,6 +555,18 @@ async function loadDashboard(){
   }catch(e){
     needsAttention=[];
   }
+
+  // Private finance (Tools > Private finance): loan repayments due within
+  // 30 days or overdue, worked out here from the loans and their
+  // repayments log (planning-tools.js), first in the list. Paid only, and
+  // quietly skipped if the request fails or db/052 hasn't been run.
+  try{
+    const lr=await fetch(API_BASE+'/api/private-loans',{headers});
+    if(lr.ok){
+      const loans=await lr.json();
+      if(Array.isArray(loans)&&window.PlanningTools)needsAttention=PlanningTools.loansDueSoon(loans).concat(needsAttention);
+    }
+  }catch(e){}
 
   // Only fetched here to read has_completed_tutorial, for the onboarding
   // tour's auto-trigger check below — nothing else on this page uses this

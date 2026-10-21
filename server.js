@@ -348,6 +348,42 @@ app.post('/api/portfolio/:id/documents', express.json({ limit: '15mb' }), async 
   res.json({ ...publicDocumentRow(row), url: signed ? signed.signedUrl : null });
 });
 
+// Private finance loan agreement upload (db/052): PDF, JPEG or PNG up to
+// 10MB, one per loan, stored privately in the 'loan-agreements' bucket.
+// Base64 like the property documents above, so registered before the
+// global express.json too. A new upload replaces the old file.
+app.post('/api/private-loans/:id/agreement', express.json({ limit: '15mb' }), async (req, res) => {
+  const ctx = await loanRequest(req, res, { needUser: true });
+  if (!ctx) return;
+  const { supabase, userId } = ctx;
+  const { data: loan, error: loanErr } = await supabase.from('private_loans').select('id, agreement_path').eq('id', req.params.id).single();
+  if (loanErr && isMissingSchemaError(loanErr)) return loansNeedMigration(res);
+  if (loanErr || !loan) return res.status(404).json({ error: 'Loan not found.' });
+
+  const body = req.body || {};
+  const file = decodeUploadedFile(body, PROPERTY_DOC_CONTENT_TYPES, PROPERTY_DOC_MAX_BYTES);
+  if (file.error) return res.status(400).json({ error: file.error });
+  const fileName = cleanText(body.file_name, 160) || 'Loan agreement';
+
+  const storagePath = `${userId}/${loan.id}/${crypto.randomUUID()}.${file.ext}`;
+  const { error: uploadErr } = await supabase.storage.from('loan-agreements')
+    .upload(storagePath, file.buffer, { contentType: file.type, upsert: false });
+  if (uploadErr) {
+    console.error('Loan agreement: upload failed for', userId, uploadErr.message);
+    return res.status(400).json({ error: /bucket/i.test(uploadErr.message) ? 'Agreements need a quick database update (db/052) first.' : 'That file could not be uploaded. Try again.' });
+  }
+  const { data: row, error } = await supabase.from('private_loans')
+    .update({ agreement_path: storagePath, agreement_name: fileName, updated_at: new Date().toISOString() })
+    .eq('id', loan.id).select(LOAN_COLUMNS).single();
+  if (error || !row) {
+    await supabase.storage.from('loan-agreements').remove([storagePath]);
+    return res.status(400).json({ error: 'That agreement could not be saved. Try again.' });
+  }
+  if (loan.agreement_path) await supabase.storage.from('loan-agreements').remove([loan.agreement_path]);
+  const { data: signed } = await supabase.storage.from('loan-agreements').createSignedUrl(storagePath, PROPERTY_SIGNED_URL_SECONDS);
+  res.json({ ...publicLoanRow(row), agreement_url: signed ? signed.signedUrl : null });
+});
+
 // Expense, with an optional receipt (photo or PDF) stored in property-docs.
 app.post('/api/portfolio/:id/expenses', express.json({ limit: '15mb' }), async (req, res) => {
   const ctx = await propertyRequest(req, res, { needUser: true });
@@ -1601,7 +1637,7 @@ app.get('/api/deals', async (req, res) => {
   const { data, error } = await selectDealsList(supabase);
 
   if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
+  res.json(await attachDealFacts(supabase, data));
 });
 
 // Deal page details (db/045): listing link, address, postcode, agent,
@@ -1676,6 +1712,49 @@ function validateDealDetails(body, plan) {
   return { value };
 }
 
+// Property type and bedrooms (db/052), checked against the buy box. Kept
+// out of DEAL_COLUMNS_* on purpose: they're read and written with their
+// own small queries, so nothing about loading or saving a deal changes
+// before db/052 is run.
+const DEAL_FACT_COLUMNS = 'id, property_type, bedrooms';
+
+function validateDealFacts(body) {
+  const value = {};
+  if (body.property_type !== undefined) {
+    const t = body.property_type;
+    if (t === null || t === '') value.property_type = null;
+    else if (BUY_BOX_PROPERTY_TYPES.includes(t)) value.property_type = t;
+    else return { error: 'Choose a property type from the list.' };
+  }
+  if (body.bedrooms !== undefined) {
+    const b = body.bedrooms;
+    if (b === null || b === '') value.bedrooms = null;
+    else {
+      const n = Number(b);
+      if (!Number.isInteger(n) || n < 0 || n > 50) return { error: 'Bedrooms must be a whole number from 0 to 50.' };
+      value.bedrooms = n;
+    }
+  }
+  return { value };
+}
+
+// Adds property_type and bedrooms to a list of deals. Failure-tolerant:
+// before db/052 the deals are returned as they are.
+async function attachDealFacts(supabase, rows) {
+  if (!Array.isArray(rows) || !rows.length) return rows;
+  try {
+    const { data, error } = await supabase.from('deals').select(DEAL_FACT_COLUMNS);
+    if (error || !data) return rows;
+    const byId = new Map(data.map((r) => [r.id, r]));
+    return rows.map((d) => {
+      const f = byId.get(d.id);
+      return f ? { ...d, property_type: f.property_type, bedrooms: f.bedrooms } : d;
+    });
+  } catch (e) {
+    return rows;
+  }
+}
+
 app.post('/api/deals/:id/details', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to update deals.' });
@@ -1684,20 +1763,46 @@ app.post('/api/deals/:id/details', async (req, res) => {
   const plan = needsPlan ? await getUserPlan(supabase) : 'free';
   const { value, error: vErr, status } = validateDealDetails(req.body || {}, plan);
   if (vErr) return res.status(status || 400).json({ error: vErr });
-  if (!Object.keys(value).length) return res.status(400).json({ error: 'Nothing to save.' });
+  const { value: facts, error: fErr } = validateDealFacts(req.body || {});
+  if (fErr) return res.status(400).json({ error: fErr });
+  if (!Object.keys(value).length && !Object.keys(facts).length) return res.status(400).json({ error: 'Nothing to save.' });
 
-  const { data, error } = await supabase
-    .from('deals')
-    .update(value)
-    .eq('id', req.params.id)
-    .select(DEAL_COLUMNS_045)
-    .single();
-
-  if (error && isMissingSchemaError(error)) {
-    return res.status(409).json({ needs_migration: true, error: 'This needs a quick database update (db/045) before it can be saved.' });
+  let data = null;
+  if (Object.keys(value).length) {
+    const upd = await supabase
+      .from('deals')
+      .update(value)
+      .eq('id', req.params.id)
+      .select(DEAL_COLUMNS_045)
+      .single();
+    if (upd.error && isMissingSchemaError(upd.error)) {
+      return res.status(409).json({ needs_migration: true, error: 'This needs a quick database update (db/045) before it can be saved.' });
+    }
+    if (upd.error || !upd.data) return res.status(404).json({ error: 'Deal not found.' });
+    data = upd.data;
   }
-  if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
-  res.json(data);
+
+  // Property type and bedrooms (db/052), saved separately so the rest of
+  // the details still save before db/052 is run.
+  let factsRow = null, factsPending = false;
+  if (Object.keys(facts).length) {
+    const fu = await supabase.from('deals').update(facts).eq('id', req.params.id).select(DEAL_FACT_COLUMNS).single();
+    if (fu.error && isMissingSchemaError(fu.error)) {
+      if (!data) return res.status(409).json({ needs_migration: true, error: 'This needs a quick database update (db/052) before property type and bedrooms can be saved.' });
+      factsPending = true;
+    } else if (fu.error || !fu.data) {
+      return res.status(404).json({ error: 'Deal not found.' });
+    } else {
+      factsRow = fu.data;
+    }
+  }
+  if (!data) {
+    let sel = await supabase.from('deals').select(DEAL_COLUMNS_045).eq('id', req.params.id).single();
+    if (sel.error && isMissingSchemaError(sel.error)) sel = await supabase.from('deals').select(DEAL_COLUMNS_BASE).eq('id', req.params.id).single();
+    if (sel.error || !sel.data) return res.status(404).json({ error: 'Deal not found.' });
+    data = sel.data;
+  }
+  res.json({ ...data, ...(factsRow ? { property_type: factsRow.property_type, bedrooms: factsRow.bedrooms } : {}), ...(factsPending ? { facts_pending: true } : {}) });
 });
 
 const NEEDS_ATTENTION_CHASE_DAYS = 3;
@@ -2205,7 +2310,7 @@ app.get('/api/pipeline', async (req, res) => {
   const { data, error } = await selectDealsList(supabase, (q) => q.not('pipeline_stage', 'is', null));
 
   if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
+  res.json(await attachDealFacts(supabase, data));
 });
 
 // 'lost' (the last board column) can carry a reason, stored in db/045's
@@ -2776,6 +2881,198 @@ app.get('/api/deals-stats', async (req, res) => {
     avg_discount_pct: avgDiscount,
     avg_discount_count: discounts.length,
   });
+});
+
+// =====================================================================
+// Private finance (db/052, Tools > Private finance): loans from private
+// lenders, a repayments log per loan and an optional signed agreement.
+// Paid, like the portfolio. Every query is the caller's own client, so RLS
+// scopes it to their own rows. Balances and interest are worked out on
+// the page (planning-tools.js), never stored. Before db/052 is run every
+// route returns 409 { needs_migration: true }.
+// =====================================================================
+const LOAN_COLUMNS = 'id, lender_name, relationship, amount, start_date, interest_rate, interest_type, payment_type, repayment_date, security, property_id, deal_id, notes, agreement_path, agreement_name, created_at, updated_at';
+const LOAN_REPAYMENT_COLUMNS = 'id, loan_id, paid_on, amount, note, created_at';
+const LOAN_RELATIONSHIPS = ['family', 'friend', 'jv_partner', 'other'];
+const LOAN_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function loansNeedMigration(res) {
+  return res.status(409).json({ needs_migration: true, error: 'Private finance needs a quick database update (db/052) first.' });
+}
+
+async function loanRequest(req, res, { needUser } = {}) {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) { res.status(401).json({ error: 'Log in to use private finance.' }); return null; }
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') { res.status(403).json({ error: 'Upgrade to unlock private finance.' }); return null; }
+  let userId = null;
+  if (needUser) {
+    const { data, error } = await supabase.auth.getUser(getBearerToken(req));
+    if (error || !data || !data.user) { res.status(401).json({ error: 'Log in to use private finance.' }); return null; }
+    userId = data.user.id;
+  }
+  return { supabase, userId };
+}
+
+// The storage path stays on the server; the page gets a short-lived link.
+function publicLoanRow(row) {
+  const { agreement_path, ...rest } = row;
+  return { ...rest, has_agreement: !!agreement_path };
+}
+
+async function validateLoanInput(supabase, b) {
+  b = b && typeof b === 'object' ? b : {};
+  const v = {};
+  v.lender_name = cleanText(b.lender_name, 120);
+  if (!v.lender_name) return { error: "Enter the lender's name." };
+  v.relationship = LOAN_RELATIONSHIPS.includes(b.relationship) ? b.relationship : null;
+  if (!v.relationship) return { error: 'Choose how you know the lender.' };
+  const amount = Number(b.amount);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) return { error: 'Enter the amount borrowed.' };
+  v.amount = Math.round(amount * 100) / 100;
+  if (typeof b.start_date !== 'string' || !DATE_RE.test(b.start_date)) return { error: 'Enter the start date.' };
+  v.start_date = b.start_date;
+  const rate = b.interest_rate === '' || b.interest_rate == null ? 0 : Number(b.interest_rate);
+  if (!Number.isFinite(rate) || rate < 0 || rate > 100) return { error: 'Interest rate must be between 0% and 100%.' };
+  v.interest_rate = rate;
+  v.interest_type = b.interest_type === 'compound' ? 'compound' : 'simple';
+  v.payment_type = b.payment_type === 'monthly' ? 'monthly' : 'rolled_up';
+  if (b.repayment_date === '' || b.repayment_date == null) v.repayment_date = null;
+  else if (typeof b.repayment_date === 'string' && DATE_RE.test(b.repayment_date)) {
+    if (b.repayment_date < v.start_date) return { error: 'The repayment date must be after the start date.' };
+    v.repayment_date = b.repayment_date;
+  } else return { error: 'Repayment date must be a valid date, or blank.' };
+  v.security = b.security === 'charge' ? 'charge' : 'unsecured';
+  v.notes = cleanText(b.notes, 2000);
+  // A linked property or deal must be the caller's own (RLS on the lookup
+  // means someone else's id simply isn't found).
+  v.property_id = null;
+  v.deal_id = null;
+  if (b.property_id) {
+    if (!LOAN_UUID_RE.test(String(b.property_id))) return { error: 'That property was not found.' };
+    const { data } = await supabase.from('portfolio_properties').select('id').eq('id', b.property_id).maybeSingle();
+    if (!data) return { error: 'That property was not found.' };
+    v.property_id = data.id;
+  }
+  if (b.deal_id) {
+    if (!LOAN_UUID_RE.test(String(b.deal_id))) return { error: 'That deal was not found.' };
+    const { data } = await supabase.from('deals').select('id').eq('id', b.deal_id).maybeSingle();
+    if (!data) return { error: 'That deal was not found.' };
+    v.deal_id = data.id;
+  }
+  return { value: v };
+}
+
+app.get('/api/private-loans', async (req, res) => {
+  const ctx = await loanRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const [loansRes, repRes] = await Promise.all([
+    supabase.from('private_loans').select(LOAN_COLUMNS).order('start_date', { ascending: true }),
+    supabase.from('private_loan_repayments').select(LOAN_REPAYMENT_COLUMNS).order('paid_on', { ascending: true }),
+  ]);
+  if ((loansRes.error && isMissingSchemaError(loansRes.error)) || (repRes.error && isMissingSchemaError(repRes.error))) return loansNeedMigration(res);
+  if (loansRes.error) return res.status(400).json({ error: loansRes.error.message });
+  if (repRes.error) return res.status(400).json({ error: repRes.error.message });
+  const byLoan = new Map();
+  for (const r of repRes.data || []) {
+    if (!byLoan.has(r.loan_id)) byLoan.set(r.loan_id, []);
+    byLoan.get(r.loan_id).push(r);
+  }
+  const loans = loansRes.data || [];
+  const paths = loans.map((l) => l.agreement_path).filter(Boolean);
+  let urls = new Map();
+  if (paths.length) {
+    try {
+      const { data } = await supabase.storage.from('loan-agreements').createSignedUrls(paths, PROPERTY_SIGNED_URL_SECONDS);
+      urls = new Map((data || []).filter((x) => x.signedUrl).map((x) => [x.path, x.signedUrl]));
+    } catch (e) {}
+  }
+  res.json(loans.map((l) => ({ ...publicLoanRow(l), agreement_url: l.agreement_path ? urls.get(l.agreement_path) || null : null, repayments: byLoan.get(l.id) || [] })));
+});
+
+app.post('/api/private-loans', async (req, res) => {
+  const ctx = await loanRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { value, error: vErr } = await validateLoanInput(supabase, req.body);
+  if (vErr) return res.status(400).json({ error: vErr });
+  const { data, error } = await supabase.from('private_loans').insert(value).select(LOAN_COLUMNS).single();
+  if (error && isMissingSchemaError(error)) return loansNeedMigration(res);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ...publicLoanRow(data), agreement_url: null, repayments: [] });
+});
+
+app.put('/api/private-loans/:id', async (req, res) => {
+  const ctx = await loanRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { value, error: vErr } = await validateLoanInput(supabase, req.body);
+  if (vErr) return res.status(400).json({ error: vErr });
+  const { data, error } = await supabase.from('private_loans')
+    .update({ ...value, updated_at: new Date().toISOString() })
+    .eq('id', req.params.id).select(LOAN_COLUMNS).single();
+  if (error && isMissingSchemaError(error)) return loansNeedMigration(res);
+  if (error || !data) return res.status(404).json({ error: 'Loan not found.' });
+  res.json(publicLoanRow(data));
+});
+
+app.delete('/api/private-loans/:id', async (req, res) => {
+  const ctx = await loanRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { data: loan, error: findErr } = await supabase.from('private_loans').select('id, agreement_path').eq('id', req.params.id).single();
+  if (findErr && isMissingSchemaError(findErr)) return loansNeedMigration(res);
+  if (findErr || !loan) return res.status(404).json({ error: 'Loan not found.' });
+  const { error } = await supabase.from('private_loans').delete().eq('id', loan.id);
+  if (error) return res.status(400).json({ error: error.message });
+  if (loan.agreement_path) await supabase.storage.from('loan-agreements').remove([loan.agreement_path]);
+  res.json({ deleted: true });
+});
+
+app.delete('/api/private-loans/:id/agreement', async (req, res) => {
+  const ctx = await loanRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { data: loan, error: findErr } = await supabase.from('private_loans').select('id, agreement_path').eq('id', req.params.id).single();
+  if (findErr && isMissingSchemaError(findErr)) return loansNeedMigration(res);
+  if (findErr || !loan) return res.status(404).json({ error: 'Loan not found.' });
+  const { error } = await supabase.from('private_loans').update({ agreement_path: null, agreement_name: null, updated_at: new Date().toISOString() }).eq('id', loan.id);
+  if (error) return res.status(400).json({ error: error.message });
+  if (loan.agreement_path) await supabase.storage.from('loan-agreements').remove([loan.agreement_path]);
+  res.json({ deleted: true });
+});
+
+app.post('/api/private-loans/:id/repayments', async (req, res) => {
+  const ctx = await loanRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const b = req.body || {};
+  if (typeof b.paid_on !== 'string' || !DATE_RE.test(b.paid_on)) return res.status(400).json({ error: 'Enter the date it was paid.' });
+  const amount = Number(b.amount);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) return res.status(400).json({ error: 'Enter the amount paid.' });
+  const { data: loan, error: findErr } = await supabase.from('private_loans').select('id, start_date').eq('id', req.params.id).single();
+  if (findErr && isMissingSchemaError(findErr)) return loansNeedMigration(res);
+  if (findErr || !loan) return res.status(404).json({ error: 'Loan not found.' });
+  if (b.paid_on < loan.start_date) return res.status(400).json({ error: 'A repayment cannot be before the loan started.' });
+  const { data, error } = await supabase.from('private_loan_repayments')
+    .insert({ loan_id: loan.id, paid_on: b.paid_on, amount: Math.round(amount * 100) / 100, note: cleanText(b.note, 300) })
+    .select(LOAN_REPAYMENT_COLUMNS).single();
+  if (error && isMissingSchemaError(error)) return loansNeedMigration(res);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete('/api/private-loan-repayments/:id', async (req, res) => {
+  const ctx = await loanRequest(req, res);
+  if (!ctx) return;
+  const { supabase } = ctx;
+  const { data, error } = await supabase.from('private_loan_repayments').delete().eq('id', req.params.id).select('id');
+  if (error && isMissingSchemaError(error)) return loansNeedMigration(res);
+  if (error) return res.status(400).json({ error: error.message });
+  if (!data || !data.length) return res.status(404).json({ error: 'Repayment not found.' });
+  res.json({ deleted: true });
 });
 
 app.post('/api/portfolio', async (req, res) => {
@@ -4400,7 +4697,15 @@ app.get('/api/profile', async (req, res) => {
     if (!lsError && lsRow) letterSender = { letter_sender: lsRow.letter_sender || null, letter_sender_available: true };
   } catch (e) {}
 
-  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals, ...progress, ...targetLtv, ...letterSender });
+  // Buy box (db/052): same decoupled query. buy_box_available tells the
+  // Buy box page whether it can save yet.
+  let buyBox = { buy_box: null, buy_box_available: false };
+  try {
+    const { data: bbRow, error: bbError } = await supabase.from('profiles').select('buy_box').eq('user_id', userId).single();
+    if (!bbError && bbRow) buyBox = { buy_box: bbRow.buy_box || null, buy_box_available: true };
+  } catch (e) {}
+
+  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals, ...progress, ...targetLtv, ...letterSender, ...buyBox });
 });
 
 // Target LTV (db/046), used by the Portfolio's "available to release".
@@ -4642,6 +4947,76 @@ app.post('/api/profile/letter-sender', async (req, res) => {
     .select('letter_sender')
     .single();
   if (error && isMissingSchemaError(error)) return res.status(409).json({ needs_migration: true, error: 'This needs a quick database update (db/051) before it can be saved to your account.' });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+// Buy box (db/052, Tools > Buy box). A narrow update of profiles.buy_box
+// only, same reasoning as /api/profile/letter-sender. Every field is
+// optional; anything not recognised is dropped and numbers are range
+// checked. Not plan-gated: it only stores the user's own preferences.
+// Returns 409 { needs_migration: true } before db/052 is run.
+const BUY_BOX_STRATEGIES = ['btl', 'brrr', 'hmo', 'sa', 'flip'];
+const BUY_BOX_PROPERTY_TYPES = ['detached', 'semi-detached', 'terraced', 'end-terrace', 'flat', 'bungalow', 'maisonette', 'other'];
+
+function validateBuyBox(b) {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return { error: 'Buy box must be an object.' };
+  const numOrNull = (v, min, max, label) => {
+    if (v === null || v === undefined || v === '') return { value: null };
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < min || n > max) return { error: `${label} must be between ${min.toLocaleString('en-GB')} and ${max.toLocaleString('en-GB')}.` };
+    return { value: n };
+  };
+  const out = {};
+  const listOf = (v, allowed) => (Array.isArray(v) ? [...new Set(v.map((x) => String(x)).filter((x) => allowed.includes(x)))] : []);
+  out.strategies = listOf(b.strategies, BUY_BOX_STRATEGIES);
+  out.property_types = listOf(b.property_types, BUY_BOX_PROPERTY_TYPES);
+  out.areas = Array.isArray(b.areas)
+    ? [...new Set(b.areas.map((a) => cleanText(a, 60)).filter(Boolean))].slice(0, 30)
+    : [];
+  const fields = [
+    ['max_price', 0, 100000000, 'Max purchase price'],
+    ['min_yield', -100, 100, 'Min gross yield'],
+    ['min_cashflow', -100000, 100000, 'Min monthly cashflow'],
+    ['min_coc', -100, 1000, 'Min cash-on-cash return'],
+    ['max_left_in', 0, 100000000, 'Max money left in'],
+    ['bedrooms_min', 0, 50, 'Min bedrooms'],
+    ['bedrooms_max', 0, 50, 'Max bedrooms'],
+  ];
+  for (const [key, min, max, label] of fields) {
+    const r = numOrNull(b[key], min, max, label);
+    if (r.error) return { error: r.error };
+    out[key] = r.value;
+  }
+  if (out.bedrooms_min != null && out.bedrooms_max != null && out.bedrooms_min > out.bedrooms_max) {
+    return { error: 'Min bedrooms must not be more than max bedrooms.' };
+  }
+  return { value: out };
+}
+
+app.post('/api/profile/buy-box', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to save your buy box.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to save your buy box.' });
+
+  const body = req.body && req.body.buy_box !== undefined ? req.body.buy_box : req.body;
+  let buy_box = null;
+  if (body !== null) {
+    const { value, error: vErr } = validateBuyBox(body);
+    if (vErr) return res.status(400).json({ error: vErr });
+    buy_box = value;
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ buy_box })
+    .eq('user_id', userData.user.id)
+    .select('buy_box')
+    .single();
+  if (error && isMissingSchemaError(error)) return res.status(409).json({ needs_migration: true, error: 'This needs a quick database update (db/052) before your buy box can be saved.' });
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });

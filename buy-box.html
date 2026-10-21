@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>PROPulsion · Buy box</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/planning-tools.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="tool-buy-box" data-subscribe="false"></div>
+  <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
+  <script src="/planning-page.js"></script>
+
+  <main class="tool tool-wide">
+    <p class="tool-eyebrow">Planning</p>
+    <h1 class="tool-title">Buy box</h1>
+    <p class="tool-lede">The deals you're looking for, written down once. Every deal you save is checked against it and shows how many of your criteria it meets.</p>
+
+    <div data-state="loading"><p class="tool-note">Loading…</p></div>
+    <section class="tool-card" data-state="error" hidden><p class="pl-msg error" id="bb-error"></p></section>
+
+    <div data-state="ready" hidden>
+      <section class="tool-answer" id="bb-answer" aria-live="polite" hidden>
+        <p class="tool-answer-label">Your buy box</p>
+        <p class="pl-verdict" id="bb-summary"></p>
+        <p class="tool-answer-sub" id="bb-summary-sub"></p>
+        <div class="tool-answer-grid">
+          <div><p class="k">Criteria set</p><p class="v" id="bb-count">0</p></div>
+          <div><p class="k">Deals that fit</p><p class="v" id="bb-fit">0</p></div>
+          <div><p class="k">Deals checked</p><p class="v" id="bb-checked">0</p></div>
+        </div>
+      </section>
+
+      <section class="tool-card pl-empty" id="bb-empty" hidden>
+        <h2>Set your buy box once and every deal is checked automatically.</h2>
+        <p>Choose the strategies, prices, returns and areas you buy in. Each deal card, the deal page and the calculator will show how well a deal fits.</p>
+        <button type="button" class="btn-primary" id="bb-start">Set my buy box</button>
+      </section>
+
+      <section class="tool-card" id="bb-form-card" aria-label="Buy box criteria" hidden>
+        <form class="pl-form" id="bb-form" novalidate>
+          <div class="tf wide">
+            <span class="lbl" id="bb-strat-l">Strategies</span>
+            <div class="pl-chips" role="group" aria-labelledby="bb-strat-l" id="bb-strategies"></div>
+          </div>
+          <div class="tf">
+            <label for="bb-max-price">Max purchase price</label>
+            <span class="tf-affix pre"><span>£</span><input id="bb-max-price" type="text" inputmode="decimal" data-money autocomplete="off" placeholder="Any"></span>
+          </div>
+          <div class="tf">
+            <label for="bb-min-yield">Min gross yield</label>
+            <span class="tf-affix post"><span>%</span><input id="bb-min-yield" type="number" inputmode="decimal" step="0.1" placeholder="Any"></span>
+          </div>
+          <div class="tf">
+            <label for="bb-min-cf">Min monthly cashflow</label>
+            <span class="tf-affix pre"><span>£</span><input id="bb-min-cf" type="text" inputmode="decimal" data-money autocomplete="off" placeholder="Any"></span>
+          </div>
+          <div class="tf">
+            <label for="bb-min-coc">Min cash-on-cash return</label>
+            <span class="tf-affix post"><span>%</span><input id="bb-min-coc" type="number" inputmode="decimal" step="0.5" placeholder="Any"></span>
+            <p class="tf-hint">Yearly cashflow over the cash you put in.</p>
+          </div>
+          <div class="tf">
+            <label for="bb-max-left">Max money left in <span class="tool-optional">(BRRR)</span></label>
+            <span class="tf-affix pre"><span>£</span><input id="bb-max-left" type="text" inputmode="decimal" data-money autocomplete="off" placeholder="Any"></span>
+          </div>
+          <div class="tf">
+            <span class="lbl" id="bb-beds-l">Bedrooms</span>
+            <div class="pl-range" role="group" aria-labelledby="bb-beds-l">
+              <input id="bb-beds-min" type="number" inputmode="numeric" step="1" min="0" max="50" placeholder="Min" aria-label="Min bedrooms">
+              <span>to</span>
+              <input id="bb-beds-max" type="number" inputmode="numeric" step="1" min="0" max="50" placeholder="Max" aria-label="Max bedrooms">
+            </div>
+          </div>
+          <div class="tf wide">
+            <label for="bb-areas">Target areas</label>
+            <input id="bb-areas" type="text" autocomplete="off" placeholder="e.g. NG9, Beeston, Mansfield">
+            <p class="tf-hint">Postcodes or towns, separated by commas. "NG9" matches any NG9 postcode; a town matches when it's in the deal's address.</p>
+          </div>
+          <div class="tf wide">
+            <span class="lbl" id="bb-types-l">Property types</span>
+            <div class="pl-chips" role="group" aria-labelledby="bb-types-l" id="bb-types"></div>
+          </div>
+        </form>
+        <p class="tool-note">Leave anything blank to skip it. Yield, cashflow and cash-on-cash use the interest-only figures for BTL, HMO and SA deals, and the after-refinance figures for BRRR. Area, property type and bedrooms come from each deal's page.</p>
+        <div class="pl-actions">
+          <button type="button" class="btn-primary" id="bb-save">Save buy box</button>
+          <button type="button" class="pl-link danger" id="bb-clear" hidden>Clear buy box</button>
+        </div>
+        <p class="pl-msg" id="bb-msg" role="status"></p>
+      </section>
+
+      <section id="bb-deals-wrap" hidden>
+        <p class="pl-section-title">Your deals against it</p>
+        <div class="tool-card" style="padding-top:var(--space-2);padding-bottom:var(--space-2)" id="bb-deals"></div>
+        <p class="tool-more"><a href="/saved-deals.html?buybox=fits">See deals that fit on the Deals page</a></p>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var P = PlanningPage, B = PlanningTools.buyBox;
+  var el = function (id) { return document.getElementById(id); };
+  var box = null, deals = [], available = true;
+
+  function chips(rootId, name, items) {
+    el(rootId).innerHTML = items.map(function (it) {
+      return '<label><input type="checkbox" name="' + name + '" value="' + it[0] + '">' + P.esc(it[1]) + '</label>';
+    }).join('');
+  }
+  chips('bb-strategies', 'strategy', Object.keys(B.STRATEGY_LABELS).map(function (k) { return [k, B.STRATEGY_LABELS[k]]; }));
+  chips('bb-types', 'ptype', B.PROPERTY_TYPES);
+
+  function numOrNull(id, money) {
+    var e = el(id);
+    if (money) return P.numVal(e);
+    return e.value === '' ? null : Number(e.value);
+  }
+  function readForm() {
+    var checked = function (name) { return Array.prototype.map.call(document.querySelectorAll('input[name="' + name + '"]:checked'), function (i) { return i.value; }); };
+    return {
+      strategies: checked('strategy'), property_types: checked('ptype'),
+      max_price: numOrNull('bb-max-price', true), min_yield: numOrNull('bb-min-yield'),
+      min_cashflow: numOrNull('bb-min-cf', true), min_coc: numOrNull('bb-min-coc'),
+      max_left_in: numOrNull('bb-max-left', true),
+      areas: el('bb-areas').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean),
+      bedrooms_min: numOrNull('bb-beds-min'), bedrooms_max: numOrNull('bb-beds-max')
+    };
+  }
+  function fillForm(b) {
+    b = B.normalise(b);
+    document.querySelectorAll('input[name="strategy"]').forEach(function (i) { i.checked = b.strategies.indexOf(i.value) !== -1; });
+    document.querySelectorAll('input[name="ptype"]').forEach(function (i) { i.checked = b.property_types.indexOf(i.value) !== -1; });
+    P.setMoney(el('bb-max-price'), b.max_price);
+    el('bb-min-yield').value = b.min_yield == null ? '' : b.min_yield;
+    P.setMoney(el('bb-min-cf'), b.min_cashflow);
+    el('bb-min-coc').value = b.min_coc == null ? '' : b.min_coc;
+    P.setMoney(el('bb-max-left'), b.max_left_in);
+    el('bb-areas').value = b.areas.join(', ');
+    el('bb-beds-min').value = b.bedrooms_min == null ? '' : b.bedrooms_min;
+    el('bb-beds-max').value = b.bedrooms_max == null ? '' : b.bedrooms_max;
+  }
+
+  function dealName(d) { return (d.deal_data && d.deal_data.name) || d.address || 'Untitled deal'; }
+
+  function render() {
+    var set = B.isSet(box);
+    el('bb-answer').hidden = !set;
+    el('bb-empty').hidden = set || !el('bb-form-card').hidden;
+    el('bb-clear').hidden = !set;
+    el('bb-deals-wrap').hidden = !set || !deals.length;
+    if (!set) return;
+    var scored = deals.map(function (d) { return { deal: d, r: B.score(d, box) }; });
+    var fit = scored.filter(function (x) { return x.r.fits; });
+    var n = B.criteriaCount(box);
+    el('bb-count').textContent = n;
+    el('bb-fit').textContent = fit.length;
+    el('bb-checked').textContent = deals.length;
+    if (!deals.length) {
+      el('bb-summary').textContent = 'Your buy box is set.';
+      el('bb-summary-sub').textContent = 'Save a deal from the calculator and it will be checked against your ' + P.plural(n, 'criterion', 'criteria') + ' straight away.';
+    } else {
+      el('bb-summary').textContent = fit.length ? P.plural(fit.length, 'deal fits', 'deals fit') + ' your buy box.' : 'None of your deals fit every criterion yet.';
+      var unknown = scored.filter(function (x) { return x.r.unknown > 0; }).length;
+      el('bb-summary-sub').textContent = 'Checked against ' + P.plural(n, 'criterion', 'criteria') + ' across ' + P.plural(deals.length, 'saved deal') + '.' +
+        (unknown ? ' ' + P.plural(unknown, 'deal is', 'deals are') + ' missing details such as bedrooms or area: add them on the deal page.' : '');
+    }
+    scored.sort(function (a, b) { return (b.r.passed / (b.r.total || 1)) - (a.r.passed / (a.r.total || 1)); });
+    el('bb-deals').innerHTML = scored.map(function (x) {
+      var fails = x.r.checks.filter(function (c) { return c.state !== 'pass'; }).map(function (c) { return c.state === 'fail' ? c.label : c.label + ' not known'; });
+      return '<a class="pl-deal" href="/saved-deals.html?openDeal=' + encodeURIComponent(x.deal.id) + '"><span class="pl-deal-name">' + P.esc(dealName(x.deal)) +
+        '<span class="pl-deal-sub">' + P.esc(fails.length ? 'Misses: ' + fails.join(', ') : 'Meets every criterion') + '</span></span>' + B.badgeHtml(x.r) + '</a>';
+    }).join('');
+  }
+
+  async function save(value) {
+    var msg = el('bb-msg');
+    if (!available) { msg.textContent = 'Your buy box can be saved once a quick database update (db/052) has been run.'; msg.className = 'pl-msg error'; return; }
+    var btn = el('bb-save');
+    btn.disabled = true; msg.textContent = 'Saving…'; msg.className = 'pl-msg';
+    var res = await P.api('/api/profile/buy-box', { method: 'POST', body: { buy_box: value } });
+    btn.disabled = false;
+    if (!res.ok) { msg.textContent = res.body.error || 'Could not save.'; msg.className = 'pl-msg error'; return; }
+    box = res.body.buy_box || null;
+    fillForm(box);
+    msg.textContent = value === null ? 'Buy box cleared.' : 'Saved. Every deal is now checked against it.';
+    msg.className = 'pl-msg success';
+    render();
+  }
+
+  async function init() {
+    var ctx = await P.start();
+    if (!ctx) return;
+    P.bindMoney(document);
+    var prof = await P.api('/api/profile');
+    if (!prof.ok) { el('bb-error').textContent = prof.body.error || 'Could not load your buy box.'; P.show('error'); return; }
+    available = prof.body.buy_box_available !== false;
+    box = prof.body.buy_box || null;
+    var dres = await P.api('/api/deals');
+    deals = dres.ok && Array.isArray(dres.body) ? dres.body : [];
+    fillForm(box);
+    el('bb-form-card').hidden = !B.isSet(box);
+    P.show('ready');
+    render();
+    if (!available) { el('bb-msg').textContent = 'Your buy box can be saved once a quick database update (db/052) has been run.'; el('bb-msg').className = 'pl-msg error'; }
+    el('bb-start').addEventListener('click', function () {
+      el('bb-form-card').hidden = false; el('bb-empty').hidden = true;
+      var first = document.querySelector('input[name="strategy"]'); if (first) first.focus();
+    });
+    el('bb-save').addEventListener('click', function () {
+      var v = readForm();
+      if (!B.isSet(v)) { el('bb-msg').textContent = 'Fill in at least one criterion, or use Clear buy box.'; el('bb-msg').className = 'pl-msg error'; return; }
+      save(v);
+    });
+    el('bb-clear').addEventListener('click', function () { if (confirm('Clear your buy box? Deals will stop showing how well they fit.')) save(null); });
+  }
+  init();
+})();
+</script>
+</body>
+</html>

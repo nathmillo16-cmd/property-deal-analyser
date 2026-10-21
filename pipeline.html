@@ -23,6 +23,7 @@
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
 <script src="/deal-verdict.js"></script>
+<script src="/planning-tools.js"></script>
 <script src="/deal-cards.js"></script>
 <script src="/deal-stage-prompts.js"></script>
 <script src="/draft-state.js"></script>
@@ -570,6 +571,11 @@ async function init(){
 
   showState('board');
   DealCards.renderToolbar(document.getElementById('deals-toolbar'),{onChange:renderBoard});
+  // Buy box badges and filter (deal-cards.js), once the profile has loaded.
+  DealCards.initBuyBox(function(){
+    DealCards.renderToolbar(document.getElementById('deals-toolbar'),{onChange:renderBoard});
+    if(pipelineDeals.length||savedOnlyDeals.length)renderBoard();
+  });
   // Scroll restore waits for the kanban board to finish loading and
   // render, since the board's height depends on how many deals are in it.
   loadPipeline().finally(function(){

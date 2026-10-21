@@ -134,6 +134,30 @@
       (note ? '<p class="di-bid-n">' + esc(note) + '</p>' : '') + '</div>';
   }
 
+  // ---------- buy box (Tools > Buy box) ----------
+  // "Fits 3 of 4" next to the verdict, from the figures on screen and the
+  // financing tab showing. Area, property type and bedrooms are only on a
+  // saved deal's page, so they're left out here. Needs planning-tools.js.
+  var buyBox = null;
+  function buyBoxHtml(st, mode, d) {
+    var B = window.PlanningTools && window.PlanningTools.buyBox;
+    if (!B || !buyBox || !B.isSet(buyBox)) return '';
+    var deal = { deal_type: st, deal_data: Object.assign({}, d, { strategy: mode === 'brrr' ? 'brrr' : undefined }) };
+    var r = B.score(deal, buyBox, { mode: mode || undefined, skip: ['areas', 'property_types', 'bedrooms'] });
+    if (!r.total) return '';
+    return '<details class="di-bb"><summary><span class="di-bb-l">Buy box</span>' + B.badgeHtml(r) + '</summary>' + B.listHtml(r) +
+      '<p class="di-bb-n">Area, property type and bedrooms are checked once you save the deal and add them on its page. <a href="/buy-box.html">Edit your buy box</a></p></details>';
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!window.NavAccount || !window.PlanningTools) return;
+    window.NavAccount.ready.then(function (nav) {
+      var b = nav && nav.profile ? nav.profile.buy_box : null;
+      if (!b || !window.PlanningTools.buyBox.isSet(b)) return;
+      buyBox = b;
+      ['btl', 'hmo', 'sa', 'flip'].forEach(function (st) { var d = dataOf(st); if (d && d.pp > 0) render(st); });
+    });
+  });
+
   function render(st) {
     if (st === 'brrr') st = 'btl';
     var box = document.getElementById(PREFIX[st] + '-insights');
@@ -143,7 +167,7 @@
 
     if (st === 'flip') {
       var fv = flipVerdict(d);
-      box.innerHTML = verdictHtml(fv, null);
+      box.innerHTML = verdictHtml(fv, null) + buyBoxHtml('flip', null, d);
       lastSummary.flip = { level: fv.level, label: fv.label, nums: [
         { l: 'Profit', v: money(d.profit) }, { l: 'ROI', v: pct(d.roi) }, { l: 'Margin', v: pct(d.margin) }] };
       if (window.DealRealistic) DealRealistic.render('flip');
@@ -163,7 +187,7 @@
       if (mob != null && mob > 0) bids += bidHtml('Max bid to get all your money out', money(mob), vsAsking(mob, d.pp));
       else bids += bidHtml('Max bid to get all your money out', 'Not achievable. The refinance loan does not cover the fees and refurb on their own.', '', true);
     }
-    box.innerHTML = verdictHtml(v, mode) + '<div class="di-bids">' + bids + '</div>';
+    box.innerHTML = verdictHtml(v, mode) + buyBoxHtml(st, mode, d) + '<div class="di-bids">' + bids + '</div>';
 
     lastSummary[st] = { level: v.level, label: v.label, nums: mode === 'brrr'
       ? [{ l: 'Left in', v: m.allOut ? '£0' : money(m.cashIn) }, { l: 'Cashflow /mo', v: money(m.cf) }, { l: 'ROI', v: m.allOut ? 'All out' : pct(m.roi) }]
@@ -329,6 +353,14 @@
     '.di-sticky-n small{font-size:10.5px;color:var(--muted);white-space:nowrap}' +
     '.di-sticky-go{font-size:22px;color:var(--muted);flex-shrink:0;line-height:1}' +
     '@media(max-width:360px){.di-sticky-btn{gap:7px;padding:6px 9px}.di-sticky-n b{font-size:13px}.di-sticky-v{font-size:11.5px}}';
+  css += '.di-bb{margin:10px 0 0;border:1px solid var(--hairline);border-radius:12px;padding:0 12px;background:var(--surface)}' +
+    '.di-bb>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;font-size:13px;font-weight:600;color:var(--ink)}' +
+    '.di-bb>summary::-webkit-details-marker{display:none}' +
+    '.di-bb>summary::after{content:"+";color:var(--accent);font-size:18px;margin-left:auto}' +
+    '.di-bb[open]>summary::after{content:"\\2212"}' +
+    '.di-bb-l{flex-shrink:0}' +
+    '.di-bb .bb-list{padding-bottom:4px}' +
+    '.di-bb-n{font-size:12px;color:var(--muted);margin:4px 0 10px;line-height:1.5}';
   var style = document.createElement('style');
   style.id = 'deal-insights-styles';
   style.textContent = css;

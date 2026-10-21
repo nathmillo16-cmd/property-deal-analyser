@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>PROPulsion · Refinance planner</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<script src="/app-config.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/tools.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/calc-engine.js"></script>
+<script src="/deal-assumptions.js"></script>
+<script src="/planning-tools.js"></script>
+</head>
+<body class="theme-light">
+<div class="shell">
+  <div id="nav-root" data-active="tool-refi-plan" data-subscribe="true"></div>
+  <script src="/nav.js"></script>
+  <script src="/crm-nav.js"></script>
+  <script src="/planning-page.js"></script>
+
+  <main class="tool tool-wide">
+    <p class="tool-eyebrow">Planning</p>
+    <h1 class="tool-title">Refinance planner</h1>
+    <p class="tool-lede">When each fixed rate ends, how much you could release, and what the new mortgage does to your cashflow. Uses the properties in your Portfolio.</p>
+
+    <div data-state="loading"><p class="tool-note">Loading your portfolio…</p></div>
+
+    <section class="tool-card pl-empty" data-state="locked" hidden>
+      <h2>The refinance planner is part of the paid plan</h2>
+      <p>It plans from the properties in your Portfolio, which is a paid feature. Upgrade to track what you own and see when to refinance.</p>
+      <a class="btn-primary" href="/billing.html">See plans</a>
+    </section>
+
+    <section class="tool-card pl-empty" data-state="empty" hidden>
+      <h2>Add your properties first</h2>
+      <p>The planner works from the properties in your Portfolio. Add each one with its mortgage balance, rate and fixed rate end date.</p>
+      <a class="btn-primary" href="/portfolio.html">Go to Portfolio</a>
+    </section>
+
+    <section class="tool-card" data-state="error" hidden><p class="pl-msg error" id="rp-error"></p></section>
+
+    <div data-state="ready" hidden>
+      <section class="tool-answer" aria-live="polite">
+        <p class="tool-answer-label" id="rp-answer-label">Your next opportunity</p>
+        <p class="pl-verdict" id="rp-summary"></p>
+        <p class="tool-answer-sub" id="rp-summary-sub"></p>
+        <div class="tool-answer-grid">
+          <div><p class="k">Releasable across all</p><p class="v" id="rp-total">£0</p></div>
+          <div><p class="k">Properties with a date</p><p class="v" id="rp-count">0</p></div>
+          <div><p class="k">Next date</p><p class="v" id="rp-nextdate">-</p></div>
+        </div>
+      </section>
+
+      <details class="tool-work" id="rp-assume">
+        <summary><span><span class="t">Your assumptions</span><span class="s" id="rp-assume-sum"></span></span></summary>
+        <div class="tool-work-body">
+          <div class="tool-inputs">
+            <div class="tf"><label for="rp-growth">Value growth a year</label><span class="tf-affix post"><span>%</span><input id="rp-growth" type="number" inputmode="decimal" step="0.5" min="-20" max="20"></span><p class="tf-hint">0% keeps today's value.</p></div>
+            <div class="tf"><label for="rp-ltv">New loan to value</label><span class="tf-affix post"><span>%</span><input id="rp-ltv" type="number" inputmode="decimal" step="0.5" min="0" max="90"></span></div>
+            <div class="tf"><label for="rp-icr">Lender rent cover (ICR)</label><span class="tf-affix post"><span>%</span><input id="rp-icr" type="number" inputmode="decimal" step="5" min="100" max="200"></span></div>
+            <div class="tf"><label for="rp-stress">Lender stress rate</label><span class="tf-affix post"><span>%</span><input id="rp-stress" type="number" inputmode="decimal" step="0.1" min="0" max="15"></span></div>
+            <div class="tf"><label for="rp-fee">Arrangement fee</label><span class="tf-affix post"><span>%</span><input id="rp-fee" type="number" inputmode="decimal" step="0.25" min="0" max="10"></span><p class="tf-hint">Of the new loan.</p></div>
+            <div class="tf"><label for="rp-legals">Legals and valuation</label><span class="tf-affix pre"><span>£</span><input id="rp-legals" type="text" inputmode="decimal" data-money autocomplete="off"></span></div>
+            <div class="tf"><label for="rp-rate">New mortgage rate</label><span class="tf-affix post"><span>%</span><input id="rp-rate" type="number" inputmode="decimal" step="0.1" min="0" max="15"></span></div>
+            <div class="tf"><label for="rp-type">New mortgage type</label><select id="rp-type"><option value="interest_only">Interest only</option><option value="repayment">Repayment</option></select></div>
+            <div class="tf" id="rp-term-wrap"><label for="rp-term">New term (years)</label><input id="rp-term" type="number" inputmode="numeric" step="1" min="1" max="40"></div>
+          </div>
+          <div class="pl-actions"><button type="button" class="pl-link" id="rp-reset">Reset to defaults</button></div>
+        </div>
+      </details>
+
+      <p class="pl-section-title">Timeline</p>
+      <div class="pl-timeline" id="rp-timeline"></div>
+      <p class="pl-warn" id="rp-undated" hidden></p>
+
+      <details class="tool-work" style="margin-top:var(--space-5)">
+        <summary><span><span class="t">How this is worked out</span><span class="s">Value, balance, the two maximum loans and costs</span></span></summary>
+        <div class="tool-work-body">
+          <p>At each refinance date:</p>
+          <div class="tool-line"><span>Estimated value</span><span>current value x (1 + growth) ^ years</span></div>
+          <div class="tool-line"><span>Mortgage balance</span><span>interest only stays flat; repayment reduces</span></div>
+          <div class="tool-line"><span>Max loan by value</span><span>value x LTV</span></div>
+          <div class="tool-line"><span>Max loan by rent</span><span>(yearly rent / ICR) / stress rate</span></div>
+          <div class="tool-line"><span>Costs</span><span>arrangement fee x new loan + legals</span></div>
+          <div class="tool-line total"><span>Releasable</span><span>lower max loan - balance - costs, never below £0</span></div>
+          <p class="tool-note">The refinance date is the fixed rate end date (or a BRRR property's refinance date). If it has already passed, the planner uses today. You can pick an earlier date for any property: before the fix ends, an early repayment charge (a % of the balance) is taken off too. Repayment balances are worked out month by month at today's rate over your remaining term (25 years if not entered). When nothing can be released, the new payment is shown on today's balance, as a straight remortgage. Rent and running costs stay at today's figures.</p>
+        </div>
+      </details>
+
+      <p class="tool-disclaimer">A planning guide based on the figures in your Portfolio, not financial advice. Lender criteria, valuations and rates vary: speak to a broker before you refinance.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  var P = PlanningPage, T = PlanningTools;
+  var LA = (window.DEAL_ASSUMPTIONS && DEAL_ASSUMPTIONS.lender) || { stressRate: 5.5, ownershipTypes: { ltd: { rentCover: 125 } } };
+  var DEFAULTS = { growth: 0, ltv: 75, icr: 125, stressRate: LA.stressRate, feePct: 1, legals: 1500, newRate: 5.5, newType: 'interest_only', newTerm: 25 };
+  var KEY = 'dny-refi-planner';
+  var OV_KEY = 'dny-refi-planner-dates';
+  var props = [];
+  var settings = P.loadLocal(KEY, DEFAULTS);
+  var overrides = P.loadLocal(OV_KEY, {});
+  var el = function (id) { return document.getElementById(id); };
+  var FIELDS = { growth: 'rp-growth', ltv: 'rp-ltv', icr: 'rp-icr', stressRate: 'rp-stress', feePct: 'rp-fee', newRate: 'rp-rate', newTerm: 'rp-term' };
+
+  function fillInputs() {
+    Object.keys(FIELDS).forEach(function (k) { el(FIELDS[k]).value = settings[k]; });
+    P.setMoney(el('rp-legals'), settings.legals);
+    el('rp-type').value = settings.newType;
+  }
+  function readInputs() {
+    Object.keys(FIELDS).forEach(function (k) {
+      var v = el(FIELDS[k]).value;
+      settings[k] = v === '' ? DEFAULTS[k] : Number(v);
+    });
+    var lg = P.numVal(el('rp-legals'));
+    settings.legals = lg == null ? 0 : lg;
+    settings.newType = el('rp-type').value;
+    P.saveLocal(KEY, settings);
+  }
+
+  function rowHtml(x) {
+    var ov = overrides[x.id] || {};
+    var dateLabel = x.isBrrr ? 'BRRR refinance' : (x.fixEnd ? (x.fixEnd <= T.todayStr() ? 'Fix ended ' + T.monthYear(x.fixEnd) : 'Fix ends') : 'Planned');
+    var change = x.cashflowAfter - x.cashflowNow;
+    var limit = x.limitedBy === 'rent' ? 'limited by the rent' : 'limited by ' + P.pct(settings.ltv, 1) + ' of value';
+    var head = x.releasable > 0
+      ? '<p class="pl-tl-big">' + P.about(x.releasable) + '<small>releasable</small></p>'
+      : '<p class="pl-tl-big" style="font-size:20px">Nothing to release<small>' + (x.shortfall > 0 ? 'lenders would lend ' + P.money(x.shortfall) + ' less than you owe' : 'at these settings') + '</small></p>';
+    return '<div class="pl-tl-item' + (x.releasable > 0 ? ' has-equity' : '') + '" id="rp-' + P.esc(x.id) + '">' +
+      '<p class="pl-tl-date">' + T.monthYear(x.date) + (x.date === T.todayStr() ? ' (today)' : '') + '</p>' +
+      '<article class="pl-row">' +
+        '<div class="pl-row-head"><div><p class="pl-row-name">' + P.esc(x.address) + '</p><p class="pl-row-sub">' + P.esc(dateLabel + (x.fixEnd && x.fixEnd > T.todayStr() && !x.isBrrr ? ' ' + T.longDate(x.fixEnd) : '')) + '</p></div>' +
+          (x.early ? '<span class="pl-pill warn">Before fix ends</span>' : '') + '</div>' +
+        head +
+        '<div class="pl-figs">' +
+          '<div class="pl-fig"><span class="k">Value then</span><span class="v">' + P.money(x.value) + '</span></div>' +
+          '<div class="pl-fig"><span class="k">Balance then</span><span class="v">' + P.money(x.balance) + '</span></div>' +
+          '<div class="pl-fig"><span class="k">Max new loan</span><span class="v">' + P.money(x.lower) + '</span></div>' +
+          '<div class="pl-fig"><span class="k">New payment</span><span class="v">' + P.money(x.newPayment) + '/mo</span></div>' +
+          '<div class="pl-fig"><span class="k">Cashflow after</span><span class="v' + (x.cashflowAfter < 0 ? ' neg' : '') + '">' + P.money(x.cashflowAfter) + '/mo</span></div>' +
+          '<div class="pl-fig"><span class="k">Change</span><span class="v' + (change < 0 ? ' neg' : '') + '">' + (change > 0 ? '+' : '') + P.money(change) + '/mo</span></div>' +
+        '</div>' +
+        (x.early ? '<p class="pl-warn">This is before the fixed rate ends on ' + T.longDate(x.fixEnd) + '. Your lender will usually charge an early repayment charge, often 1% to 5% of the balance. Check your mortgage offer for the exact figure.</p>' : '') +
+        '<div class="pl-inline">' +
+          '<div class="tf"><label for="rp-date-' + x.id + '">Refinance on</label><input type="date" id="rp-date-' + x.id + '" data-date-for="' + x.id + '" value="' + P.esc(ov.date || x.plannedDate) + '" min="' + T.todayStr() + '"></div>' +
+          (x.early ? '<div class="tf"><label for="rp-erc-' + x.id + '">Early repayment charge</label><span class="tf-affix post" style="position:relative;display:block"><input type="number" inputmode="decimal" step="0.5" min="0" max="10" id="rp-erc-' + x.id + '" data-erc-for="' + x.id + '" value="' + P.esc(ov.ercPct != null ? ov.ercPct : 0) + '" style="padding-right:30px"><span style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--muted)">%</span></span></div>' : '') +
+          (ov.date ? '<button type="button" class="pl-link" data-reset-for="' + x.id + '">Use ' + (x.isBrrr ? 'refinance' : 'fix end') + ' date</button>' : '') +
+        '</div>' +
+        '<details><summary>Workings</summary>' +
+          P.line('Value today' + (x.valueFromPrice ? ' (price paid, no current value entered)' : ''), P.money(x.valueToday)) +
+          P.line('Grown ' + P.pct(settings.growth, 2) + ' a year for ' + P.plural(x.months, 'month'), P.money(x.value)) +
+          P.line('Balance today' + (x.type === 'repayment' ? ' (repayment, reduces)' : ' (interest only, stays flat)'), P.money(x.balanceToday)) +
+          P.line('Balance at refinance', P.money(x.balance)) +
+          P.line('Max loan by value: ' + P.money(x.value) + ' x ' + P.pct(settings.ltv, 1), P.money(x.maxLtv)) +
+          P.line('Max loan by rent: (' + P.money(x.rent * 12) + ' / ' + P.pct(settings.icr, 0) + ') / ' + P.pct(settings.stressRate, 2), P.money(x.maxRent)) +
+          P.line('New loan: the lower, ' + limit, P.money(x.lower), 'total') +
+          P.line('Less balance', '-' + P.money(x.balance)) +
+          P.line('Less costs: ' + P.pct(settings.feePct, 2) + ' fee + ' + P.money(settings.legals) + ' legals', '-' + P.money(x.costs)) +
+          (x.early ? P.line('Less early repayment charge: ' + P.pct(x.ercPct, 2) + ' of ' + P.money(x.balance), '-' + P.money(x.erc)) : '') +
+          P.line('Releasable', P.money(x.releasable), 'total') +
+          P.line('New payment: ' + P.money(x.newLoan) + ' at ' + P.pct(settings.newRate, 2) + (settings.newType === 'repayment' ? ' over ' + settings.newTerm + ' years' : ' interest only'), P.money2(x.newPayment) + '/mo') +
+          P.line('Cashflow now: rent - costs - ' + P.money(x.currentPayment) + ' payment', P.money(x.cashflowNow) + '/mo') +
+          P.line('Cashflow after: ' + P.money(x.rent) + ' - ' + P.money(x.runningCosts) + ' - ' + P.money(x.newPayment), P.money(x.cashflowAfter) + '/mo', 'total') +
+        '</details>' +
+      '</article></div>';
+  }
+
+  function run() {
+    readInputs();
+    el('rp-term-wrap').hidden = settings.newType !== 'repayment';
+    el('rp-assume-sum').textContent = P.pct(settings.growth, 1) + ' growth, ' + P.pct(settings.ltv, 1) + ' LTV, ' + P.pct(settings.icr, 0) + ' ICR at ' + P.pct(settings.stressRate, 2) + ', new rate ' + P.pct(settings.newRate, 2) + ', costs ' + P.pct(settings.feePct, 2) + ' + ' + P.money(settings.legals);
+    var r = T.refinance(props, settings, overrides);
+
+    if (r.next) {
+      el('rp-answer-label').textContent = 'Your next opportunity';
+      el('rp-summary').textContent = 'Your next opportunity is ' + r.next.address + ' in ' + T.monthYear(r.next.date) + ': about ' + P.about(r.next.releasable) + ' releasable.';
+      el('rp-summary-sub').textContent = 'New mortgage about ' + P.money(r.next.newPayment) + ' a month, leaving ' + P.money(r.next.cashflowAfter) + ' a month cashflow' + (r.next.early ? '. This is before the fix ends, so an early repayment charge applies.' : '.');
+    } else if (r.rows.length) {
+      var first = r.rows[0];
+      el('rp-answer-label').textContent = 'Refinance outlook';
+      el('rp-summary').textContent = 'No equity to release at these settings.';
+      el('rp-summary-sub').textContent = 'Your next date is ' + first.address + ' in ' + T.monthYear(first.date) + '. Try a growth rate or check the current values on your properties.';
+    } else {
+      el('rp-answer-label').textContent = 'Refinance outlook';
+      el('rp-summary').textContent = 'Add fixed rate end dates to plan your refinances.';
+      el('rp-summary-sub').textContent = 'Open each property, then Mortgage, and add when the fixed rate ends.';
+    }
+    el('rp-total').textContent = P.about(r.totalReleasable);
+    el('rp-count').textContent = r.rows.length + ' of ' + props.length;
+    el('rp-nextdate').textContent = r.rows.length ? T.monthYear(r.rows[0].date) : '-';
+
+    el('rp-timeline').innerHTML = r.rows.length ? r.rows.map(rowHtml).join('') : '';
+    el('rp-timeline').hidden = !r.rows.length;
+    el('rp-undated').hidden = !r.undated.length;
+    if (r.undated.length) el('rp-undated').innerHTML = 'No fixed rate end date yet: ' + r.undated.map(function (u) { return '<a href="/property.html?id=' + encodeURIComponent(u.id) + '">' + P.esc(u.address) + '</a>'; }).join(', ') + '. Add one on the property page to plan its refinance.';
+  }
+
+  function saveOverrides() { P.saveLocal(OV_KEY, overrides); }
+
+  async function init() {
+    var ctx = await P.start();
+    if (!ctx) return;
+    fillInputs();
+    P.bindMoney(document);
+    document.querySelectorAll('#rp-assume input, #rp-assume select').forEach(function (i) {
+      i.addEventListener('input', run);
+      i.addEventListener('change', run);
+    });
+    el('rp-reset').addEventListener('click', function () { settings = Object.assign({}, DEFAULTS); fillInputs(); run(); });
+    el('rp-timeline').addEventListener('change', function (e) {
+      var t = e.target;
+      if (t.dataset.dateFor) {
+        var id = t.dataset.dateFor;
+        overrides[id] = Object.assign({}, overrides[id], { date: t.value || null });
+        if (!t.value) delete overrides[id];
+        saveOverrides(); run();
+        var again = document.getElementById('rp-' + id); if (again) again.scrollIntoView({ block: 'nearest' });
+      } else if (t.dataset.ercFor) {
+        var id2 = t.dataset.ercFor;
+        overrides[id2] = Object.assign({}, overrides[id2], { ercPct: t.value === '' ? 0 : Number(t.value) });
+        saveOverrides(); run();
+        var f = document.getElementById('rp-erc-' + id2); if (f) f.focus();
+      }
+    });
+    el('rp-timeline').addEventListener('click', function (e) {
+      var id = e.target.dataset && e.target.dataset.resetFor;
+      if (!id) return;
+      delete overrides[id];
+      saveOverrides(); run();
+    });
+    if (!ctx.paid) { P.show('locked'); return; }
+    var res = await P.api('/api/portfolio');
+    if (res.status === 403) { P.show('locked'); return; }
+    if (!res.ok) { el('rp-error').textContent = res.body.error || 'Could not load your portfolio.'; P.show('error'); return; }
+    props = res.body.properties || [];
+    if (!props.length) { P.show('empty'); return; }
+    // Drop saved dates for properties that no longer exist.
+    var ids = new Set(props.map(function (p) { return p.id; }));
+    Object.keys(overrides).forEach(function (k) { if (!ids.has(k)) delete overrides[k]; });
+    P.show('ready');
+    run();
+  }
+  init();
+})();
+</script>
+</body>
+</html>

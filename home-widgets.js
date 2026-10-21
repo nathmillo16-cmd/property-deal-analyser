@@ -323,13 +323,15 @@ var HomeWidgets = (function () {
     var urgent = st.pipelineLocked ? [] : (st.needsAttention || []);
     if (urgent.length) {
       title.textContent = 'Needs attention';
-      var LABEL = { chase: 'Chase', update: 'Update', review: 'Review', refinance: 'Refinance', reminder: 'Reminder', fix_end: 'Fixed rate', tenancy: 'Tenancy', compliance: 'Compliance', rent: 'Rent' };
+      var LABEL = { chase: 'Chase', update: 'Update', review: 'Review', refinance: 'Refinance', reminder: 'Reminder', fix_end: 'Fixed rate', tenancy: 'Tenancy', compliance: 'Compliance', rent: 'Rent', loan: 'Loan' };
       list.innerHTML = urgent.map(function (n) {
         // Portfolio alerts (refinance, fixed rate, tenancy, compliance, rent) open
         // that property's page; deal alerts open the deal.
         // A "Send follow-up letter" reminder (db/051) opens the Letter
         // Templates page on the Follow-up letter with that deal picked.
-        var href = n.property_id ? '/property.html?id=' + encodeURIComponent(n.property_id)
+        // A private loan repayment opens that loan on the Private finance page.
+        var href = n.loan_id ? '/private-finance.html#loan-' + encodeURIComponent(n.loan_id)
+          : n.property_id ? '/property.html?id=' + encodeURIComponent(n.property_id)
           : (n.deal_id && n.action === 'followup_letter' ? '/letters.html?type=followup&deal=' + encodeURIComponent(n.deal_id)
           : (n.deal_id ? '/saved-deals.html?openDeal=' + encodeURIComponent(n.deal_id) : '/saved-deals.html'));
         var tagClass = esc(n.reason) + (n.severity ? ' ' + esc(n.severity) : '');

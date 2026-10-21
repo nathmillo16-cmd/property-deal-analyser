@@ -143,3 +143,128 @@
 .faq-q:first-child{border-top:none;padding-top:0}
 .faq-q h3{font-family:var(--font-body);font-size:14.5px;font-weight:700;margin:0 0 4px;color:var(--ink)}
 .faq-q p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+
+/* ---------- Planning tools (stress test, refinance planner, buy box,
+   private finance). Logged-in pages; same calm cards as the calculators. ---------- */
+[data-state][hidden]{display:none !important}
+.tool-wide{max-width:860px}
+.pl-verdict{font-family:var(--font-head);font-size:clamp(22px,5vw,30px);font-weight:700;line-height:1.2;margin:0;overflow-wrap:anywhere}
+.tool-answer .tool-answer-grid .v.neg{color:#ffd5d5}
+.pl-empty{text-align:center;padding:var(--space-6) var(--space-4)}
+.pl-empty h2{font-size:20px;margin:0 0 .5rem}
+.pl-empty p{color:var(--muted);font-size:14.5px;line-height:1.55;margin:0 auto var(--space-4);max-width:460px}
+.pl-note{background:var(--surface-2);border:1px solid var(--hairline);border-radius:12px;padding:12px 14px;font-size:13.5px;line-height:1.55;color:var(--ink);margin:0 0 var(--space-4)}
+.pl-warn{background:var(--warn-bg);color:var(--warn-ink);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5;margin:var(--space-3) 0 0}
+.pl-section-title{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:var(--space-5) 0 var(--space-3)}
+
+/* sliders */
+.pl-sliders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4) var(--space-5)}
+.pl-slider{min-width:0}
+.pl-slider-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+.pl-slider-top label{font-size:13px;font-weight:600;color:var(--ink)}
+.pl-slider-top output{font-size:15px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pl-slider input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:0}
+.pl-slider-ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+
+/* two-column before/after */
+.pl-split{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3)}
+.pl-split-col{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:var(--space-4);min-width:0}
+.pl-split-col .k{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 4px}
+.pl-split-col .v{font-family:var(--font-head);font-size:clamp(20px,4.5vw,24px);font-weight:700;margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.pl-split-col .s{font-size:12.5px;color:var(--muted);margin:4px 0 0;font-variant-numeric:tabular-nums}
+.neg{color:var(--danger-ink)}
+.pos{color:var(--success-ink)}
+
+/* property rows (stacked cards, no sideways scroll) */
+.pl-rows{display:flex;flex-direction:column;gap:var(--space-3)}
+.pl-row{background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:var(--space-4) var(--space-5);min-width:0}
+.pl-row.is-neg{border-color:var(--danger);box-shadow:inset 3px 0 0 var(--danger)}
+.pl-row-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);flex-wrap:wrap}
+.pl-row-name{font-weight:700;font-size:15px;color:var(--ink);margin:0;overflow-wrap:anywhere;min-width:0}
+.pl-row-sub{font-size:12.5px;color:var(--muted);margin:2px 0 0}
+.pl-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-3);margin-top:var(--space-3)}
+.pl-fig{min-width:0}
+.pl-fig .k{display:block;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+.pl-fig .v{display:block;font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.pl-fig .v.neg{color:var(--danger-ink)}
+.pl-pill{display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.pl-pill.ok{background:var(--success-bg);color:var(--success-ink)}
+.pl-pill.bad{background:var(--danger-bg);color:var(--danger-ink)}
+.pl-pill.muted{background:var(--surface-2);color:var(--muted)}
+.pl-pill.warn{background:var(--warn-bg);color:var(--warn-ink)}
+.pl-row details{margin-top:var(--space-3);border-top:1px solid var(--hairline);padding-top:var(--space-2)}
+.pl-row details>summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);list-style:none;padding:6px 0;min-height:32px;display:flex;align-items:center}
+.pl-row details>summary::-webkit-details-marker{display:none}
+.pl-row details>summary::after{content:'+';margin-left:6px}
+.pl-row details[open]>summary::after{content:'\2212'}
+
+/* refinance timeline */
+.pl-timeline{position:relative;padding-left:22px}
+.pl-timeline::before{content:'';position:absolute;left:6px;top:8px;bottom:8px;width:2px;background:var(--hairline)}
+.pl-tl-item{position:relative;margin-bottom:var(--space-4)}
+.pl-tl-item::before{content:'';position:absolute;left:-21px;top:20px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2.5px solid var(--hairline-strong)}
+.pl-tl-item.has-equity::before{border-color:var(--accent);background:var(--accent)}
+.pl-tl-date{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
+.pl-tl-big{font-family:var(--font-head);font-size:clamp(22px,5vw,28px);font-weight:700;margin:var(--space-2) 0 0;color:var(--ink);font-variant-numeric:tabular-nums}
+.pl-tl-big small{font-family:var(--font-body);font-size:13px;font-weight:500;color:var(--muted);margin-left:6px}
+.pl-inline{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3);margin-top:var(--space-3)}
+.pl-inline .tf{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 150px;max-width:220px}
+.pl-inline label{font-size:12px;font-weight:600;color:var(--ink)}
+.pl-inline input,.pl-inline select,.pl-form input,.pl-form select,.pl-form textarea{
+  font-family:var(--font-body);font-size:15px;color:var(--input-ink);background-color:var(--input-surface);
+  border:1.5px solid var(--input-hairline);border-radius:10px;padding:9px 11px;width:100%;min-width:0}
+.pl-inline input:focus,.pl-form input:focus,.pl-form select:focus,.pl-form textarea:focus{outline:none;border-color:var(--accent)}
+.pl-link{background:none;border:none;padding:6px 0;font:600 13px var(--font-body);color:var(--accent);cursor:pointer;text-decoration:none}
+.pl-link:hover{text-decoration:underline}
+.pl-link.danger{color:var(--danger-ink)}
+
+/* forms (buy box, private finance) */
+.pl-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4)}
+.pl-form .tf{display:flex;flex-direction:column;gap:6px;min-width:0}
+.pl-form .tf.wide{grid-column:1 / -1}
+.pl-form label,.pl-form .lbl{font-size:12.5px;font-weight:600;color:var(--ink)}
+.pl-form .tf-hint{font-size:12px;color:var(--muted);margin:0}
+.pl-form textarea{min-height:76px;resize:vertical}
+.pl-chips{display:flex;flex-wrap:wrap;gap:6px}
+.pl-chips label{display:inline-flex;align-items:center;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--muted);border:1.5px solid var(--input-hairline);border-radius:999px;padding:8px 14px;background:var(--input-surface);min-height:40px}
+.pl-chips input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.pl-chips label:has(input:checked){color:var(--accent);border-color:var(--accent);background:rgba(75,69,178,.06)}
+.pl-chips label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.pl-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);margin-top:var(--space-4)}
+.pl-msg{font-size:13px;margin:var(--space-2) 0 0}
+.pl-msg.error{color:var(--danger-ink)}
+.pl-msg.success{color:var(--success-ink)}
+.pl-range{display:flex;align-items:center;gap:8px}
+.pl-range span{color:var(--muted);font-size:13px}
+
+/* deal list on the buy box page */
+.pl-deal{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);padding:12px 0;border-bottom:1px solid var(--hairline);text-decoration:none;color:inherit;min-width:0}
+.pl-deal:last-child{border-bottom:none}
+.pl-deal-name{font-weight:600;font-size:14px;color:var(--ink);overflow-wrap:anywhere;min-width:0}
+.pl-deal-sub{display:block;font-size:12px;color:var(--muted);font-weight:400}
+
+/* loans */
+.pl-loan-top{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);flex-wrap:wrap}
+.pl-loan-owed{text-align:right}
+.pl-loan-owed .k{font-size:11.5px;color:var(--muted);display:block}
+.pl-loan-owed .v{font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.pl-rep{display:flex;justify-content:space-between;gap:var(--space-3);padding:7px 0;border-bottom:1px solid var(--hairline);font-size:13.5px;align-items:center}
+.pl-rep:last-child{border-bottom:none}
+.pl-rep span:nth-child(2){font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Workings lines on these pages can hold a formula or a long label: let
+   the value drop under the label instead of pushing the page sideways. */
+.tool-wide .tool-line{flex-wrap:wrap}
+.tool-wide .tool-line span:first-child{min-width:0}
+.tool-wide .tool-line span:last-child{white-space:normal;margin-left:auto;min-width:0;overflow-wrap:anywhere}
+
+@media(max-width:600px){
+  .pl-sliders,.pl-form{grid-template-columns:minmax(0,1fr)}
+  .pl-split{grid-template-columns:minmax(0,1fr)}
+  .pl-split-col{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);flex-wrap:wrap}
+  .pl-split-col .s{width:100%;margin:0}
+  .pl-row{padding:var(--space-4)}
+  .pl-figs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pl-inline .tf{max-width:none}
+  .pl-loan-owed{text-align:left}
+}

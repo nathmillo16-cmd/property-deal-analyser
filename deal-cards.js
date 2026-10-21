@@ -12,6 +12,12 @@
 // worked out and stored in deal_data when the deal was saved. The verdict
 // is deal-verdict.js's own rule (the calculator's), applied to those stored
 // figures. Load after compare-deals.js and deal-verdict.js.
+//
+// BUY BOX: when the user has set one (Tools > Buy box, profiles.buy_box),
+// each card shows "Fits 5 of 6" (planning-tools.js does the check, from
+// the same stored figures) and the toolbar gets a "Buy box" filter. Pages
+// call DealCards.initBuyBox(rerender) once nav.js has loaded. Pages that
+// don't load planning-tools.js simply show no badge.
 
 var DealCards = (function () {
   var V = window.DealVerdict;
@@ -114,22 +120,45 @@ var DealCards = (function () {
       '<p class="dc-sub">' + esc(STRATEGY_LABELS[st] || String(st).toUpperCase()) + (d.pp ? ' · ' + esc(money(d.pp)) : '') +
         (v ? ' · <span class="dc-verdict dc-' + level + '-t">' + esc(v.label) + '</span>' : '') + '</p>' +
       '<div class="dc-figs">' + figs + '</div>' +
-      '<div class="dc-foot">' + stagePill + '<span class="dc-days">' + esc(daysText(deal)) + '</span></div>';
+      '<div class="dc-foot">' + stagePill + buyBoxBadge(deal) + '<span class="dc-days">' + esc(daysText(deal)) + '</span></div>';
+  }
+
+  // ---------- buy box ----------
+  var buyBox = null;
+  function bbTools() { return window.PlanningTools ? window.PlanningTools.buyBox : null; }
+  function hasBuyBox() { var B = bbTools(); return !!(B && buyBox && B.isSet(buyBox)); }
+  function buyBoxResult(deal) { return hasBuyBox() ? bbTools().score(deal, buyBox) : null; }
+  function buyBoxBadge(deal) { var r = buyBoxResult(deal); return r ? bbTools().badgeHtml(r) : ''; }
+  // Reads the box from the profile nav.js already loaded, then re-renders.
+  function initBuyBox(rerender) {
+    if (!bbTools() || !window.NavAccount) return;
+    window.NavAccount.ready.then(function (nav) {
+      var b = nav && nav.profile ? nav.profile.buy_box : null;
+      if (!b || !bbTools().isSet(b)) { buyBox = null; return; }
+      buyBox = b;
+      if (typeof rerender === 'function') rerender();
+    });
   }
 
   // ---------- filters and sort ----------
   var FILTER_KEY = 'dny-deals-filters';
-  var DEFAULTS = { stage: 'all', strategy: 'all', verdict: 'all', sort: 'newest' };
+  var DEFAULTS = { stage: 'all', strategy: 'all', verdict: 'all', buybox: 'all', sort: 'newest' };
   var state = (function () {
     try { var s = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null'); if (s && typeof s === 'object') return Object.assign({}, DEFAULTS, s); } catch (e) {}
     return Object.assign({}, DEFAULTS);
   })();
   var onChange = null;
+  // ?buybox=fits (the Buy box page's "See deals that fit") turns the filter on.
+  try {
+    var bbParam = new URLSearchParams(location.search).get('buybox');
+    if (bbParam === 'fits' || bbParam === 'misses') state.buybox = bbParam;
+  } catch (e) {}
 
   var FILTER_OPTIONS = {
     stage: [['all', 'All stages'], ['saved', 'Saved (not in pipeline)']].concat(STAGES.map(function (s) { return [s, STAGE_LABELS[s]]; })),
     strategy: [['all', 'All strategies'], ['btl', 'BTL'], ['brrr', 'BRRR'], ['hmo', 'HMO'], ['sa', 'SA'], ['flip', 'Flip']],
     verdict: [['all', 'All verdicts'], ['good', 'Strong deal'], ['warn', 'Marginal'], ['bad', "Doesn't stack"], ['none', 'No verdict']],
+    buybox: [['all', 'All deals'], ['fits', 'Fits my buy box'], ['misses', "Doesn't fit"]],
     sort: [['newest', 'Newest added'], ['oldest', 'Oldest added'], ['stage-long', 'Longest in stage']]
   };
 
@@ -158,7 +187,7 @@ var DealCards = (function () {
     opts = opts || {};
     onChange = opts.onChange || null;
     var showStage = opts.stage !== false;
-    el.innerHTML = (showStage ? ddHtml('stage', 'Stage') : '') + ddHtml('strategy', 'Strategy') + ddHtml('verdict', 'Verdict') + ddHtml('sort', 'Sort') +
+    el.innerHTML = (showStage ? ddHtml('stage', 'Stage') : '') + ddHtml('strategy', 'Strategy') + ddHtml('verdict', 'Verdict') + (hasBuyBox() ? ddHtml('buybox', 'Buy box') : '') + ddHtml('sort', 'Sort') +
       '<button type="button" class="dc-clear" id="dc-filter-clear"' + (isFiltered(showStage) ? '' : ' hidden') + '>Clear filters</button>';
     var clear = document.getElementById('dc-filter-clear');
     if (clear) clear.onclick = function () {
@@ -174,7 +203,7 @@ var DealCards = (function () {
   var toolbarEl = null;
 
   function isFiltered(showStage) {
-    return (showStage !== false && state.stage !== 'all') || state.strategy !== 'all' || state.verdict !== 'all';
+    return (showStage !== false && state.stage !== 'all') || state.strategy !== 'all' || state.verdict !== 'all' || (hasBuyBox() && state.buybox !== 'all');
   }
   function save() { try { localStorage.setItem(FILTER_KEY, JSON.stringify(state)); } catch (e) {} }
 
@@ -193,6 +222,10 @@ var DealCards = (function () {
     }
     if (state.strategy !== 'all' && strategyOf(deal) !== state.strategy) return false;
     if (state.verdict !== 'all' && verdictKey(deal) !== state.verdict) return false;
+    if (state.buybox !== 'all' && hasBuyBox()) {
+      var fits = buyBoxResult(deal).fits;
+      if (state.buybox === 'fits' ? !fits : fits) return false;
+    }
     return true;
   }
 
@@ -313,6 +346,7 @@ var DealCards = (function () {
   return {
     STAGES: STAGES, STAGE_LABELS: STAGE_LABELS, STAGE_COLORS: STAGE_COLORS, LOST_REASONS: LOST_REASONS, STRATEGY_LABELS: STRATEGY_LABELS,
     verdictOf: verdictOf, cardBody: cardBody, daysInStage: daysInStage,
+    initBuyBox: initBuyBox, buyBoxResult: buyBoxResult, getBuyBox: function () { return buyBox; },
     renderToolbar: renderToolbar, apply: apply, filters: function () { return Object.assign({}, state); },
     isFiltered: function () { return isFiltered(true); },
     renderStats: renderStats, loadStats: loadStats, isActive: isActive, esc: esc
