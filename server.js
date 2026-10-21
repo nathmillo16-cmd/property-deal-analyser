@@ -1751,7 +1751,9 @@ app.get('/api/needs-attention', async (req, res) => {
     // columns exist; normaliseLegacyPortfolioRow fills in the rest.
     supabase.from('portfolio_properties').select('*'),
     // Failure-tolerant too: deal_reminders only exists once db/045 is run.
-    supabase.from('deal_reminders').select('id, deal_id, remind_on, note').eq('done', false).lte('remind_on', todayStr).order('remind_on', { ascending: true }),
+    // select('*') so the newer action column (db/051) comes through when
+    // it exists without breaking this query when it doesn't.
+    supabase.from('deal_reminders').select('*').eq('done', false).lte('remind_on', todayStr).order('remind_on', { ascending: true }),
     // And the rent log (db/047): months marked late or missed.
     supabase.from('property_rent_log').select('property_id, month, status, expected_amount, amount_received').in('status', ['late', 'missed']).order('month', { ascending: true }),
   ]);
@@ -1911,6 +1913,7 @@ app.get('/api/needs-attention', async (req, res) => {
       deal_name: dealName(deal),
       reason: 'reminder',
       detail: `${when}: ${r.note}`,
+      action: r.action || null,
     });
   }
 
@@ -2562,6 +2565,10 @@ app.get('/api/deals/:dealId/activity', async (req, res) => {
 // GET /api/needs-attention (Home's "Your next move"). Before db/045 is run
 // these return 409 { needs_migration: true } and the page says so.
 // ---------------------------------------------------------------------
+const REMINDER_COLUMNS = 'id, deal_id, remind_on, note, done, created_at';
+// What a reminder opens (db/051). null means the deal itself.
+const REMINDER_ACTIONS = ['followup_letter'];
+
 function needsMigration(res) {
   return res.status(409).json({ needs_migration: true, error: 'This needs a quick database update (db/045) before it can be used.' });
 }
@@ -2572,12 +2579,16 @@ app.get('/api/deals/:dealId/reminders', async (req, res) => {
   const plan = await getUserPlan(supabase);
   if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock reminders.' });
 
-  const { data, error } = await supabase
+  // action (db/051) is selected when it exists; before db/051 the
+  // select falls back to the original columns.
+  const listReminders = (cols) => supabase
     .from('deal_reminders')
-    .select('id, deal_id, remind_on, note, done, created_at')
+    .select(cols)
     .eq('deal_id', req.params.dealId)
     .order('done', { ascending: true })
     .order('remind_on', { ascending: true });
+  let { data, error } = await listReminders(REMINDER_COLUMNS + ', action');
+  if (error && isMissingSchemaError(error)) ({ data, error } = await listReminders(REMINDER_COLUMNS));
   if (error && isMissingSchemaError(error)) return needsMigration(res);
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
@@ -2594,12 +2605,16 @@ app.post('/api/deals/:dealId/reminders', async (req, res) => {
   const note = cleanText(req.body && req.body.note, 500);
   if (typeof remind_on !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(remind_on)) return res.status(400).json({ error: 'Pick a date for the reminder.' });
   if (!note) return res.status(400).json({ error: 'Add a short note so you know what the reminder is for.' });
+  const action = req.body && req.body.action != null ? req.body.action : null;
+  if (action !== null && !REMINDER_ACTIONS.includes(action)) return res.status(400).json({ error: 'Unknown reminder action.' });
 
-  const { data, error } = await supabase
-    .from('deal_reminders')
-    .insert({ deal_id: req.params.dealId, remind_on, note })
-    .select('id, deal_id, remind_on, note, done, created_at')
-    .single();
+  const insertReminder = (row, cols) => supabase.from('deal_reminders').insert(row).select(cols).single();
+  let { data, error } = action
+    ? await insertReminder({ deal_id: req.params.dealId, remind_on, note, action }, REMINDER_COLUMNS + ', action')
+    : await insertReminder({ deal_id: req.params.dealId, remind_on, note }, REMINDER_COLUMNS);
+  // Before db/051 the action column doesn't exist: still save the
+  // reminder, it just opens the deal instead of the letter.
+  if (action && error && isMissingSchemaError(error)) ({ data, error } = await insertReminder({ deal_id: req.params.dealId, remind_on, note }, REMINDER_COLUMNS));
   if (error && isMissingSchemaError(error)) return needsMigration(res);
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
@@ -4376,7 +4391,16 @@ app.get('/api/profile', async (req, res) => {
     if (!ltvError && ltvRow) targetLtv = { target_ltv: ltvRow.target_ltv != null ? Number(ltvRow.target_ltv) : DEFAULT_TARGET_LTV, target_ltv_available: true };
   } catch (e) {}
 
-  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals, ...progress, ...targetLtv });
+  // Letter Templates "From you" details (db/051): same decoupled query.
+  // letter_sender_available tells letters.html whether it can save them to
+  // the account yet, or should keep them on the device for now.
+  let letterSender = { letter_sender: null, letter_sender_available: false };
+  try {
+    const { data: lsRow, error: lsError } = await supabase.from('profiles').select('letter_sender').eq('user_id', userId).single();
+    if (!lsError && lsRow) letterSender = { letter_sender: lsRow.letter_sender || null, letter_sender_available: true };
+  } catch (e) {}
+
+  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals, ...progress, ...targetLtv, ...letterSender });
 });
 
 // Target LTV (db/046), used by the Portfolio's "available to release".
@@ -4586,6 +4610,41 @@ app.post('/api/profile/tutorial-complete', async (req, res) => {
 // default_mortgage_rate/standard_fees), so reusing it for a name-only save
 // from Settings would silently null out a user's saved defaults. This does
 // a targeted update of just `name`, nothing else on the row.
+// Letter Templates "From you" details (db/051). A narrow update of this
+// one column, same reasoning as /api/profile/name: the full POST
+// /api/profile upsert would wipe calculator defaults. Only the whitelisted
+// fields are kept, each trimmed and length-capped. Not plan-gated: it only
+// stores the user's own contact details on their own row. Returns 409
+// { needs_migration: true } before db/051 is run.
+app.post('/api/profile/letter-sender', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to save your details.' });
+
+  const token = getBearerToken(req);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to save your details.' });
+
+  const b = (req.body && typeof req.body === 'object') ? req.body : {};
+  const letter_sender = {
+    name: cleanText(b.name, 120),
+    area: cleanText(b.area, 120),
+    phone: cleanText(b.phone, 40),
+    email: cleanText(b.email, 200),
+    address: cleanText(b.address, 400),
+    buying_direct: b.buying_direct !== false,
+  };
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ letter_sender })
+    .eq('user_id', userData.user.id)
+    .select('letter_sender')
+    .single();
+  if (error && isMissingSchemaError(error)) return res.status(409).json({ needs_migration: true, error: 'This needs a quick database update (db/051) before it can be saved to your account.' });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
 app.post('/api/profile/name', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to update your name.' });

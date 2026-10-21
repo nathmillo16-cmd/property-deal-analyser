@@ -29,61 +29,142 @@
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
 
 .page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 .4rem}
-.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 var(--space-6)}
+.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 var(--space-6);max-width:62ch}
 
 .locked-panel{text-align:center;padding:3.5rem 1rem}
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
 
-/* Light-theme card treatment — matches the other migrated pages. Covers
-   both .lt-fields (left panel) and the preview card (right panel), which
-   both carry the shared class="card". */
 body.theme-light .card{
   border:1px solid rgba(0,0,0,.09);
   border-radius:14px;
   box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
 }
 
-.letter-type-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem}
+/* Two columns: form left, letter right. One column under 900px, form first. */
+.lt-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px;align-items:start}
+.lt-form{display:flex;flex-direction:column;gap:14px;min-width:0}
+@media(max-width:900px){.lt-layout{grid-template-columns:minmax(0,1fr)}}
+.lt-layout .card{padding:1.4rem 1.5rem;min-width:0}
 
-/* Two-panel layout: fields left, live preview right — roughly 1fr/1.2fr so
-   the letter itself gets a little more room than the form. */
-.lt-layout{display:grid;grid-template-columns:1fr 1.2fr;gap:20px;align-items:start}
-@media(max-width:900px){.lt-layout{grid-template-columns:1fr}}
-
-.lt-fields h2{font-size:16px;margin:0 0 1.1rem}
-.lt-remember-note{margin-top:-.5rem;margin-bottom:1.25rem}
-
-.lt-preview-header{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.5rem;flex-wrap:wrap}
-.lt-preview-label{font-family:var(--font-head);font-weight:600;font-size:15px;color:var(--ink)}
-.lt-preview-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-
-.letter-body{
-  display:block;width:100%;box-sizing:border-box;
-  white-space:pre-wrap;font-family:var(--font-body);font-size:14px;line-height:1.7;color:var(--ink);
-  min-height:280px;resize:none;overflow:hidden;
-  border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;
-  padding:.75rem;margin:-.75rem;outline:none;
+.lt-label{font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--input-muted);margin:0 0 6px}
+.letter-type-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.field textarea{
+  font-family:var(--font-body);font-size:14px;color:var(--input-ink);line-height:1.5;
+  background-color:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);
+  padding:10px 12px;width:100%;box-sizing:border-box;resize:vertical;min-height:64px;
 }
-.letter-body:focus{border-color:var(--input-hairline);background:var(--surface-2)}
+.field textarea:focus{outline:none;border-color:var(--input-accent)}
+.field .field-note{font-size:12px;color:var(--muted);margin:0}
+.lt-card .field:last-child{margin-bottom:0}
 
-.lt-edited-hint{margin-top:.5rem}
+/* Collapsible sections */
+.lt-section{padding:0!important}
+.lt-section summary{
+  list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:1.1rem 1.5rem;border-radius:14px;
+}
+.lt-section summary::-webkit-details-marker{display:none}
+.lt-section summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.lt-sec-head{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lt-sec-title{font-family:var(--font-head);font-weight:600;font-size:15px;color:var(--ink)}
+.lt-sec-sum{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lt-chev{width:18px;height:18px;flex-shrink:0;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s ease}
+.lt-section[open] .lt-chev{transform:rotate(180deg)}
+.lt-sec-body{padding:0 1.5rem 1.3rem}
+.lt-sec-foot{font-size:12px;color:var(--muted);margin:.25rem 0 0}
+.lt-sec-foot a{color:var(--muted)}
+.lt-save-status{font-size:12px;color:var(--muted);margin:.6rem 0 0;min-height:1em}
+.lt-save-status.error{color:var(--danger-ink)}
+
+/* "I'm buying directly" switch */
+.lt-toggle{display:flex;align-items:flex-start;gap:12px;cursor:pointer;margin:.25rem 0 0}
+.lt-toggle input{position:absolute;opacity:0;width:1px;height:1px}
+.lt-switch{flex-shrink:0;width:38px;height:22px;border-radius:999px;background:var(--hairline-strong);position:relative;transition:background .15s ease;margin-top:1px}
+.lt-switch::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .15s ease}
+.lt-toggle input:checked + .lt-switch{background:var(--accent)}
+.lt-toggle input:checked + .lt-switch::after{transform:translateX(16px)}
+.lt-toggle input:focus-visible + .lt-switch{outline:2px solid var(--accent);outline-offset:2px}
+.lt-toggle-text{display:flex;flex-direction:column;gap:2px;font-size:13.5px;color:var(--ink)}
+.lt-toggle-text strong{font-weight:600}
+.lt-toggle-text span{font-size:12px;color:var(--muted)}
+
+/* Preview */
+.lt-actions-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.lt-actions-row button{padding-left:16px;padding-right:16px}
+
+.lt-notice{border:1px solid var(--hairline-strong);background:var(--surface-2);border-radius:10px;padding:.8rem 1rem;margin:0 0 14px;font-size:13px;color:var(--ink)}
+.lt-notice.warn{border-color:var(--warn);background:var(--warn-bg)}
+.lt-notice.ok{border-color:var(--success);background:var(--success-bg);color:var(--success-ink)}
+.lt-notice p{margin:0 0 .6rem;overflow-wrap:anywhere}
+.lt-notice p:last-child{margin-bottom:0}
+.lt-notice-actions{display:flex;gap:8px;flex-wrap:wrap}
+.lt-notice-actions button{padding:7px 14px;font-size:13px}
+
+.letter-sheet{
+  background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;
+  padding:28px 30px;color:#1c1c1a;font-family:var(--font-body);font-size:14px;line-height:1.7;
+  overflow-wrap:anywhere;
+}
+.ls-sender{text-align:right;margin-bottom:10px}
+.ls-sender .ls-name{font-weight:600}
+.ls-date{text-align:right;margin-bottom:22px}
+.ls-recipient{margin-bottom:22px}
+.ls-body{white-space:pre-wrap;border-radius:6px;margin:-6px;padding:6px;cursor:text;outline:none}
+.ls-body:hover{background:rgba(75,69,178,.04)}
+.ls-body:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+.ls-edit{
+  display:block;width:calc(100% + 12px);box-sizing:border-box;margin:-6px;padding:6px;
+  font:inherit;line-height:inherit;color:inherit;white-space:pre-wrap;
+  border:1.5px solid var(--input-accent);border-radius:6px;background:#fff;resize:none;overflow:hidden;outline:none;
+}
+.ls-body[hidden],.ls-edit[hidden]{display:none}
+.ph{background:var(--warn-bg);color:var(--warn-ink);border-radius:4px;padding:0 3px;font-weight:600;white-space:nowrap}
+
+.lt-foot{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted);margin:12px 0 0}
+.lt-foot a{color:var(--accent);text-decoration:none;font-weight:600}
+.lt-foot a:hover{text-decoration:underline}
 
 .letter-tip{
-  background:rgba(224,164,88,.08);border:1px solid var(--accent);border-radius:var(--radius-sm);
-  padding:.85rem 1rem;font-size:12.5px;color:var(--ink);margin:1.25rem 0;
+  border:1px solid var(--hairline);border-radius:10px;background:rgba(75,69,178,.05);
+  padding:.8rem 1rem;font-size:12.5px;color:var(--ink);margin:16px 0 0;
 }
-body.theme-light .letter-tip{background:rgba(75,69,178,.06)}
-.letter-tip strong{color:var(--accent-2)}
+.letter-tip strong{color:var(--accent)}
 
-.lt-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.lt-copy-msg{font-size:12px;color:var(--accent-2);min-height:1em}
+/* Phones: a sticky jump to the preview, sitting above the bottom tab bar. */
+.lt-jump{display:none}
+@media(max-width:900px){
+  .lt-jump{
+    display:block;position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:340;
+    box-shadow:0 6px 18px rgba(40,36,110,.25);border-radius:999px;padding:12px 26px;
+    transition:opacity .15s ease;
+  }
+  .lt-jump.hidden{opacity:0;pointer-events:none}
+}
+@media(max-width:760px){.lt-jump{bottom:calc(64px + env(safe-area-inset-bottom, 0px) + 12px)}}
+html.native-app .lt-jump{bottom:calc(64px + env(safe-area-inset-bottom, 0px) + 12px)}
+@media(max-width:900px){#state-board{padding-bottom:64px}}
 
+@media(max-width:600px){
+  .lt-layout .card{padding:1.1rem 1.1rem}
+  .lt-section summary{padding:1rem 1.1rem}
+  .lt-sec-body{padding:0 1.1rem 1.1rem}
+  .letter-type-tabs{display:grid;grid-template-columns:1fr 1fr}
+  .letter-type-tabs .tab-btn{padding-left:8px;padding-right:8px}
+  .lt-actions-row{display:grid;grid-template-columns:auto 1fr auto}
+  .lt-actions-row button{padding-left:14px;padding-right:14px;white-space:nowrap}
+  .letter-sheet{padding:18px 16px;font-size:14px}
+  .ls-edit{font-size:14px!important}
+}
+
+/* Print only the formatted letter. */
+#print-letter{display:none}
 @media print{
-  body *{visibility:hidden}
-  #letter-print-area,#letter-print-area *{visibility:visible}
-  #letter-print-area{position:absolute;top:0;left:0;width:100%;padding:0}
-  .letter-body{color:#000;border:none;background:transparent;padding:0;margin:0}
+  body > *:not(#print-letter){display:none!important}
+  #print-letter{display:block;color:#000;font-family:Georgia,'Times New Roman',serif;font-size:12pt;line-height:1.55;padding:0}
+  #print-letter .ls-body{white-space:pre-wrap;margin:0;padding:0}
+  #print-letter .ph{background:none;color:#000;font-weight:400;padding:0}
+  @page{margin:22mm}
 }
 </style>
 </head>
@@ -95,7 +176,7 @@ body.theme-light .letter-tip{background:rgba(75,69,178,.06)}
   <script src="/crm-nav.js"></script>
 
   <p class="page-title">Letter Templates</p>
-  <p class="page-sub">Ready-made letters for reaching out to owners of empty, derelict, or inherited properties. Fill in your details once, pick a letter, and copy or print it.</p>
+  <p class="page-sub">Ready-made letters for owners of empty, inherited or off-market properties. Pick a deal, check who it's to, then copy, download or print.</p>
 
   <div id="state-loading"><p class="hint">Loading…</p></div>
 
@@ -114,68 +195,139 @@ body.theme-light .letter-tip{background:rgba(75,69,178,.06)}
   <div id="state-board" style="display:none">
 
     <div class="lt-layout">
-      <div class="card lt-fields">
-        <div class="letter-type-tabs" id="letter-type-tabs">
-          <button type="button" class="tab-btn" id="type-btn-enquiry" onclick="switchLetterType('enquiry')">Empty property enquiry</button>
-          <button type="button" class="tab-btn" id="type-btn-followup" onclick="switchLetterType('followup')">Follow-up (no response)</button>
-          <button type="button" class="tab-btn" id="type-btn-probate" onclick="switchLetterType('probate')">Probate / inherited property</button>
-          <button type="button" class="tab-btn" id="type-btn-offer" onclick="switchLetterType('offer')">Direct offer in writing</button>
-        </div>
-        <h2>Your details</h2>
-        <div class="field"><label>Owner name</label><input type="text" id="lt-owner-name" placeholder="Leave blank to use &quot;Homeowner&quot;" oninput="onFieldInput()"/></div>
-        <div class="field"><label>Property address</label><input type="text" id="lt-property-address" oninput="onFieldInput()"/></div>
-        <div class="field" id="lt-offer-amount-field" style="display:none"><label>Offer amount</label><input type="text" id="lt-offer-amount" placeholder="e.g. £145,000" oninput="onFieldInput()"/></div>
-        <div class="field"><label>Your name</label><input type="text" id="lt-your-name" oninput="onFieldInput()"/></div>
-        <div class="field"><label>Your area</label><input type="text" id="lt-your-area" oninput="onFieldInput()"/></div>
-        <div class="field"><label>Your phone</label><input type="tel" id="lt-your-phone" oninput="onFieldInput()"/></div>
-        <div class="field"><label>Your email</label><input type="email" id="lt-your-email" oninput="onFieldInput()"/></div>
-        <p class="hint lt-remember-note">Your details and this letter are remembered on this device for next time. <a href="#" onclick="clearLettersDraft();return false;">Clear saved draft</a></p>
-      </div>
+      <div class="lt-form">
 
-      <div class="card">
-        <div class="lt-preview-header">
-          <span class="lt-preview-label">Preview</span>
-          <div class="lt-preview-actions">
-            <button class="btn-secondary" onclick="copyLetter()" id="copy-btn">Copy</button>
-            <button class="btn-primary" onclick="downloadLetter()" id="download-btn">Download</button>
-            <button class="btn-primary" onclick="downloadLetterPdf()" id="download-pdf-btn">Download PDF</button>
+        <div class="card lt-card">
+          <div class="field">
+            <label for="lt-deal">Pick a deal</label>
+            <select id="lt-deal" onchange="onDealPicked()">
+              <option value="">No deal</option>
+            </select>
+            <p class="field-note" id="lt-deal-note">Fills in the property address, and lets you log the letter on the deal.</p>
+          </div>
+          <p class="lt-label">Letter</p>
+          <div class="letter-type-tabs" id="letter-type-tabs">
+            <button type="button" class="tab-btn" id="type-btn-enquiry" onclick="switchLetterType('enquiry')">Empty property</button>
+            <button type="button" class="tab-btn" id="type-btn-followup" onclick="switchLetterType('followup')">Follow-up</button>
+            <button type="button" class="tab-btn" id="type-btn-probate" onclick="switchLetterType('probate')">Probate</button>
+            <button type="button" class="tab-btn" id="type-btn-offer" onclick="switchLetterType('offer')">Direct offer</button>
           </div>
         </div>
-        <span class="lt-copy-msg" id="copy-msg"></span>
 
-        <div id="letter-print-area">
-          <textarea class="letter-body" id="letter-preview" oninput="onLetterManualEdit()"></textarea>
+        <details class="card lt-section" id="sec-to" open>
+          <summary>
+            <span class="lt-sec-head"><span class="lt-sec-title">Who it's to</span><span class="lt-sec-sum" id="sum-to"></span></span>
+            <svg class="lt-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="lt-sec-body">
+            <div class="field"><label for="lt-owner-name">Owner name</label><input type="text" id="lt-owner-name" autocomplete="off" placeholder="Leave blank for &quot;The Owner&quot;" oninput="onRecipientInput()"/></div>
+            <div class="field"><label for="lt-property-address">Property address</label><input type="text" id="lt-property-address" autocomplete="off" oninput="onRecipientInput()"/></div>
+            <div class="field">
+              <label for="lt-recipient-address">Recipient address</label>
+              <textarea id="lt-recipient-address" rows="3" autocomplete="off" placeholder="Leave blank to send it to the property" oninput="onRecipientInput()"></textarea>
+            </div>
+            <div class="field" id="lt-offer-amount-field" style="display:none"><label for="lt-offer-amount">Offer amount</label><input type="text" id="lt-offer-amount" inputmode="decimal" autocomplete="off" placeholder="e.g. 145,000" oninput="onRecipientInput()"/></div>
+            <p class="lt-sec-foot">Remembered on this device. <a href="#" onclick="clearLettersDraft();return false;">Clear</a></p>
+          </div>
+        </details>
+
+        <details class="card lt-section" id="sec-from" open>
+          <summary>
+            <span class="lt-sec-head"><span class="lt-sec-title">From you</span><span class="lt-sec-sum" id="sum-from"></span></span>
+            <svg class="lt-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="lt-sec-body">
+            <div class="field"><label for="lt-your-name">Your name</label><input type="text" id="lt-your-name" autocomplete="name" oninput="onSenderInput()"/></div>
+            <div class="field"><label for="lt-your-area">Your area</label><input type="text" id="lt-your-area" placeholder="e.g. Mansfield" oninput="onSenderInput()"/></div>
+            <div class="field"><label for="lt-your-phone">Your phone</label><input type="tel" id="lt-your-phone" autocomplete="tel" oninput="onSenderInput()"/></div>
+            <div class="field"><label for="lt-your-email">Your email</label><input type="email" id="lt-your-email" autocomplete="email" oninput="onSenderInput()"/></div>
+            <div class="field"><label for="lt-your-address">Your address</label><textarea id="lt-your-address" rows="3" autocomplete="street-address" oninput="onSenderInput()"></textarea></div>
+            <label class="lt-toggle" for="lt-direct">
+              <input type="checkbox" id="lt-direct" checked onchange="onSenderInput()"/>
+              <span class="lt-switch" aria-hidden="true"></span>
+              <span class="lt-toggle-text"><strong>I'm buying directly</strong><span>Adds a line saying you're not an agent, so there are no fees.</span></span>
+            </label>
+            <p class="lt-save-status" id="lt-save-status"></p>
+          </div>
+        </details>
+
+      </div>
+
+      <div class="card lt-preview" id="lt-preview-card">
+        <div class="lt-actions-row">
+          <button type="button" class="btn-secondary" id="copy-btn" onclick="runAction('copy')">Copy</button>
+          <button type="button" class="btn-primary" id="download-pdf-btn" onclick="runAction('pdf')">Download PDF</button>
+          <button type="button" class="btn-secondary" id="print-btn" onclick="runAction('print')">Print</button>
         </div>
-        <p class="hint lt-edited-hint" id="lt-edited-hint" style="display:none">Edited manually. Form changes won't overwrite this until you reset to the template.</p>
+
+        <div class="lt-notice" id="lt-notice" role="status" hidden></div>
+
+        <div class="letter-sheet" id="letter-sheet">
+          <div class="ls-sender" id="ls-sender"></div>
+          <div class="ls-date" id="ls-date"></div>
+          <div class="ls-recipient" id="ls-recipient"></div>
+          <div class="ls-body" id="ls-body" tabindex="0" role="button" aria-label="Edit the letter wording" title="Click to edit the wording" onclick="startEditing()" onkeydown="if(event.key==='Enter'){event.preventDefault();startEditing();}"></div>
+          <textarea class="ls-edit" id="letter-preview" aria-label="Letter wording" hidden oninput="onLetterManualEdit()" onblur="stopEditing()"></textarea>
+        </div>
+
+        <p class="lt-foot">
+          <a href="#" id="edit-link" onclick="toggleEditing();return false;">Edit wording</a>
+          <span id="lt-edited-hint" hidden>Edited by you. Form changes won't change the wording. <a href="#" onclick="resetToTemplate();return false;">Reset to template</a></span>
+        </p>
 
         <div class="letter-tip">
-          <strong>Tip:</strong> hand-write the envelope rather than printing a label. Handwritten envelopes feel personal and get opened far more often than printed ones.
-        </div>
-
-        <div class="lt-actions">
-          <button class="btn-secondary" onclick="resetToTemplate()">Reset to template</button>
-          <button class="btn-secondary" onclick="window.print()">Print</button>
+          <strong>Tip:</strong> hand-write the envelope rather than printing a label. Handwritten envelopes feel personal and get opened far more often.
         </div>
       </div>
     </div>
 
+    <button type="button" class="btn-primary lt-jump" id="lt-jump" onclick="jumpToPreview()">Preview letter</button>
   </div>
 </div>
 
+<div id="print-letter" aria-hidden="true"></div>
+
 <script>
 const LETTER_TYPES = ['enquiry', 'followup', 'probate', 'offer'];
+// LETTER_TEMPLATES, LETTER_PLACEHOLDERS and LETTER_TYPE_NAMES live in
+// letter-templates.js (shared with the Deal page's "Email agent" button).
 
-// LETTER_TEMPLATES lives in letter-templates.js (shared with the Deal
-// page's "Email agent" button).
+// Which field fills each placeholder, for "Fill them in".
+const PLACEHOLDER_FIELDS = {
+  '[Property address]': { field: 'lt-property-address', section: 'sec-to' },
+  '[Offer amount]': { field: 'lt-offer-amount', section: 'sec-to' },
+  '[Your name]': { field: 'lt-your-name', section: 'sec-from' },
+  '[Your area]': { field: 'lt-your-area', section: 'sec-from' },
+  '[Your phone]': { field: 'lt-your-phone', section: 'sec-from' },
+  '[Your email]': { field: 'lt-your-email', section: 'sec-from' },
+  '[Your address]': { field: 'lt-your-address', section: 'sec-from' }
+};
+const SENDER_FIELDS = { name: 'lt-your-name', area: 'lt-your-area', phone: 'lt-your-phone', email: 'lt-your-email', address: 'lt-your-address' };
+const FOLLOW_UP_DAYS = 14;
 
 let currentLetterType = 'enquiry';
 let letterManuallyEdited = false;
-let sbClient=null, currentSession=null, currentPlan=null;
+let editing = false;
+let sbClient=null, currentSession=null, currentPlan=null, profile={};
+let deals=[];
+let senderAvailable=false;      // can "From you" be saved to the account yet (db/051)
+let senderSaveTimer=null;
+let loggedThisSession=new Set(); // deal + letter type already logged, so we don't offer twice
 
 function showState(state){
   ['loading','loggedout','locked','board'].forEach(s=>{
     document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
   });
+}
+
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function authHeaders(json){
+  const h={'Authorization':'Bearer '+currentSession.access_token};
+  if(json)h['Content-Type']='application/json';
+  return h;
 }
 
 async function logout(){
@@ -218,7 +370,7 @@ function updateTopbar(){
   const menuEmail=document.getElementById('user-menu-email');
   const itemEmail=document.getElementById('user-menu-item-email');
   if(menuEmail)menuEmail.textContent=email||'Account';
-  if(itemEmail)itemEmail.textContent=email||'—';
+  if(itemEmail)itemEmail.textContent=email||'Account';
   const subLink=document.getElementById('subscribe-link');
   if(loggedIn&&currentPlan==='free'){
     subLink.style.display='';
@@ -229,27 +381,126 @@ function updateTopbar(){
   }
 }
 
-function switchLetterType(type){
-  currentLetterType=type;
-  LETTER_TYPES.forEach(t=>{
-    document.getElementById('type-btn-'+t).classList.toggle('active', t===type);
-  });
-  document.getElementById('lt-offer-amount-field').style.display = type==='offer' ? '' : 'none';
-  regenerateIfNotEdited();
-  saveLettersDraft();
-}
+// ---------------------------------------------------------------------
+// Field values
+// ---------------------------------------------------------------------
+function val(id){ return document.getElementById(id).value.trim(); }
 
 function collectFieldValues(){
-  const ownerNameRaw=document.getElementById('lt-owner-name').value.trim();
   return {
-    ownerName: ownerNameRaw || 'Homeowner',
-    propertyAddress: document.getElementById('lt-property-address').value.trim(),
-    offerAmount: document.getElementById('lt-offer-amount').value.trim(),
-    yourName: document.getElementById('lt-your-name').value.trim(),
-    yourArea: document.getElementById('lt-your-area').value.trim(),
-    yourPhone: document.getElementById('lt-your-phone').value.trim(),
-    yourEmail: document.getElementById('lt-your-email').value.trim()
+    ownerName: val('lt-owner-name'),
+    propertyAddress: val('lt-property-address'),
+    recipientAddress: val('lt-recipient-address'),
+    offerAmount: val('lt-offer-amount'),
+    yourName: val('lt-your-name'),
+    yourArea: val('lt-your-area'),
+    yourPhone: val('lt-your-phone'),
+    yourEmail: val('lt-your-email'),
+    yourAddress: val('lt-your-address'),
+    buyingDirect: document.getElementById('lt-direct').checked
   };
+}
+
+function collectSender(){
+  const v=collectFieldValues();
+  return { name:v.yourName, area:v.yourArea, phone:v.yourPhone, email:v.yourEmail, address:v.yourAddress, buying_direct:v.buyingDirect };
+}
+
+function applySender(s){
+  if(!s||typeof s!=='object')return;
+  Object.keys(SENDER_FIELDS).forEach(k=>{ if(typeof s[k]==='string')document.getElementById(SENDER_FIELDS[k]).value=s[k]; });
+  if(typeof s.buying_direct==='boolean')document.getElementById('lt-direct').checked=s.buying_direct;
+}
+
+function senderComplete(){
+  const v=collectFieldValues();
+  return !!(v.yourName&&v.yourArea&&(v.yourPhone||v.yourEmail)&&v.yourAddress);
+}
+
+// An address typed on one line ("12 High St, Mansfield, NG18 1AB") or on
+// several becomes one line per part, the way a letter lays it out.
+function addressLines(s){
+  if(!s)return [];
+  const lines=s.split(/\n/).map(x=>x.trim()).filter(Boolean);
+  if(lines.length===1&&lines[0].includes(','))return lines[0].split(',').map(x=>x.trim()).filter(Boolean);
+  return lines;
+}
+
+function ukDate(d){ return d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}); }
+function isoDate(d){ const p=x=>(x<10?'0':'')+x; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+
+// ---------------------------------------------------------------------
+// The letter: sender block, date, recipient block, then the body.
+// ---------------------------------------------------------------------
+function letterParts(){
+  const v=collectFieldValues();
+  const P=LETTER_PLACEHOLDERS;
+  const sender=[v.yourName||P.yourName];
+  const sAddr=addressLines(v.yourAddress);
+  sender.push(...(sAddr.length?sAddr:[P.yourAddress]));
+  if(v.yourPhone)sender.push(v.yourPhone);
+  if(v.yourEmail)sender.push(v.yourEmail);
+
+  const recipient=[v.ownerName||'The Owner'];
+  const rAddr=addressLines(v.recipientAddress||v.propertyAddress);
+  recipient.push(...(rAddr.length?rAddr:[P.propertyAddress]));
+
+  const body=letterManuallyEdited
+    ? document.getElementById('letter-preview').value
+    : LETTER_TEMPLATES[currentLetterType](v);
+  return { sender, date: ukDate(new Date()), recipient, body };
+}
+
+function letterAsText(parts){
+  return parts.sender.join('\n')+'\n\n'+parts.date+'\n\n'+parts.recipient.join('\n')+'\n\n'+parts.body;
+}
+
+function unfilledPlaceholders(){
+  const text=letterAsText(letterParts());
+  return Object.values(LETTER_PLACEHOLDERS).filter(p=>text.includes(p));
+}
+
+// Escapes the text, then wraps every known placeholder in a highlight.
+function highlight(text){
+  let html=esc(text);
+  Object.values(LETTER_PLACEHOLDERS).forEach(p=>{ html=html.split(esc(p)).join('<mark class="ph">'+esc(p)+'</mark>'); });
+  return html;
+}
+
+function sheetHtml(parts){
+  const senderHtml=parts.sender.map((l,i)=>i===0?'<div class="ls-name">'+highlight(l)+'</div>':'<div>'+highlight(l)+'</div>').join('');
+  return {
+    sender: senderHtml,
+    date: esc(parts.date),
+    recipient: parts.recipient.map(l=>'<div>'+highlight(l)+'</div>').join(''),
+    body: highlight(parts.body)
+  };
+}
+
+function render(){
+  const parts=letterParts();
+  if(!letterManuallyEdited)document.getElementById('letter-preview').value=parts.body;
+  const h=sheetHtml(parts);
+  document.getElementById('ls-sender').innerHTML=h.sender;
+  document.getElementById('ls-date').innerHTML=h.date;
+  document.getElementById('ls-recipient').innerHTML=h.recipient;
+  if(!editing)document.getElementById('ls-body').innerHTML=h.body;
+  document.getElementById('lt-edited-hint').hidden=!letterManuallyEdited;
+  renderSummaries();
+}
+
+function renderSummaries(){
+  const v=collectFieldValues();
+  const firstPart=s=>(s.split(/[,\n]/)[0]||'').trim();
+  const where=v.propertyAddress?firstPart(v.propertyAddress):'No address yet';
+  document.getElementById('sum-to').textContent=(v.ownerName||'The Owner')+' · '+where;
+
+  const bits=[];
+  if(v.yourName)bits.push(v.yourName.split(/\s+/)[0]);
+  if(v.yourArea)bits.push(v.yourArea);
+  const contact=[v.yourPhone&&'phone',v.yourEmail&&'email'].filter(Boolean).join(' + ');
+  if(contact)bits.push(contact);
+  document.getElementById('sum-from').textContent=bits.length?bits.join(' · '):'Add your details once, they stay on your account';
 }
 
 function autoGrowLetterBox(){
@@ -258,175 +509,424 @@ function autoGrowLetterBox(){
   el.style.height=el.scrollHeight+'px';
 }
 
-// Regenerates the merged letter from the current type + field values, unless
-// the box has been hand-edited. Hand edits must survive field changes and
-// type switches alike, and the only way back to a clean template is the
-// explicit Reset to template button (resetToTemplate below).
-function regenerateIfNotEdited(){
-  if(letterManuallyEdited)return;
-  document.getElementById('letter-preview').value = LETTER_TEMPLATES[currentLetterType](collectFieldValues());
+// ---------------------------------------------------------------------
+// Editing the wording. Click the letter (or "Edit wording") to edit it in
+// place; click away to see it laid out again. Hand edits survive form
+// changes and letter-type switches until "Reset to template".
+// ---------------------------------------------------------------------
+function startEditing(){
+  if(editing)return;
+  editing=true;
+  const ta=document.getElementById('letter-preview');
+  document.getElementById('ls-body').hidden=true;
+  ta.hidden=false;
   autoGrowLetterBox();
+  ta.focus();
+  document.getElementById('edit-link').textContent='Done';
 }
-
-function onFieldInput(){
-  regenerateIfNotEdited();
-  saveLettersDraft();
+function stopEditing(){
+  if(!editing)return;
+  editing=false;
+  document.getElementById('letter-preview').hidden=true;
+  document.getElementById('ls-body').hidden=false;
+  document.getElementById('edit-link').textContent='Edit wording';
+  render();
 }
+function toggleEditing(){ editing?stopEditing():startEditing(); }
 
 function onLetterManualEdit(){
   letterManuallyEdited=true;
   autoGrowLetterBox();
-  document.getElementById('lt-edited-hint').style.display='block';
+  document.getElementById('lt-edited-hint').hidden=false;
   saveLettersDraft();
 }
 
 function resetToTemplate(){
   letterManuallyEdited=false;
-  document.getElementById('letter-preview').value = LETTER_TEMPLATES[currentLetterType](collectFieldValues());
-  autoGrowLetterBox();
-  document.getElementById('lt-edited-hint').style.display='none';
+  if(editing)stopEditing();
+  render();
+  saveLettersDraft();
+}
+
+function switchLetterType(type){
+  if(!LETTER_TYPES.includes(type))type='enquiry';
+  currentLetterType=type;
+  LETTER_TYPES.forEach(t=>{
+    document.getElementById('type-btn-'+t).classList.toggle('active', t===type);
+  });
+  document.getElementById('lt-offer-amount-field').style.display = type==='offer' ? '' : 'none';
+  hideNotice();
+  render();
+  saveLettersDraft();
+}
+
+function onRecipientInput(){
+  render();
+  saveLettersDraft();
+}
+
+function onSenderInput(){
+  render();
+  scheduleSenderSave();
+  if(!senderAvailable)saveLettersDraft();
+}
+
+// ---------------------------------------------------------------------
+// "From you" is saved to the account (profiles.letter_sender, db/051), so
+// it follows the user to any device. Before db/051 is run it's kept on
+// this device instead, and the page says so.
+// ---------------------------------------------------------------------
+function setSaveStatus(text, isError){
+  const el=document.getElementById('lt-save-status');
+  el.textContent=text;
+  el.classList.toggle('error',!!isError);
+}
+
+function scheduleSenderSave(){
+  if(!senderAvailable){
+    setSaveStatus('Saved on this device for now. These will save to your account after a quick database update.');
+    return;
+  }
+  setSaveStatus('Saving…');
+  clearTimeout(senderSaveTimer);
+  senderSaveTimer=setTimeout(saveSenderToAccount,700);
+}
+
+async function saveSenderToAccount(){
+  try{
+    const res=await fetch(API_BASE+'/api/profile/letter-sender',{method:'POST',headers:authHeaders(true),body:JSON.stringify(collectSender())});
+    const body=await res.json().catch(()=>({}));
+    if(res.status===409&&body.needs_migration){
+      senderAvailable=false;
+      saveLettersDraft();
+      setSaveStatus('Saved on this device for now. These will save to your account after a quick database update.');
+      return;
+    }
+    if(!res.ok)throw new Error(body.error||'Could not save your details.');
+    setSaveStatus('Saved to your account.');
+  }catch(e){
+    setSaveStatus(e.message||'Could not save your details.',true);
+  }
+}
+
+// ---------------------------------------------------------------------
+// Deals: "Pick a deal" fills the property address and lets the letter be
+// logged on that deal.
+// ---------------------------------------------------------------------
+function dealName(d){
+  if(d.deal_data&&d.deal_data.name)return d.deal_data.name;
+  const label=String(d.deal_type||'deal').toUpperCase();
+  return label+' · '+new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+
+function dealAddress(d){
+  let a=(d.address||'').trim();
+  if(a&&d.postcode&&!a.toUpperCase().includes(String(d.postcode).toUpperCase()))a+=', '+d.postcode;
+  if(!a&&d.deal_data&&d.deal_data.name)a=String(d.deal_data.name).trim();
+  return a;
+}
+
+function selectedDeal(){
+  const id=document.getElementById('lt-deal').value;
+  return id?deals.find(d=>d.id===id)||null:null;
+}
+
+async function loadDeals(wantedId){
+  const sel=document.getElementById('lt-deal');
+  try{
+    const res=await fetch(API_BASE+'/api/deals',{headers:authHeaders()});
+    const body=await res.json();
+    if(!res.ok||!Array.isArray(body))throw new Error();
+    deals=body;
+  }catch(e){
+    deals=[];
+    document.getElementById('lt-deal-note').textContent='Could not load your deals just now. You can still write the letter.';
+  }
+  sel.innerHTML='<option value="">No deal</option>'+deals.map(d=>'<option value="'+esc(d.id)+'">'+esc(dealName(d))+'</option>').join('');
+  if(!deals.length&&!document.getElementById('lt-deal-note').textContent.startsWith('Could not')){
+    document.getElementById('lt-deal-note').textContent='No saved deals yet. Save one from the Calculator to link letters to it.';
+  }
+  if(wantedId&&deals.some(d=>d.id===wantedId))sel.value=wantedId;
+}
+
+function onDealPicked(){
+  const d=selectedDeal();
+  if(d){
+    const a=dealAddress(d);
+    if(a)document.getElementById('lt-property-address').value=a;
+  }
+  hideNotice();
+  render();
   saveLettersDraft();
 }
 
 // ---------------------------------------------------------------------
-// Draft persistence (draft-state.js) — saves/restores this page's
-// in-progress work to localStorage so an accidental refresh doesn't lose
-// it. Replaces the old one-off "remembered sender details" mechanism this
-// page used to have (dny-letter-sender-details) — this covers the same 4
-// fields plus everything else on the page in one place.
+// Notices above the letter: unfilled placeholders, "Log as sent?", and
+// short confirmations. One at a time.
 // ---------------------------------------------------------------------
-function saveLettersDraft(){
-  saveDraft('letters', {
-    letterType: currentLetterType,
-    fields: collectFieldValues(),
-    ownerNameRaw: document.getElementById('lt-owner-name').value,
-    manuallyEdited: letterManuallyEdited,
-    letterBody: letterManuallyEdited ? document.getElementById('letter-preview').value : null
-  });
+function showNotice(kind, html){
+  const el=document.getElementById('lt-notice');
+  el.className='lt-notice'+(kind?' '+kind:'');
+  el.innerHTML=html;
+  el.hidden=false;
+}
+function hideNotice(){ const el=document.getElementById('lt-notice'); el.hidden=true; el.innerHTML=''; }
+
+let pendingAction=null;
+function runAction(kind){
+  if(editing)stopEditing();
+  const gaps=unfilledPlaceholders();
+  if(gaps.length){
+    pendingAction=kind;
+    const verb={copy:'Copy',pdf:'Download',print:'Print'}[kind];
+    showNotice('warn',
+      '<p><strong>'+(gaps.length===1?'1 gap':gaps.length+' gaps')+' still to fill:</strong> '+gaps.map(esc).join(', ')+'</p>'+
+      (letterManuallyEdited?'<p>You\'ve edited the wording, so check the letter itself too.</p>':'')+
+      '<div class="lt-notice-actions"><button type="button" class="btn-primary" onclick="fillGaps()">Fill them in</button>'+
+      '<button type="button" class="btn-secondary" onclick="continueAnyway()">'+verb+' anyway</button></div>');
+    return;
+  }
+  doAction(kind);
 }
 
-function restoreLettersDraft(){
-  const d=loadDraft('letters');
-  if(!d){ switchLetterType('enquiry'); return; }
+function fillGaps(){
+  hideNotice();
+  const gaps=unfilledPlaceholders();
+  const target=gaps.map(g=>PLACEHOLDER_FIELDS[g]).find(t=>t&&!val(t.field));
+  if(!target){ startEditing(); return; }
+  const sec=document.getElementById(target.section);
+  sec.open=true;
+  const el=document.getElementById(target.field);
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>el.focus({preventScroll:true}),250);
+}
 
+function continueAnyway(){
+  const kind=pendingAction; pendingAction=null;
+  hideNotice();
+  if(kind)doAction(kind);
+}
+
+async function doAction(kind){
+  let ok=false;
+  if(kind==='copy')ok=await copyLetter();
+  else if(kind==='pdf')ok=downloadLetterPdf();
+  else if(kind==='print')ok=printLetter();
+  if(ok)offerLogAsSent();
+}
+
+function offerLogAsSent(){
+  const d=selectedDeal();
+  if(!d)return;
+  const key=d.id+'|'+currentLetterType;
+  if(loggedThisSession.has(key))return;
+  const due=new Date(); due.setDate(due.getDate()+FOLLOW_UP_DAYS);
+  showNotice('',
+    '<p><strong>Log as sent?</strong> Adds "Letter sent: '+esc(LETTER_TYPE_NAMES[currentLetterType])+'" to '+esc(dealName(d))+
+    ' and a reminder to send a follow-up letter on '+esc(ukDate(due))+'.</p>'+
+    '<div class="lt-notice-actions"><button type="button" class="btn-primary" id="log-sent-btn" onclick="logAsSent()">Log as sent</button>'+
+    '<button type="button" class="btn-secondary" onclick="hideNotice()">Not now</button></div>');
+}
+
+async function logAsSent(){
+  const d=selectedDeal();
+  if(!d)return;
+  const btn=document.getElementById('log-sent-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Logging…'; }
+  const type=currentLetterType;
+  const due=new Date(); due.setDate(due.getDate()+FOLLOW_UP_DAYS);
   try{
-    const f=d.fields;
-    if(f&&typeof f==='object'){
-      if(typeof d.ownerNameRaw==='string')document.getElementById('lt-owner-name').value=d.ownerNameRaw;
-      if(typeof f.propertyAddress==='string')document.getElementById('lt-property-address').value=f.propertyAddress;
-      if(typeof f.offerAmount==='string')document.getElementById('lt-offer-amount').value=f.offerAmount;
-      if(typeof f.yourName==='string')document.getElementById('lt-your-name').value=f.yourName;
-      if(typeof f.yourArea==='string')document.getElementById('lt-your-area').value=f.yourArea;
-      if(typeof f.yourPhone==='string')document.getElementById('lt-your-phone').value=f.yourPhone;
-      if(typeof f.yourEmail==='string')document.getElementById('lt-your-email').value=f.yourEmail;
+    const noteRes=await fetch(API_BASE+`/api/deals/${encodeURIComponent(d.id)}/notes`,{
+      method:'POST',headers:authHeaders(true),
+      body:JSON.stringify({note_text:'Letter sent: '+LETTER_TYPE_NAMES[type],note_type:'note'})
+    });
+    const noteBody=await noteRes.json().catch(()=>({}));
+    if(!noteRes.ok)throw new Error(noteBody.error||'Could not log the letter.');
+    loggedThisSession.add(d.id+'|'+type);
+
+    const remRes=await fetch(API_BASE+`/api/deals/${encodeURIComponent(d.id)}/reminders`,{
+      method:'POST',headers:authHeaders(true),
+      body:JSON.stringify({remind_on:isoDate(due),note:'Send follow-up letter',action:'followup_letter'})
+    });
+    const remBody=await remRes.json().catch(()=>({}));
+    if(!remRes.ok){
+      showNotice('warn','<p>Logged on the deal, but the reminder could not be set'+(remBody.needs_migration?' until a quick database update is run.':': '+esc(remBody.error||'please try again from the deal.'))+'</p>');
+      return;
     }
-  }catch(e){ /* leave fields at their defaults */ }
-
-  try{
-    switchLetterType(LETTER_TYPES.includes(d.letterType)?d.letterType:'enquiry');
+    showNotice('ok','<p>Logged on '+esc(dealName(d))+'. You\'ll be reminded to send a follow-up on '+esc(ukDate(due))+'.</p>');
   }catch(e){
-    switchLetterType('enquiry');
+    showNotice('warn','<p>'+esc(e.message||'Could not log the letter.')+'</p><div class="lt-notice-actions"><button type="button" class="btn-secondary" onclick="offerLogAsSent()">Try again</button></div>');
   }
+}
 
+// ---------------------------------------------------------------------
+// Copy, PDF, Print. Each returns true when it went through.
+// ---------------------------------------------------------------------
+async function copyLetter(){
+  const text=letterAsText(letterParts());
+  const btn=document.getElementById('copy-btn');
+  // The modern clipboard first; if the browser refuses it, the older
+  // select-and-copy way.
+  const legacyCopy=()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.focus();ta.select();
+    const ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(!ok)throw new Error('copy refused');
+  };
   try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      try{ await navigator.clipboard.writeText(text); }catch(e){ legacyCopy(); }
+    }else{
+      legacyCopy();
+    }
+    btn.textContent='Copied';
+    setTimeout(()=>{ btn.textContent='Copy'; }, 1800);
+    return true;
+  }catch(e){
+    showNotice('warn','<p>Could not copy automatically. Click "Edit wording", select the text and copy it yourself.</p>');
+    return false;
+  }
+}
+
+function letterFilename(ext){
+  const slug=val('lt-property-address').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);
+  return slug ? `${currentLetterType}-letter-${slug}.${ext}` : `letter.${ext}`;
+}
+
+// A4, one font size: sender block top right, date under it, recipient on
+// the left, then the letter with its paragraph breaks kept as typed.
+function downloadLetterPdf(){
+  try{
+    const parts=letterParts();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const margin = 64;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const usableWidth = pageWidth - margin * 2;
+    const fontSize = 11, lh = fontSize * 1.5;
+    const right = pageWidth - margin;
+    let y = margin;
+    const newPageIfNeeded = () => { if (y > pageHeight - margin) { doc.addPage(); y = margin; } };
+
+    doc.setFontSize(fontSize);
+    parts.sender.forEach((line, i) => {
+      doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
+      doc.splitTextToSize(line, 230).forEach(l => { doc.text(l, right, y, { align: 'right' }); y += lh; });
+    });
+    doc.setFont('helvetica', 'normal');
+    y += lh * 0.6;
+    doc.text(parts.date, right, y, { align: 'right' });
+    y += lh * 2;
+    parts.recipient.forEach(line => {
+      doc.splitTextToSize(line, usableWidth * 0.6).forEach(l => { doc.text(l, margin, y); y += lh; });
+    });
+    y += lh;
+    parts.body.split('\n').forEach(rawLine => {
+      const wrapped = rawLine ? doc.splitTextToSize(rawLine, usableWidth) : [''];
+      wrapped.forEach(line => { newPageIfNeeded(); doc.text(line, margin, y); y += lh; });
+    });
+    doc.save(letterFilename('pdf'));
+    return true;
+  }catch(e){
+    showNotice('warn','<p>Could not create the PDF. Please try again.</p>');
+    return false;
+  }
+}
+
+function printLetter(){
+  const h=sheetHtml(letterParts());
+  document.getElementById('print-letter').innerHTML=
+    '<div class="ls-sender" style="text-align:right">'+h.sender+'</div>'+
+    '<div class="ls-date" style="text-align:right;margin:10px 0 24px">'+h.date+'</div>'+
+    '<div class="ls-recipient" style="margin-bottom:24px">'+h.recipient+'</div>'+
+    '<div class="ls-body">'+h.body+'</div>';
+  window.print();
+  return true;
+}
+
+// ---------------------------------------------------------------------
+// Phones: the form comes first, so a sticky button jumps to the letter,
+// and hides itself while the letter is on screen.
+// ---------------------------------------------------------------------
+function jumpToPreview(){
+  document.getElementById('lt-preview-card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function watchPreviewVisibility(){
+  const btn=document.getElementById('lt-jump');
+  if(!('IntersectionObserver' in window))return;
+  new IntersectionObserver(entries=>{
+    entries.forEach(e=>btn.classList.toggle('hidden', e.isIntersecting));
+  },{threshold:0.15}).observe(document.getElementById('lt-preview-card'));
+}
+
+// ---------------------------------------------------------------------
+// Draft persistence (draft-state.js): "Who it's to", the letter type, the
+// picked deal and any hand edits stay on this device so a refresh doesn't
+// lose them. "From you" goes to the account instead (see above), and is
+// only kept here while the account can't hold it yet.
+// ---------------------------------------------------------------------
+function saveLettersDraft(){
+  const v=collectFieldValues();
+  const d={
+    shape: 2,
+    letterType: currentLetterType,
+    ownerName: v.ownerName,
+    propertyAddress: v.propertyAddress,
+    recipientAddress: v.recipientAddress,
+    offerAmount: v.offerAmount,
+    dealId: document.getElementById('lt-deal').value||null,
+    manuallyEdited: letterManuallyEdited,
+    letterBody: letterManuallyEdited ? document.getElementById('letter-preview').value : null
+  };
+  if(!senderAvailable)d.sender=collectSender();
+  saveDraft('letters', d);
+}
+
+// Returns { letterType, dealId, sender } from the draft for init() to use.
+// Older drafts (before this layout) kept everything under d.fields.
+function restoreLettersDraft(){
+  const out={ letterType:null, dealId:null, sender:null };
+  const d=loadDraft('letters');
+  if(!d)return out;
+  try{
+    const set=(id,v)=>{ if(typeof v==='string')document.getElementById(id).value=v; };
+    if(d.shape===2){
+      set('lt-owner-name',d.ownerName);
+      set('lt-property-address',d.propertyAddress);
+      set('lt-recipient-address',d.recipientAddress);
+      set('lt-offer-amount',d.offerAmount);
+      if(d.sender&&typeof d.sender==='object')out.sender=d.sender;
+      if(typeof d.dealId==='string')out.dealId=d.dealId;
+    }else if(d.fields&&typeof d.fields==='object'){
+      const f=d.fields;
+      set('lt-owner-name',d.ownerNameRaw);
+      set('lt-property-address',f.propertyAddress);
+      set('lt-offer-amount',f.offerAmount);
+      const s={name:f.yourName,area:f.yourArea,phone:f.yourPhone,email:f.yourEmail};
+      if(Object.values(s).some(x=>typeof x==='string'&&x.trim()))out.sender=s;
+    }
+    if(LETTER_TYPES.includes(d.letterType))out.letterType=d.letterType;
     if(d.manuallyEdited&&typeof d.letterBody==='string'){
       document.getElementById('letter-preview').value=d.letterBody;
       letterManuallyEdited=true;
-      autoGrowLetterBox();
-      document.getElementById('lt-edited-hint').style.display='block';
     }
-  }catch(e){ /* leave the regenerated template in place */ }
+  }catch(e){ /* leave fields at their defaults */ }
+  return out;
 }
 
 function clearLettersDraft(){
-  clearDraft('letters');
-  clearScrollPosition('letters');
-  location.reload();
-}
-
-async function copyLetter(){
-  const text=document.getElementById('letter-preview').value;
-  const msg=document.getElementById('copy-msg');
-  const btn=document.getElementById('copy-btn');
-  try{
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      await navigator.clipboard.writeText(text);
-    }else{
-      const ta=document.createElement('textarea');
-      ta.value=text;
-      ta.style.position='fixed';
-      ta.style.opacity='0';
-      document.body.appendChild(ta);
-      ta.focus();ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-    const original=btn.textContent;
-    btn.textContent='Copied ✓';
-    msg.textContent='';
-    setTimeout(()=>{ btn.textContent=original; }, 1800);
-  }catch(e){
-    msg.textContent='Could not copy automatically. Select the text and copy it manually.';
-  }
-}
-
-// Filename: template + address if an address has been entered, else a
-// plain 'letter.txt' fallback. Reuses collectFieldValues() (unchanged) —
-// no new field, no new state, just reads what's already there.
-function downloadLetter(){
-  const text=document.getElementById('letter-preview').value;
-  const address=collectFieldValues().propertyAddress;
-  const slug=address.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-  const filename = slug ? `${currentLetterType}-letter-${slug}.txt` : 'letter.txt';
-
-  const blob=new Blob([text], {type:'text/plain'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-// Renders whatever's currently in #letter-preview (including manual edits)
-// as a plain single-column PDF — sensible margins, one font size, and line
-// breaks preserved exactly as typed (splitting on '\n' rather than
-// re-flowing the whole string keeps intentional blank lines between
-// paragraphs, since jsPDF's own wrap only handles long single lines).
-function downloadLetterPdf(){
-  const text=document.getElementById('letter-preview').value;
-  const address=collectFieldValues().propertyAddress;
-  const slug=address.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-  const filename = slug ? `${currentLetterType}-letter-${slug}.pdf` : 'letter.pdf';
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-
-  const margin = 72; // 1 inch
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const usableWidth = pageWidth - margin * 2;
-  const fontSize = 12, lineHeight = fontSize * 1.5;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(fontSize);
-
-  let y = margin;
-  text.split('\n').forEach(rawLine=>{
-    const wrapped = doc.splitTextToSize(rawLine, usableWidth);
-    wrapped.forEach(line=>{
-      if(y > pageHeight - margin){
-        doc.addPage();
-        y = margin;
-      }
-      doc.text(line, margin, y);
-      y += lineHeight;
-    });
-  });
-
-  doc.save(filename);
+  ['lt-owner-name','lt-property-address','lt-recipient-address','lt-offer-amount'].forEach(id=>{ document.getElementById(id).value=''; });
+  document.getElementById('lt-deal').value='';
+  letterManuallyEdited=false;
+  hideNotice();
+  render();
+  saveLettersDraft();
 }
 
 async function init(){
@@ -436,10 +936,11 @@ async function init(){
   currentSession=auth.session;
 
   try{
-    const profRes=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
-    const prof=await profRes.json();
-    currentPlan=prof.plan==='paid'?'paid':'free';
+    const profRes=await fetch(API_BASE+'/api/profile',{headers:authHeaders()});
+    profile=await profRes.json()||{};
+    currentPlan=profile.plan==='paid'?'paid':'free';
   }catch(e){
+    profile={};
     currentPlan='free';
   }
   updateTopbar();
@@ -450,7 +951,43 @@ async function init(){
   }
 
   showState('board');
-  restoreLettersDraft();
+  senderAvailable=!!profile.letter_sender_available;
+
+  const draft=restoreLettersDraft();
+
+  // "From you": the account's saved details first; otherwise anything
+  // this device had from before (moved onto the account); otherwise the
+  // account name and login email as a starting point.
+  const accountEmail=(currentSession.user&&currentSession.user.email)||'';
+  if(profile.letter_sender&&typeof profile.letter_sender==='object'){
+    applySender(profile.letter_sender);
+  }else if(draft.sender){
+    applySender(draft.sender);
+    if(senderAvailable)saveSenderToAccount();
+  }else{
+    applySender({name:profile.name||'',email:accountEmail});
+  }
+  if(senderAvailable&&profile.letter_sender)setSaveStatus('Saved to your account.');
+  else if(!senderAvailable)setSaveStatus('Saved on this device for now. These will save to your account after a quick database update.');
+  document.getElementById('sec-from').open=!senderComplete();
+
+  // A follow-up reminder opens /letters.html?type=followup&deal=<id>.
+  const params=new URLSearchParams(location.search);
+  const urlType=params.get('type');
+  const urlDeal=params.get('deal');
+  switchLetterType(LETTER_TYPES.includes(urlType)?urlType:(draft.letterType||'enquiry'));
+
+  // Opened for a different deal than the one on this device: the old
+  // owner and recipient belong to that other deal, so start them clean.
+  if(urlDeal&&urlDeal!==draft.dealId){
+    ['lt-owner-name','lt-recipient-address','lt-offer-amount'].forEach(id=>{ document.getElementById(id).value=''; });
+    letterManuallyEdited=false;
+  }
+  await loadDeals(urlDeal||draft.dealId);
+  if(urlDeal&&document.getElementById('lt-deal').value===urlDeal)onDealPicked();
+  render();
+
+  watchPreviewVisibility();
   restoreScrollPosition('letters');
   attachScrollSaver('letters');
 

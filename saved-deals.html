@@ -1970,7 +1970,7 @@ async function loadReminders(dealId){
       const due=!r.done&&r.remind_on<=today;
       return `<div class="reminder-item${due?' due':''}${r.done?' done':''}">
         <input type="checkbox" ${r.done?'checked':''} aria-label="Done" onchange="setReminderDone('${r.id}',this.checked)"/>
-        <div class="reminder-main"><p class="reminder-date">${fmtDateOnly(r.remind_on)}${due?' · due':''}</p><p class="reminder-note">${escapeHtml(r.note)}</p></div>
+        <div class="reminder-main"><p class="reminder-date">${fmtDateOnly(r.remind_on)}${due?' · due':''}</p><p class="reminder-note">${escapeHtml(r.note)}${r.action==='followup_letter'?` · <a href="/letters.html?type=followup&amp;deal=${encodeURIComponent(r.deal_id)}">Open letter</a>`:''}</p></div>
         <button class="mini-btn danger" onclick="deleteReminder('${r.id}')">Delete</button>
       </div>`;
     }).join(''):'<p class="hint">No reminders. Due ones also show on Home under "Your next move".</p>';

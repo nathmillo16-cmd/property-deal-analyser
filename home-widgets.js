@@ -327,8 +327,11 @@ var HomeWidgets = (function () {
       list.innerHTML = urgent.map(function (n) {
         // Portfolio alerts (refinance, fixed rate, tenancy, compliance, rent) open
         // that property's page; deal alerts open the deal.
+        // A "Send follow-up letter" reminder (db/051) opens the Letter
+        // Templates page on the Follow-up letter with that deal picked.
         var href = n.property_id ? '/property.html?id=' + encodeURIComponent(n.property_id)
-          : (n.deal_id ? '/saved-deals.html?openDeal=' + encodeURIComponent(n.deal_id) : '/saved-deals.html');
+          : (n.deal_id && n.action === 'followup_letter' ? '/letters.html?type=followup&deal=' + encodeURIComponent(n.deal_id)
+          : (n.deal_id ? '/saved-deals.html?openDeal=' + encodeURIComponent(n.deal_id) : '/saved-deals.html'));
         var tagClass = esc(n.reason) + (n.severity ? ' ' + esc(n.severity) : '');
         return '<a class="na-row" href="' + href + '"><span class="na-info"><span class="na-name">' + esc(n.deal_name || 'Untitled deal') + '</span>' +
           '<span class="na-detail">' + esc(n.detail) + '</span></span><span class="na-tag ' + tagClass + '">' + esc(LABEL[n.reason] || n.reason) + '</span></a>';
