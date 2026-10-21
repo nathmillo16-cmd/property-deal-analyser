@@ -26,61 +26,97 @@
 <script src="/refurb-guide-rates.js"></script>
 <script src="/refurb-rate-card.js"></script>
 <style>
-/* page-specific layout only — colours/fonts/radius all come from styles.css */
-.hint{font-size:12.5px;color:var(--muted);font-style:italic}
+/* Settings: a left menu with one section on the right (desktop), or a list
+   of sections that each open full screen (phones). Colours, fonts and
+   radius come from styles.css. */
+.hint{font-size:12.5px;color:var(--muted)}
 
-.page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-6)}
+.set-wrap{display:grid;grid-template-columns:236px minmax(0,1fr);gap:var(--space-6);align-items:start}
+.set-side{position:sticky;top:16px}
+.set-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 var(--space-4);letter-spacing:0}
+.set-nav{display:flex;flex-direction:column;gap:2px}
+.set-nav a{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;color:var(--ink);text-decoration:none;font-size:14px;font-weight:500;border:1px solid transparent;min-height:40px}
+.set-nav a:hover{background:rgba(75,69,178,.06)}
+.set-nav a.active{background:var(--surface);border-color:var(--hairline);color:var(--accent);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.set-nav .ni{width:18px;height:18px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.set-nav .nt{display:flex;flex-direction:column;min-width:0}
+.set-nav .nd{display:none;font-size:12.5px;font-weight:400;color:var(--muted)}
+.set-nav .nc{display:none;margin-left:auto;width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.set-nav .dirty-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);margin-left:auto;flex-shrink:0;display:none}
+.set-nav a.is-dirty .dirty-dot{display:block}
 
-.settings-sections{display:flex;flex-direction:column;gap:var(--space-5);max-width:560px}
-.settings-card h2{font-size:17px;font-weight:600;margin:0 0 var(--space-4)}
-.settings-divider{height:1px;background:var(--hairline);margin:var(--space-5) 0}
+.set-main{min-width:0;padding-bottom:110px}
+.set-sec{display:none}
+.set-sec.active{display:block;animation:setIn .18s ease}
+@keyframes setIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.set-sec-head{display:flex;align-items:flex-start;gap:10px;margin:2px 0 var(--space-4)}
+.set-sec-head h2{font-family:var(--font-head);font-size:20px;font-weight:600;margin:0;letter-spacing:0}
+.set-sec-head p{color:var(--muted);font-size:13.5px;margin:4px 0 0}
+.set-back{display:none;align-items:center;justify-content:center;width:36px;height:36px;margin:-4px 0 0 -6px;border:none;background:transparent;border-radius:50%;cursor:pointer;color:var(--ink);flex-shrink:0}
+.set-back:hover{background:rgba(0,0,0,.05)}
+.set-back svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-.settings-static-value{font-size:14px;color:var(--ink);padding:10px 0}
-.settings-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+.set-card{background:var(--surface);border:1px solid var(--hairline);border-radius:14px;padding:22px 24px;margin-bottom:var(--space-4)}
+.set-card h3{font-family:var(--font-head);font-size:15px;font-weight:600;margin:0 0 4px;letter-spacing:0}
+.set-card .card-sub{font-size:13px;color:var(--muted);margin:0 0 var(--space-4);line-height:1.5}
+.set-card .card-sub a,.set-link{color:var(--accent);font-weight:600;text-decoration:none}
+.set-card .card-sub a:hover,.set-link:hover{text-decoration:underline}
+.set-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0 18px}
+.set-grid .field{margin-bottom:14px}
+.set-grid .span-2{grid-column:1/-1}
+.field textarea{font-family:var(--font-body);font-size:14px;color:var(--input-ink);background:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:10px 12px;width:100%;resize:vertical;min-height:84px;line-height:1.45}
+.field textarea:focus{outline:none;border-color:var(--input-accent)}
+.field input::placeholder,.field textarea::placeholder{color:#a9a8a2}
+.field .unit-wrap{position:relative}
+.field .unit-wrap input{padding-right:44px}
+.field .unit{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12.5px;color:var(--muted);pointer-events:none}
+.field .unit.pre{left:12px;right:auto}
+.field .unit-wrap.has-pre input{padding-left:26px;padding-right:12px}
+.field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--danger)}
+.field-err{font-size:12px;color:var(--danger);margin:2px 0 0}
+.field-help{font-size:12px;color:var(--muted);margin:0}
 
-.plan-badge{
-  display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
-  padding:4px 10px;border-radius:999px;
-}
+.static-value{font-size:14.5px;color:var(--ink);overflow-wrap:anywhere}
+.row-between{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap}
+.divider{height:1px;background:var(--hairline);margin:var(--space-5) 0}
+.inline-form{margin-top:var(--space-4);max-width:420px}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn-quiet{font-family:var(--font-body);font-size:13.5px;font-weight:600;background:transparent;border:none;color:var(--muted);cursor:pointer;padding:10px 6px}
+.btn-quiet:hover{color:var(--ink)}
+.btn-secondary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary:disabled:hover{background:transparent}
+.msg{font-size:12.5px;margin:.6rem 0 0;min-height:1em;color:var(--muted);line-height:1.45}
+.msg.success{color:var(--success)}
+.msg.error{color:var(--danger)}
+.set-note{font-size:12.5px;line-height:1.5;color:var(--warn-ink);background:var(--warn-bg);border-radius:10px;padding:10px 12px;margin-bottom:var(--space-4)}
+.set-note[hidden]{display:none}
+
+.plan-badge{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:4px 10px;border-radius:999px}
 .plan-badge.free{background:var(--surface-2);color:var(--muted)}
 .plan-badge.paid{background:var(--success-bg);color:var(--success-ink)}
+.status-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.status-pill.on{background:var(--success-bg);color:var(--success-ink)}
 
-.save-msg{font-size:12px;margin:.6rem 0 0;min-height:1em;color:var(--muted)}
-.save-msg.success{color:var(--success)}
-.save-msg.error{color:var(--danger)}
+/* Investment defaults: one collapsible group per topic */
+.grp{border:1px solid var(--hairline);border-radius:12px;background:var(--surface);margin-bottom:10px;overflow:hidden}
+.grp>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px 18px;min-height:56px}
+.grp>summary::-webkit-details-marker{display:none}
+.grp-title{font-weight:600;font-size:14.5px;color:var(--ink);flex-shrink:0}
+.grp-sum{margin-left:auto;font-size:12.5px;color:var(--muted);text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grp-sum.set{color:var(--ink)}
+.chev{width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .15s ease;flex-shrink:0;margin-left:4px}
+details[open]>summary .chev{transform:rotate(-135deg)}
+.grp-body{padding:4px 18px 8px;border-top:1px solid var(--hairline)}
+.grp-body .set-grid{padding-top:14px}
+.grp-note{font-size:12.5px;color:var(--muted);margin:0 0 12px}
 
-.btn-secondary:disabled{opacity:.5;cursor:not-allowed;border-color:var(--hairline-strong);color:var(--muted)}
-.btn-secondary:disabled:hover{background:transparent}
-
-/* Danger zone — clearly demarcated (red border, red heading), not
-   prominent (same card size/padding as every other section, no loud
-   background fill). First real use of the --danger/-bg/-ink tokens
-   added to the design system a while back but never used until now. */
-.danger-zone{border-color:var(--danger)}
-.danger-zone h2{color:var(--danger)}
-.danger-zone #delete-account-fields{margin-top:1rem}
-.btn-danger{
-  font-family:var(--font-body);font-weight:700;font-size:13.5px;
-  background:var(--danger-bg);color:var(--danger-ink);border:1.5px solid var(--danger);border-radius:var(--radius);
-  padding:10px 18px;cursor:pointer;
-}
-.btn-danger:hover{background:var(--danger);color:#fff}
-.btn-danger:disabled{opacity:.5;cursor:not-allowed}
-.btn-danger:disabled:hover{background:var(--danger-bg);color:var(--danger-ink)}
-
-/* Investment Defaults — a 2-column grid, this section only; every other
-   card on this page is single-field-per-row, but 11 fields in one column
-   would make this section unreasonably tall. */
-.investment-defaults-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}
-@media(max-width:600px){.investment-defaults-grid{grid-template-columns:1fr}}
-.investment-defaults-grid .field{margin-bottom:1rem}
-/* Your refurb rates: one collapsible group per category */
+/* Refurb rates editor (refurb-rate-card.js renders it) */
 .rc-sec{border:1px solid var(--hairline);border-radius:10px;margin-bottom:8px;background:var(--surface)}
 .rc-sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:.8rem 1rem;min-height:48px}
 .rc-sec>summary::-webkit-details-marker{display:none}
-.rc-sec-name{font-weight:600;font-size:13.5px;color:var(--ink)}
-.rc-sec-sum{margin-left:auto;font-size:12px;color:var(--muted)}
-.rc-chev{width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .15s ease}
+.rc-sec-name{font-weight:600;font-size:13.5px;color:var(--ink);min-width:0}
+.rc-sec-sum{margin-left:auto;font-size:12px;color:var(--muted);flex-shrink:0}
+.rc-chev{width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .15s ease;flex-shrink:0}
 .rc-sec[open] .rc-chev{transform:rotate(-135deg)}
 .rc-sec-body{padding:0 1rem .75rem}
 .rc-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:.5rem 0;border-top:1px solid var(--hairline)}
@@ -89,6 +125,96 @@
 .rc-unit{font-size:11px;color:var(--muted)}
 .rc-row input{width:110px;flex-shrink:0;font-family:var(--font-body);font-size:14px;padding:8px 10px;border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);background:var(--input-surface);color:var(--input-ink);text-align:right}
 .rc-row input:focus{outline:none;border-color:var(--input-accent)}
+.rc-row input.just-imported{border-color:var(--accent);background:rgba(75,69,178,.05)}
+.csv-preview{border:1px solid var(--hairline);border-radius:12px;margin:var(--space-4) 0;overflow:hidden}
+.csv-preview-head{padding:12px 14px;background:var(--surface-2);font-size:13px}
+.csv-preview-head b{font-weight:600}
+.csv-table-wrap{max-height:320px;overflow:auto}
+.csv-table{width:100%;border-collapse:collapse;font-size:13px}
+.csv-table th,.csv-table td{padding:8px 14px;border-top:1px solid var(--hairline);text-align:left;vertical-align:top}
+.csv-table th{font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);position:sticky;top:0;background:var(--surface);border-top:none}
+.csv-table td.num{text-align:right;white-space:nowrap}
+.csv-table .sub{display:block;font-size:11.5px;color:var(--muted)}
+.csv-preview-foot{padding:12px 14px;border-top:1px solid var(--hairline)}
+
+/* Company logo */
+.logo-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo-tile{width:168px;height:84px;border:1px dashed var(--hairline-strong);border-radius:10px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden;flex-shrink:0}
+.logo-tile img{max-width:150px;max-height:68px;object-fit:contain}
+.logo-tile span{font-size:12px;color:var(--muted)}
+
+/* Switches */
+.sw-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--hairline)}
+.sw-row:first-of-type{border-top:none;padding-top:4px}
+.sw-text{min-width:0}
+.sw-text b{display:block;font-size:14px;font-weight:600;color:var(--ink)}
+.sw-text span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+.switch{position:relative;width:44px;height:26px;border-radius:999px;border:none;background:#d8d6d0;cursor:pointer;flex-shrink:0;transition:background .15s ease;padding:0}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .15s ease}
+.switch[aria-checked="true"]{background:var(--accent)}
+.switch[aria-checked="true"]::after{transform:translateX(18px)}
+.switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Two-step sign in */
+.mfa-steps{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;align-items:start;margin-top:var(--space-4)}
+.mfa-qr{width:168px;height:168px;background:#fff;border:1px solid var(--hairline);border-radius:12px;padding:8px}
+.mfa-qr img{width:100%;height:100%;display:block}
+.mfa-secret{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;letter-spacing:.06em;background:var(--surface-2);border-radius:8px;padding:8px 10px;overflow-wrap:anywhere;margin:6px 0 14px;user-select:all}
+.code-input{font-family:ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.3em;font-size:18px!important;max-width:180px}
+ol.mfa-list{margin:0;padding-left:18px;font-size:13px;color:var(--ink);line-height:1.6}
+
+/* Danger zone */
+.danger-card{border-color:rgba(163,45,45,.35)}
+.danger-card h3{color:var(--danger)}
+.btn-danger{font-family:var(--font-body);font-weight:700;font-size:13.5px;background:var(--danger-bg);color:var(--danger-ink);border:1.5px solid var(--danger);border-radius:var(--radius);padding:10px 18px;cursor:pointer}
+.btn-danger:hover{background:var(--danger);color:#fff}
+.btn-danger:disabled{opacity:.5;cursor:not-allowed}
+.btn-danger:disabled:hover{background:var(--danger-bg);color:var(--danger-ink)}
+ul.del-list{margin:0 0 var(--space-4);padding-left:18px;font-size:13px;line-height:1.65;color:var(--ink)}
+
+/* One save bar for the whole page */
+.savebar{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:400;transform:translate(-50%,140%);opacity:0;pointer-events:none;
+  width:min(600px,calc(100% - 24px));background:#1f1d33;color:#fff;border-radius:14px;padding:10px 10px 10px 18px;display:flex;align-items:center;gap:10px;
+  box-shadow:0 12px 32px rgba(20,18,45,.28);transition:transform .22s ease,opacity .22s ease}
+.savebar.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.savebar-msg{flex:1;min-width:0;font-size:13.5px;line-height:1.35;display:flex;align-items:center;gap:8px}
+.savebar-msg svg{width:18px;height:18px;flex-shrink:0;fill:none;stroke:#8ee0c4;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.savebar.is-error .savebar-msg{color:#ffd3d3}
+.savebar .sb-discard{font-family:var(--font-body);font-size:13.5px;font-weight:600;background:transparent;color:#d9d7ee;border:none;padding:10px 12px;cursor:pointer;border-radius:10px}
+.savebar .sb-discard:hover{background:rgba(255,255,255,.08);color:#fff}
+.savebar .sb-save{font-family:var(--font-body);font-size:13.5px;font-weight:700;background:#fff;color:#2f2a8a;border:none;padding:10px 16px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.savebar .sb-save:hover{background:#eeedfb}
+.savebar .sb-save:disabled{opacity:.6;cursor:default}
+.savebar.is-saved .sb-discard,.savebar.is-saved .sb-save{display:none}
+
+@media(max-width:760px){
+  .set-wrap{display:block}
+  .set-side{position:static}
+  body.sec-open .set-side{display:none}
+  body:not(.sec-open) .set-main{display:none}
+  .set-nav{gap:0;background:var(--surface);border:1px solid var(--hairline);border-radius:14px;overflow:hidden}
+  .set-nav a{padding:13px 14px;border-radius:0;border:none;border-top:1px solid var(--hairline);min-height:60px}
+  .set-nav a:first-child{border-top:none}
+  .set-nav a.active{background:transparent;color:var(--ink);box-shadow:none;font-weight:500}
+  .set-nav .ni{width:20px;height:20px;color:var(--accent)}
+  .set-nav .nd{display:block}
+  .set-nav .nc{display:block}
+  .set-nav a.is-dirty .dirty-dot{margin-left:auto}
+  .set-nav a.is-dirty .nc{margin-left:8px}
+  .set-back{display:inline-flex}
+  .set-sec-head{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0 10px;margin:0 0 8px}
+  .set-sec-head h2{font-size:18px;margin-top:4px}
+  .set-card{padding:18px 16px;border-radius:12px}
+  .grp>summary{padding:13px 14px}
+  .grp-body{padding:4px 14px 6px}
+  .grp-sum{max-width:48%}
+  .mfa-steps{grid-template-columns:1fr}
+  .mfa-qr{margin:0 auto}
+  body.has-tabbar .savebar{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+  .savebar{padding:10px 8px 10px 14px}
+  .savebar .sb-discard{padding:10px 8px}
+}
+html.native-app body.has-tabbar .savebar{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 </style>
 </head>
 <body class="theme-light">
@@ -98,648 +224,1219 @@
   <script src="/nav.js"></script>
   <script src="/crm-nav.js"></script>
 
-  <p class="page-title">Settings</p>
-
-  <div id="state-loading"><p class="hint">Loading…</p></div>
-
-  <div id="state-loggedout" style="display:none">
-    <p class="hint">Log in to view your settings: <a href="/login.html">log in</a></p>
-  </div>
+  <div id="state-loading"><p class="hint">Loading your settings…</p></div>
 
   <div id="state-content" style="display:none">
-    <div class="settings-sections">
+    <div class="set-wrap">
+      <aside class="set-side">
+        <h1 class="set-title">Settings</h1>
+        <nav class="set-nav" id="set-nav" aria-label="Settings sections"></nav>
+      </aside>
 
-      <!-- ACCOUNT -->
-      <div class="card settings-card">
-        <h2>Account</h2>
+      <main class="set-main">
 
-        <div class="field">
-          <label>First name (optional)</label>
-          <input type="text" id="set-name" placeholder="Used to greet you on Home" autocomplete="given-name"/>
-        </div>
-        <button class="btn-primary" id="btn-save-name" onclick="saveName()">Save first name</button>
-        <p class="save-msg" id="name-msg"></p>
+        <!-- ACCOUNT -->
+        <section class="set-sec" id="sec-account" data-key="account">
+          <div class="set-sec-head"><button type="button" class="set-back" aria-label="Back to settings"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div><h2>Account</h2><p>Your name and how you sign in.</p></div></div>
 
-        <div class="settings-divider"></div>
-
-        <div class="field">
-          <label>Email</label>
-          <p class="settings-static-value" id="set-email">—</p>
-        </div>
-        <div class="field" id="change-email-field" style="display:none">
-          <label>New email</label>
-          <input type="email" id="set-new-email" placeholder="new@email.com"/>
-        </div>
-        <button class="btn-secondary" id="btn-change-email" onclick="startChangeEmail()">Change email</button>
-        <p class="save-msg" id="email-msg"></p>
-
-        <div class="settings-divider"></div>
-
-        <div class="field">
-          <label>Password</label>
-          <p class="settings-static-value">••••••••</p>
-        </div>
-        <div id="change-password-fields" style="display:none">
-          <p class="hint" style="margin-bottom:.75rem">Confirm your current password to make this change.</p>
-          <div class="field">
-            <label>Current password</label>
-            <input type="password" id="set-current-password" autocomplete="current-password"/>
+          <div class="set-card">
+            <h3>Your details</h3>
+            <p class="card-sub">Your first name greets you on Home. Your full name and phone go on letters you send.</p>
+            <div class="set-note" id="account-note" hidden>Your surname and phone can be saved after a quick database update. Your first name saves as normal.</div>
+            <div class="set-grid">
+              <div class="field"><label for="acc-first">First name</label><input type="text" id="acc-first" autocomplete="given-name" maxlength="60"/></div>
+              <div class="field"><label for="acc-surname">Surname</label><input type="text" id="acc-surname" autocomplete="family-name" maxlength="80"/></div>
+              <div class="field"><label for="acc-phone">Phone</label><input type="tel" id="acc-phone" autocomplete="tel" maxlength="40" placeholder="07700 900123"/></div>
+            </div>
           </div>
-          <div class="field">
-            <label>New password</label>
-            <input type="password" id="set-new-password" autocomplete="new-password"/>
+
+          <div class="set-card">
+            <div class="row-between">
+              <div><h3>Email</h3><p class="static-value" id="acc-email"></p></div>
+              <button type="button" class="btn-secondary" id="btn-change-email" onclick="toggleEmailForm(true)">Change email</button>
+            </div>
+            <div class="inline-form" id="email-form" hidden>
+              <div class="field"><label for="acc-new-email">New email</label><input type="email" id="acc-new-email" autocomplete="email" placeholder="new@email.com"/></div>
+              <div class="btn-row"><button type="button" class="btn-primary" id="btn-send-email" onclick="submitChangeEmail()">Send confirmation</button><button type="button" class="btn-quiet" onclick="toggleEmailForm(false)">Cancel</button></div>
+            </div>
+            <p class="msg" id="email-msg"></p>
           </div>
-          <div class="field">
-            <label>Confirm new password</label>
-            <input type="password" id="set-new-password-confirm" autocomplete="new-password"/>
+
+          <div class="set-card">
+            <div class="row-between">
+              <div><h3>Password</h3><p class="static-value">••••••••</p></div>
+              <button type="button" class="btn-secondary" id="btn-change-password" onclick="togglePasswordForm(true)">Change password</button>
+            </div>
+            <div class="inline-form" id="password-form" hidden>
+              <p class="hint" style="margin-bottom:.75rem">Confirm your current password to make this change.</p>
+              <div class="field"><label for="pw-current">Current password</label><input type="password" id="pw-current" autocomplete="current-password"/></div>
+              <div class="field"><label for="pw-new">New password</label><input type="password" id="pw-new" autocomplete="new-password"/></div>
+              <div class="field"><label for="pw-confirm">Confirm new password</label><input type="password" id="pw-confirm" autocomplete="new-password"/></div>
+              <div class="field" id="pw-mfa-field" hidden><label for="pw-mfa">Code from your authenticator app</label><input type="text" id="pw-mfa" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6"/></div>
+              <div class="btn-row"><button type="button" class="btn-primary" id="btn-save-password" onclick="submitChangePassword()">Save new password</button><button type="button" class="btn-quiet" onclick="togglePasswordForm(false)">Cancel</button></div>
+            </div>
+            <p class="msg" id="password-msg"></p>
           </div>
-        </div>
-        <button class="btn-secondary" id="btn-change-password" onclick="startChangePassword()">Change password</button>
-        <p class="save-msg" id="password-msg"></p>
-      </div>
+        </section>
 
-      <!-- GOALS -->
-      <div class="card settings-card" id="goals">
-        <h2>Goals</h2>
-        <p class="hint" style="margin-bottom:1rem">Shown on Home as your progress. Everything here is optional.</p>
-        <div class="investment-defaults-grid">
-          <div class="field"><label>Target monthly cashflow (£)</label><input type="number" id="goal-cashflow" min="1" step="50" inputmode="numeric" placeholder="e.g. 1500"/></div>
-          <div class="field"><label>Target number of properties</label><input type="number" id="goal-properties" min="1" step="1" inputmode="numeric" placeholder="e.g. 5"/></div>
-          <div class="field"><label>Target date (optional)</label><input type="date" id="goal-date"/></div>
-        </div>
-        <div class="field">
-          <label>Personal motto (optional)</label>
-          <input type="text" id="goal-motto" maxlength="80" placeholder="e.g. 30 before 30" oninput="updateMottoCount()"/>
-          <p class="hint" id="goal-motto-count" style="margin:4px 0 0">0 of 80 characters</p>
-        </div>
-        <button class="btn-primary" id="btn-save-goals" onclick="saveGoals()">Save goals</button>
-        <p class="save-msg" id="goals-msg"></p>
-      </div>
-
-      <!-- PORTFOLIO -->
-      <div class="card settings-card" id="portfolio-settings">
-        <h2>Portfolio</h2>
-        <p class="hint" style="margin-bottom:1rem">Used for "available to release" on your Portfolio: the equity you could pull out by remortgaging to this loan to value, before fees.</p>
-        <div class="investment-defaults-grid">
-          <div class="field"><label for="set-target-ltv">Target LTV (%)</label><input type="number" id="set-target-ltv" min="1" max="100" step="1" inputmode="decimal" placeholder="75"/></div>
-        </div>
-        <button class="btn-primary" id="btn-save-target-ltv" onclick="saveTargetLtv()">Save target LTV</button>
-        <p class="save-msg" id="target-ltv-msg"></p>
-      </div>
-
-      <!-- HELP -->
-      <div class="card settings-card">
-        <h2>Help</h2>
-        <p class="hint" style="margin-bottom:1rem">Want a refresher on how everything works? Replay the guided tour from the beginning.</p>
-        <button class="btn-secondary" id="btn-replay-tutorial" onclick="Tutorial.replay()">Replay Tutorial</button>
-      </div>
-
-      <!-- DEAL SOURCING -->
-      <div class="card settings-card web-only">
-        <h2>Deal Sourcing</h2>
-        <p class="hint" style="margin-bottom:1rem">Done-for-you BRRR deal sourcing is coming soon, starting with Mansfield in the East Midlands. Join the waitlist and we'll email you when it opens.</p>
-        <a class="btn-secondary" href="/deal-sourcing/apply" target="_blank" rel="noopener">Join the waitlist</a>
-      </div>
-
-      <!-- SUBSCRIPTION -->
-      <div class="card settings-card">
-        <h2 data-native-text="Plan">Subscription</h2>
-
-        <div class="field">
-          <label>Current plan</label>
-          <p class="settings-static-value"><span class="plan-badge" id="set-plan-badge">—</span></p>
-        </div>
-        <div id="set-plan-free-cta" class="web-only" style="display:none">
-          <button class="btn-primary" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
-          <p class="save-msg" id="upgrade-msg"></p>
-        </div>
-
-        <div class="settings-divider web-only"></div>
-
-        <div class="field web-only">
-          <label>Manage billing</label>
-          <p class="hint">See your plan, price and renewal on Plan &amp; billing.</p>
-        </div>
-        <a class="btn-secondary web-only" href="/billing.html">Plan &amp; billing</a>
-      </div>
-
-      <!-- INVESTMENT DEFAULTS -->
-      <div class="card settings-card">
-        <h2>Investment Defaults</h2>
-        <p class="hint" style="margin-bottom:1rem">Your own typical assumptions, applied everywhere they're relevant on the calculator instead of the built-in generic starting values. Blank stays blank — nothing here is required, and the calculator falls back to its normal defaults for anything you don't set.</p>
-
-        <div class="investment-defaults-grid">
-          <div class="field"><label>Target yield (%)</label><input type="number" id="inv-target-yield" step="0.1"/></div>
-          <div class="field"><label>Target ROI (%)</label><input type="number" id="inv-target-roi" step="0.1"/></div>
-          <div class="field"><label>Mortgage rate (%)</label><input type="number" id="inv-mortgage-rate" step="0.01"/></div>
-          <div class="field"><label>Mortgage term (years)</label><input type="number" id="inv-mortgage-term" step="1"/></div>
-          <div class="field"><label>Deposit % (of purchase price)</label><input type="number" id="inv-deposit-pct" step="0.1"/></div>
-          <div class="field"><label>Default results tab</label>
-            <select id="inv-mortgage-type">
-              <option value="">No preference</option>
-              <option value="cash">Cash</option>
-              <option value="interest_only">Interest-only</option>
-              <option value="repayment">Repayment</option>
-            </select>
+        <!-- PLAN & BILLING -->
+        <section class="set-sec" id="sec-billing" data-key="billing">
+          <div class="set-sec-head"><button type="button" class="set-back" aria-label="Back to settings"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div><h2 data-native-text="Plan">Plan &amp; billing</h2><p>Your plan and what it includes.</p></div></div>
+          <div class="set-card">
+            <div class="row-between">
+              <div><h3>Current plan</h3><p class="static-value" style="margin-top:6px"><span class="plan-badge" id="plan-badge">Loading</span></p></div>
+              <a class="btn-secondary web-only" href="/billing.html">Manage plan and billing</a>
+            </div>
+            <div id="plan-free-cta" class="web-only" hidden>
+              <div class="divider"></div>
+              <p class="card-sub">The paid plan unlocks the AI verdict, unlimited saved deals, the Board, Portfolio, Refurb Estimator and Letter Templates.</p>
+              <button type="button" class="btn-primary" onclick="upgradeNow()">Upgrade · £29/mo</button>
+              <p class="msg" id="upgrade-msg"></p>
+            </div>
           </div>
-          <div class="field"><label>Solicitor costs (£)</label><input type="number" id="inv-solicitor-costs" step="1"/></div>
-          <div class="field"><label>Insurance /mo (£)</label><input type="number" id="inv-insurance" step="1"/></div>
-          <div class="field"><label>Management % of rent/revenue</label><input type="number" id="inv-management-pct" step="0.5"/></div>
-          <div class="field"><label>Maintenance % of rent/revenue</label><input type="number" id="inv-maintenance-pct" step="0.5"/></div>
-          <div class="field"><label>Refurb contingency % (Flip)</label><input type="number" id="inv-refurb-contingency-pct" step="1"/></div>
-        </div>
+        </section>
 
-        <button class="btn-primary" id="btn-save-investment-defaults" onclick="saveInvestmentDefaults()">Save investment defaults</button>
-        <p class="save-msg" id="investment-defaults-msg"></p>
-      </div>
+        <!-- INVESTMENT DEFAULTS -->
+        <section class="set-sec" id="sec-defaults" data-key="defaults">
+          <div class="set-sec-head"><button type="button" class="set-back" aria-label="Back to settings"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div><h2>Investment defaults</h2><p>Your usual figures, pre-filled into the calculator and the standalone calculators. Leave any blank to use the built-in figure shown in grey.</p></div></div>
+          <div class="set-note" id="defaults-note" hidden>Buying as, survey, broker fee, stress rate, ICR, bridging, voids, letting fee, certificates and tax band can be saved after a quick database update. Everything else saves as normal.</div>
+          <p class="hint" style="margin:0 0 var(--space-4)">Target yield and ROI now live in your <a class="set-link" href="/buy-box.html">Buy box</a>, alongside the rest of what you look for in a deal.</p>
 
-      <!-- YOUR REFURB RATES -->
-      <div class="card settings-card" id="refurb-rates">
-        <h2>Your refurb rates</h2>
-        <p class="hint" style="margin-bottom:1rem">Your own price per unit for each refurb line item. They pre-fill new estimates in the Refurbishment Estimator, labelled "Your rate". Leave any blank.</p>
-        <div id="rc-locked" class="hint" style="display:none">Your refurb rates are part of the paid plan, with the Refurbishment Estimator.</div>
-        <div id="rc-wrap" style="display:none">
-          <div class="field" style="max-width:320px">
-            <label for="rc-region">Your region</label>
-            <select id="rc-region" onchange="saveRefurbRegion(this.value)"></select>
+          <details class="grp" data-grp="buying">
+            <summary><span class="grp-title">Buying</span><span class="grp-sum" data-sum="buying"></span><span class="chev" aria-hidden="true"></span></summary>
+            <div class="grp-body"><div class="set-grid">
+              <div class="field"><label for="d-deposit">Deposit</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-deposit" placeholder="25" data-range="0,100" data-label="Deposit"/><span class="unit">%</span></div></div>
+              <div class="field"><label for="d-buying-as">Buying as</label><select id="d-buying-as" data-mirror="d-tax-as"><option value="">Not set</option><option value="ltd">Limited company</option><option value="personal">Personal name</option></select></div>
+              <div class="field"><label for="d-solicitor">Solicitor</label><div class="unit-wrap has-pre"><span class="unit pre">£</span><input type="text" inputmode="decimal" id="d-solicitor" data-money placeholder="1,800" data-range="0,100000" data-label="Solicitor"/></div></div>
+              <div class="field"><label for="d-searches">Searches</label><div class="unit-wrap has-pre"><span class="unit pre">£</span><input type="text" inputmode="decimal" id="d-searches" data-money placeholder="0" data-range="0,100000" data-label="Searches"/></div></div>
+              <div class="field"><label for="d-survey">Survey</label><div class="unit-wrap has-pre"><span class="unit pre">£</span><input type="text" inputmode="decimal" id="d-survey" data-money placeholder="0" data-range="0,100000" data-label="Survey"/></div></div>
+              <div class="field"><label for="d-broker">Broker fee</label><div class="unit-wrap has-pre"><span class="unit pre">£</span><input type="text" inputmode="decimal" id="d-broker" data-money placeholder="0" data-range="0,100000" data-label="Broker fee"/></div></div>
+              <div class="field"><label for="d-contingency">Refurb contingency (Flip)</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-contingency" placeholder="0" data-range="0,100" data-label="Refurb contingency"/><span class="unit">%</span></div></div>
+            </div>
+            <p class="grp-note">Buying as sets the lender check's rent cover. Survey joins solicitor and searches in Flip's buying fees and the Refinance calculator's purchase costs.</p></div>
+          </details>
+
+          <details class="grp" data-grp="mortgage">
+            <summary><span class="grp-title">Mortgage &amp; refinance</span><span class="grp-sum" data-sum="mortgage"></span><span class="chev" aria-hidden="true"></span></summary>
+            <div class="grp-body"><div class="set-grid">
+              <div class="field"><label for="d-rate">Mortgage rate</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-rate" placeholder="4" data-range="0,30" data-label="Mortgage rate"/><span class="unit">%</span></div></div>
+              <div class="field"><label for="d-term">Term</label><div class="unit-wrap"><input type="text" inputmode="numeric" id="d-term" placeholder="25" data-range="1,40" data-label="Term" data-int/><span class="unit">years</span></div></div>
+              <div class="field"><label for="d-product">Mortgage type</label><select id="d-product"><option value="">Not set (interest only)</option><option value="interest_only">Interest only</option><option value="repayment">Repayment</option></select></div>
+              <div class="field"><label for="d-arrangement">Arrangement fee</label><div class="unit-wrap has-pre"><span class="unit pre">£</span><input type="text" inputmode="decimal" id="d-arrangement" data-money placeholder="300" data-range="0,100000" data-label="Arrangement fee"/></div></div>
+              <div class="field"><label for="d-refi-ltv">Refinance LTV</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-refi-ltv" placeholder="75" data-range="1,100" data-label="Refinance LTV"/><span class="unit">%</span></div></div>
+              <div class="field"><label for="d-stress">Stress rate</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-stress" placeholder="5.5" data-range="0,20" data-label="Stress rate"/><span class="unit">%</span></div></div>
+              <div class="field"><label for="d-icr">ICR (rent cover)</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-icr" placeholder="125" data-range="100,300" data-label="ICR"/><span class="unit">%</span></div></div>
+            </div>
+            <p class="grp-note">Arrangement fee and broker fee together fill the calculator's mortgage fees. Refinance LTV is used on the BRRR tab, the Refinance planner and your Portfolio's "available to release".</p></div>
+          </details>
+
+          <details class="grp" data-grp="bridging">
+            <summary><span class="grp-title">Bridging</span><span class="grp-sum" data-sum="bridging"></span><span class="chev" aria-hidden="true"></span></summary>
+            <div class="grp-body"><div class="set-grid">
+              <div class="field"><label for="d-br-rate">Monthly rate</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-br-rate" placeholder="0.85" data-range="0,5" data-label="Bridging monthly rate"/><span class="unit">%</span></div></div>
+              <div class="field"><label for="d-br-arr">Arrangement fee</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-br-arr" placeholder="2" data-range="0,10" data-label="Bridging arrangement fee"/><span class="unit">%</span></div></div>
+              <div class="field"><label for="d-br-exit">Exit fee</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-br-exit" placeholder="0" data-range="0,10" data-label="Bridging exit fee"/><span class="unit">%</span></div></div>
+            </div></div>
+          </details>
+
+          <details class="grp" data-grp="running">
+            <summary><span class="grp-title">Running costs</span><span class="grp-sum" data-sum="running"></span><span class="chev" aria-hidden="true"></span></summary>
+            <div class="grp-body"><div class="set-grid">
+              <div class="field"><label for="d-mgmt">Management</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-mgmt" placeholder="0" data-range="0,100" data-label="Management"/><span class="unit">%</span></div></div>
+              <div class="field"><label for="d-maint">Maintenance</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-maint" placeholder="10" data-range="0,100" data-label="Maintenance"/><span class="unit">%</span></div></div>
+              <div class="field"><label for="d-voids">Voids</label><div class="unit-wrap"><input type="text" inputmode="decimal" id="d-voids" placeholder="0" data-range="0,100" data-label="Voids"/><span class="unit">%</span></div></div>
+              <div class="field"><label for="d-ins">Insurance</label><div class="unit-wrap has-pre"><span class="unit pre">£</span><input type="text" inputmode="decimal" id="d-ins" data-money placeholder="50 a month" data-range="0,100000" data-label="Insurance"/></div></div>
+              <div class="field"><label for="d-letting">Letting fee</label><div class="unit-wrap has-pre"><span class="unit pre">£</span><input type="text" inputmode="decimal" id="d-letting" data-money placeholder="0" data-range="0,100000" data-label="Letting fee"/></div></div>
+              <div class="field"><label for="d-certs">Safety certificates a year</label><div class="unit-wrap has-pre"><span class="unit pre">£</span><input type="text" inputmode="decimal" id="d-certs" data-money placeholder="0" data-range="0,100000" data-label="Safety certificates"/></div></div>
+            </div>
+            <p class="grp-note">Management and maintenance are a % of rent (or SA income); insurance is a month. Voids, letting fee and certificates are saved for you but the calculator has no box for them yet, so they don't change any results.</p></div>
+          </details>
+
+          <details class="grp" data-grp="tax">
+            <summary><span class="grp-title">Tax</span><span class="grp-sum" data-sum="tax"></span><span class="chev" aria-hidden="true"></span></summary>
+            <div class="grp-body"><div class="set-grid">
+              <div class="field"><label for="d-tax-as">Limited company or personal</label><select id="d-tax-as" data-mirror="d-buying-as"><option value="">Not set</option><option value="ltd">Limited company</option><option value="personal">Personal name</option></select></div>
+              <div class="field"><label for="d-tax-band">Your tax band</label><select id="d-tax-band"><option value="">Not set (basic rate)</option><option value="basic">Basic rate, 20%</option><option value="higher">Higher rate, 40%</option><option value="additional">Additional rate, 45%</option></select></div>
+            </div>
+            <p class="grp-note">The same choice as "Buying as". Your band sets the after-tax figures and the Personal vs Ltd calculator; higher and additional rate also use the 145% rent cover.</p></div>
+          </details>
+
+          <details class="grp" data-grp="display">
+            <summary><span class="grp-title">Display</span><span class="grp-sum" data-sum="display"></span><span class="chev" aria-hidden="true"></span></summary>
+            <div class="grp-body"><div class="set-grid">
+              <div class="field"><label for="d-tab">Results tab to open first</label><select id="d-tab"><option value="">No preference (interest only)</option><option value="cash">Cash</option><option value="interest_only">Interest only</option><option value="repayment">Repayment</option></select></div>
+            </div></div>
+          </details>
+        </section>
+
+        <!-- GOALS -->
+        <section class="set-sec" id="sec-goals" data-key="goals">
+          <div class="set-sec-head"><button type="button" class="set-back" aria-label="Back to settings"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div><h2>Goals</h2><p>Shown on Home as your progress. Everything here is optional.</p></div></div>
+          <div class="set-note" id="goals-note" hidden>Goals can be saved after a quick database update.</div>
+          <div class="set-card">
+            <div class="set-grid">
+              <div class="field"><label for="goal-cashflow">Target monthly cashflow</label><div class="unit-wrap has-pre"><span class="unit pre">£</span><input type="text" inputmode="numeric" id="goal-cashflow" data-money placeholder="1,500"/></div></div>
+              <div class="field"><label for="goal-properties">Target number of properties</label><input type="text" inputmode="numeric" id="goal-properties" placeholder="5"/></div>
+              <div class="field"><label for="goal-date">Target date</label><input type="date" id="goal-date"/></div>
+              <div class="field span-2"><label for="goal-motto">Personal motto</label><input type="text" id="goal-motto" maxlength="80" placeholder="30 before 30"/><p class="field-help" id="goal-motto-count">0 of 80 characters</p></div>
+            </div>
           </div>
-          <p class="hint" style="margin:-.25rem 0 1rem">Indicative guide rates are adjusted for this region when you haven't entered your own rate. An estimate linked to a deal with a postcode uses that deal's region instead. Saved on this device.</p>
-          <div id="rc-editor"></div>
-          <button class="btn-primary" id="btn-save-rates" style="margin-top:.75rem" onclick="saveRefurbRates()">Save my rates</button>
-          <p class="save-msg" id="rc-msg"></p>
-        </div>
-      </div>
+        </section>
 
-      <!-- DANGER ZONE -->
-      <div class="card settings-card danger-zone">
-        <h2>Danger zone</h2>
-        <p class="hint">Deleting your account is permanent. It removes your login and everything tied to it: saved deals, pipeline data, portfolio, refurb estimates, notes and offers. This cannot be undone.</p>
-
-        <button class="btn-danger" id="btn-start-delete" onclick="startDeleteAccount()">Delete my account</button>
-
-        <div id="delete-account-fields" style="display:none">
-          <div class="field">
-            <label>Type <span id="delete-confirm-email-hint">your email</span> to confirm</label>
-            <input type="email" id="delete-confirm-email" oninput="checkDeleteEmailMatch()" autocomplete="off"/>
+        <!-- REFURB RATES -->
+        <section class="set-sec" id="sec-refurb" data-key="refurb">
+          <div class="set-sec-head"><button type="button" class="set-back" aria-label="Back to settings"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div><h2>Refurb rates</h2><p>Your region and your own price per job, used to pre-fill new refurb estimates.</p></div></div>
+          <div class="set-card" id="rc-locked" hidden>
+            <h3>Part of the paid plan</h3>
+            <p class="card-sub">Your refurb rates come with the Refurbishment Estimator on the paid plan.</p>
+            <a class="btn-primary web-only" href="/billing.html">See plans</a>
           </div>
-          <button class="btn-danger" id="btn-confirm-delete" onclick="confirmDeleteAccount()" disabled>Permanently delete my account</button>
-        </div>
-        <p class="save-msg" id="delete-msg"></p>
-      </div>
+          <div id="rc-wrap" hidden>
+            <div class="set-card">
+              <h3>Your region</h3>
+              <p class="card-sub">Indicative guide rates are adjusted for this region when you haven't set your own rate. An estimate linked to a deal with a postcode uses that deal's region instead.</p>
+              <div class="field" style="max-width:340px;margin-bottom:0"><label for="rc-region">Region</label><select id="rc-region"></select></div>
+            </div>
+            <div class="set-card">
+              <div class="row-between" style="align-items:flex-start">
+                <div style="min-width:0;flex:1 1 260px"><h3>Your rates</h3><p class="card-sub" style="margin-bottom:0">Labelled "Your rate" in the estimator. Leave any blank.</p></div>
+                <div class="btn-row">
+                  <button type="button" class="btn-secondary" onclick="document.getElementById('rc-csv-file').click()">Import from CSV</button>
+                  <button type="button" class="btn-quiet" onclick="downloadRateTemplate()">Download template</button>
+                </div>
+              </div>
+              <input type="file" id="rc-csv-file" accept=".csv,text/csv" hidden/>
+              <p class="hint" style="margin:10px 0 0">Import takes the builder template (ref, low, typical, high) and fills "Your rate" from the typical column. You'll see every change before anything is saved.</p>
+              <div id="rc-csv-preview"></div>
+              <div id="rc-editor" style="margin-top:var(--space-4)"></div>
+              <p class="msg" id="rc-msg"></p>
+            </div>
+          </div>
+        </section>
 
+        <!-- COMPANY & LETTERS -->
+        <section class="set-sec" id="sec-company" data-key="company">
+          <div class="set-sec-head"><button type="button" class="set-back" aria-label="Back to settings"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div><h2>Company &amp; letters</h2><p>Your business details, used for "From you" on Letter Templates, the scope of works PDF and future PDFs.</p></div></div>
+          <div class="set-note" id="company-note" hidden>Company details can be saved after a quick database update.</div>
+          <div class="set-card">
+            <h3>Details</h3>
+            <p class="card-sub">Letters are signed with your name from Account, then your company name.</p>
+            <div class="set-grid">
+              <div class="field"><label for="co-name">Company name</label><input type="text" id="co-name" maxlength="120" autocomplete="organization" placeholder="Acme Property Ltd"/></div>
+              <div class="field"><label for="co-number">Company number</label><input type="text" id="co-number" maxlength="20" placeholder="12345678"/></div>
+              <div class="field"><label for="co-phone">Phone</label><input type="tel" id="co-phone" maxlength="40" autocomplete="tel"/></div>
+              <div class="field"><label for="co-email">Email</label><input type="email" id="co-email" maxlength="200" autocomplete="email"/></div>
+              <div class="field span-2"><label for="co-address">Address</label><textarea id="co-address" maxlength="400" rows="3" autocomplete="street-address" placeholder="12 High Street, Mansfield, NG18 1AB"></textarea></div>
+            </div>
+          </div>
+          <div class="set-card">
+            <h3>Logo</h3>
+            <p class="card-sub">A PNG or JPEG. It's resized to fit, and prints at the top of your PDFs.</p>
+            <div class="logo-row">
+              <div class="logo-tile" id="co-logo-tile"><span>No logo</span></div>
+              <div class="btn-row">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('co-logo-file').click()" id="co-logo-pick">Upload logo</button>
+                <button type="button" class="btn-quiet" id="co-logo-remove" onclick="removeLogo()" hidden>Remove</button>
+              </div>
+            </div>
+            <input type="file" id="co-logo-file" accept="image/png,image/jpeg" hidden/>
+            <p class="msg" id="co-logo-msg"></p>
+          </div>
+        </section>
+
+        <!-- NOTIFICATIONS -->
+        <section class="set-sec" id="sec-notifications" data-key="notifications">
+          <div class="set-sec-head"><button type="button" class="set-back" aria-label="Back to settings"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div><h2>Notifications</h2><p>What Home's "Needs attention" flags for you. In the app only: we don't email you about these.</p></div></div>
+          <div class="set-note" id="notifications-note" hidden>Notifications can be saved after a quick database update.</div>
+          <div class="set-card">
+            <div class="sw-row"><div class="sw-text"><b>Fixed rates ending</b><span>A fixed rate or planned refinance coming up on a property.</span></div><button type="button" class="switch" role="switch" aria-checked="true" id="nt-fix" aria-label="Fixed rates ending"></button></div>
+            <div class="sw-row"><div class="sw-text"><b>Compliance expiring</b><span>Gas, electrical and other certificates due or overdue.</span></div><button type="button" class="switch" role="switch" aria-checked="true" id="nt-compliance" aria-label="Compliance expiring"></button></div>
+            <div class="sw-row"><div class="sw-text"><b>Loan repayments due</b><span>Private finance repayments due within 30 days or overdue.</span></div><button type="button" class="switch" role="switch" aria-checked="true" id="nt-loans" aria-label="Loan repayments due"></button></div>
+            <div class="sw-row"><div class="sw-text"><b>Follow-up reminders</b><span>Reminders you've set on deals, like sending a follow-up letter.</span></div><button type="button" class="switch" role="switch" aria-checked="true" id="nt-followups" aria-label="Follow-up reminders"></button></div>
+          </div>
+        </section>
+
+        <!-- SECURITY -->
+        <section class="set-sec" id="sec-security" data-key="security">
+          <div class="set-sec-head"><button type="button" class="set-back" aria-label="Back to settings"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div><h2>Security</h2><p>Keep your account safe.</p></div></div>
+          <div class="set-card">
+            <div class="row-between">
+              <div style="min-width:0;flex:1 1 260px"><h3>Two-step sign in</h3><p class="card-sub" style="margin-bottom:0">Ask for a 6-digit code from an authenticator app, like Google Authenticator or 1Password, each time you log in.</p></div>
+              <span class="status-pill" id="mfa-status">Checking</span>
+            </div>
+            <div id="mfa-off" hidden style="margin-top:var(--space-4)"><button type="button" class="btn-primary" id="btn-mfa-start" onclick="startMfa()">Set up two-step sign in</button></div>
+            <div id="mfa-setup" hidden>
+              <div class="mfa-steps">
+                <div class="mfa-qr"><img id="mfa-qr" alt="QR code to scan with your authenticator app"/></div>
+                <div>
+                  <ol class="mfa-list"><li>Open your authenticator app and scan this code.</li><li>Can't scan? Add it by hand with this key:</li></ol>
+                  <p class="mfa-secret" id="mfa-secret"></p>
+                  <div class="field" style="max-width:220px"><label for="mfa-code">Enter the 6-digit code</label><input type="text" id="mfa-code" class="code-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6"/></div>
+                  <div class="btn-row"><button type="button" class="btn-primary" id="btn-mfa-verify" onclick="verifyMfa()">Turn on</button><button type="button" class="btn-quiet" onclick="cancelMfa()">Cancel</button></div>
+                </div>
+              </div>
+            </div>
+            <div id="mfa-on" hidden style="margin-top:var(--space-4)"><button type="button" class="btn-secondary" id="btn-mfa-off" onclick="disableMfa()">Turn off two-step sign in</button></div>
+            <p class="msg" id="mfa-msg"></p>
+          </div>
+          <div class="set-card">
+            <div class="row-between">
+              <div style="min-width:0;flex:1 1 260px"><h3>Sign out of all devices</h3><p class="card-sub" style="margin-bottom:0">Signs you out everywhere, including this browser and the app. You'll need to log in again.</p></div>
+              <button type="button" class="btn-secondary" id="btn-signout-all" onclick="signOutEverywhere()">Sign out everywhere</button>
+            </div>
+            <p class="msg" id="signout-msg"></p>
+          </div>
+        </section>
+
+        <!-- DATA & PRIVACY -->
+        <section class="set-sec" id="sec-privacy" data-key="privacy">
+          <div class="set-sec-head"><button type="button" class="set-back" aria-label="Back to settings"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <div><h2>Data &amp; privacy</h2><p>Your data belongs to you.</p></div></div>
+          <div class="set-card">
+            <div class="row-between">
+              <div style="min-width:0;flex:1 1 260px"><h3>Export all my data</h3><p class="card-sub" style="margin-bottom:0">One ZIP of spreadsheets (CSV): deals, portfolio, expenses, refurb, private finance and contacts. Uploaded files aren't included.</p></div>
+              <button type="button" class="btn-secondary" id="btn-export" onclick="exportData()">Download ZIP</button>
+            </div>
+            <p class="msg" id="export-msg"></p>
+          </div>
+          <div class="set-card">
+            <div class="row-between">
+              <div><h3>Privacy policy</h3><p class="card-sub" style="margin-bottom:0">How we collect, use and protect your data.</p></div>
+              <a class="btn-secondary" href="/privacy.html" target="_blank" rel="noopener">Read the policy</a>
+            </div>
+          </div>
+          <div class="set-card danger-card">
+            <h3>Delete account</h3>
+            <p class="card-sub">Permanent, and can't be undone. Any subscription is cancelled first, then your login and everything tied to it is removed:</p>
+            <ul class="del-list">
+              <li>Saved deals, the Board, notes, offers, key dates and contacts</li>
+              <li>Your portfolio, with its rent, expenses, documents and photos</li>
+              <li>Refurb estimates, with their quotes, receipts and photos</li>
+              <li>Private finance loans, with their repayments and agreements</li>
+              <li>Your settings, goals, buy box and company logo</li>
+            </ul>
+            <p class="hint" style="margin-bottom:var(--space-4)">Want a copy first? Use Export all my data above.</p>
+            <button type="button" class="btn-danger" id="btn-start-delete" onclick="startDeleteAccount()">Delete my account</button>
+            <div id="delete-fields" hidden style="margin-top:var(--space-4);max-width:420px">
+              <div class="field"><label for="delete-confirm-email">Type <span id="delete-email-hint">your email</span> to confirm</label><input type="email" id="delete-confirm-email" autocomplete="off" oninput="checkDeleteEmailMatch()"/></div>
+              <div class="btn-row"><button type="button" class="btn-danger" id="btn-confirm-delete" onclick="confirmDeleteAccount()" disabled>Permanently delete my account</button><button type="button" class="btn-quiet" onclick="cancelDelete()">Cancel</button></div>
+            </div>
+            <p class="msg" id="delete-msg"></p>
+          </div>
+        </section>
+
+      </main>
     </div>
   </div>
 </div>
 
+<div class="savebar" id="savebar" role="status" aria-live="polite">
+  <div class="savebar-msg" id="savebar-msg">You have unsaved changes</div>
+  <button type="button" class="sb-discard" onclick="discardChanges()">Discard</button>
+  <button type="button" class="sb-save" id="sb-save" onclick="saveAll()">Save changes</button>
+</div>
+
 <script>
 let sbClient=null, currentSession=null;
+let profile={}, isPaid=false;
 
+// ---------------------------------------------------------------------
+// Sections, menu and routing. settings.html#defaults opens one section;
+// older links (#goals, #portfolio-settings, #refurb-rates) still work.
+// ---------------------------------------------------------------------
+const ICONS={
+  account:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  billing:'<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 9.5h19"/><path d="M6 15h4"/>',
+  defaults:'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  goals:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  refurb:'<rect x="3" y="3" width="15" height="6" rx="1.5"/><path d="M18 6h3v5h-9v3"/><rect x="10.5" y="14" width="3" height="7" rx="1"/>',
+  company:'<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 21v-3h4v3"/>',
+  notifications:'<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 19.5a2 2 0 0 0 4 0"/>',
+  security:'<path d="M12 3l8 3v6c0 4.5-3.3 8.3-8 9-4.7-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  privacy:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'
+};
+const SECTIONS=[
+  {key:'account',label:'Account',desc:'Name, phone, email and password'},
+  {key:'billing',label:'Plan & billing',nativeLabel:'Plan',desc:'Your plan and what it includes'},
+  {key:'defaults',label:'Investment defaults',desc:'Figures that pre-fill the calculator'},
+  {key:'goals',label:'Goals',desc:'Your cashflow and property targets'},
+  {key:'refurb',label:'Refurb rates',desc:'Your region and price per job'},
+  {key:'company',label:'Company & letters',desc:'Details for letters and PDFs'},
+  {key:'notifications',label:'Notifications',desc:'What Home flags for you'},
+  {key:'security',label:'Security',desc:'Two-step sign in and devices'},
+  {key:'privacy',label:'Data & privacy',desc:'Export or delete your data'}
+];
+const LEGACY_HASH={'portfolio-settings':'defaults','refurb-rates':'refurb'};
+const phoneMq=window.matchMedia('(max-width:760px)');
+let openedFromList=false;
+let activeKey=null;
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function $(id){ return document.getElementById(id); }
+
+function renderNav(){
+  const native=typeof IS_NATIVE_APP!=='undefined'&&IS_NATIVE_APP;
+  $('set-nav').innerHTML=SECTIONS.map(s=>
+    '<a href="#'+s.key+'" data-key="'+s.key+'"><svg class="ni" viewBox="0 0 24 24" aria-hidden="true">'+ICONS[s.key]+'</svg>'+
+    '<span class="nt"><span>'+esc(native&&s.nativeLabel?s.nativeLabel:s.label)+'</span><span class="nd">'+esc(s.desc)+'</span></span>'+
+    '<span class="dirty-dot" aria-hidden="true"></span><svg class="nc" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a>'
+  ).join('');
+  $('set-nav').addEventListener('click',e=>{
+    const a=e.target.closest('a[data-key]');
+    if(!a)return;
+    e.preventDefault();
+    go(a.dataset.key);
+  });
+  document.querySelectorAll('.set-back').forEach(b=>b.addEventListener('click',goBack));
+}
+function keyFromHash(){
+  const h=decodeURIComponent(location.hash.slice(1));
+  if(LEGACY_HASH[h])return LEGACY_HASH[h];
+  return SECTIONS.some(s=>s.key===h)?h:null;
+}
+function route(){
+  let key=keyFromHash();
+  if(!key&&!phoneMq.matches)key='account';
+  activeKey=key;
+  document.body.classList.toggle('sec-open',!!key);
+  document.querySelectorAll('.set-sec').forEach(s=>s.classList.toggle('active',s.dataset.key===key));
+  document.querySelectorAll('#set-nav a').forEach(a=>{
+    const on=a.dataset.key===key;
+    a.classList.toggle('active',on);
+    if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
+  });
+  return key;
+}
+function go(key){
+  if(phoneMq.matches){ history.pushState(null,'','#'+key); openedFromList=true; }
+  else history.replaceState(null,'','#'+key);
+  route();
+  if(phoneMq.matches)window.scrollTo(0,0);
+  else{ const m=document.querySelector('.set-main'); if(m&&m.getBoundingClientRect().top<0)window.scrollTo({top:0,behavior:'smooth'}); }
+}
+function goBack(){
+  if(openedFromList){ openedFromList=false; history.back(); return; }
+  history.replaceState(null,'',location.pathname+location.search);
+  route();
+  window.scrollTo(0,0);
+}
+window.addEventListener('popstate',()=>{ openedFromList=false; route(); });
+window.addEventListener('hashchange',()=>route());
+phoneMq.addEventListener?phoneMq.addEventListener('change',route):phoneMq.addListener(route);
+
+// ---------------------------------------------------------------------
+// Number helpers
+// ---------------------------------------------------------------------
+function rawNum(el){ return String(el.value).replace(/[£,%\s]/g,''); }
+function numOrNull(id){ const v=rawNum($(id)); if(v==='')return null; const n=Number(v); return Number.isFinite(n)?n:NaN; }
+function setNum(id,v){
+  const el=$(id);
+  if(v==null||v===''){ el.value=''; return; }
+  el.value=el.dataset.money!==undefined?Number(v).toLocaleString('en-GB',{maximumFractionDigits:2}):String(v);
+}
+function formatMoneyOnBlur(el){
+  const v=rawNum(el);
+  if(v===''||!Number.isFinite(Number(v)))return;
+  el.value=Number(v).toLocaleString('en-GB',{maximumFractionDigits:2});
+}
+function clearFieldError(el){
+  const f=el.closest('.field'); if(!f)return;
+  f.classList.remove('invalid');
+  const e=f.querySelector('.field-err'); if(e)e.remove();
+}
+function showFieldError(el,text){
+  const f=el.closest('.field'); if(!f)return;
+  clearFieldError(el);
+  f.classList.add('invalid');
+  const p=document.createElement('p'); p.className='field-err'; p.textContent=text; f.appendChild(p);
+}
+// Checks every data-range input inside a section. Returns the first bad one.
+function validateRanges(root){
+  let first=null;
+  root.querySelectorAll('input[data-range]').forEach(el=>{
+    clearFieldError(el);
+    const v=rawNum(el);
+    if(v==='')return;
+    const [min,max]=el.dataset.range.split(',').map(Number);
+    const n=Number(v);
+    let msg=null;
+    if(!Number.isFinite(n))msg='Enter a number.';
+    else if(el.dataset.int!==undefined&&!Number.isInteger(n))msg='Enter a whole number.';
+    else if(n<min||n>max)msg=el.dataset.label+' must be between '+min.toLocaleString('en-GB')+' and '+max.toLocaleString('en-GB')+'.';
+    if(msg){ showFieldError(el,msg); if(!first)first={el,msg}; }
+  });
+  return first;
+}
+async function api(path,opts){
+  const o=opts||{};
+  const headers={'Authorization':'Bearer '+currentSession.access_token};
+  if(o.body!==undefined)headers['Content-Type']='application/json';
+  const res=await fetch(API_BASE+path,{method:o.method||'GET',headers,body:o.body!==undefined?JSON.stringify(o.body):undefined});
+  const body=await res.json().catch(()=>({}));
+  return {res,body};
+}
+
+// ---------------------------------------------------------------------
+// One save bar. Each section that holds settings registers a form:
+//   collect()   what's on screen now (compared with the last save)
+//   populate()  put the saved values back (load and Discard)
+//   validate()  optional: { el, msg } for the first problem
+//   save()      saves it; throws an Error with a plain message if not
+// Email, password, two-step sign in, export and delete are actions with
+// their own buttons, not settings, so they aren't part of this.
+// ---------------------------------------------------------------------
+const forms={};
+const baseline={};
+const SECTION_LABEL={}; SECTIONS.forEach(s=>SECTION_LABEL[s.key]=s.label);
+let saving=false, savedTimer=null;
+
+function snapshot(key){ try{ return JSON.stringify(forms[key].collect()); }catch(e){ return 'error'; } }
+function markClean(key){ baseline[key]=snapshot(key); }
+function dirtyKeys(){ return Object.keys(forms).filter(k=>forms[k].ready&&baseline[k]!==undefined&&snapshot(k)!==baseline[k]); }
+function updateSaveBar(){
+  if(saving)return;
+  const dirty=dirtyKeys();
+  document.querySelectorAll('#set-nav a').forEach(a=>a.classList.toggle('is-dirty',dirty.includes(a.dataset.key)));
+  const bar=$('savebar');
+  if(dirty.length){
+    clearTimeout(savedTimer);
+    bar.classList.remove('is-saved','is-error');
+    const others=dirty.filter(k=>k!==activeKey);
+    $('savebar-msg').textContent=dirty.length===1&&!others.length?'You have unsaved changes':'Unsaved changes in '+dirty.map(k=>SECTION_LABEL[k]).join(', ');
+    $('sb-save').disabled=false;
+    bar.classList.add('show');
+  }else if(!bar.classList.contains('is-saved')){
+    bar.classList.remove('show');
+  }
+}
+document.addEventListener('input',e=>{ if(e.target.closest('.set-main')){ clearFieldError(e.target); updateSaveBar(); } });
+document.addEventListener('change',e=>{ if(e.target.closest('.set-main'))updateSaveBar(); });
+document.addEventListener('focusout',e=>{ const el=e.target; if(el.matches&&el.matches('.set-main input[data-money]'))formatMoneyOnBlur(el); });
+window.addEventListener('beforeunload',e=>{ if(dirtyKeys().length){ e.preventDefault(); e.returnValue=''; } });
+
+async function saveAll(){
+  const dirty=dirtyKeys();
+  if(!dirty.length||saving)return;
+  for(const k of dirty){
+    const bad=forms[k].validate?forms[k].validate():null;
+    if(bad){
+      if(activeKey!==k)go(k);
+      const grp=bad.el.closest('details'); if(grp)grp.open=true;
+      bad.el.focus();
+      showBar('Check '+SECTION_LABEL[k]+': '+bad.msg,true);
+      return;
+    }
+  }
+  saving=true;
+  $('sb-save').disabled=true; $('sb-save').textContent='Saving…';
+  const results=await Promise.allSettled(dirty.map(k=>forms[k].save()));
+  saving=false;
+  $('sb-save').textContent='Save changes';
+  const failed=[];
+  results.forEach((r,i)=>{
+    const k=dirty[i];
+    if(r.status==='fulfilled')markClean(k);
+    else failed.push(SECTION_LABEL[k]+': '+((r.reason&&r.reason.message)||'could not be saved.'));
+  });
+  if(failed.length){ updateSaveBar(); showBar(failed.join(' '),true); return; }
+  showSaved();
+}
+function showBar(text,isError){
+  const bar=$('savebar');
+  bar.classList.remove('is-saved');
+  bar.classList.toggle('is-error',!!isError);
+  $('savebar-msg').textContent=text;
+  $('sb-save').disabled=false;
+  bar.classList.add('show');
+}
+function showSaved(){
+  const bar=$('savebar');
+  bar.classList.remove('is-error');
+  bar.classList.add('is-saved','show');
+  $('savebar-msg').innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Saved';
+  document.querySelectorAll('#set-nav a').forEach(a=>a.classList.remove('is-dirty'));
+  clearTimeout(savedTimer);
+  savedTimer=setTimeout(()=>{ bar.classList.remove('show'); setTimeout(()=>bar.classList.remove('is-saved'),250); },2200);
+}
+function discardChanges(){
+  dirtyKeys().forEach(k=>{ forms[k].populate(); markClean(k); });
+  document.querySelectorAll('.set-main .field.invalid input,.set-main .field.invalid select').forEach(clearFieldError);
+  updateSaveBar();
+}
+
+// ---------------------------------------------------------------------
+// Start up
+// ---------------------------------------------------------------------
 async function init(){
+  renderNav();
   const auth=await requireAuth();
   if(!auth)return;
   sbClient=auth.client;
   currentSession=auth.session;
 
-  document.getElementById('auth-link').onclick=function(e){e.preventDefault();logout();};
-  const menuEmail=document.getElementById('user-menu-email');
-  const itemEmail=document.getElementById('user-menu-item-email');
+  $('auth-link').onclick=function(e){e.preventDefault();logout();};
   const email=currentSession.user&&currentSession.user.email?currentSession.user.email:'';
+  const menuEmail=$('user-menu-email'), itemEmail=$('user-menu-item-email');
   if(menuEmail)menuEmail.textContent=email||'Account';
-  if(itemEmail)itemEmail.textContent=email||'—';
-  document.getElementById('set-email').textContent=email||'—';
+  if(itemEmail)itemEmail.textContent=email||'Account';
+  $('acc-email').textContent=email;
 
-  showState('content');
-  // Home's "Set your goals" links here with #goals; jump there once the
-  // profile has filled the fields in.
-  loadProfile().finally(function(){
-    if(location.hash==='#goals'){
-      const g=document.getElementById('goals');
-      if(g){g.scrollIntoView({block:'start'});const f=document.getElementById('goal-cashflow');if(f)f.focus({preventScroll:true});}
-    }
-  });
+  $('state-loading').style.display='none';
+  $('state-content').style.display='block';
+  route();
+
+  await loadProfile();
+  loadMfa();
   Tutorial.resumeIfActive(currentSession.access_token);
 
-  sbClient.auth.onAuthStateChange((_event, session)=>{
+  sbClient.auth.onAuthStateChange((_event,session)=>{
     currentSession=session;
-    if(!currentSession){window.location.href='/';return;}
+    if(!currentSession)window.location.href='/';
   });
 }
 
-// Your refurb rates (db/048), paid only like the estimator itself.
-async function loadRefurbRates(isPaid){
-  if(!isPaid){ document.getElementById('rc-locked').style.display='block'; return; }
-  const rc=await RefurbRateCard.load(currentSession);
-  document.getElementById('rc-wrap').style.display='block';
-  renderRefurbRegion();
-  RefurbRateCard.renderEditor(document.getElementById('rc-editor'),rc.rates||{});
-  const msg=document.getElementById('rc-msg');
-  if(rc.needsMigration){ msg.className='save-msg'; msg.textContent='Saving your rates needs a quick database update first.'; }
-  else if(rc.error){ msg.className='save-msg error'; msg.textContent=rc.error; }
-}
-function renderRefurbRegion(){
-  const sel=document.getElementById('rc-region');
-  const cur=RefurbRateCard.getRegion();
-  sel.innerHTML=RefurbRateCard.regions().map(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; if(r===cur)o.selected=true; return o.outerHTML; }).join('');
-}
-function saveRefurbRegion(region){
-  RefurbRateCard.setRegion(region);
-  // Update the indicative placeholders in place, keeping anything typed.
-  document.querySelectorAll('#rc-editor input[data-key]').forEach(el=>{
-    const g=RefurbRateCard.guideRate(el.dataset.key);
-    el.placeholder=g!=null?'Indicative '+RefurbRateCard.money(g):'£';
-  });
-  const msg=document.getElementById('rc-msg');
-  msg.className='save-msg success'; msg.textContent='Region set to '+RefurbRateCard.getRegion()+'.';
-}
-async function saveRefurbRates(){
-  const msg=document.getElementById('rc-msg');
-  const btn=document.getElementById('btn-save-rates');
-  const read=RefurbRateCard.readEditor(document.getElementById('rc-editor'));
-  if(read.error){ msg.className='save-msg error'; msg.textContent=read.error; if(read.el){ read.el.closest('details').open=true; read.el.focus(); } return; }
-  btn.disabled=true; msg.className='save-msg'; msg.textContent='Saving…';
-  try{
-    await RefurbRateCard.save(currentSession,read.rates);
-    const n=Object.keys(read.rates).length;
-    msg.className='save-msg success'; msg.textContent=n?`Saved ${n} rate${n===1?'':'s'}.`:'Saved. No rates set.';
-  }catch(e){ msg.className='save-msg error'; msg.textContent=e.message; }
-  btn.disabled=false;
-}
-
-function showState(state){
-  ['loading','loggedout','content'].forEach(s=>{
-    document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
-  });
-}
-
-async function logout(){
-  await sbClient.auth.signOut();
-  window.location.href='/';
-}
+async function logout(){ await sbClient.auth.signOut(); window.location.href='/'; }
 
 async function loadProfile(){
   try{
-    const res=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
-    const d=await res.json();
-    if(!res.ok)throw new Error(d.error||'Could not load your profile.');
-
-    // Falls back to the first name given at signup (stored on the auth
-    // user's metadata) until one is saved to the profile.
-    const meta=(currentSession.user&&currentSession.user.user_metadata)||{};
-    document.getElementById('set-name').value=d.name||meta.first_name||'';
-
-    // Goals (db/042). Before that migration is run, goals_available is
-    // false: the fields stay blank and saving explains it isn't ready.
-    goalsAvailable=!!d.goals_available;
-    document.getElementById('goal-cashflow').value=d.goal_monthly_cashflow!=null?d.goal_monthly_cashflow:'';
-    document.getElementById('goal-properties').value=d.goal_property_count!=null?d.goal_property_count:'';
-    document.getElementById('goal-date').value=d.goal_target_date||'';
-    document.getElementById('goal-motto').value=d.motto||'';
-    updateMottoCount();
-
-    const badge=document.getElementById('set-plan-badge');
-    const isPaid=d.plan==='paid';
-    badge.textContent=isPaid?(IS_NATIVE_APP?'Paid':'Paid (£29/mo)'):'Free'; // no price shown in the iOS app
-    badge.className='plan-badge '+(isPaid?'paid':'free');
-    document.getElementById('set-plan-free-cta').style.display=isPaid?'none':'block';
-
-    populateInvestmentDefaults(d);
-    loadRefurbRates(isPaid);
-
-    // Target LTV (db/046). 75 until saved; can't be saved before the
-    // migration is run (target_ltv_available false).
-    targetLtvAvailable=!!d.target_ltv_available;
-    document.getElementById('set-target-ltv').value=d.target_ltv!=null?d.target_ltv:75;
+    const {res,body}=await api('/api/profile');
+    if(!res.ok)throw new Error(body.error||'Could not load your settings.');
+    profile=body||{};
   }catch(e){
-    document.getElementById('set-plan-badge').textContent='Unavailable';
+    profile={};
+    showBar('Your settings could not be loaded. Refresh to try again.',true);
   }
+  isPaid=profile.plan==='paid';
+  const settingsReady=!!profile.settings_available;
+  $('account-note').hidden=settingsReady;
+  $('defaults-note').hidden=settingsReady;
+  $('company-note').hidden=settingsReady;
+  $('notifications-note').hidden=settingsReady;
+  $('goals-note').hidden=!!profile.goals_available;
+
+  renderPlan();
+  setupAccountForm();
+  setupDefaultsForm();
+  setupGoalsForm();
+  setupCompanyForm();
+  setupNotificationsForm();
+  await setupRefurbForm();
+  updateSaveBar();
+}
+
+function registerForm(key,f){
+  forms[key]=f;
+  f.populate();
+  f.ready=true;
+  markClean(key);
 }
 
 // ---------------------------------------------------------------------
-// Investment Defaults — same GET /api/profile response index.html's own
-// loadDefaults() already reads (target_yield/target_roi/
-// default_mortgage_rate/standard_fees.solicitor, reused here rather than
-// duplicated) plus the new columns from db/030. Every field is left blank
-// if the value is null, same "don't overwrite with a fake value" pattern
-// as index.html's loadDefaults() — this page has no built-in fallback
-// value to show instead, so blank is the correct empty state, not 0.
-function populateInvestmentDefaults(d){
-  const setIfNotNull=(id,val)=>{ if(val!=null) document.getElementById(id).value=val; };
-  setIfNotNull('inv-target-yield',d.target_yield);
-  setIfNotNull('inv-target-roi',d.target_roi);
-  setIfNotNull('inv-mortgage-rate',d.default_mortgage_rate);
-  setIfNotNull('inv-mortgage-term',d.default_mortgage_term_years);
-  setIfNotNull('inv-deposit-pct',d.default_deposit_pct);
-  if(d.default_mortgage_type) document.getElementById('inv-mortgage-type').value=d.default_mortgage_type;
-  setIfNotNull('inv-solicitor-costs',d.standard_fees&&d.standard_fees.solicitor);
-  setIfNotNull('inv-insurance',d.default_insurance);
-  setIfNotNull('inv-management-pct',d.default_management_pct);
-  setIfNotNull('inv-maintenance-pct',d.default_maintenance_pct);
-  setIfNotNull('inv-refurb-contingency-pct',d.default_refurb_contingency_pct);
-}
-
-function invNumOrNull(id){
-  const v=document.getElementById(id).value;
-  return v===''?null:Number(v);
-}
-
-async function saveInvestmentDefaults(){
-  const btn=document.getElementById('btn-save-investment-defaults');
-  const msg=document.getElementById('investment-defaults-msg');
-  const payload={
-    target_yield:invNumOrNull('inv-target-yield'),
-    target_roi:invNumOrNull('inv-target-roi'),
-    default_mortgage_rate:invNumOrNull('inv-mortgage-rate'),
-    default_mortgage_term_years:invNumOrNull('inv-mortgage-term'),
-    default_deposit_pct:invNumOrNull('inv-deposit-pct'),
-    default_mortgage_type:document.getElementById('inv-mortgage-type').value||null,
-    solicitor_costs:invNumOrNull('inv-solicitor-costs'),
-    default_insurance:invNumOrNull('inv-insurance'),
-    default_management_pct:invNumOrNull('inv-management-pct'),
-    default_maintenance_pct:invNumOrNull('inv-maintenance-pct'),
-    default_refurb_contingency_pct:invNumOrNull('inv-refurb-contingency-pct')
-  };
-
-  btn.disabled=true;btn.textContent='Saving…';
-  msg.textContent='';msg.className='save-msg';
-  try{
-    const res=await fetch(API_BASE+'/api/profile/investment-defaults',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify(payload)
-    });
-    const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not save your investment defaults.');
-    msg.textContent='Saved. These now pre-fill the calculator.';msg.className='save-msg success';
-  }catch(e){
-    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
-  }
-  btn.disabled=false;btn.textContent='Save investment defaults';
-}
-
+// Plan & billing
 // ---------------------------------------------------------------------
-// Account: name — a targeted PATCH-style save (POST /api/profile/name),
-// deliberately NOT the existing POST /api/profile (that one upserts the
-// full calculator-defaults payload and would null out target_yield etc.
-// if reused here for a name-only save).
-let goalsAvailable=false;
-
-function updateMottoCount(){
-  const n=document.getElementById('goal-motto').value.length;
-  document.getElementById('goal-motto-count').textContent=n+' of 80 characters';
+function renderPlan(){
+  const badge=$('plan-badge');
+  const native=typeof IS_NATIVE_APP!=='undefined'&&IS_NATIVE_APP;
+  badge.textContent=isPaid?(native?'Paid':'Paid · £29/mo'):'Free';
+  badge.className='plan-badge '+(isPaid?'paid':'free');
+  $('plan-free-cta').hidden=isPaid;
 }
-
-let targetLtvAvailable=false;
-async function saveTargetLtv(){
-  const btn=document.getElementById('btn-save-target-ltv');
-  const msg=document.getElementById('target-ltv-msg');
-  msg.textContent='';msg.className='save-msg';
-  if(!targetLtvAvailable){
-    msg.textContent='Target LTV can be changed once a quick database update has been run. Until then, 75% is used.';msg.className='save-msg error';
-    return;
-  }
-  btn.disabled=true;btn.textContent='Saving…';
-  try{
-    const res=await fetch(API_BASE+'/api/profile/target-ltv',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({target_ltv:document.getElementById('set-target-ltv').value})
-    });
-    const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not save.');
-    document.getElementById('set-target-ltv').value=body.target_ltv;
-    msg.textContent='Saved. Your Portfolio uses '+body.target_ltv+'% now.';msg.className='save-msg success';
-  }catch(e){
-    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
-  }
-  btn.disabled=false;btn.textContent='Save target LTV';
-}
-
-async function saveGoals(){
-  const btn=document.getElementById('btn-save-goals');
-  const msg=document.getElementById('goals-msg');
-  msg.textContent='';msg.className='save-msg';
-  if(!goalsAvailable){
-    msg.textContent='Goals are not available yet. Please try again later.';msg.className='save-msg error';
-    return;
-  }
-  btn.disabled=true;btn.textContent='Saving…';
-  try{
-    const res=await fetch(API_BASE+'/api/profile/goals',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({
-        goal_monthly_cashflow:document.getElementById('goal-cashflow').value,
-        goal_property_count:document.getElementById('goal-properties').value,
-        goal_target_date:document.getElementById('goal-date').value,
-        motto:document.getElementById('goal-motto').value
-      })
-    });
-    const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not save your goals.');
-    msg.textContent='Saved. Your progress shows on Home.';msg.className='save-msg success';
-  }catch(e){
-    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
-  }
-  btn.disabled=false;btn.textContent='Save goals';
-}
-
-async function saveName(){
-  const btn=document.getElementById('btn-save-name');
-  const msg=document.getElementById('name-msg');
-  const name=document.getElementById('set-name').value.trim();
-  if(!name){
-    msg.textContent='Enter a first name.';msg.className='save-msg error';
-    return;
-  }
-  btn.disabled=true;btn.textContent='Saving…';
-  msg.textContent='';msg.className='save-msg';
-  try{
-    const res=await fetch(API_BASE+'/api/profile/name',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({name})
-    });
-    const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not save your name.');
-    msg.textContent='Saved.';msg.className='save-msg success';
-    if(window.NavAccount)NavAccount.setName(name);
-  }catch(e){
-    msg.textContent='Could not save: '+e.message;msg.className='save-msg error';
-  }
-  btn.disabled=false;btn.textContent='Save first name';
-}
-
-// ---------------------------------------------------------------------
-// Account: email — Supabase's own email-change flow, not hand-rolled.
-// updateUser({email}) sends a confirmation to the new address; the email
-// on file doesn't actually change until that link is clicked, so this
-// only ever shows a "check your inbox" state, never a new email inline.
-function startChangeEmail(){
-  const field=document.getElementById('change-email-field');
-  const btn=document.getElementById('btn-change-email');
-  if(field.style.display==='none'){
-    field.style.display='flex';
-    btn.textContent='Send confirmation';
-    btn.onclick=submitChangeEmail;
-  }
-}
-
-async function submitChangeEmail(){
-  const btn=document.getElementById('btn-change-email');
-  const msg=document.getElementById('email-msg');
-  const newEmail=document.getElementById('set-new-email').value.trim();
-  if(!newEmail){
-    msg.textContent='Enter a new email address.';msg.className='save-msg error';
-    return;
-  }
-  btn.disabled=true;btn.textContent='Sending…';
-  msg.textContent='';msg.className='save-msg';
-  try{
-    const { error }=await sbClient.auth.updateUser({ email:newEmail });
-    if(error)throw error;
-    msg.textContent='Check your inbox at '+newEmail+' to confirm this change. Your email on file stays the same until then.';
-    msg.className='save-msg success';
-    document.getElementById('change-email-field').style.display='none';
-    document.getElementById('set-new-email').value='';
-    btn.textContent='Change email';
-    btn.onclick=startChangeEmail;
-  }catch(e){
-    msg.textContent='Could not start email change: '+e.message;msg.className='save-msg error';
-  }
-  btn.disabled=false;
-  if(btn.textContent==='Sending…')btn.textContent='Send confirmation';
-}
-
-// ---------------------------------------------------------------------
-// Account: password — a direct in-page change (current + new + confirm),
-// gated on re-authenticating with the CURRENT password first via
-// signInWithPassword(). updateUser({password}) on its own never checks the
-// old password at all, so calling it directly would let anyone holding a
-// live session change the password out from under the real owner — the
-// signInWithPassword() call below is what actually enforces "you have to
-// prove you know the current password" before anything changes. Both
-// calls are Supabase's own auth methods, no custom hashing/verification.
-function startChangePassword(){
-  const fields=document.getElementById('change-password-fields');
-  const btn=document.getElementById('btn-change-password');
-  if(fields.style.display==='none'){
-    fields.style.display='block';
-    btn.textContent='Save new password';
-    btn.onclick=submitChangePassword;
-  }
-}
-
-async function submitChangePassword(){
-  const btn=document.getElementById('btn-change-password');
-  const msg=document.getElementById('password-msg');
-  const currentPassword=document.getElementById('set-current-password').value;
-  const newPassword=document.getElementById('set-new-password').value;
-  const confirmPassword=document.getElementById('set-new-password-confirm').value;
-  const email=currentSession.user&&currentSession.user.email;
-  if(!email)return;
-
-  if(!currentPassword){
-    msg.textContent='Enter your current password.';msg.className='save-msg error';
-    return;
-  }
-  if(!newPassword||newPassword.length<6){
-    msg.textContent='New password must be at least 6 characters.';msg.className='save-msg error';
-    return;
-  }
-  if(newPassword!==confirmPassword){
-    msg.textContent='New passwords do not match.';msg.className='save-msg error';
-    return;
-  }
-
-  btn.disabled=true;btn.textContent='Verifying…';
-  msg.textContent='';msg.className='save-msg';
-
-  const { error: reauthError }=await sbClient.auth.signInWithPassword({ email, password:currentPassword });
-  if(reauthError){
-    msg.textContent='Current password is incorrect.';msg.className='save-msg error';
-    btn.disabled=false;btn.textContent='Save new password';
-    return;
-  }
-
-  btn.textContent='Saving…';
-  const { error: updateError }=await sbClient.auth.updateUser({ password:newPassword });
-  if(updateError){
-    msg.textContent='Could not change password: '+updateError.message;msg.className='save-msg error';
-    btn.disabled=false;btn.textContent='Save new password';
-    return;
-  }
-
-  msg.textContent='Password changed.';msg.className='save-msg success';
-  document.getElementById('set-current-password').value='';
-  document.getElementById('set-new-password').value='';
-  document.getElementById('set-new-password-confirm').value='';
-  document.getElementById('change-password-fields').style.display='none';
-  btn.disabled=false;btn.textContent='Change password';
-  btn.onclick=startChangePassword;
-}
-
-// ---------------------------------------------------------------------
-// Subscription — same checkout call every other paid-gated page already
-// uses; on success this just becomes a normal upgrade, no special-casing.
 async function upgradeNow(){
-  if(!currentSession)return;
-  const msg=document.getElementById('upgrade-msg');
-  msg.textContent='Redirecting…';msg.className='save-msg';
+  const msg=$('upgrade-msg');
+  msg.className='msg'; msg.textContent='Opening checkout…';
   try{
-    const res=await fetch(API_BASE+'/api/create-checkout-session',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
-    });
-    const body=await res.json();
+    const {res,body}=await api('/api/create-checkout-session',{method:'POST',body:{}});
     if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
     window.location.href=body.url;
-  }catch(e){
-    msg.textContent='Could not start checkout: '+e.message;msg.className='save-msg error';
-  }
+  }catch(e){ msg.className='msg error'; msg.textContent='Could not start checkout: '+e.message; }
 }
 
 // ---------------------------------------------------------------------
-// Danger zone: delete account. Two gates before anything destructive
-// fires — typing the exact account email (button stays disabled until it
-// matches), then a native confirm() as the final step — on top of
-// whatever the server itself independently verifies (it only ever
-// deletes the authed session's own user, never a client-supplied id).
+// Account: details (save bar), email and password (their own buttons)
+// ---------------------------------------------------------------------
+function setupAccountForm(){
+  registerForm('account',{
+    collect(){ return { name:$('acc-first').value.trim(), surname:$('acc-surname').value.trim(), phone:$('acc-phone').value.trim() }; },
+    populate(){
+      const meta=(currentSession.user&&currentSession.user.user_metadata)||{};
+      $('acc-first').value=profile.name||meta.first_name||'';
+      $('acc-surname').value=profile.surname||'';
+      $('acc-phone').value=profile.phone||'';
+    },
+    validate(){
+      const p=$('acc-phone');
+      clearFieldError(p);
+      if(p.value.trim()&&!/^[0-9+()\s.-]{6,40}$/.test(p.value.trim())){ showFieldError(p,'Use digits, spaces and + only.'); return {el:p,msg:'phone number'}; }
+      return null;
+    },
+    async save(){
+      const v=this.collect();
+      const {res,body}=await api('/api/profile/account',{method:'POST',body:v});
+      if(!res.ok)throw new Error(body.error||'could not be saved.');
+      profile.name=v.name||null;
+      if(window.NavAccount&&v.name)NavAccount.setName(v.name);
+      if(body.needs_migration){ throw new Error('your first name is saved; surname and phone need a quick database update first.'); }
+      profile.surname=v.surname||null; profile.phone=v.phone||null;
+    }
+  });
+}
+
+function toggleEmailForm(open){
+  $('email-form').hidden=!open;
+  $('btn-change-email').hidden=open;
+  $('email-msg').textContent='';
+  if(open)$('acc-new-email').focus();
+}
+// Supabase's own email change: a confirmation goes to the new address and
+// the email on file stays the same until that link is clicked.
+async function submitChangeEmail(){
+  const btn=$('btn-send-email'), msg=$('email-msg');
+  const newEmail=$('acc-new-email').value.trim();
+  if(!newEmail){ msg.className='msg error'; msg.textContent='Enter a new email address.'; return; }
+  btn.disabled=true; btn.textContent='Sending…';
+  try{
+    const {error}=await sbClient.auth.updateUser({email:newEmail});
+    if(error)throw error;
+    $('acc-new-email').value='';
+    toggleEmailForm(false);
+    msg.className='msg success'; msg.textContent='Check your inbox at '+newEmail+' to confirm. Your email stays the same until then.';
+  }catch(e){ msg.className='msg error'; msg.textContent='Could not start the change: '+e.message; }
+  btn.disabled=false; btn.textContent='Send confirmation';
+}
+
+function togglePasswordForm(open){
+  $('password-form').hidden=!open;
+  $('btn-change-password').hidden=open;
+  $('pw-mfa-field').hidden=!mfaFactor;
+  $('password-msg').textContent='';
+  if(!open)['pw-current','pw-new','pw-confirm','pw-mfa'].forEach(id=>$(id).value='');
+  else $('pw-current').focus();
+}
+// Re-authenticates with the current password first: updateUser() on its
+// own never checks the old one. With two-step sign in on, signing in again
+// drops the session back to one step, so the code is asked for too.
+async function submitChangePassword(){
+  const btn=$('btn-save-password'), msg=$('password-msg');
+  const cur=$('pw-current').value, nw=$('pw-new').value, cf=$('pw-confirm').value, code=$('pw-mfa').value.trim();
+  const email=currentSession.user&&currentSession.user.email;
+  if(!email)return;
+  const fail=t=>{ msg.className='msg error'; msg.textContent=t; };
+  if(!cur)return fail('Enter your current password.');
+  if(!nw||nw.length<6)return fail('Your new password needs at least 6 characters.');
+  if(nw!==cf)return fail('The new passwords don\'t match.');
+  if(mfaFactor&&!/^\d{6}$/.test(code))return fail('Enter the 6-digit code from your authenticator app.');
+  btn.disabled=true; btn.textContent='Checking…'; msg.textContent='';
+  const reset=()=>{ btn.disabled=false; btn.textContent='Save new password'; };
+  const {error:reauthError}=await sbClient.auth.signInWithPassword({email,password:cur});
+  if(reauthError){ reset(); return fail('Your current password is incorrect.'); }
+  if(mfaFactor){
+    const {error:mfaErr}=await sbClient.auth.mfa.challengeAndVerify({factorId:mfaFactor.id,code});
+    if(mfaErr){ reset(); return fail('That code didn\'t work. Check your app and try again.'); }
+  }
+  btn.textContent='Saving…';
+  const {error:updateError}=await sbClient.auth.updateUser({password:nw});
+  reset();
+  if(updateError)return fail('Could not change your password: '+updateError.message);
+  togglePasswordForm(false);
+  msg.className='msg success'; msg.textContent='Password changed.';
+}
+
+// ---------------------------------------------------------------------
+// Investment defaults
+// ---------------------------------------------------------------------
+const DEFAULT_NUMS={ // input id -> where it lives on the profile
+  'd-deposit':p=>p.default_deposit_pct, 'd-solicitor':p=>fee(p,'solicitor'), 'd-searches':p=>fee(p,'searches'),
+  'd-survey':p=>cd(p,'survey'), 'd-broker':p=>cd(p,'broker_fee'), 'd-contingency':p=>p.default_refurb_contingency_pct,
+  'd-rate':p=>p.default_mortgage_rate, 'd-term':p=>p.default_mortgage_term_years, 'd-arrangement':p=>fee(p,'mortgage'),
+  'd-refi-ltv':p=>p.target_ltv, 'd-stress':p=>cd(p,'stress_rate'), 'd-icr':p=>cd(p,'icr'),
+  'd-br-rate':p=>cd(p,'bridge_monthly_rate'), 'd-br-arr':p=>cd(p,'bridge_arrangement_pct'), 'd-br-exit':p=>cd(p,'bridge_exit_pct'),
+  'd-mgmt':p=>p.default_management_pct, 'd-maint':p=>p.default_maintenance_pct, 'd-voids':p=>cd(p,'voids_pct'),
+  'd-ins':p=>p.default_insurance, 'd-letting':p=>cd(p,'letting_fee'), 'd-certs':p=>cd(p,'safety_certs')
+};
+function fee(p,k){ return p.standard_fees&&p.standard_fees[k]!=null?p.standard_fees[k]:null; }
+function cd(p,k){ return p.calc_defaults&&p.calc_defaults[k]!=null?p.calc_defaults[k]:null; }
+const GROUP_SUMMARY={
+  buying:()=>[pctTxt('d-deposit',' deposit'),selTxt('d-buying-as'),moneyTxt('d-solicitor',' solicitor'),moneyTxt('d-survey',' survey'),moneyTxt('d-broker',' broker')],
+  mortgage:()=>[pctTxt('d-rate'),numTxt('d-term',' years'),selTxt('d-product'),pctTxt('d-refi-ltv',' LTV'),pctTxt('d-stress',' stress'),pctTxt('d-icr',' ICR')],
+  bridging:()=>[pctTxt('d-br-rate',' a month'),pctTxt('d-br-arr',' arrangement'),pctTxt('d-br-exit',' exit')],
+  running:()=>[pctTxt('d-mgmt',' management'),pctTxt('d-maint',' maintenance'),pctTxt('d-voids',' voids'),moneyTxt('d-ins',' insurance')],
+  tax:()=>[selTxt('d-tax-as'),selTxt('d-tax-band')],
+  display:()=>[selTxt('d-tab')]
+};
+function pctTxt(id,suffix){ const v=rawNum($(id)); return v===''?null:v+'%'+(suffix||''); }
+function numTxt(id,suffix){ const v=rawNum($(id)); return v===''?null:v+(suffix||''); }
+function moneyTxt(id,suffix){ const v=rawNum($(id)); return v===''||!Number.isFinite(Number(v))?null:'£'+Number(v).toLocaleString('en-GB')+(suffix||''); }
+function selTxt(id){ const s=$(id); return s.value?s.options[s.selectedIndex].text:null; }
+function renderGroupSummaries(){
+  Object.keys(GROUP_SUMMARY).forEach(g=>{
+    const parts=GROUP_SUMMARY[g]().filter(Boolean);
+    const el=document.querySelector('[data-sum="'+g+'"]');
+    el.textContent=parts.length?parts.join(' · '):'Built-in figures';
+    el.classList.toggle('set',!!parts.length);
+  });
+}
+
+function setupDefaultsForm(){
+  // "Buying as" and Tax's "Limited company or personal" are one setting.
+  document.querySelectorAll('select[data-mirror]').forEach(s=>s.addEventListener('change',()=>{ $(s.dataset.mirror).value=s.value; renderGroupSummaries(); }));
+  $('sec-defaults').addEventListener('input',renderGroupSummaries);
+  $('sec-defaults').addEventListener('change',renderGroupSummaries);
+  registerForm('defaults',{
+    collect(){
+      const out={};
+      Object.keys(DEFAULT_NUMS).forEach(id=>{ out[id]=rawNum($(id)); });
+      ['d-buying-as','d-product','d-tax-band','d-tab'].forEach(id=>{ out[id]=$(id).value; });
+      return out;
+    },
+    populate(){
+      Object.keys(DEFAULT_NUMS).forEach(id=>setNum(id,DEFAULT_NUMS[id](profile)));
+      // Refinance LTV is stored as 75 until changed: show it blank then.
+      if(Number(profile.target_ltv)===75)$('d-refi-ltv').value='';
+      $('d-buying-as').value=cd(profile,'buying_as')||'';
+      $('d-tax-as').value=$('d-buying-as').value;
+      $('d-product').value=cd(profile,'mortgage_product')||'';
+      $('d-tax-band').value=cd(profile,'tax_band')||'';
+      $('d-tab').value=profile.default_mortgage_type||'';
+      renderGroupSummaries();
+    },
+    validate(){ return validateRanges($('sec-defaults')); },
+    async save(){
+      const n=id=>{ const v=numOrNull(id); return v===null||Number.isNaN(v)?null:v; };
+      const body={
+        default_deposit_pct:n('d-deposit'), solicitor_costs:n('d-solicitor'), searches:n('d-searches'),
+        default_refurb_contingency_pct:n('d-contingency'),
+        default_mortgage_rate:n('d-rate'), default_mortgage_term_years:n('d-term'), arrangement_fee:n('d-arrangement'),
+        refinance_ltv:n('d-refi-ltv'),
+        default_management_pct:n('d-mgmt'), default_maintenance_pct:n('d-maint'), default_insurance:n('d-ins'),
+        default_mortgage_type:$('d-tab').value||null
+      };
+      const extra={
+        buying_as:$('d-buying-as').value||null, tax_band:$('d-tax-band').value||null, mortgage_product:$('d-product').value||null,
+        survey:n('d-survey'), broker_fee:n('d-broker'), stress_rate:n('d-stress'), icr:n('d-icr'),
+        bridge_monthly_rate:n('d-br-rate'), bridge_arrangement_pct:n('d-br-arr'), bridge_exit_pct:n('d-br-exit'),
+        voids_pct:n('d-voids'), letting_fee:n('d-letting'), safety_certs:n('d-certs')
+      };
+      // Before db/057 these can't be stored: only send them if one is set,
+      // so saving the other defaults doesn't report a problem.
+      if(profile.settings_available||Object.values(extra).some(v=>v!=null))body.calc_defaults=extra;
+      const {res,body:r}=await api('/api/profile/investment-defaults',{method:'POST',body});
+      if(!res.ok)throw new Error(r.error||'could not be saved.');
+      // Keep the page's copy in step with what was saved.
+      profile.standard_fees=Object.assign({},profile.standard_fees,{solicitor:body.solicitor_costs,searches:body.searches,mortgage:body.arrangement_fee});
+      ['default_deposit_pct','default_refurb_contingency_pct','default_mortgage_rate','default_mortgage_term_years','default_management_pct','default_maintenance_pct','default_insurance','default_mortgage_type'].forEach(k=>profile[k]=body[k]);
+      profile.target_ltv=body.refinance_ltv==null?75:body.refinance_ltv;
+      if(r.calc_defaults_needs_migration)throw new Error('most defaults are saved; buying as, survey, broker fee, stress rate, ICR, bridging, voids, letting fee, certificates and tax band need a quick database update first.');
+      profile.calc_defaults=r.calc_defaults||profile.calc_defaults;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+// Goals (db/042)
+// ---------------------------------------------------------------------
+function updateMottoCount(){ $('goal-motto-count').textContent=$('goal-motto').value.length+' of 80 characters'; }
+function setupGoalsForm(){
+  $('goal-motto').addEventListener('input',updateMottoCount);
+  registerForm('goals',{
+    collect(){ return { c:rawNum($('goal-cashflow')), p:rawNum($('goal-properties')), d:$('goal-date').value, m:$('goal-motto').value.trim() }; },
+    populate(){
+      setNum('goal-cashflow',profile.goal_monthly_cashflow);
+      $('goal-properties').value=profile.goal_property_count!=null?profile.goal_property_count:'';
+      $('goal-date').value=profile.goal_target_date||'';
+      $('goal-motto').value=profile.motto||'';
+      updateMottoCount();
+    },
+    validate(){
+      const c=$('goal-cashflow'), p=$('goal-properties');
+      [c,p].forEach(clearFieldError);
+      const cv=rawNum(c), pv=rawNum(p);
+      if(cv&&!(Number(cv)>0)){ showFieldError(c,'Enter an amount above £0.'); return {el:c,msg:'monthly cashflow'}; }
+      if(pv&&!(Number.isInteger(Number(pv))&&Number(pv)>=1&&Number(pv)<=1000)){ showFieldError(p,'Enter a whole number from 1 to 1,000.'); return {el:p,msg:'number of properties'}; }
+      return null;
+    },
+    async save(){
+      if(!profile.goals_available)throw new Error('goals need a quick database update first.');
+      const v=this.collect();
+      const {res,body}=await api('/api/profile/goals',{method:'POST',body:{goal_monthly_cashflow:v.c,goal_property_count:v.p,goal_target_date:v.d,motto:v.m}});
+      if(!res.ok)throw new Error(body.error||'could not be saved.');
+      Object.assign(profile,body);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+// Company & letters (db/057). The logo is held on the page until Save.
+// ---------------------------------------------------------------------
+let currentLogo=null;      // data URL saved on the account
+let stagedLogo;            // undefined: no change, null: remove, string: new
+function renderLogo(){
+  const show=stagedLogo!==undefined?stagedLogo:currentLogo;
+  $('co-logo-tile').innerHTML=show?'<img alt="Your logo" src="'+esc(show)+'">':'<span>No logo</span>';
+  $('co-logo-remove').hidden=!show;
+  $('co-logo-pick').textContent=show?'Replace logo':'Upload logo';
+}
+function setupCompanyForm(){
+  const c=profile.company_details||{};
+  if(c.logo_updated_at){
+    api('/api/profile/company-logo').then(({res,body})=>{
+      if(res.ok&&body.data_url){ currentLogo=body.data_url; if(stagedLogo===undefined)renderLogo(); }
+    }).catch(()=>{});
+  }
+  $('co-logo-file').addEventListener('change',onLogoPicked);
+  registerForm('company',{
+    collect(){
+      return { name:$('co-name').value.trim(), number:$('co-number').value.trim(), phone:$('co-phone').value.trim(), email:$('co-email').value.trim(), address:$('co-address').value.trim(),
+        logo:stagedLogo===undefined?'same':(stagedLogo===null?'none':'new:'+stagedLogo.length) };
+    },
+    populate(){
+      const d=profile.company_details||{};
+      $('co-name').value=d.name||''; $('co-number').value=d.number||''; $('co-phone').value=d.phone||'';
+      $('co-email').value=d.email||''; $('co-address').value=d.address||'';
+      stagedLogo=undefined; $('co-logo-msg').textContent='';
+      renderLogo();
+    },
+    validate(){
+      const e=$('co-email'), n=$('co-number');
+      [e,n].forEach(clearFieldError);
+      if(e.value.trim()&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.value.trim())){ showFieldError(e,'Enter a valid email.'); return {el:e,msg:'company email'}; }
+      if(n.value.trim()&&!/^[A-Za-z0-9 ]{2,20}$/.test(n.value.trim())){ showFieldError(n,'Letters and numbers only, like 12345678.'); return {el:n,msg:'company number'}; }
+      return null;
+    },
+    async save(){
+      const v=this.collect();
+      const {res,body}=await api('/api/profile/company',{method:'POST',body:{name:v.name,number:v.number,phone:v.phone,email:v.email,address:v.address}});
+      if(!res.ok)throw new Error(body.error||'could not be saved.');
+      profile.company_details=body.company_details;
+      if(stagedLogo!==undefined){
+        const {res:lr,body:lb}=await api('/api/profile/company-logo',{method:'POST',body:{data_url:stagedLogo}});
+        if(!lr.ok)throw new Error(lb.error||'your logo could not be saved.');
+        currentLogo=stagedLogo; stagedLogo=undefined;
+        profile.company_details=Object.assign({},profile.company_details,{logo_updated_at:lb.logo_updated_at||undefined});
+        if(!lb.logo_updated_at)delete profile.company_details.logo_updated_at;
+        renderLogo();
+      }
+    }
+  });
+}
+function removeLogo(){ stagedLogo=null; renderLogo(); updateSaveBar(); }
+// Resized in the browser so even a large file ends up small: at most
+// 800 x 400, then smaller until it fits the server's limit.
+async function onLogoPicked(e){
+  const file=e.target.files&&e.target.files[0];
+  e.target.value='';
+  const msg=$('co-logo-msg');
+  msg.className='msg'; msg.textContent='';
+  if(!file)return;
+  if(!/^image\/(png|jpeg)$/.test(file.type)){ msg.className='msg error'; msg.textContent='Choose a PNG or JPEG image.'; return; }
+  if(file.size>8*1024*1024){ msg.className='msg error'; msg.textContent='That image is over 8MB. Choose a smaller one.'; return; }
+  try{
+    const url=await new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); });
+    const img=await new Promise((resolve,reject)=>{ const i=new Image(); i.onload=()=>resolve(i); i.onerror=reject; i.src=url; });
+    const type=file.type==='image/png'?'image/png':'image/jpeg';
+    let scale=Math.min(1,800/img.naturalWidth,400/img.naturalHeight), out=null;
+    for(let tries=0;tries<6;tries++){
+      const cv=document.createElement('canvas');
+      cv.width=Math.max(1,Math.round(img.naturalWidth*scale)); cv.height=Math.max(1,Math.round(img.naturalHeight*scale));
+      const ctx=cv.getContext('2d');
+      if(type==='image/jpeg'){ ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height); }
+      ctx.drawImage(img,0,0,cv.width,cv.height);
+      out=cv.toDataURL(type,0.88);
+      if(out.length<=380000)break;
+      scale*=0.75;
+    }
+    if(!out||out.length>380000){ msg.className='msg error'; msg.textContent='That logo is too detailed to shrink enough. Try a simpler image.'; return; }
+    stagedLogo=out;
+    renderLogo();
+    msg.textContent='Looks good. Save changes to use it.';
+    updateSaveBar();
+  }catch(err){ msg.className='msg error'; msg.textContent='That image could not be read. Try another file.'; }
+}
+
+// ---------------------------------------------------------------------
+// Notifications (db/057). A missing setting means on.
+// ---------------------------------------------------------------------
+const NOTIFY={ 'nt-fix':'fix_ending', 'nt-compliance':'compliance', 'nt-loans':'loan_repayments', 'nt-followups':'follow_ups' };
+function setupNotificationsForm(){
+  Object.keys(NOTIFY).forEach(id=>$(id).addEventListener('click',()=>{
+    const b=$(id); b.setAttribute('aria-checked',b.getAttribute('aria-checked')==='true'?'false':'true'); updateSaveBar();
+  }));
+  registerForm('notifications',{
+    collect(){ const o={}; Object.keys(NOTIFY).forEach(id=>o[NOTIFY[id]]=$(id).getAttribute('aria-checked')==='true'); return o; },
+    populate(){ const p=profile.notification_prefs||{}; Object.keys(NOTIFY).forEach(id=>$(id).setAttribute('aria-checked',p[NOTIFY[id]]===false?'false':'true')); },
+    async save(){
+      const v=this.collect();
+      const {res,body}=await api('/api/profile/notifications',{method:'POST',body:v});
+      if(!res.ok)throw new Error(body.error||'could not be saved.');
+      profile.notification_prefs=body.notification_prefs;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+// Refurb rates (paid, like the estimator): region on the account, rates,
+// and Import from CSV with a preview first.
+// ---------------------------------------------------------------------
+let savedRates={}, savedRegion=null;
+async function setupRefurbForm(){
+  if(!isPaid){ $('rc-locked').hidden=false; return; }
+  const rc=await RefurbRateCard.load(currentSession);
+  savedRates=rc.rates||{};
+  savedRegion=RefurbRateCard.getRegion();
+  $('rc-wrap').hidden=false;
+  const msg=$('rc-msg');
+  if(rc.needsMigration){ msg.className='msg'; msg.textContent='Saving your rates needs a quick database update first.'; }
+  else if(rc.error){ msg.className='msg error'; msg.textContent=rc.error; }
+  $('rc-region').innerHTML=RefurbRateCard.regions().map(r=>'<option value="'+esc(r)+'">'+esc(r)+'</option>').join('');
+  $('rc-region').addEventListener('change',()=>refreshRatePlaceholders($('rc-region').value));
+  $('rc-csv-file').addEventListener('change',onCsvPicked);
+  registerForm('refurb',{
+    collect(){
+      const read=RefurbRateCard.readEditor($('rc-editor'));
+      return { region:$('rc-region').value, rates:read.error?'invalid':read.rates };
+    },
+    populate(){
+      $('rc-region').value=savedRegion;
+      RefurbRateCard.renderEditor($('rc-editor'),savedRates);
+      refreshRatePlaceholders(savedRegion);
+      $('rc-csv-preview').innerHTML='';
+    },
+    validate(){
+      const read=RefurbRateCard.readEditor($('rc-editor'));
+      if(read.error){ read.el.closest('details').open=true; return {el:read.el,msg:read.error}; }
+      return null;
+    },
+    async save(){
+      const v=this.collect();
+      if(v.region!==savedRegion){
+        await RefurbRateCard.saveRegion(currentSession,v.region);
+        savedRegion=v.region;
+      }
+      if(JSON.stringify(v.rates)!==JSON.stringify(savedRates)){
+        savedRates=await RefurbRateCard.save(currentSession,v.rates);
+      }
+      document.querySelectorAll('#rc-editor input.just-imported').forEach(i=>i.classList.remove('just-imported'));
+    }
+  });
+}
+function refreshRatePlaceholders(region){
+  document.querySelectorAll('#rc-editor input[data-key]').forEach(el=>{
+    const g=RefurbRateCard.guideRate(el.dataset.key,region);
+    el.placeholder=g!=null?'Indicative '+RefurbRateCard.money(g):'£';
+  });
+}
+let csvMatches=[];
+async function onCsvPicked(e){
+  const file=e.target.files&&e.target.files[0];
+  e.target.value='';
+  if(!file)return;
+  const box=$('rc-csv-preview');
+  if(file.size>2*1024*1024){ box.innerHTML='<p class="msg error">That file is over 2MB. Use the builder template.</p>'; return; }
+  const text=await file.text();
+  const r=RefurbRateCard.parseCsv(text);
+  if(r.error){ box.innerHTML='<p class="msg error">'+esc(r.error)+'</p>'; return; }
+  csvMatches=r.matched;
+  if(!csvMatches.length){ box.innerHTML='<p class="msg error">No typical rates found in that file'+(r.skipped?' ('+r.skipped+' rows didn\'t match a refurb line)':'')+'.</p>'; return; }
+  const current=RefurbRateCard.readEditor($('rc-editor')).rates||{};
+  const changes=csvMatches.filter(m=>current[m.key]!==m.rate).length;
+  box.innerHTML='<div class="csv-preview"><div class="csv-preview-head"><b>'+csvMatches.length+' rate'+(csvMatches.length===1?'':'s')+' found</b>, '+changes+' different from what you have now'+
+    (r.skipped?'. '+r.skipped+' row'+(r.skipped===1?'':'s')+' skipped (no matching line or not a number)':'')+'.</div>'+
+    '<div class="csv-table-wrap"><table class="csv-table"><thead><tr><th>Item</th><th style="text-align:right">Now</th><th style="text-align:right">From CSV</th></tr></thead><tbody>'+
+    csvMatches.map(m=>'<tr><td>'+esc(m.label)+'<span class="sub">'+esc(m.section)+' · per '+esc(m.unit)+'</span></td><td class="num">'+(current[m.key]!=null?esc(RefurbRateCard.money(current[m.key])):'<span class="sub">Not set</span>')+'</td><td class="num"><b>'+esc(RefurbRateCard.money(m.rate))+'</b></td></tr>').join('')+
+    '</tbody></table></div><div class="csv-preview-foot btn-row"><button type="button" class="btn-primary" onclick="applyCsv()">Use these rates</button><button type="button" class="btn-quiet" onclick="cancelCsv()">Cancel</button></div></div>';
+}
+function applyCsv(){
+  csvMatches.forEach(m=>{
+    const el=document.querySelector('#rc-editor input[data-key="'+m.key+'"]');
+    if(!el)return;
+    el.value=String(m.rate);
+    el.classList.add('just-imported');
+    RefurbRateCard.onEditorInput(el);
+  });
+  $('rc-csv-preview').innerHTML='<p class="msg success">'+csvMatches.length+' rate'+(csvMatches.length===1?'':'s')+' filled in and highlighted. Save changes to keep them.</p>';
+  csvMatches=[];
+  updateSaveBar();
+}
+function cancelCsv(){ csvMatches=[]; $('rc-csv-preview').innerHTML=''; }
+function downloadRateTemplate(){
+  const blob=new Blob([RefurbRateCard.templateCsv()],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='refurb-rates-template.csv';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+// ---------------------------------------------------------------------
+// Security: two-step sign in with Supabase's built-in MFA (authenticator
+// app, TOTP), and signing out of every device.
+// ---------------------------------------------------------------------
+let mfaFactor=null, enrolling=null;
+async function loadMfa(){
+  const pill=$('mfa-status');
+  try{
+    const {data,error}=await sbClient.auth.mfa.listFactors();
+    if(error)throw error;
+    mfaFactor=(data.totp||[]).find(f=>f.status==='verified')||null;
+  }catch(e){
+    pill.textContent='Unavailable';
+    $('mfa-msg').className='msg error'; $('mfa-msg').textContent='Two-step sign in isn\'t available right now.';
+    return;
+  }
+  renderMfa();
+}
+function renderMfa(){
+  const pill=$('mfa-status');
+  pill.textContent=mfaFactor?'On':'Off';
+  pill.classList.toggle('on',!!mfaFactor);
+  $('mfa-on').hidden=!mfaFactor;
+  $('mfa-off').hidden=!!mfaFactor||!!enrolling;
+  $('mfa-setup').hidden=!enrolling;
+  $('pw-mfa-field').hidden=!mfaFactor;
+}
+async function startMfa(){
+  const msg=$('mfa-msg'), btn=$('btn-mfa-start');
+  msg.className='msg'; msg.textContent='';
+  btn.disabled=true;
+  try{
+    // A half-finished setup from before would block a new one: clear it.
+    const {data:list}=await sbClient.auth.mfa.listFactors();
+    for(const f of ((list&&list.all)||[])){ if(f.status==='unverified')await sbClient.auth.mfa.unenroll({factorId:f.id}); }
+    const {data,error}=await sbClient.auth.mfa.enroll({factorType:'totp',friendlyName:'Authenticator app'});
+    if(error)throw error;
+    enrolling=data;
+    // Supabase returns the QR code as an SVG data URL (or, in older
+    // versions, bare SVG). Encode the SVG so characters like # survive.
+    const q=String(data.totp.qr_code||''), pre='data:image/svg+xml;utf-8,';
+    const svg=q.indexOf(pre)===0?q.slice(pre.length):(q.indexOf('data:')===0?null:q);
+    $('mfa-qr').src=svg!==null&&svg.trim().charAt(0)==='<'?pre+encodeURIComponent(svg):q;
+    $('mfa-secret').textContent=data.totp.secret;
+    $('mfa-code').value='';
+    renderMfa();
+    $('mfa-code').focus();
+  }catch(e){ msg.className='msg error'; msg.textContent='Could not start setup: '+(e.message||'try again.'); }
+  btn.disabled=false;
+}
+async function verifyMfa(){
+  const msg=$('mfa-msg'), btn=$('btn-mfa-verify');
+  const code=$('mfa-code').value.trim();
+  if(!/^\d{6}$/.test(code)){ msg.className='msg error'; msg.textContent='Enter the 6-digit code from your app.'; return; }
+  btn.disabled=true; btn.textContent='Checking…';
+  const {error}=await sbClient.auth.mfa.challengeAndVerify({factorId:enrolling.id,code});
+  btn.disabled=false; btn.textContent='Turn on';
+  if(error){ msg.className='msg error'; msg.textContent='That code didn\'t work. Codes change every 30 seconds, so try the newest one.'; return; }
+  enrolling=null;
+  await loadMfa();
+  msg.className='msg success'; msg.textContent='Two-step sign in is on. You\'ll be asked for a code each time you log in.';
+}
+async function cancelMfa(){
+  if(enrolling){ try{ await sbClient.auth.mfa.unenroll({factorId:enrolling.id}); }catch(e){} }
+  enrolling=null; $('mfa-msg').textContent=''; renderMfa();
+}
+async function disableMfa(){
+  if(!mfaFactor)return;
+  if(!confirm('Turn off two-step sign in? You\'ll only need your password to log in.'))return;
+  const msg=$('mfa-msg'), btn=$('btn-mfa-off');
+  btn.disabled=true;
+  const {error}=await sbClient.auth.mfa.unenroll({factorId:mfaFactor.id});
+  btn.disabled=false;
+  if(error){ msg.className='msg error'; msg.textContent='Could not turn it off. Log out and back in with your code, then try again.'; return; }
+  mfaFactor=null; renderMfa();
+  msg.className='msg success'; msg.textContent='Two-step sign in is off.';
+}
+async function signOutEverywhere(){
+  if(!confirm('Sign out of every device, including this one?'))return;
+  const btn=$('btn-signout-all'), msg=$('signout-msg');
+  btn.disabled=true; btn.textContent='Signing out…';
+  const {error}=await sbClient.auth.signOut({scope:'global'});
+  if(error){ btn.disabled=false; btn.textContent='Sign out everywhere'; msg.className='msg error'; msg.textContent='Could not sign out everywhere: '+error.message; return; }
+  window.location.href='/';
+}
+
+// ---------------------------------------------------------------------
+// Data & privacy: export (one ZIP of CSVs, built in the browser with
+// JSZip from the server's JSON) and delete account.
+// ---------------------------------------------------------------------
+let jszipPromise=null;
+function loadJsZip(){
+  if(window.JSZip)return Promise.resolve(window.JSZip);
+  if(!jszipPromise){
+    jszipPromise=new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload=()=>resolve(window.JSZip); s.onerror=()=>{ jszipPromise=null; reject(new Error('zip')); };
+      document.head.appendChild(s);
+    });
+  }
+  return jszipPromise;
+}
+function csvCell(v){
+  if(v===null||v===undefined)return '';
+  const s=typeof v==='object'?JSON.stringify(v):String(v);
+  return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+function toCsv(rows){
+  const cols=[];
+  rows.forEach(r=>Object.keys(r).forEach(k=>{ if(!cols.includes(k))cols.push(k); }));
+  if(!cols.length)return '﻿(no rows)\r\n';
+  return '﻿'+[cols.map(csvCell).join(',')].concat(rows.map(r=>cols.map(c=>csvCell(r[c])).join(','))).join('\r\n')+'\r\n';
+}
+async function exportData(){
+  const btn=$('btn-export'), msg=$('export-msg');
+  btn.disabled=true; btn.textContent='Preparing…';
+  msg.className='msg'; msg.textContent='Gathering your data. This can take a few seconds.';
+  try{
+    const [JSZip,{res,body}]=await Promise.all([loadJsZip(),api('/api/account/export')]);
+    if(!res.ok)throw new Error(body.error||'Your data could not be exported.');
+    const zip=new JSZip();
+    let total=0;
+    Object.keys(body.tables||{}).forEach(name=>{ const rows=body.tables[name]||[]; total+=rows.length; zip.file(name+'.csv',toCsv(rows)); });
+    zip.file('README.txt','PROPulsion data export\r\nAccount: '+(body.email||'')+'\r\nExported: '+body.exported_at+'\r\n\r\nOne CSV per area. Columns holding several values are written as JSON. File and photo paths are listed, but the files themselves are not included.\r\n');
+    const blob=await zip.generateAsync({type:'blob'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='propulsion-data-'+new Date().toISOString().slice(0,10)+'.zip';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    msg.className='msg success'; msg.textContent='Downloaded: '+total.toLocaleString('en-GB')+' rows across '+Object.keys(body.tables||{}).length+' files.';
+  }catch(e){ msg.className='msg error'; msg.textContent=e.message==='zip'?'The download tool could not load. Check your connection and try again.':e.message; }
+  btn.disabled=false; btn.textContent='Download ZIP';
+}
+
 function startDeleteAccount(){
-  const fields=document.getElementById('delete-account-fields');
-  const btn=document.getElementById('btn-start-delete');
-  const email=currentSession.user&&currentSession.user.email?currentSession.user.email:'';
-  document.getElementById('delete-confirm-email-hint').textContent=email;
-  fields.style.display='block';
-  btn.style.display='none';
+  $('delete-email-hint').textContent=(currentSession.user&&currentSession.user.email)||'your email';
+  $('delete-fields').hidden=false;
+  $('btn-start-delete').hidden=true;
+  $('delete-confirm-email').focus();
 }
-
+function cancelDelete(){
+  $('delete-fields').hidden=true; $('btn-start-delete').hidden=false;
+  $('delete-confirm-email').value=''; $('btn-confirm-delete').disabled=true;
+}
 function checkDeleteEmailMatch(){
-  const typed=document.getElementById('delete-confirm-email').value.trim().toLowerCase();
-  const real=(currentSession.user&&currentSession.user.email?currentSession.user.email:'').trim().toLowerCase();
-  document.getElementById('btn-confirm-delete').disabled=!(typed&&typed===real);
+  const typed=$('delete-confirm-email').value.trim().toLowerCase();
+  const real=((currentSession.user&&currentSession.user.email)||'').trim().toLowerCase();
+  $('btn-confirm-delete').disabled=!(typed&&typed===real);
 }
-
+// Two gates (typing the exact email, then a final confirm) on top of the
+// server only ever deleting the signed-in user's own account.
 async function confirmDeleteAccount(){
   if(!confirm('This is permanent and cannot be undone. Delete your account and all your data now?'))return;
-
-  const btn=document.getElementById('btn-confirm-delete');
-  const msg=document.getElementById('delete-msg');
-  btn.disabled=true;btn.textContent='Deleting…';
-  msg.textContent='';msg.className='save-msg';
-
+  const btn=$('btn-confirm-delete'), msg=$('delete-msg');
+  btn.disabled=true; btn.textContent='Deleting…';
+  msg.className='msg'; msg.textContent='';
   try{
-    const res=await fetch(API_BASE+'/api/account/delete',{
-      method:'POST',
-      headers:{'Authorization':'Bearer '+currentSession.access_token}
-    });
-    const body=await res.json();
+    const {res,body}=await api('/api/account/delete',{method:'POST'});
     if(!res.ok)throw new Error(body.error||'Could not delete your account.');
-
+    Object.keys(forms).forEach(k=>forms[k].ready=false);
     await sbClient.auth.signOut();
     window.location.href='/';
   }catch(e){
-    msg.textContent=e.message;msg.className='save-msg error';
-    btn.disabled=false;btn.textContent='Permanently delete my account';
+    msg.className='msg error'; msg.textContent=e.message;
+    btn.disabled=false; btn.textContent='Permanently delete my account';
   }
 }
 

@@ -493,7 +493,7 @@ function equityBody(){
     ${row('Available to release',p.available_to_release!=null?PF.gbp(p.available_to_release):null)}
   </div>
   ${PF.fixedUntil(p)?`<p class="pp-erc-note">Fixed until ${PF.esc(PF.fixedUntil(p))}: early repayment charges likely <button type="button" class="pf-tip" aria-label="${PF.esc(PF.ERC_TIP)}" data-tip="${PF.esc(PF.ERC_TIP)}">?</button></p>`:''}
-  <div class="pp-sec-foot"><p class="pp-note">Available to release is equity you could pull out by remortgaging to ${Number(targetLtv)}% LTV, before fees and any early repayment charges. <a href="/settings.html#portfolio-settings">Change target LTV</a></p>${editBtn('equity')}</div>`;
+  <div class="pp-sec-foot"><p class="pp-note">Available to release is equity you could pull out by remortgaging to ${Number(targetLtv)}% LTV, before fees and any early repayment charges. <a href="/settings.html#defaults">Change refinance LTV</a></p>${editBtn('equity')}</div>`;
 }
 
 // Tenancy

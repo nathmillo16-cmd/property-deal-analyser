@@ -87,11 +87,27 @@
     const space = need => { if (y + need > H - FOOT) { doc.addPage(); y = M; return true; } return false; };
 
     // ---- header ----
-    const logo = await loadImage('/assets/propulsion-logo.png');
-    if (logo) { const lh = 26, lw = lh * logo.w / logo.h; doc.addImage(logo.data, 'PNG', M, y, lw, lh); }
+    // The user's own logo and details (Settings > Company & letters) when
+    // set, otherwise the PROPulsion logo as before.
+    const co = o.company || null;
+    const coLogo = co && co.logo ? co.logo : null;
+    const logo = coLogo || await loadImage('/assets/propulsion-logo.png');
+    if (logo) {
+      const maxW = coLogo ? 150 : 400, maxH = coLogo ? 44 : 26;
+      const k = Math.min(maxW / logo.w, maxH / logo.h);
+      try { doc.addImage(logo.data, logo.fmt || 'PNG', M, y, logo.w * k, logo.h * k); } catch (e) { /* skip a bad image */ }
+    }
     set(9, false, MUTED);
-    doc.text('Generated ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - M, y + 16, { align: 'right' });
-    y += 50;
+    doc.text('Generated ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }), W - M, y + 10, { align: 'right' });
+    let headY = y + 10;
+    if (co) {
+      const who = co.name || co.personName;
+      const contact = [co.phone, co.email].filter(Boolean).join('   ');
+      if (who) { set(10, true, INK); headY += 14; doc.text(doc.splitTextToSize(who, 230)[0], W - M, headY, { align: 'right' }); }
+      if (contact) { set(9, false, MUTED); headY += 12; doc.text(doc.splitTextToSize(contact, 260)[0], W - M, headY, { align: 'right' }); }
+      if (co.number) { set(9, false, MUTED); headY += 12; doc.text('Company number ' + co.number, W - M, headY, { align: 'right' }); }
+    }
+    y = Math.max(y + 50, headY + 18);
     set(24, true, INK); doc.text('Scope of works', M, y); y += 22;
     const where = o.address || o.name;
     set(13, false, INK);

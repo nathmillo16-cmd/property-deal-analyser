@@ -18,6 +18,7 @@
 <script src="/auth-guard.js"></script>
 <script src="/calc-engine.js"></script>
 <script src="/deal-assumptions.js"></script>
+<script src="/user-defaults.js"></script>
 <script src="/planning-tools.js"></script>
 </head>
 <body class="theme-light">
@@ -212,6 +213,21 @@
   async function init() {
     var ctx = await P.start();
     if (!ctx) return;
+    // Settings defaults (Investment defaults): refinance LTV, ICR, stress
+    // rate, mortgage rate, type and term become this page's starting
+    // figures and its Reset values. Figures already changed on this page
+    // (kept on the device) still win.
+    if (window.UserDefaults && ctx.profile) {
+      var ud = UserDefaults.from(ctx.profile);
+      var hadSaved = false;
+      try { hadSaved = !!localStorage.getItem(KEY); } catch (e) {}
+      var map = { ltv: ud.refiLtv, icr: ud.icr, stressRate: ud.stressRate, newRate: ud.mortgageRate, newTerm: ud.termYears, newType: ud.mortgageProduct };
+      Object.keys(map).forEach(function (k) {
+        if (map[k] == null) return;
+        if (!hadSaved || settings[k] === DEFAULTS[k]) settings[k] = map[k];
+        DEFAULTS[k] = map[k];
+      });
+    }
     fillInputs();
     P.bindMoney(document);
     document.querySelectorAll('#rp-assume input, #rp-assume select').forEach(function (i) {

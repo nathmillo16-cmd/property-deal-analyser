@@ -29,6 +29,7 @@
 <script src="/refurb-rate-card.js"></script>
 <script src="/rerun-prefill.js"></script>
 <script src="/refurb-workflow.js"></script>
+<script src="/company-details.js"></script>
 <script src="/refurb-scope-pdf.js"></script>
 <style>
 /* page-specific layout only: colours/fonts/radius all come from styles.css */
@@ -1804,6 +1805,8 @@ function setPdfGroup(g){
   document.getElementById('pdf-group-cat').classList.toggle('active',g==='category');
   document.getElementById('pdf-group-room').classList.toggle('active',g==='room');
 }
+// Settings > Company & letters, printed on the scope of works PDF.
+let companyDetails=null;
 async function downloadScopePdf(){
   const msg=document.getElementById('pdf-msg');
   const btn=document.getElementById('pdf-go');
@@ -1827,6 +1830,7 @@ async function downloadScopePdf(){
       durationWeeks:currentDurationWeeks(),
       epc,
       scopeLabel:scopeLabelFor(saveMode(),currentDetails()),
+      company:companyDetails&&companyDetails.available?Object.assign({},companyDetails,{logo:companyDetails.hasLogo?await CompanyDetails.logo(currentSession):null}):null,
     });
     msg.className='save-msg success'; msg.textContent='Downloaded.';
     setTimeout(closePdfModal,700);
@@ -1845,6 +1849,7 @@ async function init(){
     const profRes=await fetch(API_BASE+'/api/profile',{headers:authHeaders()});
     const prof=await profRes.json();
     currentPlan=prof.plan==='paid'?'paid':'free';
+    companyDetails=window.CompanyDetails?CompanyDetails.fromProfile(prof):null;
   }catch(e){ currentPlan='free'; }
   updateTopbar();
   if(currentPlan!=='paid'){ showState('locked'); return; }
@@ -1877,6 +1882,8 @@ async function init(){
   showState('board');
   const rc=await RefurbRateCard.load(currentSession);
   userRates=rc.rates||{}; rateCardNeedsDb=!!rc.needsMigration;
+  // load() may have brought in the region saved to the account.
+  refreshGuideRegion();
   if(rateCardNeedsDb)document.getElementById('rf-save-rates-btn').hidden=true;
 
   const restored=restoreRefurbDraft();

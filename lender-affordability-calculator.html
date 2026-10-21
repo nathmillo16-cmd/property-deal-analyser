@@ -18,6 +18,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/calc-engine.js"></script>
 <script src="/deal-assumptions.js"></script>
+<script src="/user-defaults.js"></script>
 <script src="/tools-calc.js"></script>
 </head>
 <body class="theme-light">
@@ -91,7 +92,7 @@
   }).join('');
   own.value = L.defaultOwnership;
   icr.value = L.ownershipTypes[own.value].rentCover;
-  stress.value = L.stressRate;
+  stress.defaultValue = L.stressRate;
   // Changing ownership resets the ICR to that type's usual figure.
   own.addEventListener('change', function () { icr.value = L.ownershipTypes[own.value].rentCover; });
 
@@ -127,6 +128,19 @@
       L.stressRate + '%. Lenders also cap the loan by value (LTV), usually 75%. The lower of the two is what you can borrow. Check with your broker.</p>');
   }
   T.bind(run);
+
+  // Settings defaults, logged in: ownership (buying as + tax band), stress
+  // rate and ICR. Only while the page still shows its own starting figures.
+  T.userDefaults().then(function (ud) {
+    if (!ud) return;
+    var changed = false;
+    if (ud.ownership && L.ownershipTypes[ud.ownership] && own.value === L.defaultOwnership && ud.ownership !== own.value && String(icr.value) === String(L.ownershipTypes[own.value].rentCover)) {
+      own.value = ud.ownership; icr.value = L.ownershipTypes[own.value].rentCover; icr.defaultValue = icr.value; changed = true;
+    }
+    if (T.fillDefault('la-stress', ud.stressRate)) changed = true;
+    if (ud.icr != null && String(icr.value) === String(L.ownershipTypes[own.value].rentCover)) { icr.value = ud.icr; changed = true; }
+    if (changed) run();
+  });
 
   document.getElementById('tool-full').addEventListener('click', function () {
     var loan = T.num('la-loan');

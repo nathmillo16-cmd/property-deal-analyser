@@ -18,6 +18,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/calc-engine.js"></script>
 <script src="/deal-assumptions.js"></script>
+<script src="/user-defaults.js"></script>
 <script src="/tools-calc.js"></script>
 </head>
 <body class="theme-light">
@@ -142,6 +143,15 @@
       '<p class="tool-note">Shows the position the day the refinance completes, the same as the calculator\'s BRRR tab. Bridging and holding costs while you refurb are not included; the Bridging cost calculator covers those. Lenders usually want you to own the property for about 6 months before refinancing at the new value.</p>');
   }
   T.bind(run);
+
+  // Settings defaults, logged in: purchase costs (solicitor + searches +
+  // survey), refinance LTV, arrangement + broker fee and mortgage rate.
+  T.userDefaults().then(function (ud) {
+    if (!ud) return;
+    var c = [T.fillDefault('br-costs', ud.buyingFees), T.fillDefault('br-ltv', ud.refiLtv),
+      T.fillDefault('br-fee', ud.mortgageFees), T.fillDefault('br-rate', ud.mortgageRate)];
+    if (c.some(Boolean)) run();
+  });
 
   document.getElementById('tool-full').addEventListener('click', function () {
     var i = inputs();

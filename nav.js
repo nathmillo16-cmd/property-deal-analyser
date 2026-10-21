@@ -6,7 +6,7 @@
 // Layout: Home / Analyse / Deals / Portfolio, a Tools dropdown (grouped:
 // Calculators, Planning, Outreach; a full-width sheet on phones), and the
 // account menu: a round initials avatar plus first name that opens
-// Settings, Plan & billing, Your goals, Help & tutorial, Deal Sourcing
+// Settings, Plan & billing, Your goals, Address book, Help & tutorial, Deal Sourcing
 // (coming soon), Contact us and Log out. The same four items also render as a bottom tab bar on phones and
 // in the iOS app.
 // Attaches NO auth logic — every page's existing JS (init()/updateTopbar()/
@@ -190,7 +190,7 @@ function menuItem(href, icon, label, extraClass) {
         menuItem('/settings.html', 'settings', 'Settings', active === 'settings' ? ' active' : '') +
         menuItem('/billing.html', 'billing', 'Plan &amp; billing', active === 'billing' ? ' active' : '') +
         menuItem('/settings.html#goals', 'goals', 'Your goals', '') +
-        menuItem('/contacts.html', 'contacts', 'Contacts', active === 'contacts' ? ' active' : '') +
+        menuItem('/contacts.html', 'contacts', 'Address book', active === 'contacts' ? ' active' : '') +
         menuItem('/help.html', 'help', 'Help &amp; tutorial', active === 'help' ? ' active' : '') +
         '<span class="user-menu-item is-disabled web-only" role="menuitem" aria-disabled="true">' + menuIcon('sourcing') + 'Deal Sourcing <span class="soon-pill">Coming soon</span></span>' +
         '<a href="#" id="contact-us-link" class="user-menu-item" role="menuitem" onclick="closeUserMenu();if(window.openSupportModal)openSupportModal(event);return false;">' + menuIcon('contact') + 'Contact us</a>' +

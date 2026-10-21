@@ -577,6 +577,14 @@ async function loadDashboard(){
     const body=await res.json();
     hasCompletedTutorial=res.ok?!!body.has_completed_tutorial:true;
     if(res.ok)profileData=body||{};
+    // Settings > Notifications (db/057): hide the alert types switched off
+    // there. A missing setting means on. In-app only, nothing is emailed.
+    if(res.ok&&body&&body.notification_prefs){
+      const np=body.notification_prefs;
+      const off={ fix_end:np.fix_ending===false, refinance:np.fix_ending===false, compliance:np.compliance===false,
+        loan:np.loan_repayments===false, reminder:np.follow_ups===false };
+      needsAttention=needsAttention.filter(n=>!off[n.reason]);
+    }
     const meta=(currentSession.user&&currentSession.user.user_metadata)||{};
     const signupName=typeof meta.first_name==='string'?meta.first_name.trim():'';
     if(res.ok)setGreeting(body.name||signupName);

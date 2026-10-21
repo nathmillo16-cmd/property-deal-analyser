@@ -178,6 +178,35 @@ var ToolShell = (function () {
     window.location.href = '/index.html';
   }
 
+  // ---------- the user's own defaults (Settings > Investment defaults) ----------
+  // Logged in, resolves to UserDefaults.from(profile) (user-defaults.js);
+  // logged out or on any failure, null, and the page keeps its built-in
+  // figures. Fetched once per page.
+  var defaultsPromise = null;
+  function userDefaults() {
+    if (!likelyLoggedIn || typeof UserDefaults === 'undefined') return Promise.resolve(null);
+    if (!defaultsPromise) {
+      defaultsPromise = (async function () {
+        var s = await session();
+        if (!s) return null;
+        var res = await fetch((typeof API_BASE !== 'undefined' ? API_BASE : '') + '/api/profile', { headers: { Authorization: 'Bearer ' + s.access_token } });
+        if (!res.ok) return null;
+        return UserDefaults.from(await res.json());
+      })().catch(function () { return null; });
+    }
+    return defaultsPromise;
+  }
+  // Puts a default into an input still showing its built-in value, with
+  // thousands separators for money fields. Returns true if it changed.
+  function fillDefault(id, value) {
+    var el = document.getElementById(id);
+    if (!el || value == null || typeof UserDefaults === 'undefined') return false;
+    var changed = UserDefaults.fill(el, value);
+    if (changed && el.dataset.money !== undefined) formatMoney(el);
+    return changed;
+  }
+
   return { num: num, isBlank: isBlank, bind: bind, money: money, money2: money2, pct: pct, esc: esc,
-    set: set, html: html, line: line, runFull: runFull, session: session, likelyLoggedIn: likelyLoggedIn };
+    set: set, html: html, line: line, runFull: runFull, session: session, likelyLoggedIn: likelyLoggedIn,
+    userDefaults: userDefaults, fillDefault: fillDefault };
 })();

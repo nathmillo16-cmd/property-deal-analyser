@@ -28,6 +28,7 @@
 <script src="/planning-tools.js"></script>
 <script src="/deal-insights.js"></script>
 <script src="/deal-assumptions.js"></script>
+<script src="/user-defaults.js"></script>
 <script src="/deal-planning.js"></script>
 <script src="/deal-realistic.js"></script>
 <script src="/results-disclaimer.js"></script>
@@ -397,6 +398,7 @@ body.theme-light .value-warning.error{background:var(--danger-bg);color:var(--da
 .save-btn:hover{background:rgba(224,164,88,.08)}
 body.theme-light .save-btn:hover{background:rgba(75,69,178,.08)}
 .save-btn:disabled{opacity:.4;cursor:not-allowed}
+a.save-btn.defaults-link{display:block;text-align:center;text-decoration:none}
 /* "Save deal" (results-col) vs "Save as my defaults" (input-col, done in
    Stage 1 as a quiet outline button) share the same .save-btn class —
    scoped by ancestor so "Save deal" becomes filled indigo primary here
@@ -599,8 +601,7 @@ body.theme-light .dd-trigger::after{
             </div>
           </div>
         </details>
-        <button class="save-btn" onclick="saveDefaults('btl')" id="btn-save-defaults-btl">Save as my defaults</button>
-        <p class="save-msg" id="btl-defaults-msg"></p>
+        <a class="save-btn defaults-link" href="/settings.html#defaults">Change my defaults in Settings</a>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
@@ -789,8 +790,7 @@ body.theme-light .dd-trigger::after{
             </div>
           </div>
         </details>
-        <button class="save-btn" onclick="saveDefaults('hmo')" id="btn-save-defaults-hmo">Save as my defaults</button>
-        <p class="save-msg" id="hmo-defaults-msg"></p>
+        <a class="save-btn defaults-link" href="/settings.html#defaults">Change my defaults in Settings</a>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
@@ -987,8 +987,7 @@ body.theme-light .dd-trigger::after{
             </div>
           </div>
         </details>
-        <button class="save-btn" onclick="saveDefaults('sa')" id="btn-save-defaults-sa">Save as my defaults</button>
-        <p class="save-msg" id="sa-defaults-msg"></p>
+        <a class="save-btn defaults-link" href="/settings.html#defaults">Change my defaults in Settings</a>
       </div>
       <div class="results-col">
         <p class="sl">Results</p>
@@ -3396,17 +3395,6 @@ function updateAuthUI(){
       msg.innerHTML='Log in to save deals: <a href="/login.html">log in</a>';
     }
     msg.className='save-msg';
-
-    const defBtn=document.getElementById('btn-save-defaults-'+type);
-    const defMsg=document.getElementById(type+'-defaults-msg');
-    defBtn.disabled=!loggedIn;
-    defBtn.textContent='Save as my defaults';
-    if(loggedIn){
-      defMsg.innerHTML='';
-    }else{
-      defMsg.innerHTML='Log in to save your defaults: <a href="/login.html">log in</a>';
-    }
-    defMsg.className='save-msg';
   });
 
   const flBtn=document.getElementById('btn-save-flip');
@@ -3557,42 +3545,6 @@ function numOrNull(id){
   return Number.isFinite(n)?n:null;
 }
 
-async function saveDefaults(type){
-  if(!currentSession)return;
-  const btn=document.getElementById('btn-save-defaults-'+type);
-  const msg=document.getElementById(type+'-defaults-msg');
-  const f=type==='btl'
-    ?{ty:'b-ty',tr:'b-tr',mr:'b-mr',sol:'b-sol',mf:'b-mf',srch:'b-srch'}
-    :type==='hmo'
-    ?{ty:'h-ty',tr:'h-troi',mr:'h-mr',sol:'h-sol',mf:'h-mf',srch:'h-srch'}
-    :{ty:'sa-ty',tr:'sa-troi',mr:'sa-mr',sol:'sa-sol',mf:'sa-mf',srch:'sa-srch'};
-
-  const payload={
-    target_yield:numOrNull(f.ty),
-    target_roi:numOrNull(f.tr),
-    default_mortgage_rate:numOrNull(f.mr),
-    standard_fees:{solicitor:numOrNull(f.sol),mortgage:numOrNull(f.mf),searches:numOrNull(f.srch)}
-  };
-
-  btn.disabled=true;btn.textContent='Saving...';
-  msg.className='save-msg';msg.textContent='';
-
-  try{
-    const res=await fetch(API_BASE+'/api/profile',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify(payload)
-    });
-    const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not save defaults.');
-    msg.textContent='Defaults saved.';msg.className='save-msg success';
-  }catch(e){
-    msg.textContent='Could not save defaults: '+e.message;msg.className='save-msg error';
-  }
-
-  btn.disabled=false;btn.textContent='Save as my defaults';
-}
-
 async function loadDefaults(){
   try{
     const res=await fetch(API_BASE+'/api/profile',{
@@ -3603,16 +3555,23 @@ async function loadDefaults(){
     currentPlan=d.plan==='paid'?'paid':'free';
     updateAuthUI();
 
-    if(d.target_yield!=null){
-      document.getElementById('b-ty').value=d.target_yield;
-      document.getElementById('h-ty').value=d.target_yield;
-      document.getElementById('sa-ty').value=d.target_yield;
+    // Target yield and ROI come from the Buy box now (min gross yield and
+    // min cash-on-cash return). The old target_yield/target_roi columns
+    // are only a fallback for someone whose buy box doesn't set them.
+    const bb=d.buy_box&&typeof d.buy_box==='object'?d.buy_box:{};
+    const targetYield=bb.min_yield!=null?bb.min_yield:d.target_yield;
+    const targetRoi=bb.min_coc!=null?bb.min_coc:d.target_roi;
+    if(targetYield!=null){
+      document.getElementById('b-ty').value=targetYield;
+      document.getElementById('h-ty').value=targetYield;
+      document.getElementById('sa-ty').value=targetYield;
     }
-    if(d.target_roi!=null){
-      document.getElementById('b-tr').value=d.target_roi;
-      document.getElementById('h-troi').value=d.target_roi;
-      document.getElementById('sa-troi').value=d.target_roi;
+    if(targetRoi!=null){
+      document.getElementById('b-tr').value=targetRoi;
+      document.getElementById('h-troi').value=targetRoi;
+      document.getElementById('sa-troi').value=targetRoi;
     }
+    const ud=window.UserDefaults?UserDefaults.from(d):null;
     if(d.default_mortgage_rate!=null){
       document.getElementById('b-mr').value=d.default_mortgage_rate;
       document.getElementById('h-mr').value=d.default_mortgage_rate;
@@ -3624,16 +3583,20 @@ async function loadDefaults(){
         document.getElementById('h-sol').value=d.standard_fees.solicitor;
         document.getElementById('sa-sol').value=d.standard_fees.solicitor;
       }
-      if(d.standard_fees.mortgage!=null){
-        document.getElementById('b-mf').value=d.standard_fees.mortgage;
-        document.getElementById('h-mf').value=d.standard_fees.mortgage;
-        document.getElementById('sa-mf').value=d.standard_fees.mortgage;
-      }
       if(d.standard_fees.searches!=null){
         document.getElementById('b-srch').value=d.standard_fees.searches;
         document.getElementById('h-srch').value=d.standard_fees.searches;
         document.getElementById('sa-srch').value=d.standard_fees.searches;
       }
+    }
+
+    // Mortgage fees = arrangement fee (standard_fees.mortgage) plus the
+    // broker fee from Settings, whichever of the two are set.
+    const mFees=ud?ud.mortgageFees:(d.standard_fees?d.standard_fees.mortgage:null);
+    if(mFees!=null){
+      document.getElementById('b-mf').value=mFees;
+      document.getElementById('h-mf').value=mFees;
+      document.getElementById('sa-mf').value=mFees;
     }
 
     // Investment Defaults (settings.html, db/030) — same pre-fill pattern
@@ -3687,10 +3650,61 @@ async function loadDefaults(){
       }
     }
 
+    if(ud)applyPlanningDefaults(ud);
+
     formatAllMoneyFields();
     refreshAll('now');
   }catch(e){
     // fail silently — calculator keeps its built-in default values
+  }
+}
+
+// The Settings defaults that feed inputs outside the main form: refinance
+// LTV and type (BRRR tab), the lender check, the bridge, Flip's buying fees
+// and the after-tax band. Each one replaces only a value still at its
+// built-in default (UserDefaults.fill), so a draft, a reopened deal or
+// anything typed stays as it is. The assumptions config is updated too, so
+// a blank field and "Reset to my defaults" use the user's figure rather
+// than the generic one. Only inputs change here: calc-engine.js and every
+// formula are untouched.
+function applyPlanningDefaults(ud){
+  const F=UserDefaults.fill, $=id=>document.getElementById(id);
+  const CFG=window.DEAL_ASSUMPTIONS;
+  if(CFG){
+    if(ud.stressRate!=null)CFG.lender.stressRate=ud.stressRate;
+    if(ud.bridgeRate!=null)CFG.bridge.monthlyRate=ud.bridgeRate;
+    if(ud.bridgeArrangementPct!=null)CFG.bridge.arrangementFee=ud.bridgeArrangementPct;
+    if(ud.bridgeExitPct!=null)CFG.bridge.exitFee=ud.bridgeExitPct;
+  }
+  ['bb-refi-ltv','hb-refi-ltv','sab-refi-ltv'].forEach(id=>F($(id),ud.refiLtv));
+  if(ud.mortgageProduct){
+    const v=ud.mortgageProduct==='repayment'?'repay':'io';
+    Object.values(REFI_TYPE_IDS).forEach(id=>{ if(getDDValue(id)==='io'||!getDDValue(id))setDDValue(id,v,REFI_TYPE_LABELS[v]); });
+  }
+  F($('fl-bf'),ud.buyingFees);
+  const stress=$('b-lc-stress');
+  if(stress&&ud.stressRate!=null){ F(stress,ud.stressRate); stress.placeholder=String(ud.stressRate); }
+  if(CFG&&ud.ownership&&CFG.lender.ownershipTypes[ud.ownership]){
+    const was=CFG.lender.defaultOwnership;
+    CFG.lender.defaultOwnership=ud.ownership;
+    if(getDDValue('b-lc-own')===was&&was!==ud.ownership){
+      setDDValue('b-lc-own',ud.ownership,CFG.lender.ownershipTypes[ud.ownership].label);
+      const c=$('b-lc-cover');
+      const cover=String(CFG.lender.ownershipTypes[ud.ownership].rentCover);
+      if(c&&(c.value===''||c.value===String(CFG.lender.ownershipTypes[was].rentCover))){ c.value=cover; c.defaultValue=cover; }
+      if(c)c.placeholder=cover;
+    }
+  }
+  F($('b-lc-cover'),ud.icr);
+  F($('b-br-rate'),ud.bridgeRate);
+  F($('b-br-arr'),ud.bridgeArrangementPct);
+  F($('b-br-exit'),ud.bridgeExitPct);
+  if(CFG&&ud.taxBand&&CFG.tax.personalBands[ud.taxBand]){
+    const was=CFG.tax.defaultBand;
+    CFG.tax.defaultBand=ud.taxBand;
+    ['b-tax-band','h-tax-band','sa-tax-band'].forEach(id=>{
+      if(getDDValue(id)===was)setDDValue(id,ud.taxBand,CFG.tax.personalBands[ud.taxBand].label);
+    });
   }
 }
 

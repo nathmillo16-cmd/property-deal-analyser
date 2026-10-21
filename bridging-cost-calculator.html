@@ -18,6 +18,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/calc-engine.js"></script>
 <script src="/deal-assumptions.js"></script>
+<script src="/user-defaults.js"></script>
 <script src="/tools-calc.js"></script>
 </head>
 <body class="theme-light">
@@ -96,9 +97,9 @@
 (function () {
   var T = ToolShell;
   var B = DEAL_ASSUMPTIONS.bridge;
-  document.getElementById('bc-rate').value = B.monthlyRate;
-  document.getElementById('bc-arr').value = B.arrangementFee;
-  document.getElementById('bc-exit').value = B.exitFee;
+  document.getElementById('bc-rate').defaultValue = B.monthlyRate;
+  document.getElementById('bc-arr').defaultValue = B.arrangementFee;
+  document.getElementById('bc-exit').defaultValue = B.exitFee;
 
   function inputs() {
     return { loan: T.num('bc-loan'), rate: T.num('bc-rate'), months: T.num('bc-months'), arrPct: T.num('bc-arr'),
@@ -126,6 +127,13 @@
       B.monthlyRate + '% a month, ' + B.arrangementFee + '% arrangement fee. Not a quote.</p>');
   }
   T.bind(run);
+
+  // Settings defaults, logged in: monthly rate, arrangement and exit fee.
+  T.userDefaults().then(function (ud) {
+    if (!ud) return;
+    var c = [T.fillDefault('bc-rate', ud.bridgeRate), T.fillDefault('bc-arr', ud.bridgeArrangementPct), T.fillDefault('bc-exit', ud.bridgeExitPct)];
+    if (c.some(Boolean)) run();
+  });
 
   document.getElementById('tool-full').addEventListener('click', function () {
     var i = inputs();

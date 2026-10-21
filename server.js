@@ -733,6 +733,43 @@ app.post('/api/refurb-estimates/:id/photos', express.json({ limit: '9mb' }), asy
   res.json({ path: storagePath, url: urls.get(storagePath) || null });
 });
 
+// Company logo (Settings > Company & letters, db/057). A small PNG or JPEG,
+// resized in the browser first, kept as a data URL in profiles.company_logo
+// (its own column, so the everyday GET /api/profile never carries it).
+// { data_url } sets it, { data_url: null } removes it. Also stamps
+// company_details.logo_updated_at so pages know a logo exists without
+// fetching it. Not plan-gated: it's the user's own branding on their own
+// row. Registered before express.json() for its own size limit.
+const COMPANY_LOGO_MAX_CHARS = 400000; // matches the db/057 check (about 290KB of image)
+app.post('/api/profile/company-logo', express.json({ limit: '1mb' }), async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to save your logo.' });
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to save your logo.' });
+  const userId = userData.user.id;
+
+  const raw = req.body ? req.body.data_url : undefined;
+  let logo = null;
+  if (raw !== null) {
+    if (typeof raw !== 'string' || !/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(raw)) {
+      return res.status(400).json({ error: 'Your logo must be a PNG or JPEG image.' });
+    }
+    if (raw.length > COMPANY_LOGO_MAX_CHARS) return res.status(400).json({ error: 'That logo is too large. Use an image under 250KB.' });
+    logo = raw;
+  }
+
+  const { data: row, error: readErr } = await supabase.from('profiles').select('company_details').eq('user_id', userId).single();
+  if (readErr && isMissingSchemaError(readErr)) return res.status(409).json({ needs_migration: true, error: 'Your logo can be saved after a quick database update (db/057).' });
+  if (readErr) return res.status(400).json({ error: 'Your logo could not be saved. Try again.' });
+  const details = { ...((row && row.company_details) || {}) };
+  if (logo) details.logo_updated_at = new Date().toISOString(); else delete details.logo_updated_at;
+
+  const { error } = await supabase.from('profiles').update({ company_logo: logo, company_details: details }).eq('user_id', userId);
+  if (error && isMissingSchemaError(error)) return res.status(409).json({ needs_migration: true, error: 'Your logo can be saved after a quick database update (db/057).' });
+  if (error) return res.status(400).json({ error: 'Your logo could not be saved. Try again.' });
+  res.json({ has_logo: !!logo, logo_updated_at: details.logo_updated_at || null });
+});
+
 app.use(express.json());
 
 // The bare root now serves the public landing page, not the calculator, so a
@@ -4565,28 +4602,52 @@ app.get('/api/refurb-rate-card', async (req, res) => {
   if (error && isMissingSchemaError(error)) return res.json({ rates: {}, updated_at: null, needs_migration: true });
   if (error) return res.status(400).json({ error: 'Your rates could not be loaded. Try again.' });
   const row = data && data[0];
-  res.json({ rates: (row && row.rates) || {}, updated_at: row ? row.updated_at : null });
+  // The refurb region (db/057) in its own failure-tolerant read: null
+  // before the migration, and the page keeps using this device's region.
+  let region = null, regionAvailable = false;
+  try {
+    const { data: rRows, error: rErr } = await supabase.from('refurb_rate_cards').select('region').limit(1);
+    if (!rErr) { regionAvailable = true; region = rRows && rRows[0] ? rRows[0].region || null : null; }
+  } catch (e) {}
+  res.json({ rates: (row && row.rates) || {}, updated_at: row ? row.updated_at : null, region, region_available: regionAvailable });
 });
 
+// { rates } replaces the rate card; { region } sets the region (db/057).
+// Either or both. A key that isn't sent is left as it is.
 app.put('/api/refurb-rate-card', async (req, res) => {
   const ctx = await refurbRequest(req, res, { needUser: true });
   if (!ctx) return;
   const { supabase, userId } = ctx;
-  const raw = req.body && req.body.rates;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return res.status(400).json({ error: 'rates must be an object.' });
-  const rates = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (!/^[a-z0-9-]{1,60}\.[a-z0-9-]{1,60}$/.test(k)) continue;
-    if (v === null || v === '') continue;
-    const n = Number(v);
-    if (!Number.isFinite(n) || n < 0 || n > 10000000) return res.status(400).json({ error: 'Rates must be numbers of £0 or more.' });
-    rates[k] = Math.round(n * 100) / 100;
+  const body = req.body || {};
+  const update = { user_id: userId, updated_at: new Date().toISOString() };
+
+  if (body.rates !== undefined) {
+    const raw = body.rates;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return res.status(400).json({ error: 'rates must be an object.' });
+    const rates = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (!/^[a-z0-9-]{1,60}\.[a-z0-9-]{1,60}$/.test(k)) continue;
+      if (v === null || v === '') continue;
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0 || n > 10000000) return res.status(400).json({ error: 'Rates must be numbers of £0 or more.' });
+      rates[k] = Math.round(n * 100) / 100;
+    }
+    if (Object.keys(rates).length > REFURB_LINE_ITEMS_MAX_KEYS) return res.status(400).json({ error: 'Too many rates.' });
+    update.rates = rates;
   }
-  if (Object.keys(rates).length > REFURB_LINE_ITEMS_MAX_KEYS) return res.status(400).json({ error: 'Too many rates.' });
+  if (body.region !== undefined) {
+    update.region = cleanText(body.region, 60);
+  }
+  if (update.rates === undefined && update.region === undefined) return res.status(400).json({ error: 'Nothing to save.' });
+
+  const cols = update.region !== undefined ? 'rates, updated_at, region' : 'rates, updated_at';
   const { data, error } = await supabase.from('refurb_rate_cards')
-    .upsert({ user_id: userId, rates, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-    .select('rates, updated_at').single();
-  if (error && isMissingSchemaError(error)) return refurbNeedsMigration(res);
+    .upsert(update, { onConflict: 'user_id' })
+    .select(cols).single();
+  if (error && isMissingSchemaError(error)) {
+    if (update.region !== undefined) return res.status(409).json({ needs_migration: true, error: 'Your region can be saved to your account after a quick database update (db/057).' });
+    return refurbNeedsMigration(res);
+  }
   if (error) return res.status(400).json({ error: 'Your rates could not be saved. Try again.' });
   res.json(data);
 });
@@ -5018,7 +5079,155 @@ app.get('/api/profile', async (req, res) => {
     if (!bbError && bbRow) buyBox = { buy_box: bbRow.buy_box || null, buy_box_available: true };
   } catch (e) {}
 
-  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals, ...progress, ...targetLtv, ...letterSender, ...buyBox });
+  // Settings overhaul (db/057): surname, phone, the wider investment
+  // defaults, Company & letters and notification toggles. Same decoupled
+  // query; settings_available tells Settings whether it can save them yet.
+  // The logo itself is never sent here (GET /api/profile/company-logo).
+  let settingsExtra = { surname: null, phone: null, calc_defaults: null, company_details: null, notification_prefs: null, settings_available: false };
+  try {
+    const { data: sRow, error: sErr } = await supabase
+      .from('profiles')
+      .select('surname, phone, calc_defaults, company_details, notification_prefs')
+      .eq('user_id', userId)
+      .single();
+    if (!sErr && sRow) settingsExtra = { ...sRow, settings_available: true };
+  } catch (e) {}
+
+  res.json({ ...data, plan: data.plan === 'paid' ? 'paid' : 'free', name, role, ...investmentDefaults, has_completed_tutorial: hasCompletedTutorial, ...goals, ...progress, ...targetLtv, ...letterSender, ...buyBox, ...settingsExtra });
+});
+
+// The company logo as a data URL (or null), for Settings' preview and the
+// PDFs that print it. Own row only via RLS plus the explicit filter.
+app.get('/api/profile/company-logo', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in required.' });
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in required.' });
+  const { data, error } = await supabase.from('profiles').select('company_logo').eq('user_id', userData.user.id).single();
+  if (error) return res.json({ data_url: null });
+  res.json({ data_url: data && data.company_logo ? data.company_logo : null });
+});
+
+// Account details (Settings > Account): first name, surname and phone in
+// one narrow update. First name works before db/057 is run; surname and
+// phone are saved in a second update that reports needs_migration on its
+// own, so a missing migration never blocks the first name.
+app.post('/api/profile/account', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to update your details.' });
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to update your details.' });
+  const userId = userData.user.id;
+  const b = req.body || {};
+
+  const name = cleanText(b.name, 60);
+  const { error: nameErr } = await supabase.from('profiles').update({ name }).eq('user_id', userId);
+  if (nameErr) return res.status(400).json({ error: 'Your name could not be saved. Try again.' });
+
+  const phone = cleanText(b.phone, 40);
+  if (phone && !/^[0-9+()\s.-]{6,40}$/.test(phone)) return res.status(400).json({ error: 'Enter a phone number using digits, spaces and + only.' });
+  const { error: extraErr } = await supabase.from('profiles').update({ surname: cleanText(b.surname, 80), phone }).eq('user_id', userId);
+  if (extraErr && isMissingSchemaError(extraErr)) return res.json({ name, needs_migration: true });
+  if (extraErr) return res.status(400).json({ error: 'Your details could not be saved. Try again.' });
+  res.json({ name, surname: cleanText(b.surname, 80), phone });
+});
+
+// Company & letters (db/057). Whitelisted fields only, each trimmed and
+// capped. The logo has its own endpoint above; logo_updated_at is kept from
+// what's stored, never taken from the request.
+app.post('/api/profile/company', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to save your company details.' });
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to save your company details.' });
+  const userId = userData.user.id;
+  const b = (req.body && typeof req.body === 'object') ? req.body : {};
+
+  const email = cleanText(b.email, 200);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Enter a valid company email, or leave it blank.' });
+  const number = cleanText(b.number, 20);
+  if (number && !/^[A-Za-z0-9 ]{2,20}$/.test(number)) return res.status(400).json({ error: 'Company number should be letters and numbers only, like 12345678.' });
+
+  const { data: row, error: readErr } = await supabase.from('profiles').select('company_details').eq('user_id', userId).single();
+  if (readErr && isMissingSchemaError(readErr)) return res.status(409).json({ needs_migration: true, error: 'Company details can be saved after a quick database update (db/057).' });
+  if (readErr) return res.status(400).json({ error: 'Company details could not be saved. Try again.' });
+  const existing = (row && row.company_details) || {};
+
+  const company_details = {
+    name: cleanText(b.name, 120),
+    number,
+    address: cleanText(b.address, 400),
+    phone: cleanText(b.phone, 40),
+    email,
+  };
+  if (existing.logo_updated_at) company_details.logo_updated_at = existing.logo_updated_at;
+
+  const { data, error } = await supabase.from('profiles').update({ company_details }).eq('user_id', userId).select('company_details').single();
+  if (error && isMissingSchemaError(error)) return res.status(409).json({ needs_migration: true, error: 'Company details can be saved after a quick database update (db/057).' });
+  if (error) return res.status(400).json({ error: 'Company details could not be saved. Try again.' });
+  res.json(data);
+});
+
+// Notification toggles (db/057). In-app only: Home's Needs attention hides
+// the alert types switched off here. No emails are sent for any of them.
+const NOTIFICATION_KEYS = ['fix_ending', 'compliance', 'loan_repayments', 'follow_ups'];
+app.post('/api/profile/notifications', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to save your notifications.' });
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to save your notifications.' });
+  const b = (req.body && typeof req.body === 'object') ? req.body : {};
+  const notification_prefs = {};
+  NOTIFICATION_KEYS.forEach((k) => { notification_prefs[k] = b[k] !== false; });
+  const { data, error } = await supabase.from('profiles').update({ notification_prefs }).eq('user_id', userData.user.id).select('notification_prefs').single();
+  if (error && isMissingSchemaError(error)) return res.status(409).json({ needs_migration: true, error: 'Notifications can be saved after a quick database update (db/057).' });
+  if (error) return res.status(400).json({ error: 'Notifications could not be saved. Try again.' });
+  res.json(data);
+});
+
+// "Export all my data" (Settings > Data & privacy). Every row the user owns
+// in the tables below, read with their own RLS-scoped client and filtered to
+// their id, returned as JSON for the browser to turn into one ZIP of CSVs.
+// File paths and storage paths are included as text; the files themselves
+// aren't. A table that doesn't exist yet comes back empty, never an error.
+const EXPORT_TABLES = [
+  ['deals', 'deals'],
+  ['deal_notes', 'deal_notes'],
+  ['deal_offers', 'deal_offers'],
+  ['deal_key_dates', 'deal_key_dates'],
+  ['portfolio', 'portfolio_properties'],
+  ['portfolio_rent', 'property_rent_log'],
+  ['expenses', 'property_expenses'],
+  ['refurb_estimates', 'refurb_estimates'],
+  ['refurb_quotes', 'refurb_quotes'],
+  ['refurb_payments', 'refurb_payments'],
+  ['private_loans', 'private_loans'],
+  ['private_loan_repayments', 'private_loan_repayments'],
+  ['contacts', 'deal_contacts'],
+];
+app.get('/api/account/export', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to export your data.' });
+  const { data: userData, error: userErr } = await supabase.auth.getUser(getBearerToken(req));
+  if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'Log in to export your data.' });
+  const userId = userData.user.id;
+
+  const tables = {};
+  for (const [name, table] of EXPORT_TABLES) {
+    const rows = [];
+    const PAGE = 1000;
+    for (let from = 0; from < 50000; from += PAGE) {
+      const { data, error } = await supabase.from(table).select('*').eq('user_id', userId).order('created_at', { ascending: true }).range(from, from + PAGE - 1);
+      if (error) {
+        if (!isMissingSchemaError(error)) console.error('Data export: could not read', table, 'for', userId, ':', error.message);
+        break;
+      }
+      rows.push(...(data || []));
+      if (!data || data.length < PAGE) break;
+    }
+    tables[name] = rows;
+  }
+  res.json({ exported_at: new Date().toISOString(), email: userData.user.email || null, tables });
 });
 
 // Target LTV (db/046), used by the Portfolio's "available to release".
@@ -5393,6 +5602,16 @@ app.post('/api/profile/investment-defaults', async (req, res) => {
     return res.status(400).json({ error: `default_mortgage_type must be one of ${MORTGAGE_TYPE_VALUES.join('/')}, or blank.` });
   }
 
+  // Only the keys actually sent are changed (the Settings overhaul stopped
+  // sending target_yield/target_roi, which now live in the buy box, and an
+  // absent key must never null out a saved value).
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+  const range = (k, v, min, max, label) => {
+    if (v === null) return null;
+    if (v < min || v > max) return `${label} must be between ${min} and ${max}, or blank.`;
+    return null;
+  };
+
   const { data: existing, error: existingError } = await supabase
     .from('profiles')
     .select('standard_fees')
@@ -5400,35 +5619,107 @@ app.post('/api/profile/investment-defaults', async (req, res) => {
     .single();
   if (existingError) return res.status(400).json({ error: existingError.message });
 
-  const mergedStandardFees = {
-    ...(existing && existing.standard_fees ? existing.standard_fees : {}),
-    solicitor: toNumberOrNull(body.solicitor_costs)
-  };
+  const payload = {};
+  const fees = { ...(existing && existing.standard_fees ? existing.standard_fees : {}) };
+  let feesChanged = false;
+  [['solicitor_costs', 'solicitor'], ['searches', 'searches'], ['arrangement_fee', 'mortgage']].forEach(([k, feeKey]) => {
+    if (has(k)) { fees[feeKey] = toNumberOrNull(body[k]); feesChanged = true; }
+  });
+  if (feesChanged) payload.standard_fees = fees;
 
-  const payload = {
-    target_yield: toNumberOrNull(body.target_yield),
-    target_roi: toNumberOrNull(body.target_roi),
-    default_mortgage_rate: toNumberOrNull(body.default_mortgage_rate),
-    standard_fees: mergedStandardFees,
-    default_deposit_pct: toNumberOrNull(body.default_deposit_pct),
-    default_mortgage_term_years: toIntOrNull(body.default_mortgage_term_years),
-    default_mortgage_type: mortgageType,
-    default_insurance: toNumberOrNull(body.default_insurance),
-    default_management_pct: toNumberOrNull(body.default_management_pct),
-    default_maintenance_pct: toNumberOrNull(body.default_maintenance_pct),
-    default_refurb_contingency_pct: toNumberOrNull(body.default_refurb_contingency_pct)
-  };
+  const NUMERIC = [
+    ['target_yield', toNumberOrNull], ['target_roi', toNumberOrNull],
+    ['default_mortgage_rate', toNumberOrNull, 0, 30, 'Mortgage rate'],
+    ['default_deposit_pct', toNumberOrNull, 0, 100, 'Deposit'],
+    ['default_mortgage_term_years', toIntOrNull, 1, 40, 'Mortgage term'],
+    ['default_insurance', toNumberOrNull, 0, 100000, 'Insurance'],
+    ['default_management_pct', toNumberOrNull, 0, 100, 'Management'],
+    ['default_maintenance_pct', toNumberOrNull, 0, 100, 'Maintenance'],
+    ['default_refurb_contingency_pct', toNumberOrNull, 0, 100, 'Refurb contingency'],
+  ];
+  for (const [k, conv, min, max, label] of NUMERIC) {
+    if (!has(k)) continue;
+    const v = conv(body[k]);
+    if (label) { const err = range(k, v, min, max, label); if (err) return res.status(400).json({ error: err }); }
+    payload[k] = v;
+  }
+  if (has('default_mortgage_type')) payload.default_mortgage_type = mortgageType;
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(payload)
-    .eq('user_id', userId)
-    .select()
-    .single();
+  // Refinance LTV is the old Portfolio "target LTV" (db/046), now set here.
+  // Blank goes back to 75%, same as POST /api/profile/target-ltv.
+  if (has('refinance_ltv')) {
+    const raw = body.refinance_ltv;
+    const n = (raw === null || raw === undefined || raw === '') ? DEFAULT_TARGET_LTV : Number(raw);
+    if (!Number.isFinite(n) || n <= 0 || n > 100) return res.status(400).json({ error: 'Refinance LTV must be above 0 and up to 100.' });
+    payload.target_ltv = n;
+  }
 
-  if (error) return res.status(400).json({ error: error.message });
+  let data = {};
+  if (Object.keys(payload).length) {
+    let r = await supabase.from('profiles').update(payload).eq('user_id', userId).select().single();
+    // Before db/046, target_ltv doesn't exist: save everything else.
+    if (r.error && isMissingSchemaError(r.error) && payload.target_ltv !== undefined) {
+      delete payload.target_ltv;
+      r = await supabase.from('profiles').update(payload).eq('user_id', userId).select().single();
+    }
+    if (r.error) return res.status(400).json({ error: r.error.message });
+    data = r.data || {};
+  }
+
+  // The defaults with no column of their own (db/057), merged into what's
+  // stored so internal markers survive. Saved separately so a missing
+  // migration never blocks the fields above.
+  if (has('calc_defaults')) {
+    const { value, error: vErr } = validateCalcDefaults(body.calc_defaults);
+    if (vErr) return res.status(400).json({ error: vErr });
+    const { data: row, error: cdReadErr } = await supabase.from('profiles').select('calc_defaults').eq('user_id', userId).single();
+    if (cdReadErr && isMissingSchemaError(cdReadErr)) return res.json({ ...data, calc_defaults_needs_migration: true });
+    if (cdReadErr) return res.status(400).json({ error: 'Your defaults could not be saved. Try again.' });
+    const merged = { ...((row && row.calc_defaults) || {}) };
+    CALC_DEFAULT_FIELDS.forEach(([k]) => { delete merged[k]; });
+    Object.assign(merged, value);
+    const { data: cdRow, error: cdErr } = await supabase.from('profiles').update({ calc_defaults: merged }).eq('user_id', userId).select('calc_defaults').single();
+    if (cdErr && isMissingSchemaError(cdErr)) return res.json({ ...data, calc_defaults_needs_migration: true });
+    if (cdErr) return res.status(400).json({ error: 'Your defaults could not be saved. Try again.' });
+    data.calc_defaults = cdRow.calc_defaults;
+  }
   res.json(data);
 });
+
+// profiles.calc_defaults (db/057): [key, kind, min, max, label]. Anything
+// not listed is dropped; blank means "use the built-in default" (left out).
+const CALC_DEFAULT_FIELDS = [
+  ['buying_as', ['ltd', 'personal']],
+  ['tax_band', ['basic', 'higher', 'additional']],
+  ['mortgage_product', ['interest_only', 'repayment']],
+  ['survey', 'num', 0, 100000, 'Survey'],
+  ['broker_fee', 'num', 0, 100000, 'Broker fee'],
+  ['stress_rate', 'num', 0, 20, 'Stress rate'],
+  ['icr', 'num', 100, 300, 'ICR'],
+  ['bridge_monthly_rate', 'num', 0, 5, 'Bridging monthly rate'],
+  ['bridge_arrangement_pct', 'num', 0, 10, 'Bridging arrangement fee'],
+  ['bridge_exit_pct', 'num', 0, 10, 'Bridging exit fee'],
+  ['voids_pct', 'num', 0, 100, 'Voids'],
+  ['letting_fee', 'num', 0, 100000, 'Letting fee'],
+  ['safety_certs', 'num', 0, 100000, 'Safety certificates'],
+];
+function validateCalcDefaults(b) {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return { error: 'Defaults must be an object.' };
+  const out = {};
+  for (const [k, kind, min, max, label] of CALC_DEFAULT_FIELDS) {
+    const v = b[k];
+    if (v === null || v === undefined || v === '') continue;
+    if (Array.isArray(kind)) {
+      if (!kind.includes(v)) return { error: `${k} must be one of ${kind.join('/')}.` };
+      out[k] = v;
+      continue;
+    }
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < min || n > max) return { error: `${label} must be between ${min} and ${max}, or blank.` };
+    out[k] = Math.round(n * 100) / 100;
+  }
+  return { value: out };
+}
 
 // Reads stripe_subscription_id in isolation, tolerant of the column not
 // existing yet (db/020_profiles_stripe_ids.sql may not be applied). Two

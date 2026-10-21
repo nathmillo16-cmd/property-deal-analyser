@@ -167,6 +167,17 @@ body.theme-light .msg.error{background:var(--danger-bg);color:var(--danger)}
       <a class="link" href="#" onclick="event.preventDefault();switchMode('login')">Back to log in</a>
     </div>
 
+    <div class="panel" id="panel-mfa">
+      <p style="font-size:14px;font-weight:600;margin:0 0 .35rem">Two-step sign in</p>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 1rem;line-height:1.5">Enter the 6-digit code from your authenticator app.</p>
+      <form id="form-mfa">
+        <div class="f"><label>Code</label><input type="text" id="mfa-code" required inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" style="letter-spacing:.3em;font-size:18px"/></div>
+        <button type="submit" class="submit-btn" id="btn-mfa">Verify</button>
+      </form>
+      <div class="msg" id="msg-mfa"></div>
+      <a class="link" href="#" onclick="event.preventDefault();cancelMfa()">Use a different account</a>
+    </div>
+
     <div class="panel" id="panel-reset">
       <form id="form-reset">
         <div class="f"><label>New password</label><input type="password" id="reset-password" required minlength="6" autocomplete="new-password"/></div>
@@ -186,6 +197,7 @@ function switchMode(mode){
   document.getElementById('panel-login').classList.toggle('active', mode==='login');
   document.getElementById('panel-signup').classList.toggle('active', mode==='signup');
   document.getElementById('panel-forgot').classList.toggle('active', mode==='forgot');
+  document.getElementById('panel-mfa').classList.remove('active');
   document.querySelector('.tabs').style.display=(mode==='login'||mode==='signup')?'flex':'none';
 }
 
@@ -216,6 +228,8 @@ async function init(){
   if(!isRecovery){
     const { data:{ session } } = await client.auth.getSession();
     if(session){
+      // Signed in with a password but two-step sign in still to do.
+      if(await needsMfa()){ showMfaPanel(); return; }
       window.location.href='/home.html';
       return;
     }
@@ -249,8 +263,50 @@ document.getElementById('form-login').addEventListener('submit', async (e)=>{
     }else{
       showMsg('msg-login', error.message, 'error');
     }
+  }else if(await needsMfa()){
+    showMfaPanel();
   }else{
     window.location.href='/home.html';
+  }
+});
+
+// Two-step sign in (Settings > Security): Supabase's built-in MFA with an
+// authenticator app. After the password the session is one step (aal1);
+// someone who has turned it on needs the code to reach two (aal2).
+async function needsMfa(){
+  try{
+    const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(error||!data)return false;
+    return data.nextLevel==='aal2'&&data.currentLevel!=='aal2';
+  }catch(e){ return false; }
+}
+function showMfaPanel(){
+  document.querySelector('.tabs').style.display='none';
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-mfa'));
+  setTimeout(()=>document.getElementById('mfa-code').focus(),50);
+}
+async function cancelMfa(){
+  await client.auth.signOut();
+  document.getElementById('mfa-code').value='';
+  switchMode('login');
+}
+document.getElementById('form-mfa').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn=document.getElementById('btn-mfa');
+  const code=document.getElementById('mfa-code').value.trim();
+  if(!/^\d{6}$/.test(code)){ showMsg('msg-mfa','Enter the 6-digit code.','error'); return; }
+  btn.disabled=true;btn.textContent='Checking...';
+  try{
+    const { data:factors, error:listErr } = await client.auth.mfa.listFactors();
+    if(listErr)throw listErr;
+    const factor=(factors.totp||[]).find(f=>f.status==='verified');
+    if(!factor)throw new Error('No authenticator app is set up on this account.');
+    const { error } = await client.auth.mfa.challengeAndVerify({ factorId:factor.id, code });
+    if(error)throw new Error("That code didn't work. Codes change every 30 seconds, so try the newest one.");
+    window.location.href='/home.html';
+  }catch(err){
+    btn.disabled=false;btn.textContent='Verify';
+    showMsg('msg-mfa', err.message, 'error');
   }
 });
 

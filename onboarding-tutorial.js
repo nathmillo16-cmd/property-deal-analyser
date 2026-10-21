@@ -107,14 +107,11 @@ var TUTORIAL_STEPS = [
   {
     id: 'settings-help',
     page: 'settings.html',
-    selectors: ['#btn-replay-tutorial'],
+    selectors: ['#set-nav'],
     title: 'Settings and help',
-    // PLACEHOLDER — please review: there's no dedicated help/support page
-    // in the app yet, so this only covers Settings/Replay as requested.
-    // Swap in a real contact method once one exists.
-    body: 'Your account, subscription, goals and defaults all live in Settings, which you can also reach from your initials at the top right. You can replay this tutorial from here, or from Help & tutorial in that same menu, anytime you want a refresher.',
+    body: 'Your account, plan, investment defaults, goals and company details all live in Settings, which you can also reach from your initials at the top right. Replay this tutorial anytime from Help & tutorial in that same menu.',
     // iOS app: Settings lives under the account button (initials), and no subscription wording.
-    nativeBody: 'Your account, goals and defaults live in Settings. Tap your initials at the top right of the screen to get here, or to replay this tutorial anytime you want a refresher.'
+    nativeBody: 'Your account, defaults, goals and company details live in Settings. Tap your initials at the top right of the screen to get here, or to replay this tutorial from Help & tutorial.'
   }
 ];
 

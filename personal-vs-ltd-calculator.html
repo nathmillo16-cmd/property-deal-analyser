@@ -18,6 +18,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/calc-engine.js"></script>
 <script src="/deal-assumptions.js"></script>
+<script src="/user-defaults.js"></script>
 <script src="/tools-calc.js"></script>
 </head>
 <body class="theme-light">
@@ -140,6 +141,14 @@
   }
   document.getElementById('tx-bands').addEventListener('change', run);
   T.bind(run);
+
+  // Settings default, logged in: your tax band, while the default band is
+  // still the one picked.
+  T.userDefaults().then(function (ud) {
+    if (!ud || !ud.taxBand || !TX.personalBands[ud.taxBand] || band() !== TX.defaultBand) return;
+    var r = document.querySelector('input[name="tx-band"][value="' + ud.taxBand + '"]');
+    if (r) { r.checked = true; run(); }
+  });
 
   document.getElementById('tool-full').addEventListener('click', function () {
     T.runFull({ strategy: 'btl',

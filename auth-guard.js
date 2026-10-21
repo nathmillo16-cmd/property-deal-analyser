@@ -17,6 +17,15 @@ async function requireAuth() {
       window.location.href = '/';
       return null;
     }
+    // Two-step sign in (Settings > Security): a password-only session for
+    // someone who has it turned on goes back to the login page for the code.
+    try {
+      const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+        window.location.href = '/login.html';
+        return null;
+      }
+    } catch (e) { /* MFA check unavailable: carry on as before */ }
     return { client, session };
   } catch (e) {
     // Fail open on visibility (never leave the page permanently blank), but
