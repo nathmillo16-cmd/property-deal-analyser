@@ -223,6 +223,8 @@ body.theme-light .sl{color:var(--accent)}
 }
 .f input:focus{outline:none;border-color:var(--input-accent)}
 .f .dd-trigger{width:100%}
+/* "Estimate refurb" under each Refurb field: opens the Refurbishment Estimator. */
+.est-refurb-link{align-self:flex-start;background:none;border:none;padding:2px 0;font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px;min-height:28px}
 
 .tr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .tr label{font-size:12.5px;color:var(--input-muted);min-width:130px;font-weight:600}
@@ -497,7 +499,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="b-pp" value="140000" oninput="markStaleBTL()"/></div>
           <div class="f"><label>End market value (£)</label><input type="text" inputmode="decimal" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Monthly rent (£)</label><input type="text" inputmode="decimal" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
-          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="b-ref" value="10000" oninput="markStaleBTL()"/><button type="button" class="est-refurb-link" onclick="openRefurbEstimator('b-ref')">Estimate refurb</button></div>
           <div class="f btl-only"><label>Deposit % (of purchase price)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
           <div class="f brrr-only"><label>Refinance LTV % (of EMV)</label><input type="number" id="bb-refi-ltv" value="75" oninput="markStaleBTL()"/></div>
           <div class="f brrr-only"><label>Refinance type</label>
@@ -732,7 +734,7 @@ body.theme-light .dd-trigger::after{
         <div class="g2">
           <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
           <div class="f"><label>End market value (£)</label><input type="text" inputmode="decimal" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
-          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
+          <div class="f"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="h-ref" value="10000" oninput="markStaleHMO()"/><button type="button" class="est-refurb-link" onclick="openRefurbEstimator('h-ref')">Estimate refurb</button></div>
           <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
         </div>
         <p class="sl section-gap">Room breakdown</p>
@@ -928,7 +930,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="markStaleSA()"/></div>
           <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
           <div class="f"><label>End market value (£)</label><input type="text" inputmode="decimal" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
-          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="sa-ref" value="15000" oninput="markStaleSA()"/><button type="button" class="est-refurb-link" onclick="openRefurbEstimator('sa-ref')">Estimate refurb</button></div>
           <div class="f"><label>Deposit % (of purchase price)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
         </div>
         <details class="adv">
@@ -1128,7 +1130,7 @@ body.theme-light .dd-trigger::after{
         <div class="g2">
           <div class="f"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="fl-pp" value="150000" oninput="markStaleFlip()"/></div>
           <div class="f"><label>Sale value (£)</label><input type="text" inputmode="decimal" id="fl-sv" value="220000" oninput="markStaleFlip()"/></div>
-          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
+          <div class="f"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="fl-ref" value="25000" oninput="markStaleFlip()"/><button type="button" class="est-refurb-link" onclick="openRefurbEstimator('fl-ref')">Estimate refurb</button></div>
         </div>
         <details class="adv">
           <summary>Advanced <span>fees, contingency and target</span></summary>
@@ -2255,6 +2257,43 @@ async function autoSaveRerun(){
       note.style.display='block';
     }
   }
+}
+
+// "Estimate refurb" next to a Refurb field: opens the Refurbishment
+// Estimator. The calculator's inputs are kept in the draft, and saving the
+// estimate sends its grand total back here (applyRefurbReturn below).
+function openRefurbEstimator(field){
+  try{ saveIndexDraft(); }catch(e){}
+  window.location.href='refurb.html?from=calc&field='+encodeURIComponent(field)+'&tab='+encodeURIComponent(currentTab);
+}
+
+// One-shot handoff from refurb.html: put the saved estimate's grand total
+// into the Refurb field it was opened from. Only ever sets that one input;
+// the calculation itself runs exactly as if the user had typed it.
+function applyRefurbReturn(){
+  let p=null;
+  try{
+    const raw=sessionStorage.getItem('dny-refurb-to-calc');
+    if(!raw)return;
+    sessionStorage.removeItem('dny-refurb-to-calc');
+    p=JSON.parse(raw);
+  }catch(e){ return; }
+  const fields={'b-ref':'btl','h-ref':'hmo','sa-ref':'sa','fl-ref':'flip'};
+  if(!p||!fields[p.field]||!(Number(p.value)>=0))return;
+  const el=document.getElementById(p.field);
+  if(!el)return;
+  try{
+    const tab=p.field==='b-ref'&&(p.tab==='brrr'||p.tab==='btl')?p.tab:fields[p.field];
+    switchTab(tab);
+    el.value=String(Math.round(Number(p.value)));
+    saveIndexDraft();
+    const note=document.getElementById('rerun-note');
+    if(note){
+      note.className='value-warning success';
+      note.textContent='Refurb set to £'+Math.round(Number(p.value)).toLocaleString('en-GB')+' from your estimate'+(p.name?' "'+p.name+'"':'')+'.';
+      note.style.display='block';
+    }
+  }catch(e){ /* leave the field as it was */ }
 }
 
 function currentIndexDraftState(){
@@ -3625,6 +3664,7 @@ document.addEventListener('click',e=>{if(!e.target.closest('.fh,.fh-tip'))closeF
 document.querySelectorAll('details').forEach(d=>d.addEventListener('toggle',fitNumbers));
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitNumbers);
 if(!applyRerunPayload())restoreIndexDraft();
+applyRefurbReturn();
 initMoneyFields();
 refreshAll('now');
 // Scroll restore waits for initAuth() to fully settle (it can re-render

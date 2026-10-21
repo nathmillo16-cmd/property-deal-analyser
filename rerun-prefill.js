@@ -73,9 +73,20 @@ function buildRerunFields(deal, newRef){
   return {strategy,fields,roomsFellBack,dealId:deal.id,planning:d.planning||null};
 }
 
-function goToRerun(deal, newRef){
+// opts.months (optional): the refurb estimate's timeline in months, used
+// for the calculator's bridge months (BRRR) and holding cost months
+// (BTL/BRRR and Flip). It only changes those inputs; whether the bridge or
+// holding toggles are on stays as the deal was saved.
+function goToRerun(deal, newRef, opts){
   const payload=buildRerunFields(deal,newRef);
   if(!payload)return;
+  const months=opts&&Number(opts.months);
+  if(months>0&&(deal.deal_type==='btl'||deal.deal_type==='flip')){
+    const p=payload.planning&&typeof payload.planning==='object'?JSON.parse(JSON.stringify(payload.planning)):{v:1};
+    if(deal.deal_type==='btl'&&payload.strategy==='brrr')p.bridge={...(p.bridge||{}),months:String(months)};
+    p.holding={...(p.holding||{}),months:String(months)};
+    payload.planning=p;
+  }
   sessionStorage.setItem('dny-rerun',JSON.stringify(payload));
   window.location.href='index.html';
 }

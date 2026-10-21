@@ -225,7 +225,7 @@ let sbClient=null, currentSession=null, currentPlan=null;
 let property=null, targetLtv=75, schemaReady=false, editingSection=null;
 // Property records (db/047). recordsReady comes from GET /api/portfolio;
 // each of these is null until loaded, or {error} if it couldn't be.
-let recordsReady=false, records=null, documents=null, photos=null;
+let recordsReady=false, records=null, documents=null, photos=null, capital=null;
 let cashflowMode='estimated', rentEditMonth=null, rentMonthsShown=12, expensesShowAll=false;
 try{ if(localStorage.getItem('pp-cashflow-mode')==='actual')cashflowMode='actual'; }catch(e){}
 const propertyId=new URLSearchParams(location.search).get('id');
@@ -356,6 +356,9 @@ function render(){
     ['overview','Overview',overviewSummary(),overviewBody()],
     ['rent','Rent',rentSummary(),rentBody()],
     ['expenses','Expenses',expensesSummary(),expensesBody()],
+    // Refurb spend logged from the Refurbishment Estimator's Budget (db/048).
+    // Hidden until that database update is run, or when nothing's logged.
+    ...(capital&&capital.data&&capital.data.payments.length?[['capital','Refurb and capital costs',capitalSummary(),capitalBody()]]:[]),
     ['mortgage','Mortgage',mortgageSummary(),mortgageBody()],
     ['equity','Equity',equitySummary(),equityBody()],
     ['tenancy','Tenancy',tenancySummary(),tenancyBody()],
@@ -638,9 +641,10 @@ async function sendJson(method, path, body){
 }
 
 async function loadExtras(){
-  await Promise.all([loadRecords(), loadDocuments(), loadPhotos()]);
+  await Promise.all([loadRecords(), loadDocuments(), loadPhotos(), loadCapital()]);
 }
 async function loadRecords(){ records=await getJson('/api/portfolio/'+encodeURIComponent(propertyId)+'/records'); render(); }
+async function loadCapital(){ capital=await getJson('/api/portfolio/'+encodeURIComponent(propertyId)+'/capital-costs'); render(); }
 async function loadDocuments(){ documents=await getJson('/api/portfolio/'+encodeURIComponent(propertyId)+'/documents'); render(); }
 async function loadPhotos(){
   if(!recordsReady){ photos={needsMigration:true}; render(); return; }
@@ -792,6 +796,24 @@ async function clearRent(){
     rentEditMonth=null;
     await loadRecords();
   }catch(e){ document.getElementById('pr-rent-msg').textContent=e.message; }
+}
+
+// ---------- refurb and capital costs ----------
+function capitalSummary(){
+  const d=capital.data;
+  return sumText(`${PF.gbp2(d.total)} logged, ${PF.plural(d.payments.length,'payment')}`);
+}
+function capitalBody(){
+  const d=capital.data;
+  const rows=d.payments.map(p=>`<li class="pr-item"><div class="pr-row pr-has-actions">
+      <span class="pr-main"><span class="pr-title">${PF.esc(p.description||'Refurb payment')}</span>
+        <span class="pr-sub">${PF.date(p.paid_date)}${p.estimate_name?' · '+PF.esc(p.estimate_name):''}</span></span>
+      <span class="pr-amount">${PF.gbp2(p.amount)}</span>
+      <span class="pr-actions">${p.receipt_url?`<a class="pr-btn" href="${PF.esc(p.receipt_url)}" target="_blank" rel="noopener" title="Open receipt (link lasts 1 hour)">${CLIP_ICON}<span class="sr-only">Receipt</span></a>`:''}</span>
+    </div></li>`).join('');
+  return `<div class="pp-callout">Refurb spend is kept as capital costs, separate from day-to-day expenses and the tax year summary.<span class="pp-callout-sub">Refurb and improvement costs are usually treated differently for tax. Check with your accountant.</span></div>
+    <ul class="pr-list">${rows}</ul>
+    <div class="pp-sec-foot"><p class="pp-note">Logged from the Refurbishment Estimator's Budget. Edit or delete them there.</p></div>`;
 }
 
 // ---------- expenses ----------

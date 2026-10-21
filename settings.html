@@ -22,6 +22,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <script src="/onboarding-tutorial.js"></script>
+<script src="/refurb-totals.js"></script>
+<script src="/refurb-guide-rates.js"></script>
+<script src="/refurb-rate-card.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css */
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
@@ -71,6 +74,21 @@
 .investment-defaults-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem}
 @media(max-width:600px){.investment-defaults-grid{grid-template-columns:1fr}}
 .investment-defaults-grid .field{margin-bottom:1rem}
+/* Your refurb rates: one collapsible group per category */
+.rc-sec{border:1px solid var(--hairline);border-radius:10px;margin-bottom:8px;background:var(--surface)}
+.rc-sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:.8rem 1rem;min-height:48px}
+.rc-sec>summary::-webkit-details-marker{display:none}
+.rc-sec-name{font-weight:600;font-size:13.5px;color:var(--ink)}
+.rc-sec-sum{margin-left:auto;font-size:12px;color:var(--muted)}
+.rc-chev{width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .15s ease}
+.rc-sec[open] .rc-chev{transform:rotate(-135deg)}
+.rc-sec-body{padding:0 1rem .75rem}
+.rc-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:.5rem 0;border-top:1px solid var(--hairline)}
+.rc-row:first-child{border-top:none}
+.rc-row label{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--ink);min-width:0}
+.rc-unit{font-size:11px;color:var(--muted)}
+.rc-row input{width:110px;flex-shrink:0;font-family:var(--font-body);font-size:14px;padding:8px 10px;border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);background:var(--input-surface);color:var(--input-ink);text-align:right}
+.rc-row input:focus{outline:none;border-color:var(--input-accent)}
 </style>
 </head>
 <body class="theme-light">
@@ -235,6 +253,18 @@
         <p class="save-msg" id="investment-defaults-msg"></p>
       </div>
 
+      <!-- YOUR REFURB RATES -->
+      <div class="card settings-card" id="refurb-rates">
+        <h2>Your refurb rates</h2>
+        <p class="hint" style="margin-bottom:1rem">Your own price per unit for each refurb line item. They pre-fill new estimates in the Refurbishment Estimator, labelled "Your rate". Leave any blank.</p>
+        <div id="rc-locked" class="hint" style="display:none">Your refurb rates are part of the paid plan, with the Refurbishment Estimator.</div>
+        <div id="rc-wrap" style="display:none">
+          <div id="rc-editor"></div>
+          <button class="btn-primary" id="btn-save-rates" style="margin-top:.75rem" onclick="saveRefurbRates()">Save my rates</button>
+          <p class="save-msg" id="rc-msg"></p>
+        </div>
+      </div>
+
       <!-- DANGER ZONE -->
       <div class="card settings-card danger-zone">
         <h2>Danger zone</h2>
@@ -290,6 +320,30 @@ async function init(){
   });
 }
 
+// Your refurb rates (db/048), paid only like the estimator itself.
+async function loadRefurbRates(isPaid){
+  if(!isPaid){ document.getElementById('rc-locked').style.display='block'; return; }
+  const rc=await RefurbRateCard.load(currentSession);
+  document.getElementById('rc-wrap').style.display='block';
+  RefurbRateCard.renderEditor(document.getElementById('rc-editor'),rc.rates||{});
+  const msg=document.getElementById('rc-msg');
+  if(rc.needsMigration){ msg.className='save-msg'; msg.textContent='Saving your rates needs a quick database update first.'; }
+  else if(rc.error){ msg.className='save-msg error'; msg.textContent=rc.error; }
+}
+async function saveRefurbRates(){
+  const msg=document.getElementById('rc-msg');
+  const btn=document.getElementById('btn-save-rates');
+  const read=RefurbRateCard.readEditor(document.getElementById('rc-editor'));
+  if(read.error){ msg.className='save-msg error'; msg.textContent=read.error; if(read.el){ read.el.closest('details').open=true; read.el.focus(); } return; }
+  btn.disabled=true; msg.className='save-msg'; msg.textContent='Saving…';
+  try{
+    await RefurbRateCard.save(currentSession,read.rates);
+    const n=Object.keys(read.rates).length;
+    msg.className='save-msg success'; msg.textContent=n?`Saved ${n} rate${n===1?'':'s'}.`:'Saved. No rates set.';
+  }catch(e){ msg.className='save-msg error'; msg.textContent=e.message; }
+  btn.disabled=false;
+}
+
 function showState(state){
   ['loading','loggedout','content'].forEach(s=>{
     document.getElementById('state-'+s).style.display = s===state ? 'block' : 'none';
@@ -328,6 +382,7 @@ async function loadProfile(){
     document.getElementById('set-plan-free-cta').style.display=isPaid?'none':'block';
 
     populateInvestmentDefaults(d);
+    loadRefurbRates(isPaid);
 
     // Target LTV (db/046). 75 until saved; can't be saved before the
     // migration is run (target_ltv_available false).

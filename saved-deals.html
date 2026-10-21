@@ -29,6 +29,7 @@
 <script src="/results-disclaimer.js"></script>
 <script src="/draft-state.js"></script>
 <script src="/refurb-totals.js"></script>
+<script src="/refurb-templates.js"></script>
 <script src="/rerun-prefill.js"></script>
 <script src="/onboarding-tutorial.js"></script>
 <style>
@@ -2028,7 +2029,7 @@ async function loadRefurbSection(deal){
   const dealRef=Math.round((deal.deal_data&&deal.deal_data.ref)||0);
 
   if(!deal.refurb_estimate_id){
-    bodyEl.innerHTML=`<p class="hint">No refurb estimate linked. This deal's own refurb figure (${fmt(dealRef)}) is what it was analysed with. Link one from the Refurb Estimator's "Add to deal" button.</p>`;
+    bodyEl.innerHTML=`<p class="hint">No refurb estimate linked. This deal's own refurb figure (${fmt(dealRef)}) is what it was analysed with. Link one from the Refurb Estimator's "Link to deal" button.</p>`;
     return;
   }
 
@@ -2041,14 +2042,22 @@ async function loadRefurbSection(deal){
       // Linked id set but the estimate itself isn't in this user's list —
       // shouldn't happen given on delete set null, but fail to the
       // unlinked view rather than show a broken reference.
-      bodyEl.innerHTML=`<p class="hint">No refurb estimate linked. This deal's own refurb figure (${fmt(dealRef)}) is what it was analysed with. Link one from the Refurb Estimator's "Add to deal" button.</p>`;
+      bodyEl.innerHTML=`<p class="hint">No refurb estimate linked. This deal's own refurb figure (${fmt(dealRef)}) is what it was analysed with. Link one from the Refurb Estimator's "Link to deal" button.</p>`;
       return;
     }
     const totals=computeTotals(est.mode,est.line_items,est.contingency_enabled,est.contingency_pct,est.vat_rate);
     const grand=Math.round(totals.grandTotal);
     const matches=grand===dealRef;
-    bodyEl.innerHTML=`<p>Linked: <strong>${escapeHtml(est.name)}</strong> — grand total ${fmt(grand)} · <a href="refurb.html?estimate=${encodeURIComponent(est.id)}">Open</a></p>`+
-      (matches?'':`<p class="value-warning" style="display:block">This deal was analysed with a refurb cost of ${fmt(dealRef)}. Re-run to use the estimate's ${fmt(grand)} instead — linking never changes this deal's saved figures on its own.</p>`)+
+    // Scope, timeline and budget come from the estimate's details (db/048);
+    // an estimate saved before then just shows its name and total.
+    const det=est.details||{};
+    const scope=est.mode==='quick'?'Quick total':(det.template&&typeof REFURB_SCOPES!=='undefined'&&REFURB_SCOPES[det.template.scope]?REFURB_SCOPES[det.template.scope].label:(det.entry==='rooms'?'Room by room':'Line by line'));
+    const facts=[scope];
+    if(det.durationWeeks)facts.push(det.durationWeeks+(Number(det.durationWeeks)===1?' week':' weeks'));
+    if(est.budget_amount!=null)facts.push('Budget '+fmt(Number(est.budget_amount))+(est.pct_complete?', '+Math.round(est.pct_complete)+'% complete':''));
+    bodyEl.innerHTML=`<p>Linked: <strong>${escapeHtml(est.name)}</strong>, grand total ${fmt(grand)}. <a href="refurb.html?estimate=${encodeURIComponent(est.id)}">Open the estimate</a></p>`+
+      `<p class="hint" style="margin-top:-.25rem">${escapeHtml(facts.join(' · '))}</p>`+
+      (matches?'':`<p class="value-warning" style="display:block">This deal was analysed with a refurb cost of ${fmt(dealRef)}. Re-run to use the estimate's ${fmt(grand)} instead. Linking never changes this deal's saved figures on its own.</p>`)+
       `<div class="modal-form-row">`+
       (matches?'':`<button class="btn-primary" onclick="reRunWithRefurb(${grand})">Re-run with this refurb cost</button>`)+
       `<button class="mini-btn danger" onclick="unlinkRefurbEstimate()">Unlink</button>

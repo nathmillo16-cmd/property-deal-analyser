@@ -20,168 +20,318 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="/auth-guard.js"></script>
 <script src="/draft-state.js"></script>
 <script src="/refurb-totals.js"></script>
+<script src="/refurb-guide-rates.js"></script>
+<script src="/refurb-templates.js"></script>
+<script src="/refurb-rate-card.js"></script>
 <script src="/rerun-prefill.js"></script>
+<script src="/refurb-workflow.js"></script>
+<script src="/refurb-scope-pdf.js"></script>
 <style>
-/* page-specific layout only — colours/fonts/radius all come from styles.css */
+/* page-specific layout only: colours/fonts/radius all come from styles.css */
+[hidden]{display:none!important}
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
-
 .page-title{font-family:var(--font-head);font-weight:600;font-size:22px;color:var(--ink);margin:0 0 .4rem}
-.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 var(--space-6)}
-
+.page-sub{color:var(--muted);font-size:13.5px;margin:0 0 var(--space-5)}
 .locked-panel{text-align:center;padding:3.5rem 1rem}
 .locked-panel h2{font-size:22px;margin:0 0 .75rem}
 .locked-panel p{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
-
-/* Light-theme card treatment for every .card-classed element on this page
-   (the accordion sections, the quick-mode panel, the summary sidebar) —
-   .card is shared with other, still-dark pages, so this override is scoped
-   to body.theme-light and lives here rather than in shared styles.css. */
-body.theme-light .card{
-  border:1px solid rgba(0,0,0,.09);
-  border-radius:14px;
-  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
-}
-
-/* Grand Total — the page's "money hero" moment, matching the indigo hero
-   treatment used elsewhere (home/portfolio/pipeline). .offer-box is a
-   shared component (also used by index.html's max-bid figure, unchanged,
-   dark theme), so this stays scoped to body.theme-light rather than
-   touching the shared rule — no markup/ID change, colours + size only. */
-body.theme-light .offer-box{
-  background:linear-gradient(135deg, var(--accent), #37317f);
-  border:none;
-  box-shadow:0 4px 20px rgba(75,69,178,.28);
-}
+body.theme-light .card{border:1px solid rgba(0,0,0,.09);border-radius:14px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.02)}
+body.theme-light .offer-box{background:linear-gradient(135deg,var(--accent),#37317f);border:none;box-shadow:0 4px 20px rgba(75,69,178,.28)}
 body.theme-light .offer-box .ot{color:rgba(255,255,255,.72)}
-body.theme-light .offer-box .ov{color:#ffffff;font-size:32px}
-body.theme-light .offer-box .on{color:rgba(255,255,255,.65)}
-
-/* .mini-btn/.danger (the Delete button, #rf-delete-btn) had no CSS
-   definition anywhere on this page or in shared styles.css before this —
-   unlike portfolio/saved-deals/pipeline, which each defined their own
-   version. Defined fresh here, light-theme only (no dark-mode legacy
-   value to preserve, since none existed). */
+body.theme-light .offer-box .ov{color:#fff;font-size:32px}
+body.theme-light .offer-box .ov.ov-empty{font-size:16px;font-weight:600;line-height:1.35}
+body.theme-light .offer-box .on{color:rgba(255,255,255,.75);font-size:12px;margin:.35rem 0 0}
 .mini-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .mini-btn:hover{background:rgba(75,69,178,.08)}
 .mini-btn:disabled{opacity:.4;cursor:not-allowed}
 .mini-btn.danger{color:var(--danger);border-color:var(--danger)}
 .mini-btn.danger:hover{background:var(--danger-bg)}
+.link-btn{background:none;border:none;padding:0;font:inherit;font-size:13px;font-weight:600;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.link-btn.muted{color:var(--muted)}
+.save-msg{font-size:12.5px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
+.save-msg.success{color:var(--success)}
+.save-msg.error{color:var(--danger)}
+.notice{font-size:13px;line-height:1.45;padding:.75rem 1rem;border-radius:10px;background:var(--surface);border:1px solid var(--hairline);margin:0 0 1rem;color:var(--ink)}
+.notice.info{background:rgba(75,69,178,.06);border-color:rgba(75,69,178,.25)}
+.notice.warn{background:var(--warn-bg);border-color:var(--warn);color:var(--warn-ink)}
+.notice.danger{background:var(--danger-bg);border-color:var(--danger);color:var(--danger-ink)}
+.notice.success{background:var(--success-bg);border-color:var(--success);color:var(--success-ink)}
 
-/* ---- mode + saved estimates ---- */
-.mode-toggle{display:flex;gap:8px;margin-bottom:1.75rem}
+/* ---- stage tabs ---- */
+.stage-tabs{display:flex;gap:6px;margin:0 0 .5rem;flex-wrap:wrap}
+.stage-tab{font-family:var(--font-body);font-weight:600;font-size:13px;padding:10px 18px;border:1.5px solid var(--hairline);border-radius:999px;background:var(--surface);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:44px}
+.stage-tab .st-n{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--surface-2);font-size:11px;color:var(--muted)}
+.stage-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.stage-tab.active .st-n{background:rgba(255,255,255,.2);color:#fff}
+.stage-tab.locked{opacity:.55}
+.stage-tab.locked .st-n::before{content:''}
+@media(max-width:480px){.stage-tabs{flex-wrap:nowrap;gap:5px}.stage-tab{flex:1;justify-content:center;padding:10px 6px;gap:6px;font-size:12.5px}}
+.stage-hint{font-size:12.5px;color:var(--muted);margin:0 0 1.25rem;min-height:1.2em}
 
-.saved-strip{margin-bottom:2rem}
-.saved-strip-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem;gap:1rem;flex-wrap:wrap}
-.saved-strip-head h2{font-size:15px;margin:0}
-.saved-item{display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);gap:1rem;flex-wrap:wrap;cursor:pointer;transition:border-color .15s ease}
-.saved-item:hover{border-color:var(--hairline-strong)}
-.saved-item.active{border-color:var(--accent)}
-/* Light-theme card treatment — same as saved-deals.html/pipeline.html's
-   saved-item rows. */
-body.theme-light .saved-item{
-  border:1px solid rgba(0,0,0,.09);
-  border-radius:14px;
-  box-shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.02);
-}
-body.theme-light .saved-item.active{border-color:var(--accent)}
-.saved-info{display:flex;flex-direction:column;gap:2px}
-.saved-name{font-size:14px;font-weight:700;color:var(--ink);font-family:var(--font-body)}
-.saved-detail{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* ---- collapsible cards (details) ---- */
+.cx{padding:0;margin-bottom:12px}
+.cx>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:1rem 1.25rem;user-select:none;min-height:52px}
+.cx>summary::-webkit-details-marker{display:none}
+.cx-title{font-weight:700;font-size:14.5px;color:var(--ink)}
+.cx-sum{margin-left:auto;font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.chev{width:9px;height:9px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .15s ease;flex-shrink:0;margin-left:4px}
+details[open]>summary .chev{transform:rotate(-135deg)}
+.cx-body{padding:0 1.25rem 1.25rem}
+
+/* ---- saved estimates ---- */
+.est-row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:12px;margin-bottom:8px;background:var(--surface);cursor:pointer;transition:border-color .15s ease}
+.est-row:hover{border-color:var(--hairline-strong)}
+.est-row.active{border-color:var(--accent)}
+.est-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.est-name{font-size:14px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.est-meta{font-size:12px;color:var(--muted)}
+.est-meta .not-linked{font-style:italic}
+.est-total{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;color:var(--ink);text-align:right}
+.est-actions{display:flex;align-items:center;gap:8px}
 .saved-chevron{color:var(--muted);font-size:18px;line-height:1}
-.mode-badge{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hairline);border-radius:999px;padding:2px 8px;margin-left:2px}
+@media(max-width:560px){
+  .est-row{grid-template-columns:1fr auto}
+  .est-actions{grid-column:1 / -1;justify-content:space-between}
+}
 
-.save-msg{font-size:12px;margin:.5rem 0 0;min-height:1em;color:var(--muted)}
-.save-msg.success{color:var(--accent-2)}
-.save-msg.error{color:#E8746B}
+/* ---- start screen ---- */
+.start-card{padding:1.75rem 1.5rem;text-align:center}
+.start-card h2{font-size:19px;margin:0 0 .35rem}
+.start-card .start-sub{color:var(--muted);font-size:13px;margin:0 0 1.5rem}
+.start-options{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.25rem;text-align:left}
+@media(max-width:760px){.start-options{grid-template-columns:1fr}}
+.start-opt{display:flex;flex-direction:column;gap:6px;padding:1.25rem 1.1rem;border:1.5px solid var(--hairline-strong);border-radius:14px;background:var(--surface);cursor:pointer;font-family:var(--font-body);text-align:left;transition:border-color .15s ease,box-shadow .15s ease;min-height:110px}
+.start-opt:hover,.start-opt:focus-visible{border-color:var(--accent);box-shadow:0 2px 12px rgba(75,69,178,.12);outline:none}
+.so-icon{width:34px;height:34px;border-radius:10px;background:rgba(75,69,178,.09);display:flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:4px}
+.so-icon svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.so-title{font-size:15px;font-weight:700;color:var(--ink)}
+.so-hint{font-size:12.5px;color:var(--muted);line-height:1.45}
 
-/* ---- layout: line items + sticky summary ---- */
-.rf-layout{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
-@media(max-width:960px){.rf-layout{grid-template-columns:1fr}}
+/* ---- wizard (template / rooms setup) ---- */
+.wiz{padding:1.5rem}
+.wiz h2{font-size:17px;margin:0 0 1.1rem}
+.wiz-step{margin-bottom:1.35rem}
+.wiz-step[hidden]{display:none}
+.wiz-q{font-size:13px;font-weight:700;color:var(--ink);margin:0 0 .6rem}
+.choice-row{display:flex;flex-wrap:wrap;gap:8px}
+.choice{font-family:var(--font-body);font-size:13.5px;font-weight:600;padding:10px 16px;min-height:44px;border:1.5px solid var(--hairline-strong);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer}
+.choice:hover{border-color:var(--accent)}
+.choice.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.choice-big{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;flex:1 1 180px}
+.choice-big .ch-hint{font-size:12px;font-weight:400;color:var(--muted)}
+.choice-big.active .ch-hint{color:rgba(255,255,255,.8)}
+.wiz-foot{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+
+/* ---- workspace ---- */
+.work-bar{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin:0 0 1rem}
+.view-seg{display:inline-flex;background:var(--surface);border:1px solid var(--hairline);border-radius:999px;padding:3px;gap:2px;flex-wrap:wrap}
+.view-seg button{font-family:var(--font-body);font-size:12.5px;font-weight:600;border:none;background:transparent;color:var(--muted);padding:8px 14px;border-radius:999px;cursor:pointer;min-height:38px}
+.view-seg button.active{background:var(--accent);color:#fff}
+.rf-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+@media(max-width:960px){.rf-layout{grid-template-columns:minmax(0,1fr)}}
 .rf-summary{position:sticky;top:1.5rem}
-.rf-summary h2{font-size:16px;margin:0 0 1.1rem}
+.rf-summary h2{font-size:16px;margin:0 0 1rem}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.field-grid{grid-template-columns:1fr}}
+.field textarea{font-family:var(--font-body);font-size:14px;color:var(--input-ink);background:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:9px 11px;width:100%;resize:vertical;min-height:64px}
+.field textarea:focus{outline:none;border-color:var(--input-accent)}
 
-.rf-name-field{margin-bottom:1.75rem}
-
-.rf-guide-note{margin-bottom:1.25rem}
-
-/* ---- detailed: collapsible sections ---- */
-.refurb-section{margin-bottom:12px;padding:0}
-.refurb-section summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:1.15rem 1.5rem;user-select:none}
-.refurb-section summary::-webkit-details-marker{display:none}
-.refurb-section-name{font-family:var(--font-head);font-weight:700;font-size:15px;letter-spacing:.01em}
-.refurb-section-right{display:flex;align-items:center;gap:14px;margin-left:auto}
-.refurb-section-subtotal{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--accent-2);font-variant-numeric:tabular-nums}
-.refurb-chevron{width:9px;height:9px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);transition:transform .15s ease;flex-shrink:0}
-.refurb-section[open] .refurb-chevron{transform:rotate(-135deg)}
-.refurb-section-body{padding:0 1.5rem 1.4rem}
-
-.refurb-row{display:grid;grid-template-columns:1fr 76px 96px 96px;gap:10px;align-items:center;padding:.55rem 0;border-top:1px solid var(--input-hairline)}
-.refurb-row:first-child{border-top:none}
-.refurb-row-head{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding-bottom:.6rem;padding-left:3.25rem;padding-right:3.25rem;border-top:none}
-.refurb-row-head span:nth-child(2),.refurb-row-head span:nth-child(3),.refurb-row-head span:nth-child(4){text-align:right}
-.refurb-item-name{display:block;font-size:13px;color:var(--ink)}
-.refurb-item-note{display:block;font-size:10.5px;color:var(--muted);font-style:italic;margin-top:2px}
-.refurb-row input{
-  font-family:var(--font-body);font-size:13px;color:var(--input-ink);
-  background:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);
-  padding:6px 8px;width:100%;text-align:right;
+/* ---- detailed: categories ---- */
+.cat .cx-title{font-size:14.5px}
+.cat-count{display:inline-block;font-size:11px;font-weight:700;color:var(--accent);background:rgba(75,69,178,.09);border-radius:999px;padding:2px 9px;margin-left:8px;white-space:nowrap}
+.cat-total{font-weight:700;color:var(--ink)}
+.cat-total.zero{font-weight:500;color:var(--muted)}
+.li-head{display:grid;grid-template-columns:minmax(0,1fr) 128px 118px 84px 52px;gap:10px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:0 0 .5rem}
+.li-head span:nth-child(n+2){text-align:right}
+.li{border-top:1px solid var(--input-hairline);padding:.6rem 0}
+.li:first-of-type{border-top:none}
+.li-main{display:grid;grid-template-columns:minmax(0,1fr) 128px 118px 84px 52px;gap:10px;align-items:start}
+.li-name{font-size:13px;color:var(--ink);padding-top:8px;overflow-wrap:anywhere}
+.li-name-note{display:block;font-size:10.5px;color:var(--muted);font-style:italic;margin-top:2px}
+.li-cap{display:none}
+.li-f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.li-qty-wrap{display:flex;align-items:center;gap:6px}
+.li-unit{font-size:11px;color:var(--muted);white-space:nowrap;min-width:34px}
+.li input,.ri input,.qk input{font-family:var(--font-body);font-size:14px;color:var(--input-ink);background:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:7px 8px;width:100%;text-align:right;min-height:38px}
+.li input::placeholder,.ri input::placeholder,.qk input::placeholder{color:var(--input-muted);opacity:.85}
+.li input:focus,.ri input:focus,.qk input:focus{outline:none;border-color:var(--input-accent)}
+.rate-hint{font-size:10.5px;color:var(--muted);text-align:right;min-height:1em}
+.rate-hint.yours{color:var(--success)}
+.guide-chip{font-family:var(--font-body);font-size:10.5px;font-weight:600;color:var(--accent);background:rgba(75,69,178,.08);border:none;border-radius:999px;padding:3px 8px;cursor:pointer;align-self:flex-end}
+.li-total{font-weight:700;font-size:13px;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;padding-top:9px}
+.li-total.zero{color:var(--muted);font-weight:500}
+.more-btn{font-family:var(--font-body);font-size:11px;font-weight:600;color:var(--muted);background:transparent;border:1px solid var(--hairline);border-radius:999px;padding:5px 8px;cursor:pointer;margin-top:4px;min-height:30px}
+.more-btn[aria-expanded="true"]{color:var(--accent);border-color:var(--accent)}
+.more-btn.has{color:var(--accent)}
+.li-more{margin:.6rem 0 .2rem;padding:.85rem;border-radius:10px;background:var(--surface-2);display:grid;grid-template-columns:150px 1fr;gap:10px 14px}
+.li-more[hidden]{display:none}
+.li-more .field{margin:0}
+.li-more .field label{font-size:10.5px}
+.li-more .note-input{text-align:left}
+.li-more select,.li-more .note-input{font-family:var(--font-body);font-size:13px;padding:8px 10px;border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);background:var(--input-surface);color:var(--input-ink);width:100%;min-height:38px}
+.li-more-foot{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.epc-ratings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 .75rem}
+.epc-note{font-size:12px;color:var(--muted);margin:0 0 1rem;line-height:1.45}
+@media(max-width:640px){
+  .li-head{display:none}
+  .li{border:1px solid var(--input-hairline);border-radius:12px;padding:.8rem .85rem;margin-bottom:8px;background:var(--surface)}
+  .li:first-of-type{border-top:1px solid var(--input-hairline)}
+  .li-main{grid-template-columns:1fr 1fr;gap:8px 10px}
+  .li-name{grid-column:1 / -1;padding-top:0;font-weight:600}
+  .li-cap{display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .li-total{padding-top:6px;text-align:left}
+  .more-btn{justify-self:end;margin-top:0}
+  .rate-hint{text-align:left}
+  .guide-chip{align-self:flex-start}
+  .li-more{grid-template-columns:1fr}
 }
-.refurb-row input::placeholder{color:var(--input-muted);opacity:.85}
-.refurb-row input:focus{outline:none;border-color:var(--input-accent)}
-.refurb-row-total{font-family:var(--font-body);font-weight:700;font-size:13px;color:var(--accent-2);text-align:right;font-variant-numeric:tabular-nums}
-@media(max-width:600px){
-  .refurb-row{grid-template-columns:1fr;gap:4px;padding:.75rem 0}
-  .refurb-row-head{display:none}
-  .refurb-row input{text-align:left}
-  .refurb-row-total{text-align:left;font-size:12px;color:var(--muted)}
+
+/* ---- photos ---- */
+.ph-strip{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ph{position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;background:var(--surface-3)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph button{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:13px;line-height:1;cursor:pointer}
+.ph-add{font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--accent);background:transparent;border:1.5px dashed var(--accent);border-radius:8px;padding:0 12px;height:40px;cursor:pointer}
+.ph-add:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---- rooms ---- */
+.rooms-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;padding:1rem 1.25rem;margin-bottom:12px}
+.rooms-group{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:1.25rem 0 .6rem}
+.room{padding:1rem 1.1rem;margin-bottom:10px}
+.room-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:.7rem}
+.room-name{font-weight:700;font-size:15px;color:var(--ink)}
+.room-state{font-size:12px;color:var(--muted);text-align:right}
+.cond-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cond{font-family:var(--font-body);font-size:14px;font-weight:600;min-height:48px;border:1.5px solid var(--hairline-strong);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer}
+.cond.active.fine{background:var(--surface-3);border-color:var(--hairline-strong)}
+.cond.active.refresh{background:rgba(75,69,178,.12);border-color:var(--accent);color:var(--accent)}
+.cond.active.replace{background:var(--accent);border-color:var(--accent);color:#fff}
+.room-hint{font-size:12px;color:var(--muted);margin:.6rem 0 0;line-height:1.4}
+.room-more{margin-top:.75rem;display:flex;flex-direction:column;gap:.6rem}
+.room-more[hidden]{display:none}
+.room-more textarea{font-family:var(--font-body);font-size:14px;border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:9px 11px;width:100%;resize:vertical;min-height:60px;background:var(--input-surface);color:var(--input-ink)}
+.ri{display:grid;grid-template-columns:minmax(0,1fr) auto 110px;gap:10px;align-items:center;padding:.55rem 0;border-top:1px solid var(--input-hairline)}
+.ri:first-child{border-top:none}
+.ri-name{font-size:13px;color:var(--ink)}
+.ri-qty{font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:480px){.ri{grid-template-columns:1fr 100px}.ri-qty{grid-column:1;grid-row:2}.ri input{grid-row:1 / span 2;grid-column:2}}
+
+/* ---- quick ---- */
+.qk{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.7rem 0;border-top:1px solid var(--input-hairline)}
+.qk:first-child{border-top:none}
+.qk label{font-size:13.5px;color:var(--ink);font-weight:600}
+.qk input{width:150px;max-width:45%}
+
+/* ---- summary ---- */
+.sl{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-top:1px solid var(--hairline);font-size:13px;gap:10px}
+.sl:first-of-type{border-top:none}
+.sl .v{font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+.cont-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:.85rem 0 .5rem}
+.cont-row label{font-size:13px;color:var(--ink);display:flex;align-items:center;gap:8px;cursor:pointer;margin:0}
+.cont-pct{display:flex;align-items:center;gap:6px}
+.cont-pct input{width:64px;text-align:right;font-family:var(--font-body);font-size:13px;padding:6px 8px;border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);background:var(--input-surface)}
+.cont-pct span{font-size:12px;color:var(--muted)}
+.cont-pct.disabled{opacity:.45;pointer-events:none}
+.vat-tabs{display:flex;gap:6px;margin:.4rem 0 .5rem;flex-wrap:wrap}
+.vat-tabs .tab-btn{padding:7px 14px}
+.sum-sub{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:1.1rem 0 .4rem}
+.dur-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dur-row input{width:80px;font-family:var(--font-body);font-size:14px;padding:8px 10px;border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);background:var(--input-surface);text-align:right}
+.dur-row span{font-size:12.5px;color:var(--muted)}
+.sum-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:.85rem;align-items:center}
+.linked-box{margin-top:1rem;padding:.8rem .9rem;border-radius:10px;background:var(--surface-2);font-size:12.5px;color:var(--ink);line-height:1.45}
+.linked-box .link-btn{font-size:12.5px}
+
+/* ---- pinned bottom bar (phones) ---- */
+.rf-bar{display:none}
+@media(max-width:960px){
+  .rf-bar.show{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:340;align-items:center;justify-content:space-between;gap:12px;
+    padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+    background:var(--surface);border-top:1px solid var(--hairline);box-shadow:0 -6px 20px rgba(20,20,40,.08)}
+  body.has-tabbar .rf-bar.show{bottom:calc(64px + env(safe-area-inset-bottom,0px));padding-bottom:10px}
+  /* Hidden while the keyboard is open, like the tab bar, so it never moves under a tap. */
+  body.tabbar-kb .rf-bar.show{display:none}
+  body.bar-on{padding-bottom:84px}
+  body.bar-on.has-tabbar{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  .rf-summary{position:static}
 }
+.bar-total{display:flex;flex-direction:column;min-width:0}
+.bar-label{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.bar-value{font-size:19px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-value.empty{font-size:13px;font-weight:600;color:var(--muted)}
+.bar-actions{display:flex;gap:8px;align-items:center}
+.bar-actions .btn-primary{padding:11px 18px}
 
-/* ---- quick mode ---- */
-.refurb-quick-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 0;border-top:1px solid var(--input-hairline)}
-.refurb-quick-row:first-child{border-top:none}
-.refurb-quick-row label{font-size:13.5px;color:var(--ink);font-weight:600}
-.refurb-quick-row input{
-  width:150px;font-family:var(--font-body);font-size:14px;color:var(--input-ink);
-  background:var(--input-surface);border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);
-  padding:9px 11px;text-align:right;
-}
-.refurb-quick-row input::placeholder{color:var(--input-muted);opacity:.85}
-.refurb-quick-row input:focus{outline:none;border-color:var(--input-accent)}
-.refurb-quick-row-head{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:0 0 .6rem;border-top:none}
-.refurb-quick-row-head span:last-child{width:150px;text-align:right}
-
-/* ---- summary card ---- */
-.rf-cont-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.85rem}
-.rf-cont-row label{font-size:13px;color:var(--ink);display:flex;align-items:center;gap:8px;cursor:pointer;margin:0}
-.rf-cont-pct-field{display:flex;align-items:center;gap:8px;margin-bottom:1.1rem}
-.rf-cont-pct-field input{width:64px;text-align:right}
-.rf-cont-pct-field span{font-size:12.5px;color:var(--muted)}
-.rf-cont-pct-field.disabled{opacity:.45;pointer-events:none}
-
-.vat-tabs{display:flex;gap:6px;margin-bottom:.65rem;flex-wrap:wrap}
-.vat-tip{margin-bottom:1.25rem}
-
-.rf-summary-line{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-top:1px solid var(--hairline);font-size:13px}
-.rf-summary-line:first-of-type{border-top:none}
-.rf-summary-line .rsl-v{font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
-
-.rf-delete-row{display:flex;justify-content:flex-end;margin-top:.75rem}
-
-/* ---- Add to deal picker (modal) — same shell pattern as the modals on
-   saved-deals.html/pipeline.html, duplicated here per this app's own
-   convention (page-specific modal CSS, not shared). ---- */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:1rem}
+/* ---- modals ---- */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;align-items:center;justify-content:center;padding:1rem}
 .modal-overlay.open{display:flex}
-.modal-card{max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem}
+.modal-card{max-width:500px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem}
 .modal-header h2{font-size:18px;margin:0;word-break:break-word}
 .modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;flex-shrink:0}
 .modal-close:hover{color:var(--ink)}
-.add-to-deal-btn{font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--accent);background:transparent;border:1.5px solid var(--accent);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap;flex-shrink:0}
-.add-to-deal-btn:hover{background:rgba(75,69,178,.08)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:1.25rem}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--ink);margin:0 0 .85rem;cursor:pointer;line-height:1.4}
+.check input{margin-top:3px;width:18px;height:18px;flex-shrink:0}
+.check small{display:block;color:var(--muted);font-size:12px}
+.pick-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:1px solid var(--hairline);border-radius:12px;margin-bottom:8px;background:var(--surface);cursor:pointer}
+.pick-row:hover{border-color:var(--accent)}
+
+/* ---- quotes + budget (refurb-workflow.js) ---- */
+.wf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:1rem}
+.wf-stat{padding:.9rem 1rem;border-radius:12px;background:var(--surface);border:1px solid var(--hairline)}
+.wf-stat .k{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.wf-stat .v{font-size:19px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
+.wf-stat .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+.wf-stat.hero{background:linear-gradient(135deg,var(--accent),#37317f);border:none}
+.wf-stat.hero .k,.wf-stat.hero .s{color:rgba(255,255,255,.75)}
+.wf-stat.hero .v{color:#fff}
+.qrow{display:grid;grid-template-columns:minmax(0,1.4fr) auto auto auto;gap:12px;align-items:center;padding:.85rem 1rem;border:1px solid var(--hairline);border-radius:12px;margin-bottom:8px;background:var(--surface)}
+.qrow.mine{background:var(--surface-2)}
+.qrow.accepted{border-color:var(--success);box-shadow:0 0 0 1px var(--success) inset}
+.q-name{font-weight:700;font-size:14px;color:var(--ink);overflow-wrap:anywhere}
+.q-sub{font-size:12px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.q-amt{font-weight:700;font-size:15px;text-align:right;font-variant-numeric:tabular-nums}
+.q-diff{font-size:12px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.q-diff.up{color:var(--danger)}
+.q-diff.down{color:var(--success)}
+.q-time{font-size:12.5px;color:var(--ink);text-align:right;white-space:nowrap}
+.q-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+.badge{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 9px;letter-spacing:.02em}
+.badge.cheap{background:var(--success-bg);color:var(--success-ink)}
+.badge.fast{background:rgba(75,69,178,.1);color:var(--accent)}
+.badge.acc{background:var(--success);color:#fff}
+.q-actions{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+@media(max-width:600px){
+  .qrow{grid-template-columns:1fr auto}
+  .q-time{text-align:left;grid-column:1}
+  .q-diff{grid-column:2}
+}
+.cat-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:.6rem 0;border-top:1px solid var(--hairline)}
+.cat-bar:first-child{border-top:none}
+.cat-bar .n{font-size:13px;color:var(--ink)}
+.cat-bar .f{font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cat-bar .f.over{color:var(--danger);font-weight:700}
+.bar{grid-column:1 / -1;height:6px;border-radius:999px;background:var(--surface-3);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.bar i.warn{background:var(--warn)}
+.bar i.over{background:var(--danger)}
+.pay-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:.7rem 0;border-top:1px solid var(--hairline)}
+.pay-row:first-child{border-top:none}
+.pay-main{min-width:0}
+.pay-title{font-size:13.5px;color:var(--ink);overflow-wrap:anywhere}
+.pay-sub{font-size:12px;color:var(--muted)}
+.pay-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+@media(max-width:480px){.pay-row{grid-template-columns:minmax(0,1fr) auto}.pay-actions{grid-column:1 / -1}}
+.pay-amt{font-weight:700;font-variant-numeric:tabular-nums;font-size:13.5px}
+.pct-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pct-row input[type=range]{flex:1;min-width:160px;accent-color:var(--accent)}
+.pct-row .pv{font-weight:700;min-width:44px;text-align:right}
+.tax-note{font-size:12px;color:var(--muted);line-height:1.45;margin:.5rem 0 0}
 </style>
 </head>
 <body class="theme-light">
@@ -192,150 +342,279 @@ body.theme-light .saved-item.active{border-color:var(--accent)}
   <script src="/crm-nav.js"></script>
 
   <p class="page-title">Refurbishment Estimator</p>
-  <p class="page-sub">Cost a refurb line by line, or as a quick trade-by-trade total. Add contingency and VAT, then save it against a deal.</p>
+  <p class="page-sub">Estimate the work, compare builder quotes, then track spend against your budget.</p>
 
   <div id="state-loading"><p class="hint">Loading…</p></div>
-
   <div id="state-loggedout" style="display:none">
     <p class="hint">Log in to use the Refurbishment Estimator: <a href="/login.html">log in</a></p>
   </div>
-
   <div id="state-locked" style="display:none">
     <div class="locked-panel">
       <h2>The Refurbishment Estimator is a paid feature</h2>
-      <p>Cost a refurb by section and line item, or as a quick trade-by-trade total, then apply contingency and VAT and save the result.</p>
+      <p>Cost a refurb from a template, room by room or line by line, compare builder quotes and track your spend.</p>
       <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
     </div>
   </div>
 
   <div id="state-board" style="display:none">
 
-    <div class="saved-strip">
-      <div class="saved-strip-head">
-        <h2>Saved estimates</h2>
-        <button class="btn-primary" onclick="newEstimate()">New estimate</button>
+    <div class="notice info" id="rf-calc-banner" hidden>
+      Opened from the Calculator. Saving this estimate sends its grand total back to the Refurb field.
+      <button type="button" class="link-btn" onclick="backToCalculator()">Back without changes</button>
+    </div>
+
+    <div class="stage-tabs" role="tablist" aria-label="Refurb stages">
+      <button type="button" class="stage-tab active" id="stage-tab-estimate" role="tab" onclick="goStage('estimate')"><span class="st-n">1</span>Estimate</button>
+      <button type="button" class="stage-tab locked" id="stage-tab-quotes" role="tab" onclick="goStage('quotes')"><span class="st-n">2</span>Quotes</button>
+      <button type="button" class="stage-tab locked" id="stage-tab-budget" role="tab" onclick="goStage('budget')"><span class="st-n">3</span>Budget</button>
+    </div>
+    <p class="stage-hint" id="rf-stage-hint"></p>
+
+    <!-- ================= STAGE 1: ESTIMATE ================= -->
+    <div id="stage-estimate">
+
+      <details class="card cx" id="rf-saved-wrap" hidden>
+        <summary><span class="cx-title">Saved estimates</span><span class="cx-sum" id="rf-saved-sum">Loading…</span><span class="chev"></span></summary>
+        <div class="cx-body"><div id="rf-saved-list"><p class="hint">Loading…</p></div></div>
+      </details>
+
+      <!-- Start: one decision -->
+      <div class="card start-card" id="rf-start" hidden>
+        <h2>How do you want to start?</h2>
+        <p class="start-sub">You can switch between these at any time.</p>
+        <div class="start-options">
+          <button type="button" class="start-opt" onclick="startWith('template')">
+            <span class="so-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+            <span class="so-title">Use a template</span>
+            <span class="so-hint">Pick the property and how much work it needs. The quantities are filled in for you.</span>
+          </button>
+          <button type="button" class="start-opt" onclick="startWith('rooms')">
+            <span class="so-icon"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span>
+            <span class="so-title">Walk room by room</span>
+            <span class="so-hint">Best on your phone at a viewing. Tap Fine, Refresh or Replace for each room.</span>
+          </button>
+          <button type="button" class="start-opt" onclick="startWith('lines')">
+            <span class="so-icon"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
+            <span class="so-title">Build line by line</span>
+            <span class="so-hint">Open each category and enter your own quantities and rates.</span>
+          </button>
+        </div>
+        <button type="button" class="link-btn muted" onclick="startWith('quick')">Or enter a quick total by trade</button>
       </div>
-      <div id="rf-saved-list"><p class="hint">Loading…</p></div>
-    </div>
 
-    <div class="field rf-name-field">
-      <label>Estimate name</label>
-      <input type="text" id="rf-name" placeholder="e.g. 14 Foundry Street, full refurb" oninput="saveRefurbDraft()"/>
-    </div>
-
-    <div class="mode-toggle" id="rf-mode-toggle">
-      <button type="button" class="tab-btn" id="mode-btn-detailed" onclick="switchMode('detailed')">Detailed</button>
-      <button type="button" class="tab-btn" id="mode-btn-quick" onclick="switchMode('quick')">Quick</button>
-    </div>
-
-    <div class="rf-layout">
-      <div>
-        <div id="rf-detailed-panel">
-          <div class="refurb-row refurb-row-head"><span>Item</span><span>Qty</span><span>Rate (£)</span><span>Total</span></div>
-          <div id="rf-sections"></div>
+      <!-- Wizard: template or rooms setup, one question at a time -->
+      <div class="card wiz" id="rf-wizard" hidden>
+        <h2 id="wiz-title">Use a template</h2>
+        <div class="wiz-step" id="wiz-type">
+          <p class="wiz-q">What type of property is it?</p>
+          <div class="choice-row" id="wiz-type-choices"></div>
         </div>
-        <div id="rf-quick-panel" class="card" style="display:none">
-          <div class="refurb-quick-row refurb-quick-row-head"><span>Trade</span><span>Cost (£)</span></div>
-          <div id="rf-quick-rows"></div>
+        <div class="wiz-step" id="wiz-beds" hidden>
+          <p class="wiz-q">How many bedrooms?</p>
+          <div class="choice-row" id="wiz-beds-choices"></div>
+        </div>
+        <div class="wiz-step" id="wiz-scope" hidden>
+          <p class="wiz-q">How much work does it need?</p>
+          <div class="choice-row" id="wiz-scope-choices"></div>
+        </div>
+        <div class="wiz-foot">
+          <button type="button" class="link-btn muted" id="wiz-back" onclick="wizardBack()">Back</button>
+          <button type="button" class="btn-primary" id="wiz-done" hidden onclick="wizardDone()">Done</button>
         </div>
       </div>
 
-      <div class="card rf-summary">
-        <h2>Estimate summary</h2>
+      <!-- Workspace -->
+      <div id="rf-work" hidden>
+        <div class="notice success" id="rf-work-note" hidden></div>
 
-        <div class="rf-summary-line"><span>Subtotal</span><span class="rsl-v" id="rf-subtotal">£0</span></div>
+        <details class="card cx" id="rf-details-card">
+          <summary><span class="cx-title">Estimate details</span><span class="cx-sum" id="rf-details-sum">Add a name and address</span><span class="chev"></span></summary>
+          <div class="cx-body">
+            <div class="field-grid">
+              <div class="field"><label for="rf-name">Estimate name</label><input type="text" id="rf-name" maxlength="120" placeholder="e.g. 14 Foundry Street, full refurb" oninput="onDetailsInput()"/></div>
+              <div class="field"><label for="rf-address">Property address</label><input type="text" id="rf-address" maxlength="200" placeholder="Shown on the scope of works" oninput="onDetailsInput()"/></div>
+            </div>
+            <p class="hint" id="rf-template-line" style="margin:.75rem 0 0"></p>
+          </div>
+        </details>
 
-        <div class="rf-cont-row" style="margin-top:1rem">
-          <label><input type="checkbox" id="rf-cont-on" checked onchange="onContingencyToggle()"/> Apply contingency</label>
+        <div class="work-bar">
+          <div class="view-seg" role="tablist" aria-label="How to enter the work">
+            <button type="button" id="view-btn-rooms" onclick="switchView('rooms')">Room by room</button>
+            <button type="button" id="view-btn-detailed" onclick="switchView('detailed')">Line by line</button>
+            <button type="button" id="view-btn-quick" onclick="switchView('quick')">Quick total</button>
+          </div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap">
+            <button type="button" class="link-btn" id="rf-template-btn" onclick="startWith('template', true)">Apply a template</button>
+            <button type="button" class="link-btn muted" onclick="newEstimate()">Start a new estimate</button>
+          </div>
         </div>
-        <div class="rf-cont-pct-field" id="rf-cont-pct-wrap">
-          <input type="number" id="rf-cont-pct" value="10" min="0" oninput="recalcSummary()"/>
-          <span>% of subtotal</span>
-        </div>
-        <div class="rf-summary-line"><span>Contingency</span><span class="rsl-v" id="rf-contingency-amt">£0</span></div>
 
-        <p class="hint" style="margin:1rem 0 .6rem">VAT</p>
-        <div class="vat-tabs" id="rf-vat-tabs">
-          <button type="button" class="tab-btn" id="vat-btn-0" onclick="switchVat(0)">No VAT</button>
-          <button type="button" class="tab-btn" id="vat-btn-20" onclick="switchVat(20)">20%</button>
-          <button type="button" class="tab-btn" id="vat-btn-5" onclick="switchVat(5)">5%</button>
-        </div>
-        <p class="hint vat-tip">The 5% reduced rate can apply to renovations of properties empty 2+ years, or certain conversions of qualifying uninhabitable properties. Check eligibility before relying on it.</p>
-        <div class="rf-summary-line"><span>VAT</span><span class="rsl-v" id="rf-vat-amt">£0</span></div>
+        <div class="rf-layout">
+          <div>
+            <div id="rf-detailed-panel">
+              <div id="rf-sections"></div>
+            </div>
+            <div id="rf-rooms-panel" hidden></div>
+            <div id="rf-quick-panel" class="card" style="padding:1rem 1.25rem" hidden>
+              <p class="hint" style="margin:0 0 .5rem">One total per trade, for when you already have rough figures.</p>
+              <div id="rf-quick-rows"></div>
+            </div>
+          </div>
 
-        <div class="offer-box" style="margin-top:1.25rem">
-          <p class="ot">Grand total</p>
-          <p class="ov" id="rf-grand-total">£0</p>
-        </div>
+          <div class="card rf-summary" id="rf-summary">
+            <h2>Estimate summary</h2>
+            <div class="sl"><span>Subtotal</span><span class="v" id="rf-subtotal">£0</span></div>
+            <div class="cont-row">
+              <label><input type="checkbox" id="rf-cont-on" checked onchange="onContingencyToggle()"/> Contingency</label>
+              <div class="cont-pct" id="rf-cont-pct-wrap"><input type="number" id="rf-cont-pct" value="10" min="0" inputmode="decimal" oninput="recalcSummary()"/><span>% of subtotal</span></div>
+            </div>
+            <div class="sl"><span>Contingency</span><span class="v" id="rf-contingency-amt">£0</span></div>
+            <p class="sum-sub">VAT</p>
+            <div class="vat-tabs">
+              <button type="button" class="tab-btn" id="vat-btn-0" onclick="switchVat(0)">No VAT</button>
+              <button type="button" class="tab-btn" id="vat-btn-20" onclick="switchVat(20)">20%</button>
+              <button type="button" class="tab-btn" id="vat-btn-5" onclick="switchVat(5)">5%</button>
+            </div>
+            <p class="hint" style="margin:0 0 .4rem">The 5% reduced rate can apply to renovations of properties empty 2+ years, or certain conversions. Check eligibility before relying on it.</p>
+            <div class="sl"><span>VAT</span><span class="v" id="rf-vat-amt">£0</span></div>
 
-        <button class="btn-primary" style="width:100%;margin-top:1rem" id="rf-save-btn" onclick="saveEstimate()">Save estimate</button>
-        <p class="save-msg" id="rf-msg"></p>
-        <div class="rf-delete-row">
-          <button class="mini-btn danger" id="rf-delete-btn" style="display:none" onclick="deleteEstimate()">Delete</button>
+            <div class="offer-box" style="margin-top:1rem">
+              <p class="ot">Grand total</p>
+              <p class="ov" id="rf-grand-total">£0</p>
+              <p class="on" id="rf-total-note" hidden></p>
+            </div>
+
+            <p class="sum-sub">Timeline</p>
+            <div class="dur-row">
+              <input type="number" id="rf-duration" min="0" max="520" step="1" inputmode="numeric" placeholder="0" oninput="onDurationInput()"/>
+              <span>weeks</span>
+              <button type="button" class="link-btn" id="rf-duration-suggest" hidden onclick="useSuggestedDuration()"></button>
+            </div>
+
+            <button class="btn-primary" style="width:100%;margin-top:1.1rem" id="rf-save-btn" onclick="saveEstimate()">Save estimate</button>
+            <p class="save-msg" id="rf-msg"></p>
+            <div class="sum-actions">
+              <button type="button" class="mini-btn" onclick="openPdfModal()">Scope of works PDF</button>
+              <button type="button" class="mini-btn" id="rf-save-rates-btn" onclick="saveRatesAsMine()">Save rates as mine</button>
+              <button type="button" class="mini-btn danger" id="rf-delete-btn" hidden onclick="deleteEstimate()">Delete</button>
+            </div>
+            <div class="linked-box" id="rf-linked" hidden></div>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- ================= STAGE 2: QUOTES ================= -->
+    <div id="stage-quotes" hidden></div>
+
+    <!-- ================= STAGE 3: BUDGET ================= -->
+    <div id="stage-budget" hidden></div>
 
   </div>
 </div>
 
-<div class="modal-overlay" id="atd-modal-overlay" onclick="handleAtdOverlayClick(event)">
+<!-- Pinned summary bar (phones) -->
+<div class="rf-bar" id="rf-bar">
+  <div class="bar-total">
+    <span class="bar-label" id="rf-bar-label">Grand total</span>
+    <span class="bar-value" id="rf-bar-value">£0</span>
+  </div>
+  <div class="bar-actions">
+    <button type="button" class="link-btn" onclick="scrollToSummary()">Summary</button>
+    <button type="button" class="btn-primary" id="rf-bar-save" onclick="saveEstimate()">Save</button>
+  </div>
+</div>
+
+<!-- Link to deal picker -->
+<div class="modal-overlay" id="atd-modal-overlay" onclick="if(event.target===this)closeAddToDealPicker()">
   <div class="card modal-card">
-    <div class="modal-header">
-      <h2>Add to deal</h2>
-      <button class="modal-close" onclick="closeAddToDealPicker()" aria-label="Close">×</button>
-    </div>
-    <p class="hint" style="margin-bottom:1rem">Pick a saved deal to link this estimate to. This replaces any estimate already linked to that deal.</p>
+    <div class="modal-header"><h2>Link to a deal</h2><button class="modal-close" onclick="closeAddToDealPicker()" aria-label="Close">×</button></div>
+    <p class="hint" style="margin-bottom:1rem">Pick a saved deal for this estimate. This replaces any estimate already linked to that deal.</p>
     <div id="atd-list"><p class="hint">Loading…</p></div>
   </div>
 </div>
 
+<!-- Update the deal (after linking, or from the summary) -->
+<div class="modal-overlay" id="upd-modal" onclick="if(event.target===this)closeUpdateDeal()">
+  <div class="card modal-card">
+    <div class="modal-header"><h2>Update the deal</h2><button class="modal-close" onclick="closeUpdateDeal()" aria-label="Close">×</button></div>
+    <p class="hint" id="upd-intro" style="margin-bottom:1rem"></p>
+    <label class="check"><input type="checkbox" id="upd-ref" checked/><span id="upd-ref-label"></span></label>
+    <label class="check" id="upd-dur-wrap"><input type="checkbox" id="upd-dur"/><span id="upd-dur-label"></span></label>
+    <p class="hint">The calculator re-runs the deal and saves it. Nothing else about the deal changes.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" onclick="closeUpdateDeal()">Not now</button>
+      <button type="button" class="btn-primary" onclick="confirmUpdateDeal()">Update the deal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scope of works PDF -->
+<div class="modal-overlay" id="pdf-modal" onclick="if(event.target===this)closePdfModal()">
+  <div class="card modal-card">
+    <div class="modal-header"><h2>Scope of works</h2><button class="modal-close" onclick="closePdfModal()" aria-label="Close">×</button></div>
+    <p class="hint" style="margin-bottom:1rem">A clean list of the work for builders to quote against.</p>
+    <div id="pdf-group-wrap">
+      <p class="sum-sub" style="margin-top:0">List the work</p>
+      <div class="choice-row" style="margin-bottom:1rem">
+        <button type="button" class="choice active" id="pdf-group-cat" onclick="setPdfGroup('category')">By category</button>
+        <button type="button" class="choice" id="pdf-group-room" onclick="setPdfGroup('room')">Room by room</button>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="pdf-prices"/><span>Include prices<small>Leave this off when sending to builders for quotes.</small></span></label>
+    <label class="check" id="pdf-photos-wrap"><input type="checkbox" id="pdf-photos" checked/><span>Include photos</span></label>
+    <p class="save-msg" id="pdf-msg"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" onclick="closePdfModal()">Cancel</button>
+      <button type="button" class="btn-primary" id="pdf-go" onclick="downloadScopePdf()">Download PDF</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="rf-photo-input" accept="image/jpeg,image/png" hidden onchange="onPhotoPicked(this)"/>
+
 <script>
-// REFURB_SECTIONS, QUICK_TRADES, computeDetailedSubtotal/computeQuickSubtotal/
-// computeTotals now live in refurb-totals.js (shared with saved-deals.html's
-// Deal Workspace Refurb section) — loaded above, not redefined here.
-
 let sbClient=null, currentSession=null, currentPlan=null;
-// Set via ?estimate=<id> — a deep link from the Deal Workspace's Refurb
-// section ("Open" next to a linked estimate). Just opens that one estimate
-// once the saved-estimates list has loaded; no other behaviour change.
-const openEstimateId=new URLSearchParams(location.search).get('estimate')||null;
-let currentMode='detailed', currentVatRate=20;
+const urlParams=new URLSearchParams(location.search);
+// ?estimate=<id>: deep link from the Deal page's Refurb section.
+const openEstimateId=urlParams.get('estimate')||null;
+// ?from=calc&field=b-ref&tab=btl: opened from the Calculator's "Estimate
+// refurb" button. Saving sends the grand total back to that field.
+const fromCalc=urlParams.get('from')==='calc'?{field:urlParams.get('field')||'',tab:urlParams.get('tab')||''}:null;
+const CALC_FIELDS=['b-ref','h-ref','sa-ref','fl-ref'];
+
+let currentView='detailed';      // 'detailed' | 'rooms' | 'quick'
+let currentVatRate=20;
+let entry=null;                   // how this estimate was started: 'template'|'rooms'|'lines'|'quick'; null = start screen
 let savedEstimates=[], editingId=null;
-let savedDeals=null; // cached on first "Add to deal" open, per page load
+let savedDeals=null;
+let userRates={}, rateCardNeedsDb=false;
+let lineExtras={};                // key -> { unit, note, photos:[path] }
+let templateState=null;           // { type, beds, scope }
+let templateApplied={};           // quantities the template added, so a new template replaces them
+let roomState={ type:null, beds:null, choices:{}, applied:{} };
+let epc={ current:'', target:'' };
+let suggestedWeeks=null;
+let photoUrls={};                 // storage path -> signed URL
+let currentStage='estimate';
+let detailsNeedDb=false;
 
-function fmtGBP(v){ return '£'+Math.round(v||0).toLocaleString(); }
-// BRRR deals are stored as deal_type 'btl' plus deal_data.strategy='brrr'
-// (same helper as compare-deals.js, which this page doesn't load).
+function fmtGBP(v){ return '£'+Math.round(v||0).toLocaleString('en-GB'); }
+function fmtRate(v){ return RefurbRateCard.money(v); }
+function fmtDate(iso){ return new Date(iso).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+function domId(key){ return key.replace('.','-'); }
+function numOrNull(v){ if(v===''||v==null)return null; const n=parseFloat(String(v).replace(/[£,\s]/g,'')); return Number.isFinite(n)?n:null; }
 function dealStrategy(d){return (d&&d.deal_type==='btl'&&d.deal_data&&d.deal_data.strategy==='brrr')?'brrr':(d?d.deal_type:'');}
-function fallbackName(d){
-  const label=dealStrategy(d).toUpperCase();
-  const date=new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-  const pp=d.deal_data&&d.deal_data.pp?fmtGBP(d.deal_data.pp):null;
-  return pp?`${label} · ${pp} · ${date}`:`${label} · ${date}`;
-}
 function dealDisplayName(d){
-  return (d.deal_data&&d.deal_data.name)?d.deal_data.name:fallbackName(d);
+  if(d.deal_data&&d.deal_data.name)return d.deal_data.name;
+  const date=fmtDate(d.created_at);
+  return dealStrategy(d).toUpperCase()+' · '+date;
 }
-function fmtGuidePrice(rate){
-  if(rate==null)return '';
-  const hasDecimal = rate % 1 !== 0;
-  return '£'+rate.toLocaleString('en-GB', hasDecimal ? {minimumFractionDigits:2,maximumFractionDigits:2} : {});
-}
-function fmtDate(iso){
-  const d=new Date(iso);
-  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
-}
-function escapeHtml(s){
-  const div=document.createElement('div');
-  div.textContent=s;
-  return div.innerHTML;
-}
+function authHeaders(json){ const h={'Authorization':'Bearer '+currentSession.access_token}; if(json)h['Content-Type']='application/json'; return h; }
 
-async function logout(){
-  await sbClient.auth.signOut();
-  window.location.href='/';
-}
+async function logout(){ await sbClient.auth.signOut(); window.location.href='/'; }
 
 async function upgradeNow(){
   if(!currentSession)return;
@@ -343,10 +622,7 @@ async function upgradeNow(){
   const original=btn.textContent;
   btn.disabled=true;btn.textContent='Redirecting…';
   try{
-    const res=await fetch(API_BASE+'/api/create-checkout-session',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token}
-    });
+    const res=await fetch(API_BASE+'/api/create-checkout-session',{method:'POST',headers:authHeaders(true)});
     const body=await res.json();
     if(!res.ok||!body.url)throw new Error(body.error||'Could not start checkout.');
     window.location.href=body.url;
@@ -359,28 +635,16 @@ async function upgradeNow(){
 function updateTopbar(){
   const loggedIn=!!currentSession;
   const authLink=document.getElementById('auth-link');
-  if(loggedIn){
-    authLink.textContent='Log out';
-    authLink.href='#';
-    authLink.onclick=function(e){e.preventDefault();logout();};
-  }else{
-    authLink.textContent='Log in';
-    authLink.href='/login.html';
-    authLink.onclick=null;
-  }
+  if(loggedIn){ authLink.textContent='Log out'; authLink.href='#'; authLink.onclick=function(e){e.preventDefault();logout();}; }
+  else{ authLink.textContent='Log in'; authLink.href='/login.html'; authLink.onclick=null; }
   const email=loggedIn&&currentSession.user&&currentSession.user.email?currentSession.user.email:'';
   const menuEmail=document.getElementById('user-menu-email');
   const itemEmail=document.getElementById('user-menu-item-email');
   if(menuEmail)menuEmail.textContent=email||'Account';
-  if(itemEmail)itemEmail.textContent=email||'—';
+  if(itemEmail)itemEmail.textContent=email||'';
   const subLink=document.getElementById('subscribe-link');
-  if(loggedIn&&currentPlan==='free'){
-    subLink.style.display='';
-    subLink.onclick=function(e){e.preventDefault();upgradeNow();};
-  }else{
-    subLink.style.display='none';
-    subLink.onclick=null;
-  }
+  if(loggedIn&&currentPlan==='free'){ subLink.style.display=''; subLink.onclick=function(e){e.preventDefault();upgradeNow();}; }
+  else{ subLink.style.display='none'; subLink.onclick=null; }
 }
 
 function showState(state){
@@ -389,477 +653,1101 @@ function showState(state){
   });
 }
 
-// ---------------------------------------------------------------------
-// Build the static row/section markup once. Guide rates are placeholder
-// text only — never a value attribute — so they vanish on typing and are
-// never part of what gets read/saved.
-// ---------------------------------------------------------------------
+// =====================================================================
+// Stages: Estimate, Quotes (needs a saved estimate), Budget (needs an
+// accepted quote, or "Use my estimate as budget").
+// =====================================================================
+function currentSavedEstimate(){ return editingId?savedEstimates.find(e=>e.id===editingId)||null:null; }
+function stageUnlocked(stage){
+  if(stage==='estimate')return true;
+  const est=currentSavedEstimate();
+  if(stage==='quotes')return !!est;
+  if(stage==='budget')return !!(est&&est.budget_amount!=null);
+  return false;
+}
+function stageLockHint(stage){
+  if(stage==='quotes')return 'Save your estimate to add builder quotes.';
+  if(stage==='budget')return currentSavedEstimate()?'Accept a quote, or use your estimate as the budget, to start tracking spend.':'Save your estimate, then accept a quote to start tracking spend.';
+  return '';
+}
+function refreshStageTabs(){
+  ['estimate','quotes','budget'].forEach(s=>{
+    const b=document.getElementById('stage-tab-'+s);
+    b.classList.toggle('active',s===currentStage);
+    b.classList.toggle('locked',!stageUnlocked(s));
+    b.setAttribute('aria-selected',s===currentStage?'true':'false');
+  });
+  if(currentStage!=='estimate'&&!stageUnlocked(currentStage))goStage('estimate');
+}
+function goStage(stage){
+  const hint=document.getElementById('rf-stage-hint');
+  if(!stageUnlocked(stage)){ hint.textContent=stageLockHint(stage); return; }
+  hint.textContent='';
+  currentStage=stage;
+  document.getElementById('stage-estimate').hidden=stage!=='estimate';
+  document.getElementById('stage-quotes').hidden=stage!=='quotes';
+  document.getElementById('stage-budget').hidden=stage!=='budget';
+  refreshStageTabs();
+  updateBar();
+  if(stage==='quotes')RefurbWorkflow.showQuotes(document.getElementById('stage-quotes'));
+  if(stage==='budget')RefurbWorkflow.showBudget(document.getElementById('stage-budget'));
+}
+
+// =====================================================================
+// Start screen and wizard
+// =====================================================================
+let wizardMode=null, wizardFromWork=false, wiz={ type:null, beds:null, scope:null };
+
+function showScreen(which){
+  document.getElementById('rf-start').hidden=which!=='start';
+  document.getElementById('rf-wizard').hidden=which!=='wizard';
+  document.getElementById('rf-work').hidden=which!=='work';
+  updateBar();
+}
+
+function startWith(kind, fromWork){
+  if(kind==='lines'||kind==='quick'){
+    if(!entry){ entry=kind; prefillUserRatesEverywhere(); }
+    showScreen('work');
+    switchView(kind==='quick'?'quick':'detailed');
+    return;
+  }
+  wizardMode=kind; wizardFromWork=!!fromWork;
+  const base=kind==='template'?(templateState||{}):(roomState.type?roomState:(templateState||{}));
+  wiz={ type:base.type||null, beds:base.beds||null, scope:kind==='template'?(base.scope||null):null };
+  document.getElementById('wiz-title').textContent=kind==='template'?'Use a template':'Walk room by room';
+  renderWizard();
+  showScreen('wizard');
+}
+
+function renderWizard(){
+  const typeEl=document.getElementById('wiz-type-choices');
+  typeEl.innerHTML=Object.keys(REFURB_PROPERTY_TYPES).map(t=>`<button type="button" class="choice${wiz.type===t?' active':''}" onclick="wizPick('type','${t}')">${escapeHtml(REFURB_PROPERTY_TYPES[t].label)}</button>`).join('');
+  document.getElementById('wiz-beds').hidden=!wiz.type;
+  document.getElementById('wiz-beds-choices').innerHTML=REFURB_BEDROOM_OPTIONS.map(b=>`<button type="button" class="choice${wiz.beds===b?' active':''}" onclick="wizPick('beds',${b})">${b} bed</button>`).join('');
+  const showScope=wizardMode==='template'&&wiz.type&&wiz.beds;
+  document.getElementById('wiz-scope').hidden=!showScope;
+  const ready=wiz.type&&wiz.beds&&(wizardMode==='rooms'||wiz.scope);
+  document.getElementById('wiz-done').hidden=!(wizardFromWork&&ready);
+  document.getElementById('wiz-scope-choices').innerHTML=Object.keys(REFURB_SCOPES).map(s=>`<button type="button" class="choice choice-big${wiz.scope===s?' active':''}" onclick="wizPick('scope','${s}')"><span>${escapeHtml(REFURB_SCOPES[s].label)}</span><span class="ch-hint">${escapeHtml(REFURB_SCOPES[s].hint)}</span></button>`).join('');
+}
+
+function wizPick(field, value){
+  wiz[field]=value;
+  // Changing an estimate already under way: wait for Done.
+  if(wizardFromWork){ renderWizard(); return; }
+  if(field==='type'&&!wiz.beds){ renderWizard(); return; }
+  if(wizardMode==='rooms'&&wiz.type&&wiz.beds){ finishRoomsSetup(); return; }
+  if(wizardMode==='template'&&wiz.type&&wiz.beds&&wiz.scope){ applyTemplate(wiz.type,wiz.beds,wiz.scope); return; }
+  renderWizard();
+}
+
+function wizardDone(){
+  if(wizardMode==='rooms'&&wiz.type&&wiz.beds)finishRoomsSetup();
+  else if(wizardMode==='template'&&wiz.type&&wiz.beds&&wiz.scope)applyTemplate(wiz.type,wiz.beds,wiz.scope);
+}
+
+function wizardBack(){
+  if(wizardFromWork||entry){ showScreen('work'); return; }
+  showScreen('start');
+}
+
+// Adds next-prev quantities to each line, so manual edits on other lines
+// (or on the same line) are kept when a template or room choice changes.
+function applyQtyDelta(prev, next){
+  const keys=new Set([...Object.keys(prev||{}),...Object.keys(next||{})]);
+  keys.forEach(key=>{
+    const el=document.getElementById('di-'+domId(key)+'-qty');
+    if(!el)return;
+    const cur=numOrNull(el.value)||0;
+    let v=cur-((prev&&prev[key])||0)+((next&&next[key])||0);
+    v=Math.max(0,Math.round(v*100)/100);
+    el.value=v>0?v:'';
+    if(v>0)prefillRate(key);
+  });
+}
+
+function applyTemplate(type, beds, scope){
+  const q=refurbTemplateQuantities(type,beds,scope);
+  applyQtyDelta(templateApplied,q);
+  templateApplied=q;
+  templateState={ type, beds, scope };
+  if(!entry)entry='template';
+  // Rooms share the property type and bedrooms unless already set.
+  if(!roomState.type){ roomState.type=type; roomState.beds=beds; }
+  suggestedWeeks=refurbSuggestedWeeks(type,beds,scope);
+  if(document.getElementById('rf-duration').value===''&&suggestedWeeks)document.getElementById('rf-duration').value=suggestedWeeks;
+  showScreen('work');
+  switchView('detailed',true);
+  const n=Object.keys(q).length;
+  showWorkNote(`Template filled ${n} line items for a ${beds} bed ${REFURB_PROPERTY_TYPES[type].label.toLowerCase()}, ${REFURB_SCOPES[scope].label.toLowerCase()}. Open a category to check the quantities.`);
+  recalcSummary();
+}
+
+function finishRoomsSetup(){
+  roomState.type=wiz.type; roomState.beds=wiz.beds;
+  if(!entry){ entry='rooms'; }
+  showScreen('work');
+  switchView('rooms');
+  applyRoomQuantities();
+}
+
+function showWorkNote(text){
+  const n=document.getElementById('rf-work-note');
+  n.textContent=text; n.hidden=!text;
+}
+
+// =====================================================================
+// Rates: your rate, then guide rate, then empty.
+// =====================================================================
+function prefillRate(key){
+  const el=document.getElementById('di-'+domId(key)+'-rate');
+  if(!el||el.value!=='')return;
+  const u=userRates[key];
+  if(u!=null&&u!=='')el.value=u;
+  updateRateHint(key);
+}
+function prefillUserRatesEverywhere(){
+  refurbItemList().forEach(x=>prefillRate(x.key));
+}
+function updateRateHint(key){
+  const id=domId(key);
+  const el=document.getElementById('di-'+id+'-rate');
+  const hint=document.getElementById('di-'+id+'-rhint');
+  if(!el||!hint)return;
+  const u=userRates[key];
+  const g=RefurbRateCard.guideRate(key);
+  if(el.value!==''&&u!=null&&Number(el.value)===Number(u)){ hint.className='rate-hint yours'; hint.textContent='Your rate'; return; }
+  if(el.value===''&&g!=null){ hint.className='rate-hint'; hint.innerHTML=`<button type="button" class="guide-chip" onclick="useGuideRate('${key}')">Use guide ${escapeHtml(fmtRate(g))}</button>`; return; }
+  hint.className='rate-hint'; hint.textContent='';
+}
+function useGuideRate(key){
+  const el=document.getElementById('di-'+domId(key)+'-rate');
+  const g=RefurbRateCard.guideRate(key);
+  if(el&&g!=null){ el.value=g; onLineInput(key); }
+}
+
+async function saveRatesAsMine(){
+  const msg=document.getElementById('rf-msg');
+  const items=readDetailedLineItems();
+  const next={...userRates};
+  let n=0;
+  Object.keys(items).forEach(k=>{ const r=items[k].rate; if(r!=null&&r>=0){ if(Number(next[k])!==r)n++; next[k]=r; } });
+  if(!n){ msg.className='save-msg'; msg.textContent='No new rates to save. Your rates already match this estimate.'; return; }
+  try{
+    userRates=await RefurbRateCard.save(currentSession,next);
+    msg.className='save-msg success'; msg.textContent=`Saved ${n} rate${n===1?'':'s'} as yours. They pre-fill on new estimates. Edit them any time in Settings.`;
+    refurbItemList().forEach(x=>updateRateHint(x.key));
+  }catch(e){ msg.className='save-msg error'; msg.textContent=e.message; }
+}
+
+// =====================================================================
+// Line by line (detailed)
+// =====================================================================
+function itemUnit(key){
+  const x=refurbItemByKey(key);
+  const ov=lineExtras[key]&&lineExtras[key].unit;
+  return ov||(x?x.item.unit:'');
+}
+
 function buildDetailedPanel(){
   const container=document.getElementById('rf-sections');
-  container.innerHTML = REFURB_SECTIONS.map((s,i)=>`
-    <details class="card refurb-section"${i===0?' open':''}>
-      <summary>
-        <span class="refurb-section-name">${escapeHtml(s.name)}</span>
-        <span class="refurb-section-right">
-          <span class="refurb-section-subtotal" id="ds-${s.id}-subtotal">£0</span>
-          <span class="refurb-chevron"></span>
-        </span>
-      </summary>
-      <div class="refurb-section-body">
-        ${s.items.map(it=>`
-          <div class="refurb-row">
-            <div>
-              <span class="refurb-item-name">${escapeHtml(it.label)}</span>
-              ${it.note?`<span class="refurb-item-note">${escapeHtml(it.note)}</span>`:''}
-            </div>
-            <input type="number" placeholder="Qty" id="di-${s.id}-${it.id}-qty" oninput="recalcSummary()"/>
-            <input type="number" placeholder="${fmtGuidePrice(it.rate)||'Rate £'}" id="di-${s.id}-${it.id}-rate" oninput="recalcSummary()"/>
-            <span class="refurb-row-total" id="di-${s.id}-${it.id}-total">£0</span>
+  container.innerHTML=REFURB_SECTIONS.map(s=>`
+    <details class="card cx cat" id="cat-${s.id}">
+      <summary><span class="cx-title">${escapeHtml(s.name)}<span class="cat-count" id="ds-${s.id}-count" hidden></span></span><span class="cx-sum"><span class="cat-total zero" id="ds-${s.id}-subtotal">£0</span></span><span class="chev"></span></summary>
+      <div class="cx-body">
+        ${s.id==='epc'?`<div class="epc-ratings">
+            <div class="field"><label for="rf-epc-current">Current EPC rating</label><select id="rf-epc-current" onchange="onEpcChange()">${epcOptions()}</select></div>
+            <div class="field"><label for="rf-epc-target">Target EPC rating</label><select id="rf-epc-target" onchange="onEpcChange()">${epcOptions()}</select></div>
           </div>
-        `).join('')}
+          <p class="epc-note">Check current minimum energy efficiency rules for rentals and get an EPC assessor's recommendations report.</p>`:''}
+        <div class="li-head"><span>Item</span><span>Qty</span><span>Rate (£)</span><span>Total</span><span></span></div>
+        ${s.items.map(it=>{ const key=s.id+'.'+it.id, id=domId(key), g=RefurbRateCard.guideRate(key); return `
+          <div class="li" id="li-${id}">
+            <div class="li-main">
+              <span class="li-name">${escapeHtml(it.label)}${it.note?`<span class="li-name-note">${escapeHtml(it.note)}</span>`:''}</span>
+              <label class="li-f"><span class="li-cap">Qty</span><span class="li-qty-wrap"><input type="number" inputmode="decimal" min="0" step="any" id="di-${id}-qty" oninput="onLineInput('${key}')" aria-label="${escapeHtml(it.label)} quantity"/><span class="li-unit" id="di-${id}-unit">${escapeHtml(it.unit)}</span></span></label>
+              <label class="li-f"><span class="li-cap">Rate (£)</span><input type="number" inputmode="decimal" min="0" step="any" placeholder="${g!=null?'Guide '+escapeHtml(fmtRate(g)):'£'}" id="di-${id}-rate" oninput="onLineInput('${key}')" aria-label="${escapeHtml(it.label)} rate"/><span class="rate-hint" id="di-${id}-rhint"></span></label>
+              <span class="li-total zero" id="di-${id}-total">£0</span>
+              <button type="button" class="more-btn" id="di-${id}-more" aria-expanded="false" onclick="toggleMore('${key}')">more</button>
+            </div>
+            <div class="li-more" id="lm-${id}" hidden></div>
+          </div>`; }).join('')}
       </div>
-    </details>
-  `).join('');
+    </details>`).join('');
 }
 
+function epcOptions(){ return '<option value="">Not set</option>'+['A','B','C','D','E','F','G'].map(r=>`<option value="${r}">${r}</option>`).join(''); }
+function onEpcChange(){
+  epc={ current:document.getElementById('rf-epc-current').value, target:document.getElementById('rf-epc-target').value };
+  saveRefurbDraft();
+}
+
+function onLineInput(key){
+  updateRateHint(key);
+  recalcSummary();
+}
+
+function toggleMore(key){
+  const id=domId(key);
+  const panel=document.getElementById('lm-'+id);
+  const btn=document.getElementById('di-'+id+'-more');
+  const open=panel.hidden;
+  if(open)renderMore(key);
+  panel.hidden=!open;
+  btn.setAttribute('aria-expanded',open?'true':'false');
+}
+
+function renderMore(key){
+  const id=domId(key);
+  const x=refurbItemByKey(key);
+  const ex=lineExtras[key]||{};
+  const unit=ex.unit||x.item.unit;
+  const rateEl=document.getElementById('di-'+id+'-rate');
+  const rate=numOrNull(rateEl.value);
+  const canSaveRate=rate!=null&&Number(userRates[key])!==rate;
+  document.getElementById('lm-'+id).innerHTML=`
+    <div class="field"><label for="lu-${id}">Unit</label><select id="lu-${id}" onchange="setLineUnit('${key}',this.value)">${REFURB_UNITS.map(u=>`<option value="${escapeHtml(u)}"${u===unit?' selected':''}>${escapeHtml(u)}${u===x.item.unit?' (usual)':''}</option>`).join('')}</select></div>
+    <div class="field"><label for="ln-${id}">Note for the builder</label><input type="text" class="note-input" id="ln-${id}" maxlength="300" value="${escapeHtml(ex.note||'')}" placeholder="e.g. Front bedroom only" oninput="setLineNote('${key}',this.value)"/></div>
+    <div class="li-more-foot">
+      ${photoStripHtml((ex.photos||[]),'line',key)}
+      ${canSaveRate?`<button type="button" class="mini-btn" onclick="saveOneRate('${key}')">Save ${escapeHtml(fmtRate(rate))} as my rate</button>`:''}
+    </div>`;
+}
+function setLineUnit(key, unit){
+  const x=refurbItemByKey(key);
+  lineExtras[key]={...(lineExtras[key]||{}), unit: unit===x.item.unit?undefined:unit};
+  document.getElementById('di-'+domId(key)+'-unit').textContent=unit;
+  markMoreBtn(key); saveRefurbDraft();
+}
+function setLineNote(key, note){
+  lineExtras[key]={...(lineExtras[key]||{}), note: note.trim()?note:undefined};
+  markMoreBtn(key); saveRefurbDraft();
+}
+function markMoreBtn(key){
+  const ex=lineExtras[key]||{};
+  const has=!!(ex.unit||ex.note||(ex.photos&&ex.photos.length));
+  const b=document.getElementById('di-'+domId(key)+'-more');
+  if(b)b.classList.toggle('has',has);
+}
+async function saveOneRate(key){
+  const rate=numOrNull(document.getElementById('di-'+domId(key)+'-rate').value);
+  if(rate==null)return;
+  try{
+    userRates=await RefurbRateCard.save(currentSession,{...userRates,[key]:rate});
+    updateRateHint(key); renderMore(key);
+  }catch(e){ alert(e.message); }
+}
+
+// =====================================================================
+// Photos (room and line). Need a saved estimate; the path is kept in the
+// estimate and saved straight away.
+// =====================================================================
+let photoTarget=null;
+function photoStripHtml(paths, kind, ref){
+  const thumbs=paths.map(p=>`<span class="ph">${photoUrls[p]?`<img src="${escapeHtml(photoUrls[p])}" alt="">`:''}<button type="button" aria-label="Remove photo" onclick="removePhoto('${kind}','${ref}','${escapeHtml(p)}')">×</button></span>`).join('');
+  const can=!!editingId&&!detailsNeedDb;
+  return `<div class="ph-strip">${thumbs}<button type="button" class="ph-add" ${can?'':'disabled'} onclick="pickPhoto('${kind}','${ref}')">Add photo</button>${can?'':`<span class="hint">${detailsNeedDb?'Photos need a quick database update (db/048).':'Save the estimate to add photos.'}</span>`}</div>`;
+}
+function pickPhoto(kind, ref){ photoTarget={kind,ref}; const inp=document.getElementById('rf-photo-input'); inp.value=''; inp.click(); }
+
+// Shrinks a photo to at most 1600px on its long side as a JPEG.
+function compressImage(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(); const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const max=1600; let w=img.width,h=img.height;
+      if(w>max||h>max){ const s=max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg',.82).split(',')[1]);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('That photo could not be read.')); };
+    img.src=url;
+  });
+}
+
+async function onPhotoPicked(input){
+  const file=input.files&&input.files[0];
+  if(!file||!photoTarget||!editingId)return;
+  const target=photoTarget; photoTarget=null;
+  try{
+    const data=await compressImage(file);
+    const res=await fetch(API_BASE+'/api/refurb-estimates/'+editingId+'/photos',{method:'POST',headers:authHeaders(true),body:JSON.stringify({type:'image/jpeg',data})});
+    const d=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(d.error||'That photo could not be uploaded.');
+    photoUrls[d.path]=d.url;
+    if(target.kind==='line'){
+      const ex=lineExtras[target.ref]||{};
+      lineExtras[target.ref]={...ex, photos:[...(ex.photos||[]), d.path]};
+      renderMore(target.ref); markMoreBtn(target.ref);
+    }else{
+      const c=roomState.choices[target.ref]||{};
+      roomState.choices[target.ref]={...c, photos:[...(c.photos||[]), d.path]};
+      renderRoomsPanel();
+    }
+    await saveEstimate({quiet:true});
+  }catch(e){ alert(e.message); }
+}
+
+async function removePhoto(kind, ref, path){
+  if(kind==='line'){
+    const ex=lineExtras[ref]||{};
+    lineExtras[ref]={...ex, photos:(ex.photos||[]).filter(p=>p!==path)};
+    renderMore(ref); markMoreBtn(ref);
+  }else{
+    const c=roomState.choices[ref]||{};
+    roomState.choices[ref]={...c, photos:(c.photos||[]).filter(p=>p!==path)};
+    renderRoomsPanel();
+  }
+  if(editingId){
+    await saveEstimate({quiet:true});
+    fetch(API_BASE+'/api/refurb-estimates/'+editingId+'/photos',{method:'DELETE',headers:authHeaders(true),body:JSON.stringify({path})}).catch(()=>{});
+  }
+}
+
+async function loadPhotoUrls(){
+  if(!editingId)return;
+  const paths=[];
+  Object.values(lineExtras).forEach(ex=>(ex&&ex.photos||[]).forEach(p=>paths.push(p)));
+  Object.values(roomState.choices||{}).forEach(c=>(c&&c.photos||[]).forEach(p=>paths.push(p)));
+  const missing=paths.filter(p=>!photoUrls[p]);
+  if(!missing.length)return;
+  try{
+    const res=await fetch(API_BASE+'/api/refurb-estimates/'+editingId+'/photo-urls',{method:'POST',headers:authHeaders(true),body:JSON.stringify({paths:missing})});
+    const d=await res.json();
+    if(res.ok&&d.urls)Object.assign(photoUrls,d.urls);
+    if(currentView==='rooms')renderRoomsPanel();
+  }catch(e){ /* photos just show without thumbnails */ }
+}
+
+// =====================================================================
+// Room by room
+// =====================================================================
+const COND_LABEL={fine:'Fine',refresh:'Refresh',replace:'Replace'};
+let openRoomMore=new Set();
+
+function renderRoomsPanel(){
+  const el=document.getElementById('rf-rooms-panel');
+  if(!roomState.type||!roomState.beds){
+    el.innerHTML=`<div class="card" style="padding:1.25rem"><p style="margin:0 0 .75rem">Tell us about the property first.</p><button type="button" class="btn-primary" onclick="startWith('rooms', true)">Set up rooms</button></div>`;
+    return;
+  }
+  const t=REFURB_PROPERTY_TYPES[roomState.type];
+  const cards=refurbRoomCards(roomState.type,roomState.beds);
+  const roomCard=c=>{
+    const ch=roomState.choices[c.cardId]||{};
+    const cond=ch.condition||'fine';
+    const hint=cond==='refresh'?c.room.refreshHint:cond==='replace'?c.room.replaceHint:'Nothing needed.';
+    const hasMore=!!(ch.note||(ch.photos&&ch.photos.length));
+    const moreOpen=openRoomMore.has(c.cardId);
+    return `<div class="card room" id="room-${c.cardId}">
+      <div class="room-top"><span class="room-name">${escapeHtml(c.label)}</span><span class="room-state">${escapeHtml(COND_LABEL[cond])}</span></div>
+      <div class="cond-row" role="group" aria-label="${escapeHtml(c.label)} condition">
+        ${['fine','refresh','replace'].map(k=>`<button type="button" class="cond ${k}${cond===k?' active':''}" aria-pressed="${cond===k}" onclick="setRoomCondition('${c.cardId}','${k}')">${COND_LABEL[k]}</button>`).join('')}
+      </div>
+      <p class="room-hint">${escapeHtml(hint)}</p>
+      <button type="button" class="more-btn${hasMore?' has':''}" aria-expanded="${moreOpen}" onclick="toggleRoomMore('${c.cardId}')">${hasMore?'Note and photos':'more'}</button>
+      <div class="room-more"${moreOpen?'':' hidden'}>
+        <textarea maxlength="500" placeholder="Note, e.g. damp on the back wall" oninput="setRoomNote('${c.cardId}',this.value)" aria-label="${escapeHtml(c.label)} note">${escapeHtml(ch.note||'')}</textarea>
+        ${photoStripHtml(ch.photos||[],'room',c.cardId)}
+      </div>
+    </div>`;
+  };
+  const rooms=cards.filter(c=>!c.room.wholeHouse), whole=cards.filter(c=>c.room.wholeHouse);
+  const applied=roomState.applied||{};
+  const keys=Object.keys(applied).filter(k=>applied[k]>0);
+  el.innerHTML=`
+    <div class="card rooms-head"><span><strong>${escapeHtml(t.label)}</strong> · ${roomState.beds} bed</span><button type="button" class="link-btn" onclick="startWith('rooms', true)">Change</button></div>
+    <p class="rooms-group">Rooms</p>${rooms.map(roomCard).join('')}
+    <p class="rooms-group">Whole house</p>${whole.map(roomCard).join('')}
+    <div class="card" style="padding:1rem 1.25rem;margin-top:1rem">
+      <p style="font-weight:700;margin:0 0 .35rem">Items from your rooms</p>
+      <p class="hint" style="margin:0 0 .6rem">Your choices set these quantities in Line by line. Add a rate to include each one in the total.</p>
+      ${keys.length?keys.map(k=>{ const x=refurbItemByKey(k); const rEl=document.getElementById('di-'+domId(k)+'-rate'); const g=RefurbRateCard.guideRate(k); return `<div class="ri"><span class="ri-name">${escapeHtml(x.item.label)}</span><span class="ri-qty">${applied[k]} ${escapeHtml(itemUnit(k))}</span><input type="number" inputmode="decimal" min="0" step="any" placeholder="${g!=null?'Guide '+escapeHtml(fmtRate(g)):'Rate £'}" value="${rEl?escapeHtml(rEl.value):''}" oninput="setRateFromRooms('${k}',this.value)" aria-label="${escapeHtml(x.item.label)} rate"/></div>`; }).join(''):'<p class="hint" style="margin:0">Mark a room as Refresh or Replace to add items.</p>'}
+    </div>`;
+}
+function setRoomCondition(cardId, cond){
+  roomState.choices[cardId]={...(roomState.choices[cardId]||{}), condition:cond};
+  applyRoomQuantities();
+}
+function applyRoomQuantities(){
+  const q=refurbRoomQuantities(roomState.type,roomState.beds,roomState.choices);
+  applyQtyDelta(roomState.applied,q);
+  roomState.applied=q;
+  renderRoomsPanel();
+  recalcSummary();
+}
+function toggleRoomMore(cardId){ if(openRoomMore.has(cardId))openRoomMore.delete(cardId); else openRoomMore.add(cardId); renderRoomsPanel(); }
+function setRoomNote(cardId, note){ roomState.choices[cardId]={...(roomState.choices[cardId]||{}), note}; saveRefurbDraft(); }
+function setRateFromRooms(key, v){
+  const el=document.getElementById('di-'+domId(key)+'-rate');
+  if(el){ el.value=v; updateRateHint(key); recalcSummary(); }
+}
+
+// =====================================================================
+// Quick totals
+// =====================================================================
 function buildQuickPanel(){
-  const container=document.getElementById('rf-quick-rows');
-  container.innerHTML = QUICK_TRADES.map(t=>`
-    <div class="refurb-quick-row">
-      <label for="qi-${t.id}">${escapeHtml(t.label)}</label>
-      <input type="number" id="qi-${t.id}" placeholder="£0" oninput="recalcSummary()"/>
-    </div>
-  `).join('');
+  document.getElementById('rf-quick-rows').innerHTML=QUICK_TRADES.map(t=>`
+    <div class="qk"><label for="qi-${t.id}">${escapeHtml(t.label)}</label><input type="number" inputmode="decimal" min="0" id="qi-${t.id}" placeholder="£0" oninput="recalcSummary()"/></div>`).join('');
 }
 
-function resetFormFields(){
-  REFURB_SECTIONS.forEach(s=>s.items.forEach(it=>{
-    document.getElementById(`di-${s.id}-${it.id}-rate`).value='';
-    document.getElementById(`di-${s.id}-${it.id}-qty`).value='';
-  }));
-  QUICK_TRADES.forEach(t=>{ document.getElementById(`qi-${t.id}`).value=''; });
-}
-
-function switchMode(mode, skipRecalc){
-  currentMode=mode;
-  document.getElementById('mode-btn-detailed').classList.toggle('active', mode==='detailed');
-  document.getElementById('mode-btn-quick').classList.toggle('active', mode==='quick');
-  document.getElementById('rf-detailed-panel').style.display = mode==='detailed' ? '' : 'none';
-  document.getElementById('rf-quick-panel').style.display = mode==='quick' ? '' : 'none';
+function switchView(view, skipRecalc){
+  currentView=view;
+  ['rooms','detailed','quick'].forEach(v=>{
+    document.getElementById('view-btn-'+v).classList.toggle('active',v===view);
+  });
+  document.getElementById('rf-detailed-panel').hidden=view!=='detailed';
+  document.getElementById('rf-rooms-panel').hidden=view!=='rooms';
+  document.getElementById('rf-quick-panel').hidden=view!=='quick';
+  document.getElementById('rf-template-btn').hidden=view==='quick';
+  if(view==='rooms')renderRoomsPanel();
   if(!skipRecalc)recalcSummary();
 }
 
 function switchVat(rate, skipRecalc){
   currentVatRate=rate;
-  document.getElementById('vat-btn-0').classList.toggle('active', rate===0);
-  document.getElementById('vat-btn-20').classList.toggle('active', rate===20);
-  document.getElementById('vat-btn-5').classList.toggle('active', rate===5);
+  [0,20,5].forEach(r=>document.getElementById('vat-btn-'+r).classList.toggle('active',r===rate));
   if(!skipRecalc)recalcSummary();
 }
-
 function onContingencyToggle(){
-  const on=document.getElementById('rf-cont-on').checked;
-  document.getElementById('rf-cont-pct-wrap').classList.toggle('disabled', !on);
+  document.getElementById('rf-cont-pct-wrap').classList.toggle('disabled',!document.getElementById('rf-cont-on').checked);
   recalcSummary();
 }
 
-// computeDetailedSubtotal/computeQuickSubtotal/computeTotals — pure
-// arithmetic, takes plain data, never touches the DOM — now live in
-// refurb-totals.js (loaded above), shared with saved-deals.html's Deal
-// Workspace Refurb section rather than duplicated.
-
+// =====================================================================
+// Reading the form and totals
+// =====================================================================
 function readDetailedLineItems(){
   const items={};
-  REFURB_SECTIONS.forEach(s=>s.items.forEach(it=>{
-    const rateEl=document.getElementById(`di-${s.id}-${it.id}-rate`);
-    const qtyEl=document.getElementById(`di-${s.id}-${it.id}-qty`);
-    const rate = rateEl.value!=='' && Number.isFinite(parseFloat(rateEl.value)) ? parseFloat(rateEl.value) : null;
-    const qty = qtyEl.value!=='' && Number.isFinite(parseFloat(qtyEl.value)) ? parseFloat(qtyEl.value) : null;
-    if(rate!=null || qty!=null) items[`${s.id}.${it.id}`] = { rate, qty };
-  }));
-  return items;
-}
-
-function readQuickLineItems(){
-  const items={};
-  QUICK_TRADES.forEach(t=>{
-    const el=document.getElementById(`qi-${t.id}`);
-    const v = el.value!=='' && Number.isFinite(parseFloat(el.value)) ? parseFloat(el.value) : null;
-    if(v!=null && v!==0) items[t.id]=v;
+  refurbItemList().forEach(({key})=>{
+    const id=domId(key);
+    const rate=numOrNull(document.getElementById('di-'+id+'-rate').value);
+    const qty=numOrNull(document.getElementById('di-'+id+'-qty').value);
+    const ex=lineExtras[key]||{};
+    const li={ rate, qty };
+    if(ex.unit)li.unit=ex.unit;
+    if(ex.note)li.note=String(ex.note).slice(0,300);
+    if(ex.photos&&ex.photos.length)li.photos=ex.photos.slice(0,10);
+    if(rate!=null||qty!=null||li.unit||li.note||li.photos)items[key]=li;
   });
   return items;
 }
+function readQuickLineItems(){
+  const items={};
+  QUICK_TRADES.forEach(t=>{ const v=numOrNull(document.getElementById('qi-'+t.id).value); if(v!=null&&v!==0)items[t.id]=v; });
+  return items;
+}
+function saveMode(){ return currentView==='quick'?'quick':'detailed'; }
+function currentLineItems(){ return saveMode()==='quick'?readQuickLineItems():readDetailedLineItems(); }
+function currentTotals(){
+  return computeTotals(saveMode(),currentLineItems(),document.getElementById('rf-cont-on').checked,parseFloat(document.getElementById('rf-cont-pct').value)||0,currentVatRate);
+}
+function currentDurationWeeks(){ return numOrNull(document.getElementById('rf-duration').value); }
 
 function recalcSummary(){
-  const lineItems = currentMode==='detailed' ? readDetailedLineItems() : readQuickLineItems();
-
-  if(currentMode==='detailed'){
-    const { sectionTotals } = computeDetailedSubtotal(lineItems);
+  let missing=0, counted=0;
+  if(saveMode()==='detailed'){
+    const lineItems=readDetailedLineItems();
+    const { sectionTotals }=computeDetailedSubtotal(lineItems);
     REFURB_SECTIONS.forEach(s=>{
-      document.getElementById(`ds-${s.id}-subtotal`).textContent = fmtGBP(sectionTotals[s.id]);
+      let count=0;
       s.items.forEach(it=>{
-        const li=lineItems[`${s.id}.${it.id}`];
-        const rate=li&&li.rate!=null?li.rate:0, qty=li&&li.qty!=null?li.qty:0;
-        document.getElementById(`di-${s.id}-${it.id}-total`).textContent = fmtGBP(rate*qty);
+        const key=s.id+'.'+it.id, id=domId(key);
+        const li=lineItems[key]; const rate=li&&li.rate!=null?li.rate:0, qty=li&&li.qty!=null?li.qty:0;
+        if(qty>0){ count++; counted++; if(!(li&&li.rate!=null))missing++; }
+        const tEl=document.getElementById('di-'+id+'-total');
+        tEl.textContent=fmtGBP(rate*qty); tEl.classList.toggle('zero',rate*qty===0);
       });
+      const tot=document.getElementById('ds-'+s.id+'-subtotal');
+      tot.textContent=fmtGBP(sectionTotals[s.id]); tot.classList.toggle('zero',!count);
+      const badge=document.getElementById('ds-'+s.id+'-count');
+      badge.hidden=!count; badge.textContent=count+(count===1?' item':' items');
     });
   }
-
-  const contingencyEnabled = document.getElementById('rf-cont-on').checked;
-  const contingencyPct = parseFloat(document.getElementById('rf-cont-pct').value) || 0;
-  const totals = computeTotals(currentMode, lineItems, contingencyEnabled, contingencyPct, currentVatRate);
-
-  document.getElementById('rf-subtotal').textContent = fmtGBP(totals.subtotal);
-  document.getElementById('rf-contingency-amt').textContent = fmtGBP(totals.contingencyAmt);
-  document.getElementById('rf-vat-amt').textContent = fmtGBP(totals.vatAmt);
-  document.getElementById('rf-grand-total').textContent = fmtGBP(totals.grandTotal);
-
+  const totals=currentTotals();
+  document.getElementById('rf-subtotal').textContent=fmtGBP(totals.subtotal);
+  document.getElementById('rf-contingency-amt').textContent=fmtGBP(totals.contingencyAmt);
+  document.getElementById('rf-vat-amt').textContent=fmtGBP(totals.vatAmt);
+  const gt=document.getElementById('rf-grand-total');
+  const note=document.getElementById('rf-total-note');
+  const noRates=saveMode()==='detailed'&&counted>0&&totals.subtotal===0;
+  if(noRates){ gt.textContent='Add rates to see a total'; gt.classList.add('ov-empty'); }
+  else{ gt.textContent=fmtGBP(totals.grandTotal); gt.classList.remove('ov-empty'); }
+  if(saveMode()==='detailed'&&missing>0&&!noRates){ note.hidden=false; note.textContent=missing+(missing===1?' item still needs a rate.':' items still need a rate.'); }
+  else note.hidden=true;
+  if(currentView==='rooms'){
+    // keep the rooms list rates in step without stealing focus
+  }
+  updateDetailsSummary();
+  updateBar(totals,noRates);
   saveRefurbDraft();
 }
 
-// ---------------------------------------------------------------------
-// Draft persistence (draft-state.js) — saves/restores this page's
-// in-progress, unsaved estimate to localStorage so an accidental refresh
-// doesn't lose it. Never a substitute for a real saved estimate; the
-// saved-estimates list above is unaffected by any of this.
-// ---------------------------------------------------------------------
-function currentRefurbDraftState(){
+function updateBar(totals,noRates){
+  const bar=document.getElementById('rf-bar');
+  const show=currentStage==='estimate'&&!document.getElementById('rf-work').hidden&&document.getElementById('state-board').style.display!=='none';
+  bar.classList.toggle('show',show);
+  document.body.classList.toggle('bar-on',show&&window.matchMedia('(max-width:960px)').matches);
+  if(!show)return;
+  if(!totals){ totals=currentTotals(); }
+  const v=document.getElementById('rf-bar-value');
+  if(noRates){ v.textContent='Add rates to see a total'; v.classList.add('empty'); }
+  else{ v.textContent=fmtGBP(totals.grandTotal); v.classList.remove('empty'); }
+  const w=currentDurationWeeks();
+  document.getElementById('rf-bar-label').textContent=w?`Grand total · ${w} week${w===1?'':'s'}`:'Grand total';
+}
+function scrollToSummary(){ document.getElementById('rf-summary').scrollIntoView({behavior:'smooth',block:'start'}); }
+
+function scopeLabelFor(mode, details){
+  if(mode==='quick')return 'Quick total';
+  const d=details||{};
+  if(d.template&&REFURB_SCOPES[d.template.scope])return REFURB_SCOPES[d.template.scope].label;
+  if(d.entry==='rooms')return 'Room by room';
+  return 'Line by line';
+}
+
+function updateDetailsSummary(){
+  const name=document.getElementById('rf-name').value.trim();
+  const addr=document.getElementById('rf-address').value.trim();
+  const parts=[name||'No name yet'];
+  if(addr)parts.push(addr);
+  document.getElementById('rf-details-sum').textContent=parts.join(' · ');
+  const tl=document.getElementById('rf-template-line');
+  if(templateState){
+    tl.textContent=`Template: ${REFURB_PROPERTY_TYPES[templateState.type].label} · ${templateState.beds} bed · ${REFURB_SCOPES[templateState.scope].label}`;
+  }else tl.textContent='';
+}
+function onDetailsInput(){ updateDetailsSummary(); saveRefurbDraft(); }
+
+function onDurationInput(){ updateSuggestLink(); updateBar(); saveRefurbDraft(); renderLinkedBox(); }
+function updateSuggestLink(){
+  const b=document.getElementById('rf-duration-suggest');
+  const w=currentDurationWeeks();
+  if(suggestedWeeks&&w!==suggestedWeeks){ b.hidden=false; b.textContent=`Use suggested ${suggestedWeeks}`; }
+  else b.hidden=true;
+}
+function useSuggestedDuration(){ document.getElementById('rf-duration').value=suggestedWeeks; onDurationInput(); }
+
+// =====================================================================
+// Details saved with the estimate (db/048)
+// =====================================================================
+function currentDetails(){
+  const choices={};
+  Object.keys(roomState.choices||{}).forEach(k=>{
+    const c=roomState.choices[k]; if(!c)return;
+    const o={};
+    if(c.condition&&c.condition!=='fine')o.condition=c.condition;
+    if(c.note)o.note=String(c.note).slice(0,500);
+    if(c.photos&&c.photos.length)o.photos=c.photos.slice(0,10);
+    if(Object.keys(o).length)choices[k]=o;
+  });
   return {
-    name: document.getElementById('rf-name').value,
-    mode: currentMode,
-    vatRate: currentVatRate,
-    contingencyEnabled: document.getElementById('rf-cont-on').checked,
-    contingencyPct: document.getElementById('rf-cont-pct').value,
-    detailedItems: readDetailedLineItems(),
-    quickItems: readQuickLineItems()
+    v:1,
+    address:document.getElementById('rf-address').value.trim()||null,
+    entry: entry||(saveMode()==='quick'?'quick':'lines'),
+    template: templateState,
+    templateApplied,
+    rooms: roomState.type?{ type:roomState.type, beds:roomState.beds, choices, applied:roomState.applied||{} }:null,
+    epc: (epc.current||epc.target)?epc:null,
+    durationWeeks: currentDurationWeeks(),
+    suggestedWeeks,
   };
 }
 
-function saveRefurbDraft(){
-  saveDraft('refurb', currentRefurbDraftState());
+function applyDetails(d){
+  d=d&&typeof d==='object'?d:{};
+  document.getElementById('rf-address').value=d.address||'';
+  templateState=d.template&&REFURB_SCOPES[d.template.scope]&&REFURB_PROPERTY_TYPES[d.template.type]?d.template:null;
+  templateApplied=d.templateApplied&&typeof d.templateApplied==='object'?d.templateApplied:{};
+  const r=d.rooms&&REFURB_PROPERTY_TYPES[d.rooms.type]?d.rooms:null;
+  roomState=r?{ type:r.type, beds:r.beds, choices:r.choices||{}, applied:r.applied||{} }:{ type:null, beds:null, choices:{}, applied:{} };
+  epc=d.epc&&typeof d.epc==='object'?{ current:d.epc.current||'', target:d.epc.target||'' }:{ current:'', target:'' };
+  document.getElementById('rf-epc-current').value=epc.current;
+  document.getElementById('rf-epc-target').value=epc.target;
+  document.getElementById('rf-duration').value=d.durationWeeks!=null?d.durationWeeks:'';
+  suggestedWeeks=d.suggestedWeeks||null;
+  entry=d.entry||null;
+  updateSuggestLink();
+}
+
+// =====================================================================
+// Draft persistence (draft-state.js): an unsaved estimate survives a refresh.
+// =====================================================================
+let draftReady=false;
+function currentRefurbDraftState(){
+  return {
+    v:2,
+    editingId,
+    name:document.getElementById('rf-name').value,
+    mode:saveMode(), view:currentView,
+    vatRate:currentVatRate,
+    contingencyEnabled:document.getElementById('rf-cont-on').checked,
+    contingencyPct:document.getElementById('rf-cont-pct').value,
+    detailedItems:readDetailedLineItems(),
+    quickItems:readQuickLineItems(),
+    details:currentDetails(),
+    hasEntry:!!entry,
+  };
+}
+function saveRefurbDraft(){ if(draftReady)saveDraft('refurb',currentRefurbDraftState()); }
+
+function fillLineItems(mode, lineItems){
+  if(mode==='quick'){
+    Object.keys(lineItems||{}).forEach(tid=>{ const el=document.getElementById('qi-'+tid); if(el&&lineItems[tid]!=null)el.value=lineItems[tid]; });
+    return;
+  }
+  lineExtras={};
+  Object.keys(lineItems||{}).forEach(key=>{
+    try{
+      const li=lineItems[key]; if(!li)return;
+      const id=domId(key);
+      const rateEl=document.getElementById('di-'+id+'-rate'), qtyEl=document.getElementById('di-'+id+'-qty');
+      if(!rateEl||!qtyEl)return;
+      if(li.rate!=null)rateEl.value=li.rate;
+      if(li.qty!=null)qtyEl.value=li.qty;
+      const ex={};
+      if(li.unit&&REFURB_UNITS.indexOf(li.unit)!==-1){ ex.unit=li.unit; document.getElementById('di-'+id+'-unit').textContent=li.unit; }
+      if(li.note)ex.note=li.note;
+      if(Array.isArray(li.photos))ex.photos=li.photos.filter(p=>typeof p==='string');
+      if(Object.keys(ex).length){ lineExtras[key]=ex; markMoreBtn(key); }
+    }catch(e){ /* one bad line shouldn't block the rest */ }
+  });
 }
 
 function restoreRefurbDraft(){
   const d=loadDraft('refurb');
-  if(!d)return;
-
+  if(!d)return false;
   try{
     if(typeof d.name==='string')document.getElementById('rf-name').value=d.name;
-  }catch(e){ /* leave name blank */ }
-
-  try{
-    if(d.detailedItems&&typeof d.detailedItems==='object'){
-      Object.keys(d.detailedItems).forEach(key=>{
-        try{
-          const [sid,iid]=key.split('.');
-          const li=d.detailedItems[key];
-          if(!li)return;
-          const rateEl=document.getElementById(`di-${sid}-${iid}-rate`);
-          const qtyEl=document.getElementById(`di-${sid}-${iid}-qty`);
-          if(rateEl&&li.rate!=null)rateEl.value=li.rate;
-          if(qtyEl&&li.qty!=null)qtyEl.value=li.qty;
-        }catch(e){ /* one bad line item shouldn't block the rest */ }
-      });
-    }
-  }catch(e){ /* leave detailed items blank */ }
-
-  try{
-    if(d.quickItems&&typeof d.quickItems==='object'){
-      Object.keys(d.quickItems).forEach(tid=>{
-        try{
-          const el=document.getElementById(`qi-${tid}`);
-          if(el&&d.quickItems[tid]!=null)el.value=d.quickItems[tid];
-        }catch(e){ /* one bad trade shouldn't block the rest */ }
-      });
-    }
-  }catch(e){ /* leave quick items blank */ }
-
-  try{
-    if(d.mode==='quick'||d.mode==='detailed')switchMode(d.mode, true);
-  }catch(e){ /* stay on the default mode */ }
-
-  try{
+    fillLineItems('detailed',d.detailedItems||{});
+    fillLineItems('quick',d.quickItems||{});
     if(typeof d.contingencyEnabled==='boolean')document.getElementById('rf-cont-on').checked=d.contingencyEnabled;
     if(d.contingencyPct!=null)document.getElementById('rf-cont-pct').value=d.contingencyPct;
     onContingencyToggle();
-  }catch(e){ /* leave contingency at its default */ }
-
-  try{
-    if(d.vatRate===0||d.vatRate===5||d.vatRate===20)switchVat(d.vatRate, true);
-  }catch(e){ /* stay on the default VAT rate */ }
-
-  recalcSummary();
+    if(d.vatRate===0||d.vatRate===5||d.vatRate===20)switchVat(d.vatRate,true);
+    applyDetails(d.details||{});
+    if(typeof d.editingId==='string')editingId=d.editingId;
+    // Drafts from before the start screen: anything typed means "in progress".
+    const anything=Object.keys(d.detailedItems||{}).length||Object.keys(d.quickItems||{}).length||(d.name||'').trim();
+    if(!entry&&(d.hasEntry||anything))entry=d.mode==='quick'?'quick':'lines';
+    const view=d.view||(d.mode==='quick'?'quick':'detailed');
+    refurbItemList().forEach(x=>updateRateHint(x.key));
+    if(entry){ showScreen('work'); switchView(view,true); }
+    return !!entry;
+  }catch(e){ return false; }
 }
 
-// ---------------------------------------------------------------------
-// Save / load / delete
-// ---------------------------------------------------------------------
-function newEstimate(){
-  editingId=null;
-  document.getElementById('rf-name').value='';
-  resetFormFields();
-  switchMode('detailed', true);
+// =====================================================================
+// New / load / save / delete
+// =====================================================================
+function resetForm(){
+  refurbItemList().forEach(({key})=>{
+    const id=domId(key);
+    document.getElementById('di-'+id+'-rate').value='';
+    document.getElementById('di-'+id+'-qty').value='';
+    document.getElementById('di-'+id+'-unit').textContent=refurbItemByKey(key).item.unit;
+    document.getElementById('lm-'+id).hidden=true;
+    document.getElementById('di-'+id+'-more').setAttribute('aria-expanded','false');
+    document.getElementById('di-'+id+'-more').classList.remove('has');
+  });
+  QUICK_TRADES.forEach(t=>{ document.getElementById('qi-'+t.id).value=''; });
+  document.querySelectorAll('#rf-sections details[open]').forEach(d=>d.open=false);
+  lineExtras={}; templateState=null; templateApplied={}; roomState={ type:null, beds:null, choices:{}, applied:{} };
+  epc={ current:'', target:'' }; suggestedWeeks=null; openRoomMore=new Set();
+  document.getElementById('rf-epc-current').value=''; document.getElementById('rf-epc-target').value='';
+  document.getElementById('rf-name').value=''; document.getElementById('rf-address').value='';
+  document.getElementById('rf-duration').value='';
   document.getElementById('rf-cont-on').checked=true;
   document.getElementById('rf-cont-pct').value=10;
   onContingencyToggle();
-  switchVat(20, true);
-  recalcSummary();
-  document.getElementById('rf-delete-btn').style.display='none';
-  document.getElementById('rf-save-btn').textContent='Save estimate';
-  const msg=document.getElementById('rf-msg');
-  msg.textContent='';msg.className='save-msg';
-  renderSavedList();
-  clearDraft('refurb');
+  switchVat(20,true);
+  showWorkNote('');
 }
+
+function newEstimate(){
+  editingId=null; entry=null;
+  resetForm();
+  setMsg('','');
+  document.getElementById('rf-delete-btn').hidden=true;
+  document.getElementById('rf-save-btn').textContent=saveButtonLabel();
+  clearDraft('refurb');
+  renderSavedList(); refreshStageTabs(); renderLinkedBox();
+  if(currentStage!=='estimate')goStage('estimate');
+  showScreen('start');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function saveButtonLabel(){ return fromCalc?'Save and send to calculator':(editingId?'Update estimate':'Save estimate'); }
+function setMsg(text, cls){ const m=document.getElementById('rf-msg'); m.textContent=text; m.className='save-msg'+(cls?' '+cls:''); }
 
 function loadEstimate(id){
   const est=savedEstimates.find(e=>e.id===id);
   if(!est)return;
   editingId=id;
-
+  resetForm();
   document.getElementById('rf-name').value=est.name;
-  resetFormFields();
-  switchMode(est.mode, true);
-
-  if(est.mode==='detailed'){
-    Object.keys(est.line_items).forEach(key=>{
-      const [sid,iid]=key.split('.');
-      const li=est.line_items[key];
-      const rateEl=document.getElementById(`di-${sid}-${iid}-rate`);
-      const qtyEl=document.getElementById(`di-${sid}-${iid}-qty`);
-      if(!rateEl||!qtyEl)return;
-      if(li.rate!=null)rateEl.value=li.rate;
-      if(li.qty!=null)qtyEl.value=li.qty;
-    });
-  }else{
-    Object.keys(est.line_items).forEach(tid=>{
-      const el=document.getElementById(`qi-${tid}`);
-      if(el)el.value=est.line_items[tid];
-    });
-  }
-
+  fillLineItems(est.mode,est.line_items);
   document.getElementById('rf-cont-on').checked=est.contingency_enabled;
   document.getElementById('rf-cont-pct').value=est.contingency_pct;
   onContingencyToggle();
-  switchVat(est.vat_rate, true);
+  switchVat(Number(est.vat_rate),true);
+  applyDetails(est.details||{});
+  if(!entry)entry=est.mode==='quick'?'quick':'lines';
+  refurbItemList().forEach(x=>updateRateHint(x.key));
+  showScreen('work');
+  switchView(est.mode==='quick'?'quick':(entry==='rooms'?'rooms':'detailed'),true);
   recalcSummary();
-
-  document.getElementById('rf-delete-btn').style.display='';
-  document.getElementById('rf-save-btn').textContent='Update estimate';
-  const msg=document.getElementById('rf-msg');
-  msg.textContent='';msg.className='save-msg';
-  renderSavedList();
-  window.scrollTo({ top: document.getElementById('rf-name').getBoundingClientRect().top + window.scrollY - 90, behavior:'smooth' });
+  document.getElementById('rf-delete-btn').hidden=false;
+  document.getElementById('rf-save-btn').textContent=saveButtonLabel();
+  setMsg('','');
+  document.getElementById('rf-saved-wrap').open=false;
+  renderSavedList(); refreshStageTabs(); renderLinkedBox();
+  loadPhotoUrls();
+  if(currentStage!=='estimate')goStage(stageUnlocked(currentStage)?currentStage:'estimate');
+  window.scrollTo({top:document.getElementById('stage-estimate').getBoundingClientRect().top+window.scrollY-90,behavior:'smooth'});
 }
 
 async function loadEstimates(){
   const listEl=document.getElementById('rf-saved-list');
   try{
-    const res=await fetch(API_BASE+'/api/refurb-estimates',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const res=await fetch(API_BASE+'/api/refurb-estimates',{headers:authHeaders()});
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not load your saved estimates.');
-    savedEstimates=d.estimates;
+    savedEstimates=d.estimates||[];
+    if(editingId&&!savedEstimates.some(e=>e.id===editingId)){ editingId=null; }
     renderSavedList();
   }catch(e){
     listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
+    document.getElementById('rf-saved-sum').textContent='Could not load';
   }
 }
 
+async function loadDeals(){
+  try{
+    const res=await fetch(API_BASE+'/api/deals',{headers:authHeaders()});
+    const d=await res.json();
+    savedDeals=res.ok&&Array.isArray(d)?d:[];
+  }catch(e){ savedDeals=[]; }
+}
+function dealsForEstimate(id){ return (savedDeals||[]).filter(d=>d.refurb_estimate_id===id); }
+
 function renderSavedList(){
   const listEl=document.getElementById('rf-saved-list');
-  if(savedEstimates.length===0){
-    listEl.innerHTML='<p class="hint">No saved estimates yet. Build one below and save it.</p>';
-    return;
-  }
+  const sum=document.getElementById('rf-saved-sum');
+  sum.textContent=savedEstimates.length?savedEstimates.length+(savedEstimates.length===1?' estimate':' estimates'):'None yet';
+  document.getElementById('rf-saved-wrap').hidden=!savedEstimates.length;
+  if(!savedEstimates.length){ listEl.innerHTML='<p class="hint">No saved estimates yet. Start one below and save it.</p>'; return; }
   listEl.innerHTML=savedEstimates.map(e=>{
-    const totals=computeTotals(e.mode, e.line_items, e.contingency_enabled, e.contingency_pct, e.vat_rate);
-    return `<div class="saved-item${e.id===editingId?' active':''}" onclick="loadEstimate('${e.id}')">
-      <div class="saved-info">
-        <span class="saved-name">${escapeHtml(e.name)}<span class="mode-badge">${e.mode==='quick'?'Quick':'Detailed'}</span></span>
-        <span class="saved-detail">Grand total ${fmtGBP(totals.grandTotal)} · ${fmtDate(e.created_at)}</span>
-      </div>
-      <button type="button" class="add-to-deal-btn" onclick="event.stopPropagation();openAddToDealPicker('${e.id}')">Add to deal</button>
-      <span class="saved-chevron">›</span>
+    const totals=computeTotals(e.mode,e.line_items,e.contingency_enabled,e.contingency_pct,e.vat_rate);
+    const deals=dealsForEstimate(e.id);
+    const linked=deals.length?'Linked to '+escapeHtml(dealDisplayName(deals[0]))+(deals.length>1?' and '+(deals.length-1)+' more':''):'<span class="not-linked">Not linked</span>';
+    return `<div class="est-row${e.id===editingId?' active':''}" onclick="loadEstimate('${e.id}')">
+      <div class="est-info"><span class="est-name">${escapeHtml(e.name)}</span>
+        <span class="est-meta">${linked} · ${escapeHtml(scopeLabelFor(e.mode,e.details))} · ${fmtDate(e.created_at)}</span></div>
+      <span class="est-total">${totals.subtotal>0?fmtGBP(totals.grandTotal):'No total yet'}</span>
+      <div class="est-actions"><button type="button" class="mini-btn" onclick="event.stopPropagation();openAddToDealPicker('${e.id}')">${deals.length?'Change deal':'Link to deal'}</button><span class="saved-chevron">›</span></div>
     </div>`;
   }).join('');
 }
 
-async function saveEstimate(){
-  const msg=document.getElementById('rf-msg');
-  const btn=document.getElementById('rf-save-btn');
-  msg.className='save-msg';msg.textContent='';
-
+async function saveEstimate(opts){
+  const quiet=opts&&opts.quiet;
   const name=document.getElementById('rf-name').value.trim();
   if(!name){
-    msg.textContent='Enter a name for this estimate.';msg.className='save-msg error';
+    if(quiet)return;
+    const card=document.getElementById('rf-details-card');
+    card.open=true;
+    setMsg('Enter a name for this estimate.','error');
+    document.getElementById('rf-name').focus();
     return;
   }
-
   const payload={
-    name,
-    mode: currentMode,
-    line_items: currentMode==='detailed' ? readDetailedLineItems() : readQuickLineItems(),
-    contingency_enabled: document.getElementById('rf-cont-on').checked,
-    contingency_pct: parseFloat(document.getElementById('rf-cont-pct').value) || 0,
-    vat_rate: currentVatRate,
+    name, mode:saveMode(), line_items:currentLineItems(),
+    contingency_enabled:document.getElementById('rf-cont-on').checked,
+    contingency_pct:parseFloat(document.getElementById('rf-cont-pct').value)||0,
+    vat_rate:currentVatRate,
+    details:currentDetails(),
   };
-
   const isUpdate=!!editingId;
-  btn.disabled=true;btn.textContent=isUpdate?'Saving...':'Saving...';
+  const btns=[document.getElementById('rf-save-btn'),document.getElementById('rf-bar-save')];
+  if(!quiet)btns.forEach(b=>{ b.disabled=true; });
+  if(!quiet)document.getElementById('rf-save-btn').textContent='Saving…';
   try{
-    const res=await fetch(API_BASE+(isUpdate?('/api/refurb-estimates/'+editingId):'/api/refurb-estimates'),{
-      method: isUpdate?'PUT':'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify(payload)
-    });
+    const res=await fetch(API_BASE+(isUpdate?('/api/refurb-estimates/'+editingId):'/api/refurb-estimates'),{method:isUpdate?'PUT':'POST',headers:authHeaders(true),body:JSON.stringify(payload)});
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not save this estimate.');
-
     editingId=d.id;
-    msg.textContent='Estimate saved.';msg.className='save-msg success';
-    document.getElementById('rf-delete-btn').style.display='';
-    document.getElementById('rf-save-btn').textContent='Update estimate';
-
-    await loadEstimates();
+    detailsNeedDb=d.details_saved===false;
+    const i=savedEstimates.findIndex(e=>e.id===d.id);
+    const { details_saved, ...row }=d;
+    if(i>=0)savedEstimates[i]=row; else savedEstimates.unshift(row);
+    document.getElementById('rf-delete-btn').hidden=false;
+    renderSavedList(); refreshStageTabs(); renderLinkedBox();
+    saveRefurbDraft();
+    if(!quiet){
+      setMsg(detailsNeedDb?'Estimate saved. The address, template, rooms, EPC ratings and timeline need a quick database update (db/048) before they are kept.':'Estimate saved. You can now add builder quotes.','success');
+      if(fromCalc){ sendToCalculator(); return; }
+    }
   }catch(e){
-    msg.textContent=e.message;msg.className='save-msg error';
+    if(!quiet)setMsg(e.message,'error'); else alert(e.message);
+  }finally{
+    btns.forEach(b=>{ b.disabled=false; });
+    document.getElementById('rf-save-btn').textContent=saveButtonLabel();
   }
-  btn.disabled=false;
 }
 
 async function deleteEstimate(){
   if(!editingId)return;
-  if(!confirm('Delete this saved estimate?'))return;
+  if(!confirm('Delete this saved estimate? Its quotes, payments and photos are deleted too.'))return;
   try{
-    const res=await fetch(API_BASE+'/api/refurb-estimates/'+editingId,{
-      method:'DELETE',
-      headers:{'Authorization':'Bearer '+currentSession.access_token}
-    });
+    const res=await fetch(API_BASE+'/api/refurb-estimates/'+editingId,{method:'DELETE',headers:authHeaders()});
     const d=await res.json();
     if(!res.ok)throw new Error(d.error||'Could not delete this estimate.');
+    savedEstimates=savedEstimates.filter(e=>e.id!==editingId);
     newEstimate();
-    await loadEstimates();
-  }catch(e){
-    alert('Could not delete estimate: '+e.message);
-  }
+  }catch(e){ alert('Could not delete estimate: '+e.message); }
 }
 
-// ---------------------------------------------------------------------
-// Add to deal — the estimator is now the entry point for linking an
-// estimate to a saved deal (deals.refurb_estimate_id, PUT /api/deals/:id/
-// refurb-estimate — unchanged endpoint, just called from here instead of
-// from the Deal Workspace). Picking a deal replaces any estimate already
-// linked to it, since the column only ever holds one id. After linking,
-// offers to immediately re-run the calculator with this estimate's grand
-// total (buildRerunFields/goToRerun, shared with the Deal Workspace via
-// rerun-prefill.js) — saying no just leaves the link in place.
-// ---------------------------------------------------------------------
-let atdEstimateId=null;
+// Used by refurb-workflow.js after a quote is accepted or the budget changes.
+function onEstimateRowUpdated(row){
+  const i=savedEstimates.findIndex(e=>e.id===row.id);
+  if(i>=0)savedEstimates[i]=row;
+  refreshStageTabs();
+}
 
+// =====================================================================
+// Calculator handoff
+// =====================================================================
+function sendToCalculator(){
+  const totals=currentTotals();
+  try{
+    sessionStorage.setItem('dny-refurb-to-calc',JSON.stringify({ field:fromCalc.field, tab:fromCalc.tab, value:Math.round(totals.grandTotal), name:document.getElementById('rf-name').value.trim(), estimateId:editingId }));
+  }catch(e){ /* the calculator just won't be updated */ }
+  window.location.href='index.html';
+}
+function backToCalculator(){ window.location.href='index.html'; }
+
+// =====================================================================
+// Link to a deal, then offer to update the deal
+// =====================================================================
+let atdEstimateId=null;
 async function openAddToDealPicker(estimateId){
   atdEstimateId=estimateId;
   const listEl=document.getElementById('atd-list');
   listEl.innerHTML='<p class="hint">Loading…</p>';
   document.getElementById('atd-modal-overlay').classList.add('open');
-  try{
-    if(!savedDeals){
-      const res=await fetch(API_BASE+'/api/deals',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
-      const d=await res.json();
-      if(!res.ok)throw new Error(d.error||'Could not load your saved deals.');
-      savedDeals=Array.isArray(d)?d:[];
-    }
-    if(savedDeals.length===0){
-      listEl.innerHTML='<p class="hint">No saved deals yet. Save a deal from the Calculator first.</p>';
-      return;
-    }
-    listEl.innerHTML=savedDeals.map(deal=>`<div class="saved-item" onclick="linkEstimateToDeal('${deal.id}')">
-      <div class="saved-info">
-        <span class="saved-name">${escapeHtml(dealDisplayName(deal))}</span>
-        <span class="saved-detail">${dealStrategy(deal).toUpperCase()}${deal.refurb_estimate_id?' · already has a linked estimate':''}</span>
-      </div>
-      <span class="saved-chevron">›</span>
-    </div>`).join('');
-  }catch(e){
-    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
-  }
+  if(!savedDeals)await loadDeals();
+  if(!savedDeals.length){ listEl.innerHTML='<p class="hint">No saved deals yet. Save a deal from the Calculator first.</p>'; return; }
+  listEl.innerHTML=savedDeals.map(deal=>`<div class="pick-row" onclick="linkEstimateToDeal('${deal.id}')">
+    <div class="est-info"><span class="est-name">${escapeHtml(dealDisplayName(deal))}</span>
+      <span class="est-meta">${dealStrategy(deal).toUpperCase()}${deal.refurb_estimate_id===estimateId?' · linked to this estimate':deal.refurb_estimate_id?' · has another estimate linked':''}</span></div>
+    <span class="saved-chevron">›</span></div>`).join('');
 }
-
-function closeAddToDealPicker(){
-  document.getElementById('atd-modal-overlay').classList.remove('open');
-  atdEstimateId=null;
-}
-
-function handleAtdOverlayClick(e){
-  if(e.target.id==='atd-modal-overlay')closeAddToDealPicker();
-}
+function closeAddToDealPicker(){ document.getElementById('atd-modal-overlay').classList.remove('open'); atdEstimateId=null; }
 
 async function linkEstimateToDeal(dealId){
   const listEl=document.getElementById('atd-list');
+  const estimateId=atdEstimateId;
   try{
-    const res=await fetch(API_BASE+'/api/deals/'+dealId+'/refurb-estimate',{
-      method:'PUT',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({refurb_estimate_id:atdEstimateId})
-    });
+    const res=await fetch(API_BASE+'/api/deals/'+dealId+'/refurb-estimate',{method:'PUT',headers:authHeaders(true),body:JSON.stringify({refurb_estimate_id:estimateId})});
     const updatedDeal=await res.json();
     if(!res.ok)throw new Error(updatedDeal.error||'Could not link this estimate to the deal.');
-
-    savedDeals=null; // stale refurb_estimate_id on every deal now; refetch next open
-    const est=savedEstimates.find(e=>e.id===atdEstimateId);
+    const i=(savedDeals||[]).findIndex(d=>d.id===dealId);
+    if(i>=0)savedDeals[i]=updatedDeal;
     closeAddToDealPicker();
-
-    const msg=document.getElementById('rf-msg');
-    if(est&&confirm("Update this deal's numbers with the new refurb cost?")){
-      const totals=computeTotals(est.mode,est.line_items,est.contingency_enabled,est.contingency_pct,est.vat_rate);
-      goToRerun(updatedDeal,Math.round(totals.grandTotal));
-    }else{
-      msg.textContent='Linked to deal.';msg.className='save-msg success';
-    }
-  }catch(e){
-    listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>';
-  }
+    renderSavedList(); renderLinkedBox();
+    openUpdateDeal(updatedDeal,estimateId);
+  }catch(e){ listEl.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>'; }
 }
 
+function estimateGrandTotal(est){
+  if(est.id===editingId)return Math.round(currentTotals().grandTotal);
+  return Math.round(computeTotals(est.mode,est.line_items,est.contingency_enabled,est.contingency_pct,est.vat_rate).grandTotal);
+}
+function estimateWeeks(est){
+  if(est.id===editingId)return currentDurationWeeks();
+  return est.details&&est.details.durationWeeks!=null?Number(est.details.durationWeeks):null;
+}
+function weeksToMonths(w){ return Math.max(1,Math.min(36,Math.ceil(w/4.345))); }
+
+let updDeal=null, updEstimateId=null;
+function openUpdateDeal(deal, estimateId){
+  const est=savedEstimates.find(e=>e.id===estimateId);
+  if(!est){ setMsg('Linked to deal.','success'); return; }
+  updDeal=deal; updEstimateId=estimateId;
+  const total=estimateGrandTotal(est);
+  const weeks=estimateWeeks(est);
+  const st=dealStrategy(deal);
+  document.getElementById('upd-intro').textContent=`Linked to ${dealDisplayName(deal)}. Do you want to update the deal's figures from this estimate?`;
+  document.getElementById('upd-ref-label').textContent=`Use this estimate's total (${fmtGBP(total)}) as the deal's refurb cost`;
+  const durOk=weeks>0&&(st==='brrr'||st==='btl'||st==='flip');
+  document.getElementById('upd-dur-wrap').hidden=!durOk;
+  if(durOk){
+    const m=weeksToMonths(weeks);
+    const what=st==='brrr'?'bridge months and holding cost months':'holding cost months';
+    const pl=(deal.deal_data&&deal.deal_data.planning)||{};
+    const on=(pl.holding&&pl.holding.on)||(st==='brrr'&&pl.bridge&&pl.bridge.on);
+    document.getElementById('upd-dur-label').innerHTML=escapeHtml(`Use the ${weeks} week timeline (about ${m} month${m===1?'':'s'}) for the ${what}`)+
+      (on?'':'<small>These only count once Bought with a bridge or Holding costs is switched on under Make it realistic on the Calculator.</small>');
+    document.getElementById('upd-dur').checked=true;
+  }else document.getElementById('upd-dur').checked=false;
+  document.getElementById('upd-ref').checked=true;
+  document.getElementById('upd-modal').classList.add('open');
+}
+function closeUpdateDeal(){
+  document.getElementById('upd-modal').classList.remove('open');
+  if(updDeal)setMsg('Linked to '+dealDisplayName(updDeal)+'.','success');
+  updDeal=null;
+}
+function confirmUpdateDeal(){
+  const deal=updDeal, est=savedEstimates.find(e=>e.id===updEstimateId);
+  const useRef=document.getElementById('upd-ref').checked;
+  const useDur=!document.getElementById('upd-dur-wrap').hidden&&document.getElementById('upd-dur').checked;
+  if(!deal||!est||(!useRef&&!useDur)){ closeUpdateDeal(); return; }
+  const ref=useRef?estimateGrandTotal(est):((deal.deal_data&&deal.deal_data.ref)||0);
+  const weeks=estimateWeeks(est);
+  updDeal=null;
+  goToRerun(deal,ref,useDur?{months:weeksToMonths(weeks)}:null);
+}
+
+function renderLinkedBox(){
+  const box=document.getElementById('rf-linked');
+  if(!editingId){ box.hidden=true; return; }
+  const deals=dealsForEstimate(editingId);
+  box.hidden=false;
+  if(!deals.length){
+    box.innerHTML=`Not linked to a deal. <button type="button" class="link-btn" onclick="openAddToDealPicker('${editingId}')">Link to a deal</button>`;
+    return;
+  }
+  const d=deals[0];
+  box.innerHTML=`Linked to <strong>${escapeHtml(dealDisplayName(d))}</strong>. <a class="link-btn" href="saved-deals.html?openDeal=${encodeURIComponent(d.id)}">Open the deal</a><br>
+    <button type="button" class="link-btn" onclick="openUpdateDeal(dealsForEstimate(editingId)[0],editingId)">Update the deal from this estimate</button>`;
+}
+
+// =====================================================================
+// Scope of works PDF
+// =====================================================================
+let pdfGroup='category';
+function roomsHaveWork(){ return roomState.type&&Object.values(roomState.choices||{}).some(c=>c&&(c.condition==='refresh'||c.condition==='replace')); }
+function allPhotoPaths(){
+  const p=[];
+  Object.values(lineExtras).forEach(ex=>(ex&&ex.photos||[]).forEach(x=>p.push(x)));
+  Object.values(roomState.choices||{}).forEach(c=>(c&&c.photos||[]).forEach(x=>p.push(x)));
+  return p;
+}
+function openPdfModal(){
+  const rooms=roomsHaveWork()&&saveMode()==='detailed';
+  document.getElementById('pdf-group-wrap').hidden=!rooms;
+  setPdfGroup(rooms&&entry==='rooms'?'room':'category');
+  document.getElementById('pdf-photos-wrap').hidden=!allPhotoPaths().length;
+  document.getElementById('pdf-msg').textContent='';
+  document.getElementById('pdf-modal').classList.add('open');
+}
+function closePdfModal(){ document.getElementById('pdf-modal').classList.remove('open'); }
+function setPdfGroup(g){
+  pdfGroup=g;
+  document.getElementById('pdf-group-cat').classList.toggle('active',g==='category');
+  document.getElementById('pdf-group-room').classList.toggle('active',g==='room');
+}
+async function downloadScopePdf(){
+  const msg=document.getElementById('pdf-msg');
+  const btn=document.getElementById('pdf-go');
+  msg.className='save-msg'; msg.textContent='Building your PDF…';
+  btn.disabled=true;
+  try{
+    await loadPhotoUrls();
+    const includePhotos=!document.getElementById('pdf-photos-wrap').hidden&&document.getElementById('pdf-photos').checked;
+    await RefurbScopePdf.generate({
+      name:document.getElementById('rf-name').value.trim()||'Refurbishment estimate',
+      address:document.getElementById('rf-address').value.trim(),
+      mode:saveMode(),
+      lineItems:currentLineItems(),
+      lineExtras, roomState,
+      groupBy:pdfGroup,
+      includePrices:document.getElementById('pdf-prices').checked,
+      includePhotos, photoUrls,
+      totals:currentTotals(),
+      vatRate:currentVatRate,
+      contingencyPct:document.getElementById('rf-cont-on').checked?(parseFloat(document.getElementById('rf-cont-pct').value)||0):0,
+      durationWeeks:currentDurationWeeks(),
+      epc,
+      scopeLabel:scopeLabelFor(saveMode(),currentDetails()),
+    });
+    msg.className='save-msg success'; msg.textContent='Downloaded.';
+    setTimeout(closePdfModal,700);
+  }catch(e){
+    msg.className='save-msg error'; msg.textContent='The PDF could not be made: '+e.message;
+  }finally{ btn.disabled=false; }
+}
+
+// =====================================================================
 async function init(){
   const auth=await requireAuth();
   if(!auth)return;
   sbClient=auth.client;
   currentSession=auth.session;
-
   try{
-    const profRes=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const profRes=await fetch(API_BASE+'/api/profile',{headers:authHeaders()});
     const prof=await profRes.json();
     currentPlan=prof.plan==='paid'?'paid':'free';
-  }catch(e){
-    currentPlan='free';
-  }
+  }catch(e){ currentPlan='free'; }
   updateTopbar();
-
-  if(currentPlan!=='paid'){
-    showState('locked');
-    return;
-  }
+  if(currentPlan!=='paid'){ showState('locked'); return; }
 
   buildDetailedPanel();
   buildQuickPanel();
-  switchMode('detailed', true);
-  switchVat(20, true);
-  restoreRefurbDraft();
+  switchView('detailed',true);
+  switchVat(20,true);
+  if(fromCalc){
+    document.getElementById('rf-calc-banner').hidden=false;
+  }
+  document.getElementById('rf-save-btn').textContent=saveButtonLabel();
+
+  RefurbWorkflow.init({
+    session:()=>currentSession,
+    estimate:currentSavedEstimate,
+    totals:currentTotals,
+    lineItems:()=>({ mode:saveMode(), items:currentLineItems() }),
+    contingency:()=>({ enabled:document.getElementById('rf-cont-on').checked, pct:parseFloat(document.getElementById('rf-cont-pct').value)||0, vat:currentVatRate }),
+    durationWeeks:currentDurationWeeks,
+    onEstimateUpdated:onEstimateRowUpdated,
+    goStage,
+    fmt:fmtGBP, esc:escapeHtml, fmtDate,
+  });
 
   showState('board');
-  // Scroll restore waits for the saved-estimates strip to finish loading
-  // (it sits above the form and affects page height) so it lands on
-  // content that's actually there, not a still-loading placeholder.
-  loadEstimates().finally(function(){
+  const rc=await RefurbRateCard.load(currentSession);
+  userRates=rc.rates||{}; rateCardNeedsDb=!!rc.needsMigration;
+  if(rateCardNeedsDb)document.getElementById('rf-save-rates-btn').hidden=true;
+
+  const restored=restoreRefurbDraft();
+  draftReady=true;
+  if(!restored)showScreen('start');
+  recalcSummary();
+
+  Promise.all([loadEstimates(),loadDeals()]).finally(function(){
+    renderSavedList(); renderLinkedBox(); refreshStageTabs();
+    if(editingId)document.getElementById('rf-delete-btn').hidden=false;
+    document.getElementById('rf-save-btn').textContent=saveButtonLabel();
     if(openEstimateId&&savedEstimates.some(e=>e.id===openEstimateId)){
       loadEstimate(openEstimateId);
     }else{
+      loadPhotoUrls();
       restoreScrollPosition('refurb');
     }
     attachScrollSaver('refurb');
   });
 
-  sbClient.auth.onAuthStateChange((_event, session)=>{
+  window.addEventListener('resize',()=>updateBar());
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Escape')return;
+    closeAddToDealPicker(); closePdfModal();
+    if(document.getElementById('upd-modal').classList.contains('open'))closeUpdateDeal();
+  });
+  sbClient.auth.onAuthStateChange((_event,session)=>{
     currentSession=session;
     if(!currentSession){window.location.href='/';return;}
     updateTopbar();
