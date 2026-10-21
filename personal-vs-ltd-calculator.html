@@ -53,10 +53,15 @@
       <p class="tool-answer-label">After-tax profit a year</p>
       <div class="tool-vs">
         <div class="tool-vs-col" id="tx-col-p"><p class="k">Personal</p><p class="v" id="tx-p">£0</p><p class="s" id="tx-p-s"></p></div>
-        <div class="tool-vs-col" id="tx-col-c"><p class="k">Limited company</p><p class="v" id="tx-c">£0</p><p class="s" id="tx-c-s"></p></div>
+        <div class="tool-vs-col" id="tx-col-c"><p class="k">Limited company</p>
+          <p class="s" style="margin:0 0 2px">Kept in the company after corporation tax</p><p class="v" id="tx-c">£0</p><p class="s" id="tx-c-s"></p>
+          <div class="tool-vs-split"><p class="s" style="margin:0 0 2px">If taken out as dividends</p><p class="v2" id="tx-d">£0</p><p class="s" id="tx-d-s"></p></div>
+        </div>
       </div>
       <p class="tool-answer-sub" id="tx-sub"></p>
     </section>
+
+    <p class="tool-note" style="margin:0 0 var(--space-3)">Many investors leave profits in the company to fund the next deposit. Salary, pension and director's loan options also change this. Speak to an accountant.</p>
 
     <p class="tool-note" style="margin:0 0 var(--space-4);font-weight:600;color:var(--ink)">Illustration only. Speak to an accountant before choosing a structure.</p>
 
@@ -95,11 +100,16 @@
     T.set('tx-c', T.money(r.cAfter));
     T.set('tx-p-s', T.money(r.pTax) + ' tax, ' + T.money(r.pAfter / 12) + ' a month');
     T.set('tx-c-s', T.money(r.cTax) + ' tax, ' + T.money(r.cAfter / 12) + ' a month');
-    document.getElementById('tx-col-p').classList.toggle('win', r.winner === 'personal');
-    document.getElementById('tx-col-c').classList.toggle('win', r.winner === 'ltd');
-    T.set('tx-sub', !r.winner ? 'Both come out the same on these figures.'
-      : (r.winner === 'ltd' ? 'A limited company' : 'Owning personally') + ' keeps ' + T.money(Math.abs(r.diff)) + ' a year more, before taking money out of the company.');
-    T.set('tx-work-sum', 'Personal pays ' + T.money(r.pTax) + ', company pays ' + T.money(r.cTax));
+    T.set('tx-d', T.money(r.dAfter));
+    T.set('tx-d-s', T.money(r.divTax) + ' dividend tax');
+    // No column is highlighted: which way wins depends on whether the
+    // profit stays in the company, so the sentence below gives both.
+    function cmp(diff, what) {
+      if (Math.abs(diff) < 1) return what + ', both come out the same.';
+      return what + ', ' + (diff > 0 ? 'the company' : 'owning personally') + ' leaves you ' + T.money(Math.abs(diff)) + ' a year more.';
+    }
+    T.set('tx-sub', cmp(r.diff, 'Kept in the company') + ' ' + cmp(r.divDiff, 'Taken out as dividends'));
+    T.set('tx-work-sum', 'Personal pays ' + T.money(r.pTax) + ', company pays ' + T.money(r.cTax) + ', plus ' + T.money(r.divTax) + ' if paid out');
 
     T.html('tx-work',
       '<p>Both start from the same figures</p>' +
@@ -115,12 +125,17 @@
       T.line('After tax: ' + T.money(r.pre) + ' - ' + T.money(r.pTax), T.money(r.pAfter), 'total') +
       '<p style="margin-top:.9rem">Limited company</p>' +
       T.line('Corporation tax: ' + T.money(Math.max(0, r.pre)) + ' x ' + r.ctRate + '%', T.money(r.cTax)) +
-      T.line('After tax: ' + T.money(r.pre) + ' - ' + T.money(r.cTax), T.money(r.cAfter), 'total') +
+      T.line('Kept in the company: ' + T.money(r.pre) + ' - ' + T.money(r.cTax), T.money(r.cAfter), 'total') +
+      '<p style="margin-top:.9rem">Limited company, taken out as dividends</p>' +
+      T.line('Paid out as dividends', T.money(Math.max(0, r.cAfter))) +
+      T.line('Less dividend allowance', '-' + T.money(Math.min(Math.max(0, r.cAfter), r.divAllowance))) +
+      T.line('Dividend tax: ' + T.money(r.divTaxable) + ' x ' + r.divRate + '%', T.money(r.divTax)) +
+      T.line('In your pocket: ' + T.money(r.cAfter) + ' - ' + T.money(r.divTax), T.money(r.dAfter), 'total') +
       '<p class="tool-note">Section 24: owned personally, mortgage interest can\'t be taken off the profit. Instead you get a tax credit of ' + r.creditRate +
       '% of the interest, capped at ' + r.creditRate + '% of the property profit (any unused part carries forward to next year). A company takes the interest off before tax.</p>' +
       '<p class="tool-note">Kept simple: all of the profit is taxed at your chosen band, the company pays the ' + r.ctRate + '% small profits rate' +
       (r.overSmallProfits ? ' (profit is over £' + TX.smallProfitsLimit.toLocaleString('en-GB') + ', so the real rate will be higher)' : '') +
-      ', and taking money out of a company as salary or dividends is taxed again. Buying through a company also means different mortgages and costs. Same rules as the calculator\'s after-tax section, last checked ' +
+      ', and dividends are taxed at your chosen band on everything above the £' + r.divAllowance + ' allowance (assumes you haven\'t used the allowance elsewhere). Buying through a company also means different mortgages and costs. Same rules as the calculator\'s after-tax section, last checked ' +
       T.esc(r.lastVerified) + ' for the 2026 to 2027 tax year. From April 2027 property income is taxed at 22%, 42% and 47%.</p>');
   }
   document.getElementById('tx-bands').addEventListener('change', run);

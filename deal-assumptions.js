@@ -89,6 +89,12 @@ window.DEAL_ASSUMPTIONS = {
     },
     mortgageInterestCredit: 20, // % of mortgage interest, taken off the tax
     corporationTax: 19,         // % small profits rate
+    // Dividend tax, used only by the Personal vs Ltd calculator
+    // (tools-calc.js) for profit taken out of a company. Rate by the
+    // user's band, on dividends above the allowance. Figures as specified
+    // by the owner, October 2026.
+    dividendRates: { basic: 8.75, higher: 33.75, additional: 39.35 },
+    dividendAllowance: 500,     // £ a year, tax free
     smallProfitsLimit: 50000,   // £ a year; above this the rate rises
     mainRate: 25,               // % on profits over £250,000
     mainRateFrom: 250000

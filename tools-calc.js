@@ -125,6 +125,9 @@ var ToolsCalc = (function () {
   //             profit (Section 24 credit), never below 0
   //   Ltd:      tax = (profit - interest) x corporation tax rate, if positive
   //   after tax = profit - interest - tax
+  //   Ltd, taken out as dividends (this calculator only, not in the main
+  //   calculator): kept in company - dividend tax at the user's band on
+  //   the amount above the dividend allowance
   // ---------------------------------------------------------------------
   function tax(i) {
     var T = window.DEAL_ASSUMPTIONS.tax;
@@ -139,10 +142,18 @@ var ToolsCalc = (function () {
     var pTax = Math.max(0, gross - credit);
     var cTax = Math.max(0, pre) * T.corporationTax / 100;
     var pAfter = pre - pTax, cAfter = pre - cTax;
+    // Taken out as dividends: what's kept in the company is paid out, and
+    // dividend tax at the user's band applies above the allowance.
+    var divRate = T.dividendRates[band];
+    var divTaxable = Math.max(0, cAfter - T.dividendAllowance);
+    var divTax = divTaxable * divRate / 100;
+    var dAfter = cAfter - divTax;
     var diff = cAfter - pAfter;
     return { band: band, rate: rate, rentYear: n(i.rent) * 12, costsYear: n(i.costs) * 12, profit: profit, interest: interest,
       pre: pre, gross: gross, creditBase: creditBase, credit: credit, creditRate: T.mortgageInterestCredit, pTax: pTax, pAfter: pAfter,
       ctRate: T.corporationTax, cTax: cTax, cAfter: cAfter, diff: diff,
+      divRate: divRate, divAllowance: T.dividendAllowance, divTaxable: divTaxable, divTax: divTax, dAfter: dAfter,
+      divDiff: dAfter - pAfter,
       winner: Math.abs(diff) < 1 ? null : (diff > 0 ? 'ltd' : 'personal'),
       overSmallProfits: pre > T.smallProfitsLimit, lastVerified: T.lastVerified };
   }
