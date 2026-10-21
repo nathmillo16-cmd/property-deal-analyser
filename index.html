@@ -703,6 +703,7 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield on price</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (interest-only mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span data-roi-target="b-lr">15</span>% ROI (repayment mortgage)</p><p class="ov" id="b-ror">—</p><p class="on" id="b-rorn"></p></div>
         </details>
         <div class="rsecs">
           <details class="rsec" id="b-sec-stress"><summary><span class="rsec-t">Stress test</span><span class="rsec-s" id="b-sec-stress-sum"></span></summary><div class="rsec-body"><div class="deal-stress" id="b-stress"></div></div></details>
@@ -906,6 +907,7 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="h-ly">10</span>% gross yield on price</p><p class="ov" id="h-oy">—</p><p class="on" id="h-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="h-lroi">15</span>% ROI (interest-only mortgage)</p><p class="ov" id="h-or">—</p><p class="on" id="h-orn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span data-roi-target="h-lroi">15</span>% ROI (repayment mortgage)</p><p class="ov" id="h-ror">—</p><p class="on" id="h-rorn"></p></div>
         <div class="rsecs">
           <details class="rsec" id="h-sec-stress"><summary><span class="rsec-t">Stress test</span><span class="rsec-s" id="h-sec-stress-sum"></span></summary><div class="rsec-body"><div class="deal-stress" id="h-stress"></div></div></details>
           <details class="rsec" id="h-sec-compare"><summary><span class="rsec-t">Compare strategies</span><span class="rsec-s" id="h-sec-compare-sum"></span></summary><div class="rsec-body" id="h-compare"></div></details>
@@ -1111,6 +1113,7 @@ body.theme-light .dd-trigger::after{
         <p class="sl section-gap">Recommended offer prices</p>
         <div class="ob"><p class="ot">To achieve <span id="sa-ly">12</span>% gross yield on price</p><p class="ov" id="sa-oy">—</p><p class="on" id="sa-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="sa-lr">20</span>% ROI (interest-only mortgage)</p><p class="ov" id="sa-or">—</p><p class="on" id="sa-orn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span data-roi-target="sa-lr">20</span>% ROI (repayment mortgage)</p><p class="ov" id="sa-ror">—</p><p class="on" id="sa-rorn"></p></div>
         <div class="rsecs">
           <details class="rsec" id="sa-sec-stress"><summary><span class="rsec-t">Stress test</span><span class="rsec-s" id="sa-sec-stress-sum"></span></summary><div class="rsec-body"><div class="deal-stress" id="sa-stress"></div></div></details>
           <details class="rsec" id="sa-sec-compare"><summary><span class="rsec-t">Compare strategies</span><span class="rsec-s" id="sa-sec-compare-sum"></span></summary><div class="rsec-body" id="sa-compare"></div></details>
@@ -1887,16 +1890,25 @@ function renderMoneyLeftIn(id,subId,v){
 // £10,000 (BTL/HMO/SA) or £1,000 (Flip); a result sitting on that floor
 // means no price tested hits the target.
 const OFFER_BOXES={
-  btl:[{ov:'b-or',note:'b-orn',key:'oR',floor:10000,reason:'Not achievable at this rent. Try a higher rent, lower costs or a lower target ROI.'}],
+  btl:[{ov:'b-or',note:'b-orn',key:'oR',floor:10000,reason:'Not achievable at this rent. Try a higher rent, lower costs or a lower target ROI.'},
+       {ov:'b-ror',note:'b-rorn',key:'rOR',floor:10000,reason:'Not achievable at this rent. Try a higher rent, lower costs or a lower target ROI.'}],
   hmo:[{ov:'h-oy',note:'h-oyn',key:'oY',reason:'Add at least one room with a rent to work this out.'},
-       {ov:'h-or',note:'h-orn',key:'oR',floor:10000,reason:'Not achievable at these room rents. Try higher rents, lower costs or a lower target ROI.'}],
+       {ov:'h-or',note:'h-orn',key:'oR',floor:10000,reason:'Not achievable at these room rents. Try higher rents, lower costs or a lower target ROI.'},
+       {ov:'h-ror',note:'h-rorn',key:'rOR',floor:10000,reason:'Not achievable at these room rents. Try higher rents, lower costs or a lower target ROI.'}],
   sa:[{ov:'sa-oy',note:'sa-oyn',key:'oY',reason:'Enter a nightly rate and occupancy to work this out.'},
-      {ov:'sa-or',note:'sa-orn',key:'oR',floor:10000,reason:'Not achievable at this income. Try a higher nightly rate or occupancy, lower costs or a lower target ROI.'}],
+      {ov:'sa-or',note:'sa-orn',key:'oR',floor:10000,reason:'Not achievable at this income. Try a higher nightly rate or occupancy, lower costs or a lower target ROI.'},
+      {ov:'sa-ror',note:'sa-rorn',key:'rOR',floor:10000,reason:'Not achievable at this income. Try a higher nightly rate or occupancy, lower costs or a lower target ROI.'}],
   flip:[{ov:'fl-or',note:'fl-orn',key:'oR',floor:1000,reason:'Not achievable at this sale value. Try a higher sale value, lower costs or a lower target ROI.'}]
 };
 const OFFER_CEILING_REASON='Over £1.9m. Your target is met at every price tested, so check the rent figure.';
 function renderOfferBoxes(s){
   const d=dataFor(s)||{};
+  // The repayment max-bid box repeats the target ROI. calc-engine.js only
+  // writes it into the interest-only box's span, so copy it across.
+  document.querySelectorAll('#panel-'+s+' [data-roi-target]').forEach(el=>{
+    const src=document.getElementById(el.dataset.roiTarget);
+    if(src)el.textContent=src.textContent;
+  });
   OFFER_BOXES[s].forEach(b=>{
     const ov=document.getElementById(b.ov), note=document.getElementById(b.note);
     if(!ov)return;
@@ -1904,7 +1916,7 @@ function renderOfferBoxes(s){
     let reason=null;
     if(!(v>0))reason=b.reason;
     else if(b.floor&&v<=b.floor+1)reason=b.reason;
-    else if(b.key==='oR'&&s!=='flip'&&v>=1900000)reason=OFFER_CEILING_REASON;
+    else if((b.key==='oR'||b.key==='rOR')&&s!=='flip'&&v>=1900000)reason=OFFER_CEILING_REASON;
     ov.classList.toggle('ov-msg',!!reason);
     if(reason){
       ov.textContent=reason;
