@@ -308,7 +308,10 @@ function cHMO(){
   // Searches count in the mortgage total too, same as BTL and SA and the
   // HMO cash total. Added on the owner's explicit instruction, October 2026.
   const mTI=dep+sol+mf+lic+ref+sd.total+srch, cTI=pp+sol+mf+lic+ref+sd.total+srch;
-  const gy=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
+  // Gross yield on PURCHASE PRICE, same as BTL (owner's explicit
+  // instruction, 2026-10-21; it used to be on end value). gyEmv keeps the
+  // end-value version, shown alongside. Net yields stay on end value.
+  const gy=pp>0?(ag/pp)*100:0, gyEmv=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
   const mROI=mTI!==0?(mNy/mTI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
   const mPB=mNy!==0?mTI/mNy:0, cPB=cNy>0?cTI/cNy:0;
 
@@ -339,22 +342,22 @@ function cHMO(){
   document.getElementById('h-ly').textContent=ty;
   document.getElementById('h-lroi').textContent=troi;
   s('hm-nm',fmt(mNm),cl(mNm,300,0));s('hm-ny',fmt(mNy),cl(mNy,3600,0));
-  s('hm-gy',fP(gy),cl(gy,10,7));s('hm-ny2',fP(mny),cl(mny,6,4));
+  s('hm-gy',fP(gy),cl(gy,10,7));s('hm-gye',fP(gyEmv),cl(gyEmv,10,7));s('hm-ny2',fP(mny),cl(mny,6,4));
   s('hm-roi',fP(mROI),cl(mROI,15,8));s('hm-ti',fmt(mTI));
   s('hm-mli',fmt(mTI));s('hm-pb',mPB!==0?Math.abs(mPB).toFixed(2)+' yrs':'N/A');
   s('hm-loan',fmt(loan));s('hm-rate',fP(mr));s('hm-deposit',fmt(dep));s('hm-mpay',fmt(mm));
   s('hc-nm',fmt(cNm),cl(cNm,300,0));s('hc-ny',fmt(cNy),cl(cNy,3600,0));
-  s('hc-gy',fP(gy),cl(gy,10,7));s('hc-ny2',fP(cny),cl(cny,6,4));
+  s('hc-gy',fP(gy),cl(gy,10,7));s('hc-gye',fP(gyEmv),cl(gyEmv,10,7));s('hc-ny2',fP(cny),cl(cny,6,4));
   s('hc-roi',fP(cROI),cl(cROI,15,8));s('hc-ti',fmt(cTI));
   s('hc-mli',fmt(cTI));s('hc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
   s('hb-nm',fmt(hbNm),cl(hbNm,300,0));s('hb-ny',fmt(hbNy),cl(hbNy,3600,0));
-  s('hb-gy',fP(gy),cl(gy,10,7));s('hb-ny2',fP(hbny),cl(hbny,6,4));
+  s('hb-gy',fP(gy),cl(gy,10,7));s('hb-gye',fP(gyEmv),cl(gyEmv,10,7));s('hb-ny2',fP(hbny),cl(hbny,6,4));
   s('hb-roi',fP(hbROI),cl(hbROI,15,8));s('hb-ti',fmt(cTI));
   s('hb-mli',fmt(hbMLI),hbMLI<=0?'good':'');s('hb-pb',hbPB!==0?Math.abs(hbPB).toFixed(2)+' yrs':'N/A');
   s('hb-refi-loan',fmt(hbRefiLoan));s('hb-refi-ltv-out',fP(hbRefiLtv*100));
   s('hb-refi-rate',fP(mr));s('hb-refi-mpay',fmt(hbRefiPay));
   s('hr-nm',fmt(rNm),cl(rNm,300,0));s('hr-ny',fmt(rNy),cl(rNy,3600,0));
-  s('hr-gy',fP(gy),cl(gy,10,7));s('hr-ny2',fP(rny),cl(rny,6,4));
+  s('hr-gy',fP(gy),cl(gy,10,7));s('hr-gye',fP(gyEmv),cl(gyEmv,10,7));s('hr-ny2',fP(rny),cl(rny,6,4));
   s('hr-roi',fP(rROI),cl(rROI,15,8));s('hr-ti',fmt(mTI));
   s('hr-mli',fmt(mTI));s('hr-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
   s('hr-loan',fmt(loan));s('hr-rate',fP(mr));s('hr-deposit',fmt(dep));s('hr-mpay',fmt(rmm));s('hr-term',term);
@@ -410,7 +413,7 @@ function cHMO(){
     voids:+(hVoidPct*100).toFixed(2),letFee:hLetFee,certs:hCerts,rentAfterVoids:+totalRent.toFixed(2),voidLossYearly:Math.round(grossTotalRent*hVoidPct*12),dp:dp*100,ref,sol,mf,lic,srch,ins,wifi,ctMonthly:Math.round(ct),maint:maint*100,mgmt:mgmt*100,ty,troi,term,
     loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
-    gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
+    gy:+gy.toFixed(2),gyEmv:+gyEmv.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
     mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
     mTI:Math.round(mTI),cTI:Math.round(cTI),
     mPB:+Math.abs(mPB).toFixed(2),cPB:+cPB.toFixed(2),
@@ -468,7 +471,10 @@ function cSA(){
   const cCFy=netInc, cCFm=cCFy/12;
   const incM=netInc/12, incY=netInc;
 
-  const gy=emv>0?(ag/emv)*100:0;
+  // Gross yield on PURCHASE PRICE, same as BTL and HMO (owner's explicit
+  // instruction, 2026-10-21; it used to be on end value). gyEmv keeps the
+  // end-value version, shown alongside. Net yields stay on end value.
+  const gy=pp>0?(ag/pp)*100:0, gyEmv=emv>0?(ag/emv)*100:0;
   const mny=emv>0?(mCFy/emv)*100:0;
   const cny=emv>0?(cCFy/emv)*100:0;
 
@@ -540,7 +546,7 @@ function cSA(){
   document.getElementById('sa-ly').textContent=ty;
   document.getElementById('sa-lr').textContent=troi;
 
-  s('sam-gy',fP(gy),cl(gy,10,7));
+  s('sam-gy',fP(gy),cl(gy,10,7));s('sam-gye',fP(gyEmv),cl(gyEmv,10,7));
   s('sam-ny',fP(mny),cl(mny,6,4));
   s('sam-roi',fP(mROI),cl(mROI,15,8));
   s('sam-ti',fmt(mTI));s('sam-mli',fmt(mMLI),mMLI<=0?'good':'');
@@ -550,7 +556,7 @@ function cSA(){
   s('sam-cfy',fmt(mCFy),cl(mCFy,3600,0));
   s('sam-loan',fmt(loan));s('sam-rate',fP(mr));s('sam-deposit',fmt(dep));s('sam-mpay',fmt(mm));
 
-  s('sac-gy',fP(gy),cl(gy,10,7));
+  s('sac-gy',fP(gy),cl(gy,10,7));s('sac-gye',fP(gyEmv),cl(gyEmv,10,7));
   s('sac-ny',fP(cny),cl(cny,6,4));
   s('sac-roi',fP(cROI),cl(cROI,15,8));
   s('sac-ti',fmt(cTI));s('sac-mli',fmt(cTI));
@@ -559,7 +565,7 @@ function cSA(){
   s('sac-cfm',fmt(cCFm),cl(cCFm,300,0));
   s('sac-cfy',fmt(cCFy),cl(cCFy,3600,0));
 
-  s('sab-gy',fP(gy),cl(gy,10,7));
+  s('sab-gy',fP(gy),cl(gy,10,7));s('sab-gye',fP(gyEmv),cl(gyEmv,10,7));
   s('sab-ny',fP(sabny),cl(sabny,6,4));
   s('sab-roi',fP(sabROI),cl(sabROI,15,8));
   s('sab-ti',fmt(cTI));s('sab-mli',fmt(sabMLI),sabMLI<=0?'good':'');
@@ -570,7 +576,7 @@ function cSA(){
   s('sab-refi-loan',fmt(sabRefiLoan));s('sab-refi-ltv-out',fP(sabRefiLtv*100));
   s('sab-refi-rate',fP(mr));s('sab-refi-mpay',fmt(sabRefiPay));
 
-  s('sar-gy',fP(gy),cl(gy,10,7));
+  s('sar-gy',fP(gy),cl(gy,10,7));s('sar-gye',fP(gyEmv),cl(gyEmv,10,7));
   s('sar-ny',fP(rny),cl(rny,6,4));
   s('sar-roi',fP(rROI),cl(rROI,15,8));
   s('sar-ti',fmt(mTI));s('sar-mli',fmt(mMLI),mMLI<=0?'good':'');
@@ -598,7 +604,7 @@ function cSA(){
     annualRevenue:Math.round(ag),netAnnualIncome:Math.round(netInc),
     mCFy:Math.round(mCFy),mCFm:Math.round(mCFm),cCFy:Math.round(cCFy),cCFm:Math.round(cCFm),
     incM:Math.round(incM),incY:Math.round(incY),
-    gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
+    gy:+gy.toFixed(2),gyEmv:+gyEmv.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
     mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
     mTI:Math.round(mTI),cTI:Math.round(cTI),
     stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),

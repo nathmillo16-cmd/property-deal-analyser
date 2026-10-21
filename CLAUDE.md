@@ -29,7 +29,7 @@ Shared/reused across strategies:
 
 BTL:
 - Mortgage loan = EMV − deposit.
-- Gross yield is on PURCHASE PRICE (btlData.gy), changed from EMV on the owner's explicit instruction, 2026-10-21, flagged for Nathan's review. The EMV version is kept as btlData.gyEmv and shown alongside as "Gross yield (on end value)". Net yields (mortgage, repayment, cash, BRRR) stay on EMV and are labelled "on end value". Because gy feeds meetsYield, the verdict, deal cards, the compare table, the buy box min-yield check and the AI prompt, those all use yield on price for BTL now. Old saved BTL deals keep their EMV-based gy until re-run. HMO and SA gross yields are still on EMV. Hand-check: £10,200 a year / £140,000 = 7.29% on price; / £200,000 = 5.10% on end value. The yield max bid (annual rent / target) was always a price-based formula, so it now matches gross yield exactly.
+- Gross yield is on PURCHASE PRICE (btlData.gy), changed from EMV on the owner's explicit instruction, 2026-10-21, flagged for Nathan's review. The EMV version is kept as btlData.gyEmv and shown alongside as "Gross yield (on end value)". Net yields (mortgage, repayment, cash, BRRR) stay on EMV and are labelled "on end value". Because gy feeds meetsYield, the verdict, deal cards, the compare table, the buy box min-yield check and the AI prompt, those all use yield on price for BTL now. Old saved deals keep their EMV-based gy until re-run. HMO and SA moved to the same convention later the same day (see their sections). Hand-check: £10,200 a year / £140,000 = 7.29% on price; / £200,000 = 5.10% on end value. The yield max bid (annual rent / target) was always a price-based formula, so it now matches gross yield exactly.
 - Max bid = the MAXIMUM price to pay to hit target. Yield max bid = annual rent / target yield. ROI max bid solved by working back from target money-left-in.
 
 HMO:
@@ -37,7 +37,7 @@ HMO:
 - Bills auto-calculated at 10% of total rent.
 - Searches count in both the mortgage and cash total investment and in the ROI max-bid bisections (the mortgage total used to leave them out while the cash total included them; fixed on the owner's explicit instruction, 2026-10-20, flagged for Nathan's review).
 - Council tax entered annually, divided by 12 for monthly display.
-- Yields on EMV (BTL's gross yield moved to purchase price on 2026-10-21; HMO's did not). ROI max bid uses an 80-iteration bisection search (stamp duty is banded/non-linear, so no closed form).
+- Gross yield on purchase price (hmoData.gy), with the EMV version as hmoData.gyEmv shown "on end value"; net yields on EMV. Moved from EMV on the owner's explicit instruction, 2026-10-21, flagged for Nathan's review. Hand-check (default HMO): £1,800 x 12 = £21,600 / £140,000 = 15.43% on price, / £200,000 = 10.80% on end value. ROI max bid uses an 80-iteration bisection search (stamp duty is banded/non-linear, so no closed form).
 
 Voids, letting fee and safety certificates (BTL, BRRR and HMO; not SA or Flip). Added on the owner's explicit instruction, 2026-10-21, flagged for Nathan's review:
 - Voids % comes off the monthly rent (BTL: b-rent; HMO: the room total) for the net figures only: management % and maintenance % are worked on the rent after voids, and so are cashflow, net yield, ROI and the ROI max bids. Gross yield, the yield max bid, HMO bills (10%) and the lender check (ICR) stay on the full rent (owner's instruction, 2026-10-21). btlData.rent and hmoData.totalRent are still the full rent, with rentAfterVoids and voidLossYearly saved alongside.
@@ -50,7 +50,7 @@ SA (Serviced Accommodation):
 - Running costs: management/utilities/maintenance as % of revenue (each defaults to 10%, user-editable), plus fixed cleaning and insurance (£/mo × 12), plus council tax (annual, as entered).
 - Net annual income (before mortgage) = revenue − running costs.
 - Cashflow: net income minus annual mortgage interest (mortgage version); net income as-is (cash version).
-- Gross/net yield: EMV-based, same convention as BTL/HMO.
+- Gross yield on purchase price (saData.gy), EMV version as saData.gyEmv shown "on end value"; net yield on EMV. Moved from EMV on the owner's explicit instruction, 2026-10-21, flagged for Nathan's review. Hand-check (default SA): £35,588 revenue / £200,000 = 17.79% on price, / £240,000 = 14.83% on end value.
 - Total cash invested reuses BTL's exact pattern (deposit/purchase-price-based), extended with SA's own upfront costs.
 - Max bid uses BTL's closed-form approach (not HMO's bisection).
 
