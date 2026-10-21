@@ -286,6 +286,8 @@ details[open]>summary .chev{transform:rotate(-135deg)}
 .buffer-row.disabled{opacity:.45;pointer-events:none}
 .upd-breakdown{margin:0 0 .85rem 28px;padding:.6rem .8rem;border-radius:8px;background:rgba(75,69,178,.07);font-size:13px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
 .upd-breakdown:empty{display:none}
+.cont-line{font-size:13px;color:var(--ink);margin:0 0 .9rem;padding:.6rem .85rem;border-radius:10px;background:rgba(75,69,178,.06)}
+.q-budget{color:var(--ink)}
 .q-vat{font-size:11.5px;font-weight:500;color:var(--muted);white-space:nowrap;margin-top:2px}
 .vat-rate-select{font-family:var(--font-body);font-size:13px;padding:8px 10px;border:1.5px solid var(--hairline-strong);border-radius:10px;background:var(--surface);min-height:44px}
 .pick-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:1px solid var(--hairline);border-radius:12px;margin-bottom:8px;background:var(--surface);cursor:pointer}
@@ -562,9 +564,9 @@ details[open]>summary .chev{transform:rotate(-135deg)}
     <div id="upd-dur-wrap">
       <label class="check"><input type="checkbox" id="upd-dur" onchange="updBreakdown()"/><span id="upd-dur-label"></span></label>
       <div class="buffer-row" id="upd-buffer-wrap">
-        <label for="upd-buffer">Refinance buffer</label>
+        <label for="upd-buffer" id="upd-buffer-label">Refinance buffer</label>
         <span class="buffer-input"><input type="number" id="upd-buffer" value="3" min="0" max="24" step="1" inputmode="numeric" oninput="updBreakdown()"/> months</span>
-        <p class="hint">Valuation and the new lender's wait. Many lenders need 3 to 6 months after purchase.</p>
+        <p class="hint" id="upd-buffer-hint">Valuation and the new lender's wait. Many lenders need 3 to 6 months after purchase.</p>
       </div>
       <p class="upd-breakdown" id="upd-breakdown"></p>
     </div>
@@ -1628,7 +1630,12 @@ function estimateWeeks(est){
 // Weeks of works as whole months (rounded up). The calculator's bridge and
 // holding months go up to 36.
 const CALC_MAX_MONTHS=36;
-const REFI_BUFFER_DEFAULT=3;
+// Time after the works: BRRR waits to refinance, Flip waits to sell. BTL
+// lets straight after the works, so it has no buffer.
+const BUFFERS={
+  brrr:{ label:'Refinance buffer', word:'refinance', months:3, hint:"Valuation and the new lender's wait. Many lenders need 3 to 6 months after purchase.", uses:'bridge and holding months' },
+  flip:{ label:'Sale buffer', word:'sale', months:3, hint:'Marketing, offer and conveyancing. Often 3 to 4 months.', uses:'holding months' },
+};
 function weeksToMonths(w){ return Math.max(1,Math.min(CALC_MAX_MONTHS,Math.ceil(w/4.345))); }
 function contingencyLabel(enabled,pct){ return enabled&&pct>0?`inc. ${pct}% contingency`:'no contingency'; }
 function estimateContingency(est){
@@ -1656,22 +1663,27 @@ function openUpdateDeal(deal, estimateId){
     document.getElementById('upd-dur-label').innerHTML=escapeHtml(`Use the ${weeks} week timeline for the ${what}`)+
       (on?'':'<small>These only count once Bought with a bridge or Holding costs is switched on under Make it realistic on the Calculator.</small>');
     document.getElementById('upd-dur').checked=true;
-    // A refinance buffer only applies to BRRR: a BTL or Flip has no refinance.
-    document.getElementById('upd-buffer-wrap').hidden=st!=='brrr';
-    document.getElementById('upd-buffer').value=REFI_BUFFER_DEFAULT;
+    // BRRR gets a refinance buffer, Flip a sale buffer, BTL none.
+    const bf=BUFFERS[st];
+    document.getElementById('upd-buffer-wrap').hidden=!bf;
+    if(bf){
+      document.getElementById('upd-buffer-label').textContent=bf.label;
+      document.getElementById('upd-buffer-hint').textContent=bf.hint;
+      document.getElementById('upd-buffer').value=bf.months;
+    }
   }else document.getElementById('upd-dur').checked=false;
   updBreakdown();
   document.getElementById('upd-ref').checked=true;
   document.getElementById('upd-modal').classList.add('open');
 }
 // Months used for the deal's bridge and holding costs: the works (weeks
-// rounded up to months) plus, for BRRR, the refinance buffer. Shown before
-// it's applied. Returns the total, or null when the timeline isn't used.
+// rounded up to months) plus the BRRR refinance buffer or the Flip sale
+// buffer. Shown before it's applied. null when the timeline isn't used.
 function updMonths(){
   const est=savedEstimates.find(e=>e.id===updEstimateId);
   if(!est||!updDeal||document.getElementById('upd-dur-wrap').hidden||!document.getElementById('upd-dur').checked)return null;
   const works=weeksToMonths(estimateWeeks(est));
-  if(dealStrategy(updDeal)!=='brrr')return { works, buffer:0, total:works, capped:false };
+  if(!BUFFERS[dealStrategy(updDeal)])return { works, buffer:0, total:works, capped:false };
   let buffer=Math.round(Number(document.getElementById('upd-buffer').value));
   if(!Number.isFinite(buffer)||buffer<0)buffer=0;
   buffer=Math.min(24,buffer);
@@ -1684,8 +1696,9 @@ function updBreakdown(){
   document.getElementById('upd-buffer-wrap').classList.toggle('disabled',!m);
   if(!m){ el.textContent=''; return; }
   const mo=n=>n+(n===1?' month':' months');
-  el.textContent=dealStrategy(updDeal)==='brrr'
-    ? `Works ${mo(m.works)} + refinance ${mo(m.buffer)} = ${mo(m.total)}${m.capped?' (the calculator\'s limit)':''}, for bridge and holding months`
+  const bf=BUFFERS[dealStrategy(updDeal)];
+  el.textContent=bf
+    ? `Works ${mo(m.works)} + ${bf.word} ${mo(m.buffer)} = ${mo(m.total)}${m.capped?' (the calculator\'s limit)':''}, for ${bf.uses}`
     : `Works ${mo(m.works)}, for holding months`;
 }
 
@@ -1805,6 +1818,8 @@ async function init(){
     lineItems:()=>({ mode:saveMode(), items:currentLineItems() }),
     contingency:()=>({ enabled:document.getElementById('rf-cont-on').checked, pct:parseFloat(document.getElementById('rf-cont-pct').value)||0, vat:effectiveVat() }),
     estimateVat:estimateVatInfo,
+    // Subtotal plus VAT, before contingency: what quotes are compared with.
+    baseIncVat:()=>currentTotals().subtotal*(1+effectiveVat()/100),
     durationWeeks:currentDurationWeeks,
     onEstimateUpdated:onEstimateRowUpdated,
     goStage,

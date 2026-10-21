@@ -4,13 +4,14 @@
 // both stages say they need a quick database update.
 //
 // Budget maths (display only, no deal figures are touched):
-//   Budget B is set by "Accept quote" (the quote amount) or "Use my estimate
-//   as budget" (the estimate's grand total at that moment).
-//   Contingency C: from an estimate it is the contingency already inside the
-//   total (plus its VAT); from a quote it is the estimate's contingency %
-//   applied on top of the quote.
-//   Works budget W = B - C for an estimate budget, B for a quote budget.
-//   Contingency left = C - max(0, spent - W).
+//   Quotes are compared, inc VAT, with the estimate's base: its subtotal plus
+//   VAT, before contingency. Contingency is shown separately.
+//   Budget B is set by "Accept quote" (quote inc VAT + the estimate's
+//   contingency %, worked out on the server) or "Use my estimate as budget"
+//   (the estimate's grand total at that moment).
+//   Contingency C is the contingency inside B: budget_contingency (db/050),
+//   or, before that, worked out from the estimate's contingency %.
+//   Works budget W = B - C. Contingency left = C - max(0, spent - W).
 //   Warnings at 90% (amber) and 100% (red) of B.
 (function () {
   let ctx = null;
@@ -66,6 +67,18 @@
     if (q.vat_mode === 'plus') return q.vat_rate ? `${fmt(q.amount)} + VAT = ${fmt(incVat(q))}` : `${fmt(q.amount)}, no VAT`;
     return fmt(q.amount) + ' inc VAT';
   }
+  // The estimate's contingency, as saved (the server uses the same figures
+  // when a quote is accepted).
+  function contPct(est) { return est && est.contingency_enabled ? (Number(est.contingency_pct) || 0) : 0; }
+  // Quote inc VAT + contingency % = budget, e.g. £19,200 + £1,920 = £21,120.
+  function quoteBudget(q, est) {
+    const inc = incVat(q), pct = contPct(est);
+    const c = Math.round(inc * pct) / 100;
+    return { inc, pct, c, total: Math.round((inc + c) * 100) / 100 };
+  }
+  function budgetLine(b) {
+    return b.pct > 0 ? `Quote ${fmt(b.inc)} + ${b.pct}% contingency ${fmt(b.c)} = ${fmt(b.total)}` : `Quote ${fmt(b.inc)}, no contingency`;
+  }
   function signed(v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v)); }
   function weeksText(w) { return w == null || w === '' ? 'No timeline' : w + (Number(w) === 1 ? ' week' : ' weeks'); }
   function noticeHtml() { return notice ? `<div class="notice ${notice.cls}">${notice.html}</div>` : ''; }
@@ -91,9 +104,11 @@
     const est = ctx.estimate();
     if (!est) return;
     if (quotesState === 'needs_db') { el.innerHTML = `<div class="notice warn">${esc(DB_NOTE)}</div>`; return; }
-    // Your estimate's grand total. It includes VAT unless the estimate has
-    // "No VAT" picked with ex-VAT rates, which the row below says.
-    const mine = Math.round(ctx.totals().grandTotal);
+    // Your estimate's base: subtotal plus VAT, before contingency (the
+    // contingency goes on top of whichever quote is accepted, shown apart).
+    const mine = Math.round(ctx.baseIncVat());
+    const grand = Math.round(ctx.totals().grandTotal);
+    const pctC = contPct(est);
     const ev = ctx.estimateVat();
     const myWeeks = ctx.durationWeeks();
     const list = (quotes || []).slice().sort((a, b) => incVat(a) - incVat(b));
@@ -110,6 +125,7 @@
         <div><div class="q-name">${esc(q.builder_name)}</div>
           ${sub ? `<div class="q-sub">${sub}</div>` : ''}
           ${q.notes ? `<div class="q-sub">${esc(q.notes)}</div>` : ''}
+          <div class="q-sub q-budget">${q.accepted ? 'Budget' : 'If accepted'}: ${esc(budgetLine(quoteBudget(q, est)))}</div>
           <div class="q-badges">${q.accepted ? '<span class="badge acc">Accepted</span>' : ''}${q.id === cheapest ? '<span class="badge cheap">Cheapest</span>' : ''}${q.id === fastest ? '<span class="badge fast">Fastest</span>' : ''}</div></div>
         <div class="q-time">${esc(weeksText(q.timeline_weeks))}</div>
         <div class="q-diff ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}">${mine > 0 ? `${signed(diff)}${pct != null ? ' (' + (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct) + '%)' : ''}<br><span class="hint" style="font-style:normal">vs your estimate</span>` : ''}</div>
@@ -129,8 +145,14 @@
         <h2 style="font-size:16px;margin:0 0 .25rem">Compare quotes</h2>
         <p class="hint" style="margin:0 0 1rem">Your estimate against each builder, all including VAT. Accept one to set your budget.</p>
         ${ev.likeForLike ? '' : `<div class="notice warn">${esc(ev.warning)}</div>`}
+        ${(() => {
+          const acc = list.find(q => q.accepted);
+          if (!pctC) return '<p class="cont-line">No contingency on your estimate. Turn it on in the Estimate summary to add it on top of the quote you accept.</p>';
+          const base = acc ? incVat(acc) : mine;
+          return `<p class="cont-line">Your contingency: <strong>${fmt(Math.round(base * pctC) / 100)} (${pctC}%)</strong> on top of the quote you accept.${acc ? '' : ' Worked out on your estimate; each quote shows its own below.'}</p>`;
+        })()}
         <div class="qrow mine">
-          <div><div class="q-name">Your estimate</div><div class="q-sub">${esc(est.name)}</div>
+          <div><div class="q-name">Your estimate</div><div class="q-sub">${esc(est.name)}, before contingency</div>
             <div class="q-badges">${budgetFromEstimate ? '<span class="badge acc">Budget</span>' : ''}</div></div>
           <div class="q-time">${esc(weeksText(myWeeks))}</div>
           <div class="q-diff"></div>
@@ -169,7 +191,7 @@
       <div class="card" style="padding:1rem 1.25rem">
         <p style="margin:0 0 .5rem;font-weight:700">No builder yet?</p>
         <p class="hint" style="margin:0 0 .75rem">You can track spend against your own estimate instead.</p>
-        <button type="button" class="btn-secondary" onclick="RefurbWorkflow.useEstimate()" ${mine > 0 ? '' : 'disabled'}>Use my estimate as budget${mine > 0 ? ' (' + fmt(mine) + ')' : ''}</button>
+        <button type="button" class="btn-secondary" onclick="RefurbWorkflow.useEstimate()" ${grand > 0 ? '' : 'disabled'}>Use my estimate as budget${grand > 0 ? ' (' + fmt(grand) + ', inc. contingency)' : ''}</button>
       </div>`;
     vatPreview(); // the "£18,000 + VAT = £21,600" line under the form
   }
@@ -258,17 +280,22 @@
       const d = await api('POST', '/api/refurb-quotes/' + id + '/accept');
       quotes = quotes.map(x => ({ ...x, accepted: x.id === id }));
       ctx.onEstimateUpdated(d.estimate);
-      notice = { cls: 'success', html: `Accepted ${esc(q.builder_name)}. Your budget is now ${fmt(incVat(q))} inc VAT. <button type="button" class="link-btn" onclick="RefurbWorkflow.go('budget')">Track spend</button>` };
+      // The server's own figures, so the notice always matches what was saved.
+      const sb = d.budget ? { inc: d.budget.quote_inc_vat, pct: d.budget.contingency_pct, c: d.budget.contingency, total: d.budget.total } : quoteBudget(q, d.estimate);
+      notice = { cls: 'success', html: `Accepted ${esc(q.builder_name)}. Budget: ${esc(budgetLine(sb))}. <button type="button" class="link-btn" onclick="RefurbWorkflow.go('budget')">Track spend</button>` };
       renderQuotes();
     } catch (e) { alert(e.message); }
   }
 
   async function useEstimate() {
     const est = ctx.estimate();
-    const amount = Math.round(ctx.totals().grandTotal);
+    const t = ctx.totals();
+    const amount = Math.round(t.grandTotal);
+    // The contingency inside that total, with its share of VAT.
+    const contingency = Math.round(t.contingencyAmt * (1 + (ctx.contingency().vat || 0) / 100) * 100) / 100;
     if (!est || !(amount > 0)) return;
     try {
-      const d = await api('POST', '/api/refurb-estimates/' + est.id + '/budget', { action: 'use_estimate', amount });
+      const d = await api('POST', '/api/refurb-estimates/' + est.id + '/budget', { action: 'use_estimate', amount, contingency });
       if (quotes) quotes = quotes.map(x => ({ ...x, accepted: false }));
       ctx.onEstimateUpdated(d.estimate);
       notice = null;
@@ -315,8 +342,12 @@
     const T = computeTotals(est.mode, est.line_items || {}, est.contingency_enabled, Number(est.contingency_pct) || 0, Number(est.vat_rate) || 0);
     const vatF = 1 + (Number(est.vat_rate) || 0) / 100;
     const fromQuote = est.budget_source === 'quote';
-    const C = fromQuote ? (est.contingency_enabled ? B * (Number(est.contingency_pct) || 0) / 100 : 0) : T.contingencyAmt * vatF;
-    const W = fromQuote ? B : Math.max(0, B - C);
+    // Contingency inside B: stored with the budget (db/050), else worked out:
+    // a quote budget is quote x (1 + pct), so C = B x pct / (100 + pct).
+    const pct = contPct(est);
+    const C = est.budget_contingency != null ? Number(est.budget_contingency)
+      : fromQuote ? B * pct / (100 + pct) : T.contingencyAmt * vatF;
+    const W = Math.max(0, B - C);
     const spent = payments.reduce((s, p) => s + p.amount, 0);
     const contLeft = C - Math.max(0, spent - W);
     return { B, C, W, spent, contLeft, fromQuote, pctSpent: B > 0 ? spent / B * 100 : 0 };
@@ -331,7 +362,9 @@
     const prop = payData && payData.portfolio_property;
     const f = budgetFigures(est, payments);
     const accepted = (quotes || []).find(q => q.accepted);
-    const sourceText = f.fromQuote ? (accepted ? 'Quote from ' + accepted.builder_name : 'Accepted quote') : 'Your estimate';
+    const sourceText = f.fromQuote
+      ? (accepted ? accepted.builder_name + ': ' : '') + (f.C > 0 ? `quote ${fmt(f.W)} + contingency ${fmt(f.C)}` : `quote ${fmt(f.W)}, no contingency`)
+      : 'Your estimate' + (f.C > 0 ? `, inc. ${fmt(f.C)} contingency` : '');
     const pctDone = Number(est.pct_complete) || 0;
     // Tax tags need db/049; before it, payments log without one.
     const tagsReady = !payData || payData.tags_ready !== false;
@@ -366,7 +399,7 @@
         <div class="wf-stat hero"><div class="k">Budget</div><div class="v">${fmt(f.B)}</div><div class="s">${esc(sourceText)}</div></div>
         <div class="wf-stat"><div class="k">Spent</div><div class="v">${fmt(f.spent)}</div><div class="s">${Math.round(f.pctSpent)}% of budget</div></div>
         <div class="wf-stat"><div class="k">Left to spend</div><div class="v">${f.spent > f.B ? '−' + fmt(f.spent - f.B) : fmt(f.B - f.spent)}</div><div class="s">${f.spent > f.B ? 'Over budget' : 'Within budget'}</div></div>
-        <div class="wf-stat"><div class="k">Contingency left</div><div class="v">${fmt(Math.max(0, f.contLeft))}</div><div class="s">${f.C > 0 ? 'of ' + fmt(f.C) + (f.fromQuote ? ' on top of the quote' : ' in the budget') : 'No contingency set'}</div></div>
+        <div class="wf-stat"><div class="k">Contingency left</div><div class="v">${fmt(Math.max(0, f.contLeft))}</div><div class="s">${f.C > 0 ? 'of ' + fmt(f.C) + ' in the budget' : 'No contingency set'}</div></div>
       </div>
 
       <details class="card cx" open>

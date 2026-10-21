@@ -422,6 +422,27 @@ function quoteIncVat(q) {
   return a;
 }
 
+// Budget from an accepted quote: the quote inc VAT plus the estimate's
+// contingency % (when contingency is on). e.g. £19,200 + 10% = £1,920,
+// budget £21,120. Returns { budget, contingency, pct }.
+function quoteBudgetFigures(q, est) {
+  const inc = quoteIncVat(q);
+  const pct = est && est.contingency_enabled ? (Number(est.contingency_pct) || 0) : 0;
+  const contingency = Math.round(inc * pct) / 100;
+  return { budget: Math.round((inc + contingency) * 100) / 100, contingency, pct };
+}
+
+// Writes a budget to the estimate, with budget_contingency (db/050) when the
+// column is there, and without it when it isn't.
+async function writeRefurbBudget(supabase, estimateId, update) {
+  const first = await supabase.from('refurb_estimates').update(update).eq('id', estimateId).select('*').single();
+  if (first.error && isMissingSchemaError(first.error) && 'budget_contingency' in update) {
+    const { budget_contingency, ...rest } = update;
+    return supabase.from('refurb_estimates').update(rest).eq('id', estimateId).select('*').single();
+  }
+  return first;
+}
+
 // Runs a query with the db/049 columns, then again with the db/048 ones if
 // the migration isn't there. Returns the result plus pre049: true/false.
 async function withRefurb049(run049, run048) {
@@ -3715,8 +3736,12 @@ app.put('/api/refurb-quotes/:id', async (req, res) => {
     () => supabase.from('refurb_quotes').update(value).eq('id', req.params.id).select(REFURB_QUOTE_COLUMNS).single());
   if (error && isMissingSchemaError(error)) return refurbNeedsMigration(res);
   if (error || !data) return res.status(404).json({ error: 'Quote not found.' });
-  // An accepted quote's new figure (inc VAT) becomes the budget too.
-  if (data.accepted) await supabase.from('refurb_estimates').update({ budget_amount: quoteIncVat(data), budget_source: 'quote' }).eq('id', data.estimate_id);
+  // An accepted quote's new figure (inc VAT, plus contingency) becomes the budget too.
+  if (data.accepted) {
+    const est = await loadOwnEstimate(supabase, data.estimate_id, 'id, contingency_enabled, contingency_pct');
+    const f = quoteBudgetFigures(data, est);
+    await writeRefurbBudget(supabase, data.estimate_id, { budget_amount: f.budget, budget_source: 'quote', budget_contingency: f.contingency });
+  }
   const urls = await signPaths(supabase, 'refurb-quotes', [data.file_path]);
   res.json({ ...publicQuoteRow(data, urls.get(data.file_path)), vat_saved: !pre049 });
 });
@@ -3734,8 +3759,8 @@ app.delete('/api/refurb-quotes/:id', async (req, res) => {
   res.json({ deleted: true });
 });
 
-// "Accept quote": this quote becomes the only accepted one and its figure
-// including VAT becomes the estimate's budget.
+// "Accept quote": this quote becomes the only accepted one, and the budget
+// is its figure including VAT plus the estimate's contingency %.
 app.post('/api/refurb-quotes/:id/accept', async (req, res) => {
   const ctx = await refurbRequest(req, res);
   if (!ctx) return;
@@ -3749,14 +3774,16 @@ app.post('/api/refurb-quotes/:id/accept', async (req, res) => {
   if (clearErr) return res.status(400).json({ error: 'The quote could not be accepted. Try again.' });
   const { error: accErr } = await supabase.from('refurb_quotes').update({ accepted: true }).eq('id', q.id);
   if (accErr) return res.status(400).json({ error: 'The quote could not be accepted. Try again.' });
-  const { data: est, error: estErr } = await supabase.from('refurb_estimates')
-    .update({ budget_amount: quoteIncVat(q), budget_source: 'quote' }).eq('id', q.estimate_id).select('*').single();
+  const own = await loadOwnEstimate(supabase, q.estimate_id, 'id, contingency_enabled, contingency_pct');
+  const f = quoteBudgetFigures(q, own);
+  const { data: est, error: estErr } = await writeRefurbBudget(supabase, q.estimate_id, { budget_amount: f.budget, budget_source: 'quote', budget_contingency: f.contingency });
   if (estErr || !est) return res.status(400).json({ error: 'The budget could not be set. Try again.' });
-  res.json({ estimate: est });
+  res.json({ estimate: est, budget: { quote_inc_vat: quoteIncVat(q), contingency_pct: f.pct, contingency: f.contingency, total: f.budget } });
 });
 
-// Budget settings: { action: 'use_estimate', amount } sets the estimate's
-// own grand total (worked out on the page) as the budget; { pct_complete }
+// Budget settings: { action: 'use_estimate', amount, contingency } sets the
+// estimate's own grand total (worked out on the page) as the budget, with
+// the contingency inside it; { pct_complete }
 // updates progress; { action: 'clear' } stops tracking (payments are kept).
 app.post('/api/refurb-estimates/:id/budget', async (req, res) => {
   const ctx = await refurbRequest(req, res);
@@ -3769,9 +3796,12 @@ app.post('/api/refurb-estimates/:id/budget', async (req, res) => {
     if (!Number.isFinite(amount) || amount < 0 || amount > 100000000) return res.status(400).json({ error: 'The estimate total is not valid.' });
     update.budget_amount = Math.round(amount * 100) / 100;
     update.budget_source = 'estimate';
+    const cont = Number(body.contingency);
+    update.budget_contingency = Number.isFinite(cont) && cont >= 0 && cont <= amount ? Math.round(cont * 100) / 100 : null;
   } else if (body.action === 'clear') {
     update.budget_amount = null;
     update.budget_source = null;
+    update.budget_contingency = null;
   }
   if (body.pct_complete !== undefined) {
     const pct = Number(body.pct_complete);
@@ -3779,7 +3809,7 @@ app.post('/api/refurb-estimates/:id/budget', async (req, res) => {
     update.pct_complete = Math.round(pct);
   }
   if (!Object.keys(update).length) return res.status(400).json({ error: 'Nothing to update.' });
-  const { data, error } = await supabase.from('refurb_estimates').update(update).eq('id', req.params.id).select('*').single();
+  const { data, error } = await writeRefurbBudget(supabase, req.params.id, update);
   if (error && isMissingSchemaError(error)) return refurbNeedsMigration(res);
   if (error || !data) return res.status(404).json({ error: 'Estimate not found.' });
   if (body.action === 'use_estimate' || body.action === 'clear') {
