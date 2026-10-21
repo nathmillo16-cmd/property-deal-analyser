@@ -91,6 +91,7 @@ details[open]>summary .chev{transform:rotate(-135deg)}
 .est-meta{font-size:12px;color:var(--muted)}
 .est-meta .not-linked{font-style:italic}
 .est-total{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;color:var(--ink);text-align:right}
+.est-range{display:block;font-size:11px;font-weight:500;color:var(--muted)}
 .est-actions{display:flex;align-items:center;gap:8px}
 .saved-chevron{color:var(--muted);font-size:18px;line-height:1}
 @media(max-width:560px){
@@ -161,7 +162,9 @@ details[open]>summary .chev{transform:rotate(-135deg)}
 .li input:focus,.ri input:focus,.qk input:focus{outline:none;border-color:var(--input-accent)}
 .rate-hint{font-size:10.5px;color:var(--muted);text-align:right;min-height:1em}
 .rate-hint.yours{color:var(--success)}
-.guide-chip{font-family:var(--font-body);font-size:10.5px;font-weight:600;color:var(--accent);background:rgba(75,69,178,.08);border:none;border-radius:999px;padding:3px 8px;cursor:pointer;align-self:flex-end}
+.rate-hint .rh-range{display:block}
+.li-total.need-rate{color:var(--warn-ink,var(--muted));font-weight:600;font-size:12px}
+.total-range{font-size:12px;opacity:.85;margin:.2rem 0 0}
 .li-total{font-weight:700;font-size:13px;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums;padding-top:9px}
 .li-total.zero{color:var(--muted);font-weight:500}
 .more-btn{font-family:var(--font-body);font-size:11px;font-weight:600;color:var(--muted);background:transparent;border:1px solid var(--hairline);border-radius:999px;padding:5px 8px;cursor:pointer;margin-top:4px;min-height:30px}
@@ -186,7 +189,6 @@ details[open]>summary .chev{transform:rotate(-135deg)}
   .li-total{padding-top:6px;text-align:left}
   .more-btn{justify-self:end;margin-top:0}
   .rate-hint{text-align:left}
-  .guide-chip{align-self:flex-start}
   .li-more{grid-template-columns:1fr}
 }
 
@@ -502,6 +504,7 @@ details[open]>summary .chev{transform:rotate(-135deg)}
             <div class="offer-box" style="margin-top:1rem">
               <p class="ot">Grand total</p>
               <p class="ov" id="rf-grand-total">£0</p>
+              <p class="on total-range" id="rf-total-range" hidden></p>
               <p class="on" id="rf-total-note" hidden></p>
             </div>
 
@@ -846,8 +849,30 @@ function showWorkNote(text){
 }
 
 // =====================================================================
-// Rates: your rate, then guide rate, then empty.
+// Rates: your rate, then the indicative guide rate (typical x region
+// factor), then "Add your rate".
 // =====================================================================
+// Region for guide rates: the linked deal's postcode if it has one,
+// otherwise the region set in Settings (UK average by default).
+let guideRegion=RefurbRateCard.getRegion();
+let guideRegionToken=0;
+async function refreshGuideRegion(){
+  const token=++guideRegionToken;
+  let region=RefurbRateCard.getRegion();
+  const deal=editingId?dealsForEstimate(editingId)[0]:null;
+  if(deal&&deal.postcode){
+    const r=await RefurbRateCard.regionFromPostcode(deal.postcode);
+    if(token!==guideRegionToken)return;
+    if(r)region=r;
+  }
+  if(region===guideRegion)return;
+  guideRegion=region;
+  refurbItemList().forEach(x=>updateRateHint(x.key));
+  if(currentView==='rooms')renderRoomsPanel();
+  recalcSummary();
+}
+function lineGuide(key){ return RefurbRateCard.guide(key,guideRegion); }
+
 function prefillRate(key){
   const el=document.getElementById('di-'+domId(key)+'-rate');
   if(!el||el.value!=='')return;
@@ -864,15 +889,16 @@ function updateRateHint(key){
   const hint=document.getElementById('di-'+id+'-rhint');
   if(!el||!hint)return;
   const u=userRates[key];
-  const g=RefurbRateCard.guideRate(key);
+  const g=lineGuide(key);
+  el.placeholder=g?fmtRate(g.typical):'£';
   if(el.value!==''&&u!=null&&Number(el.value)===Number(u)){ hint.className='rate-hint yours'; hint.textContent='Your rate'; return; }
-  if(el.value===''&&g!=null){ hint.className='rate-hint'; hint.innerHTML=`<button type="button" class="guide-chip" onclick="useGuideRate('${key}')">Use guide ${escapeHtml(fmtRate(g))}</button>`; return; }
+  if(el.value===''&&g){
+    hint.className='rate-hint';
+    const range=g.low!=null&&g.high!=null?`<span class="rh-range">${escapeHtml(fmtRate(g.low))} to ${escapeHtml(fmtRate(g.high))}</span>`:'';
+    hint.innerHTML=escapeHtml(RefurbRateCard.guideLabel(g))+range;
+    return;
+  }
   hint.className='rate-hint'; hint.textContent='';
-}
-function useGuideRate(key){
-  const el=document.getElementById('di-'+domId(key)+'-rate');
-  const g=RefurbRateCard.guideRate(key);
-  if(el&&g!=null){ el.value=g; onLineInput(key); }
 }
 
 async function saveRatesAsMine(){
@@ -910,12 +936,12 @@ function buildDetailedPanel(){
           </div>
           <p class="epc-note">Check current minimum energy efficiency rules for rentals and get an EPC assessor's recommendations report.</p>`:''}
         <div class="li-head"><span>Item</span><span>Qty</span><span>Rate (£)</span><span>Total</span><span></span></div>
-        ${s.items.map(it=>{ const key=s.id+'.'+it.id, id=domId(key), g=RefurbRateCard.guideRate(key); return `
+        ${s.items.map(it=>{ const key=s.id+'.'+it.id, id=domId(key), g=lineGuide(key); return `
           <div class="li" id="li-${id}">
             <div class="li-main">
               <span class="li-name">${escapeHtml(it.label)}${it.note?`<span class="li-name-note">${escapeHtml(it.note)}</span>`:''}</span>
               <label class="li-f"><span class="li-cap">Qty</span><span class="li-qty-wrap"><input type="number" inputmode="decimal" min="0" step="any" id="di-${id}-qty" oninput="onLineInput('${key}')" aria-label="${escapeHtml(it.label)} quantity"/><span class="li-unit" id="di-${id}-unit">${escapeHtml(it.unit)}</span></span></label>
-              <label class="li-f"><span class="li-cap">Rate (£)</span><input type="number" inputmode="decimal" min="0" step="any" placeholder="${g!=null?'Guide '+escapeHtml(fmtRate(g)):'£'}" id="di-${id}-rate" oninput="onLineInput('${key}')" aria-label="${escapeHtml(it.label)} rate"/><span class="rate-hint" id="di-${id}-rhint"></span></label>
+              <label class="li-f"><span class="li-cap">Rate (£)</span><input type="number" inputmode="decimal" min="0" step="any" placeholder="${g?escapeHtml(fmtRate(g.typical)):'£'}" id="di-${id}-rate" oninput="onLineInput('${key}')" aria-label="${escapeHtml(it.label)} rate"/><span class="rate-hint" id="di-${id}-rhint"></span></label>
               <span class="li-total zero" id="di-${id}-total">£0</span>
               <button type="button" class="more-btn" id="di-${id}-more" aria-expanded="false" onclick="toggleMore('${key}')">more</button>
             </div>
@@ -1113,7 +1139,7 @@ function renderRoomsPanel(){
     <div class="card" style="padding:1rem 1.25rem;margin-top:1rem">
       <p style="font-weight:700;margin:0 0 .35rem">Items from your rooms</p>
       <p class="hint" style="margin:0 0 .6rem">Your choices set these quantities in Line by line. Add a rate to include each one in the total.</p>
-      ${keys.length?keys.map(k=>{ const x=refurbItemByKey(k); const rEl=document.getElementById('di-'+domId(k)+'-rate'); const g=RefurbRateCard.guideRate(k); return `<div class="ri"><span class="ri-name">${escapeHtml(x.item.label)}</span><span class="ri-qty">${applied[k]} ${escapeHtml(itemUnit(k))}</span><input type="number" inputmode="decimal" min="0" step="any" placeholder="${g!=null?'Guide '+escapeHtml(fmtRate(g)):'Rate £'}" value="${rEl?escapeHtml(rEl.value):''}" oninput="setRateFromRooms('${k}',this.value)" aria-label="${escapeHtml(x.item.label)} rate"/></div>`; }).join(''):'<p class="hint" style="margin:0">Mark a room as Refresh or Replace to add items.</p>'}
+      ${keys.length?keys.map(k=>{ const x=refurbItemByKey(k); const rEl=document.getElementById('di-'+domId(k)+'-rate'); const g=lineGuide(k); return `<div class="ri"><span class="ri-name">${escapeHtml(x.item.label)}</span><span class="ri-qty">${applied[k]} ${escapeHtml(itemUnit(k))}</span><input type="number" inputmode="decimal" min="0" step="any" placeholder="${g?'Indicative '+escapeHtml(fmtRate(g.typical)):'Rate £'}" value="${rEl?escapeHtml(rEl.value):''}" oninput="setRateFromRooms('${k}',this.value)" aria-label="${escapeHtml(x.item.label)} rate"/></div>`; }).join(''):'<p class="hint" style="margin:0">Mark a room as Refresh or Replace to add items.</p>'}
     </div>`;
 }
 function setRoomCondition(cardId, cond){
@@ -1176,6 +1202,10 @@ function readDetailedLineItems(){
     const qty=numOrNull(document.getElementById('di-'+id+'-qty').value);
     const ex=lineExtras[key]||{};
     const li={ rate, qty };
+    if(rate==null&&qty!=null){
+      const g=lineGuide(key);
+      if(g)li.guide={ typical:g.typical, low:g.low, high:g.high, region:g.region, as_of:g.asOf };
+    }
     if(ex.unit)li.unit=ex.unit;
     if(ex.note)li.note=String(ex.note).slice(0,300);
     if(ex.photos&&ex.photos.length)li.photos=ex.photos.slice(0,10);
@@ -1204,10 +1234,12 @@ function recalcSummary(){
       let count=0;
       s.items.forEach(it=>{
         const key=s.id+'.'+it.id, id=domId(key);
-        const li=lineItems[key]; const rate=li&&li.rate!=null?li.rate:0, qty=li&&li.qty!=null?li.qty:0;
-        if(qty>0){ count++; counted++; if(!(li&&li.rate!=null))missing++; }
+        const li=lineItems[key]; const r=refurbLineRate(li), rate=r!=null?r:0, qty=li&&li.qty!=null?li.qty:0;
+        const needRate=qty>0&&r==null;
+        if(qty>0){ count++; counted++; if(needRate)missing++; }
         const tEl=document.getElementById('di-'+id+'-total');
-        tEl.textContent=fmtGBP(rate*qty); tEl.classList.toggle('zero',rate*qty===0);
+        tEl.textContent=needRate?'Add your rate':fmtGBP(rate*qty);
+        tEl.classList.toggle('zero',!needRate&&rate*qty===0); tEl.classList.toggle('need-rate',needRate);
       });
       const tot=document.getElementById('ds-'+s.id+'-subtotal');
       tot.textContent=fmtGBP(sectionTotals[s.id]); tot.classList.toggle('zero',!count);
@@ -1224,6 +1256,9 @@ function recalcSummary(){
   const noRates=saveMode()==='detailed'&&counted>0&&totals.subtotal===0;
   if(noRates){ gt.textContent='Add rates to see a total'; gt.classList.add('ov-empty'); }
   else{ gt.textContent=fmtGBP(totals.grandTotal); gt.classList.remove('ov-empty'); }
+  const rangeEl=document.getElementById('rf-total-range');
+  if(totals.range&&!noRates&&Math.round(totals.range.low)!==Math.round(totals.range.high)){ rangeEl.hidden=false; rangeEl.textContent='Range '+fmtGBP(totals.range.low)+' to '+fmtGBP(totals.range.high)+' (indicative rates)'; }
+  else rangeEl.hidden=true;
   if(saveMode()==='detailed'&&missing>0&&!noRates){ note.hidden=false; note.textContent=missing+(missing===1?' item still needs a rate.':' items still need a rate.'); }
   else note.hidden=true;
   if(currentView==='rooms'){
@@ -1500,7 +1535,7 @@ function renderSavedList(){
     return `<div class="est-row${e.id===editingId?' active':''}" onclick="loadEstimate('${e.id}')">
       <div class="est-info"><span class="est-name">${escapeHtml(e.name)}</span>
         <span class="est-meta">${linked} · ${escapeHtml(scopeLabelFor(e.mode,e.details))} · ${fmtDate(e.created_at)}</span></div>
-      <span class="est-total">${totals.subtotal>0?fmtGBP(totals.grandTotal):'No total yet'}</span>
+      <span class="est-total">${totals.subtotal>0?fmtGBP(totals.grandTotal):'No total yet'}${totals.subtotal>0&&totals.range&&Math.round(totals.range.low)!==Math.round(totals.range.high)?`<span class="est-range">${fmtGBP(totals.range.low)} to ${fmtGBP(totals.range.high)}</span>`:''}</span>
       <div class="est-actions"><button type="button" class="mini-btn" onclick="event.stopPropagation();openAddToDealPicker('${e.id}')">${deals.length?'Change deal':'Link to deal'}</button><span class="saved-chevron">›</span></div>
     </div>`;
   }).join('');
@@ -1719,6 +1754,7 @@ function confirmUpdateDeal(){
 }
 
 function renderLinkedBox(){
+  refreshGuideRegion();
   const box=document.getElementById('rf-linked');
   if(!editingId){ box.hidden=true; return; }
   const deals=dealsForEstimate(editingId);

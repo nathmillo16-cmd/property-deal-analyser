@@ -169,20 +169,35 @@ function refurbItemByKey(key){
   return it?{ key, sectionId:sid, sectionName:s.name, item:it }:null;
 }
 
-function computeDetailedSubtotal(lineItems){
-  let total=0; const sectionTotals={};
+// The rate a line is priced at: the user's own rate, else the indicative
+// guide figure the estimator saved with the line (li.guide, only set when
+// the rate box was blank and a guide rate exists). which: 'typical'
+// (default), 'low' or 'high'. A missing low/high falls back to typical.
+function refurbLineRate(li, which){
+  if(!li)return null;
+  if(li.rate!=null)return li.rate;
+  const g=li.guide;
+  if(!g||typeof g!=='object')return null;
+  const v=which&&g[which]!=null?g[which]:g.typical;
+  return v!=null&&Number.isFinite(Number(v))?Number(v):null;
+}
+
+function computeDetailedSubtotal(lineItems, which){
+  let total=0, usesGuide=false; const sectionTotals={};
   REFURB_SECTIONS.forEach(s=>{
     let sTotal=0;
     s.items.forEach(it=>{
       const li=lineItems[`${s.id}.${it.id}`];
-      const rate=li&&li.rate!=null?li.rate:0;
+      const r=refurbLineRate(li, which);
+      const rate=r!=null?r:0;
       const qty=li&&li.qty!=null?li.qty:0;
+      if(li&&li.rate==null&&r!=null&&qty)usesGuide=true;
       sTotal += rate*qty;
     });
     sectionTotals[s.id]=sTotal;
     total+=sTotal;
   });
-  return { total, sectionTotals };
+  return { total, sectionTotals, usesGuide };
 }
 
 function computeQuickSubtotal(lineItems){
@@ -191,10 +206,19 @@ function computeQuickSubtotal(lineItems){
   return total;
 }
 
+// range: { low, high } grand totals when at least one line is priced at
+// an indicative guide rate (detailed mode only), else null.
 function computeTotals(mode, lineItems, contingencyEnabled, contingencyPct, vatRate){
-  const subtotal = mode==='quick' ? computeQuickSubtotal(lineItems) : computeDetailedSubtotal(lineItems).total;
-  const contingencyAmt = contingencyEnabled ? subtotal*(contingencyPct/100) : 0;
-  const vatAmt = (subtotal+contingencyAmt)*(vatRate/100);
-  const grandTotal = subtotal+contingencyAmt+vatAmt;
-  return { subtotal, contingencyAmt, vatAmt, grandTotal };
+  const finish=subtotal=>{
+    const contingencyAmt = contingencyEnabled ? subtotal*(contingencyPct/100) : 0;
+    const vatAmt = (subtotal+contingencyAmt)*(vatRate/100);
+    return { subtotal, contingencyAmt, vatAmt, grandTotal: subtotal+contingencyAmt+vatAmt };
+  };
+  if(mode==='quick')return { ...finish(computeQuickSubtotal(lineItems)), range:null };
+  const typ=computeDetailedSubtotal(lineItems);
+  const out=finish(typ.total);
+  out.range=typ.usesGuide
+    ? { low: finish(computeDetailedSubtotal(lineItems,'low').total).grandTotal, high: finish(computeDetailedSubtotal(lineItems,'high').total).grandTotal }
+    : null;
+  return out;
 }

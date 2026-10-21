@@ -1,127 +1,154 @@
-// refurb-guide-rates.js: one guide rate per refurb line item.
+// refurb-guide-rates.js: indicative guide rates for every refurb line item.
 //
 // Nathan or Cameron will fill these in. Every value is deliberately empty
-// (null) for now: no rate here has been invented. When a rate is set, the
-// estimator shows it as a "Guide" placeholder the user can accept with one
-// tap. When it is null, nothing is shown.
+// (null) for now: no rate here has been invented.
 //
-// Rate priority on the estimator: the user's own saved rate ("Your rate")
-// first, then the guide rate below, then empty.
+// Each item has:
+//   low, typical, high: pounds per unit, ex VAT, labour and materials.
+//   unit:   the unit the rate is per (matches REFURB_SECTIONS in
+//           refurb-totals.js).
+//   source: where the figures came from, as text (e.g. "3 builder quotes,
+//           Nottingham, Oct 2026").
+//
+// The figures are for base_region (UK average). The estimator multiplies
+// them by the factor for the user's region (from Settings, or the linked
+// deal's postcode). A null factor, or a null typical rate, means no guide
+// is shown for that line: the estimator asks for "Add your rate" instead.
+//
+// Rate priority on the estimator: the user's own rate first, then
+// typical x region factor, then nothing.
 //
 // Keys are "<sectionId>.<itemId>", matching REFURB_SECTIONS in
-// refurb-totals.js. Rates are in pounds per unit (the unit shown next to
-// Qty for that item). Update lastUpdated whenever a rate changes.
+// refurb-totals.js. Update rates_as_of whenever figures change.
+// scripts/export-refurb-guide-csv.js writes a blank CSV of every item to
+// /exports for builders to fill in.
 const REFURB_GUIDE_RATES = {
-  lastUpdated: null, // e.g. "2026-11-01"
-  rates: {
+  rates_as_of: null, // e.g. "2026-11-01"
+  base_region: "UK average",
+  region_factors: {
+    "UK average": 1.00,
+    "London": null,
+    "South East": null,
+    "South West": null,
+    "East of England": null,
+    "East Midlands": null,
+    "West Midlands": null,
+    "North West": null,
+    "North East": null,
+    "Yorkshire and the Humber": null,
+    "Wales": null,
+    "Scotland": null,
+    "Northern Ireland": null,
+  },
+  items: {
     // Demolition & Alterations
-    "demolition.strip-out": null, // Strip out (per item)
-    "demolition.skip-8yd": null, // Skip 8yd (without permit) (per each)
-    "demolition.skip-12yd": null, // Skip 12yd (without permit) (per each)
-    "demolition.skip-permit": null, // Skip permit (per each)
+    "demolition.strip-out": { low: null, typical: null, high: null, unit: "item", source: null }, // Strip out
+    "demolition.skip-8yd": { low: null, typical: null, high: null, unit: "each", source: null }, // Skip 8yd (without permit)
+    "demolition.skip-12yd": { low: null, typical: null, high: null, unit: "each", source: null }, // Skip 12yd (without permit)
+    "demolition.skip-permit": { low: null, typical: null, high: null, unit: "each", source: null }, // Skip permit
     // Masonry & Groundworks
-    "masonry.extension-m2": null, // Extension per m² (per m²)
-    "masonry.repointing-m2": null, // Repointing per m² (per m²)
-    "masonry.underpinning-m2": null, // Underpinning per m² (per m²)
-    "masonry.large-lintel": null, // Large lintel incl. fit (per each)
-    "masonry.small-lintel": null, // Small lintel incl. fit (per each)
-    "masonry.beams": null, // Beams incl. fit (per each)
-    "masonry.rendering-m2": null, // Rendering per m² (per m²)
-    "masonry.dpc-metre": null, // DPC per metre (per linear m)
-    "masonry.brick-big-window": null, // Brick up big window (per each)
-    "masonry.brick-small-window": null, // Brick up small window (per each)
-    "masonry.structural-engineer": null, // Structural engineer (per item)
+    "masonry.extension-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Extension per m²
+    "masonry.repointing-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Repointing per m²
+    "masonry.underpinning-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Underpinning per m²
+    "masonry.large-lintel": { low: null, typical: null, high: null, unit: "each", source: null }, // Large lintel incl. fit
+    "masonry.small-lintel": { low: null, typical: null, high: null, unit: "each", source: null }, // Small lintel incl. fit
+    "masonry.beams": { low: null, typical: null, high: null, unit: "each", source: null }, // Beams incl. fit
+    "masonry.rendering-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Rendering per m²
+    "masonry.dpc-metre": { low: null, typical: null, high: null, unit: "linear m", source: null }, // DPC per metre
+    "masonry.brick-big-window": { low: null, typical: null, high: null, unit: "each", source: null }, // Brick up big window
+    "masonry.brick-small-window": { low: null, typical: null, high: null, unit: "each", source: null }, // Brick up small window
+    "masonry.structural-engineer": { low: null, typical: null, high: null, unit: "item", source: null }, // Structural engineer
     // Roofing & Scaffolding
-    "roofing.new-roof-m2": null, // New roof per m² (per m²)
-    "roofing.new-roof-full": null, // New roof (full) (per item)
-    "roofing.scaffolding": null, // Scaffolding (per item)
-    "roofing.chimney-flashing": null, // Chimney flashing (per each)
+    "roofing.new-roof-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // New roof per m²
+    "roofing.new-roof-full": { low: null, typical: null, high: null, unit: "item", source: null }, // New roof (full)
+    "roofing.scaffolding": { low: null, typical: null, high: null, unit: "item", source: null }, // Scaffolding
+    "roofing.chimney-flashing": { low: null, typical: null, high: null, unit: "each", source: null }, // Chimney flashing
     // Plastering
-    "plastering.skimming-room": null, // Skimming per room (per room)
-    "plastering.skimming-m2": null, // Skimming per m² (per m²)
-    "plastering.boarding-m2": null, // Boarding per m² (per m²)
-    "plastering.boarding-ceiling": null, // Boarding ceiling (per room)
+    "plastering.skimming-room": { low: null, typical: null, high: null, unit: "room", source: null }, // Skimming per room
+    "plastering.skimming-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Skimming per m²
+    "plastering.boarding-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Boarding per m²
+    "plastering.boarding-ceiling": { low: null, typical: null, high: null, unit: "room", source: null }, // Boarding ceiling
     // Joinery
-    "joinery.skirting-m2": null, // Skirting per m² (per m²)
-    "joinery.fire-door-fit": null, // Fire door fit only (per each)
-    "joinery.fire-door-supply": null, // Fire door supply only (per each)
-    "joinery.standard-door-supply": null, // Standard door supply only (per each)
-    "joinery.standard-door-fit": null, // Standard door fit only (per each)
-    "joinery.ironmongery": null, // Ironmongery (per each)
-    "joinery.stud-walls": null, // Stud walls (per m²)
-    "joinery.roof-rafters": null, // Roof rafters (per each)
-    "joinery.stairs-internal": null, // Stairs internal (per item)
+    "joinery.skirting-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Skirting per m²
+    "joinery.fire-door-fit": { low: null, typical: null, high: null, unit: "each", source: null }, // Fire door fit only
+    "joinery.fire-door-supply": { low: null, typical: null, high: null, unit: "each", source: null }, // Fire door supply only
+    "joinery.standard-door-supply": { low: null, typical: null, high: null, unit: "each", source: null }, // Standard door supply only
+    "joinery.standard-door-fit": { low: null, typical: null, high: null, unit: "each", source: null }, // Standard door fit only
+    "joinery.ironmongery": { low: null, typical: null, high: null, unit: "each", source: null }, // Ironmongery
+    "joinery.stud-walls": { low: null, typical: null, high: null, unit: "m²", source: null }, // Stud walls
+    "joinery.roof-rafters": { low: null, typical: null, high: null, unit: "each", source: null }, // Roof rafters
+    "joinery.stairs-internal": { low: null, typical: null, high: null, unit: "item", source: null }, // Stairs internal
     // Windows & Doors
-    "windows-doors.small-window": null, // Small window (per each)
-    "windows-doors.large-window": null, // Large window (per each)
-    "windows-doors.bifold-doors": null, // Bi-folding doors (per each)
-    "windows-doors.upvc-door": null, // uPVC door (per each)
-    "windows-doors.french-door": null, // French door (per each)
-    "windows-doors.sash-window": null, // Sash window (per each)
+    "windows-doors.small-window": { low: null, typical: null, high: null, unit: "each", source: null }, // Small window
+    "windows-doors.large-window": { low: null, typical: null, high: null, unit: "each", source: null }, // Large window
+    "windows-doors.bifold-doors": { low: null, typical: null, high: null, unit: "each", source: null }, // Bi-folding doors
+    "windows-doors.upvc-door": { low: null, typical: null, high: null, unit: "each", source: null }, // uPVC door
+    "windows-doors.french-door": { low: null, typical: null, high: null, unit: "each", source: null }, // French door
+    "windows-doors.sash-window": { low: null, typical: null, high: null, unit: "each", source: null }, // Sash window
     // Electrics
-    "electrics.full-rewire": null, // Full rewire (per item)
-    "electrics.consumer-unit": null, // New consumer unit (per each)
-    "electrics.emergency-lighting": null, // Emergency lighting (per each)
-    "electrics.automatic-lighting": null, // Automatic lighting (per each)
-    "electrics.wired-fire-alarm": null, // Wired fire alarm (per each)
-    "electrics.battery-fire-alarm": null, // Battery fire alarm (per each)
-    "electrics.plug-socket": null, // Plug socket (per each)
-    "electrics.light-switch": null, // Light switch (per each)
-    "electrics.ip-rated-pendant": null, // IP rated pendant (per each)
-    "electrics.fire-alarm-system": null, // Fire alarm system (per item)
-    "electrics.cctv-cameras": null, // CCTV cameras (per each)
-    "electrics.eicr-test": null, // EICR test (per item)
+    "electrics.full-rewire": { low: null, typical: null, high: null, unit: "item", source: null }, // Full rewire
+    "electrics.consumer-unit": { low: null, typical: null, high: null, unit: "each", source: null }, // New consumer unit
+    "electrics.emergency-lighting": { low: null, typical: null, high: null, unit: "each", source: null }, // Emergency lighting
+    "electrics.automatic-lighting": { low: null, typical: null, high: null, unit: "each", source: null }, // Automatic lighting
+    "electrics.wired-fire-alarm": { low: null, typical: null, high: null, unit: "each", source: null }, // Wired fire alarm
+    "electrics.battery-fire-alarm": { low: null, typical: null, high: null, unit: "each", source: null }, // Battery fire alarm
+    "electrics.plug-socket": { low: null, typical: null, high: null, unit: "each", source: null }, // Plug socket
+    "electrics.light-switch": { low: null, typical: null, high: null, unit: "each", source: null }, // Light switch
+    "electrics.ip-rated-pendant": { low: null, typical: null, high: null, unit: "each", source: null }, // IP rated pendant
+    "electrics.fire-alarm-system": { low: null, typical: null, high: null, unit: "item", source: null }, // Fire alarm system
+    "electrics.cctv-cameras": { low: null, typical: null, high: null, unit: "each", source: null }, // CCTV cameras
+    "electrics.eicr-test": { low: null, typical: null, high: null, unit: "item", source: null }, // EICR test
     // Plumbing
-    "plumbing.full-replumb": null, // Full replumb (per item)
-    "plumbing.plumber-hourly": null, // Hourly rate for plumber (per hour)
-    "plumbing.boiler-supply-fit": null, // Boiler supply & fit (per item)
-    "plumbing.guttering": null, // Guttering (per linear m)
-    "plumbing.manhole-installation": null, // New manhole installation (per item)
-    "plumbing.kitchen-fit": null, // Plumbing day rate (per day)
-    "plumbing.gas-safety-cert": null, // Gas safety cert (per item)
-    "plumbing.radiators": null, // Radiators (per each)
-    "plumbing.boiler-relocation": null, // Boiler relocation (per item)
+    "plumbing.full-replumb": { low: null, typical: null, high: null, unit: "item", source: null }, // Full replumb
+    "plumbing.plumber-hourly": { low: null, typical: null, high: null, unit: "hour", source: null }, // Hourly rate for plumber
+    "plumbing.boiler-supply-fit": { low: null, typical: null, high: null, unit: "item", source: null }, // Boiler supply & fit
+    "plumbing.guttering": { low: null, typical: null, high: null, unit: "linear m", source: null }, // Guttering
+    "plumbing.manhole-installation": { low: null, typical: null, high: null, unit: "item", source: null }, // New manhole installation
+    "plumbing.kitchen-fit": { low: null, typical: null, high: null, unit: "day", source: null }, // Plumbing day rate
+    "plumbing.gas-safety-cert": { low: null, typical: null, high: null, unit: "item", source: null }, // Gas safety cert
+    "plumbing.radiators": { low: null, typical: null, high: null, unit: "each", source: null }, // Radiators
+    "plumbing.boiler-relocation": { low: null, typical: null, high: null, unit: "item", source: null }, // Boiler relocation
     // Flooring & Tiling
-    "flooring.laminate-m2": null, // Laminate per m² (per m²)
-    "flooring.vinyl-m2": null, // Vinyl per m² (per m²)
-    "flooring.grouting-m2": null, // Grouting per m² (per m²)
-    "flooring.herringbone-m2": null, // Herringbone flooring per m² (per m²)
-    "flooring.aqua-panels": null, // Aqua panels (per m²)
-    "flooring.tiling-m2": null, // Tiling per m² (per m²)
-    "flooring.carpet-m2": null, // Carpet per m² (per m²)
+    "flooring.laminate-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Laminate per m²
+    "flooring.vinyl-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Vinyl per m²
+    "flooring.grouting-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Grouting per m²
+    "flooring.herringbone-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Herringbone flooring per m²
+    "flooring.aqua-panels": { low: null, typical: null, high: null, unit: "m²", source: null }, // Aqua panels
+    "flooring.tiling-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Tiling per m²
+    "flooring.carpet-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Carpet per m²
     // Bathroom & Kitchen
-    "bathroom-kitchen-supply.shower-tray": null, // Shower tray (per each)
-    "bathroom-kitchen-supply.shower-enclosure": null, // Shower enclosure (per each)
-    "bathroom-kitchen-supply.toilet": null, // Toilet (per each)
-    "bathroom-kitchen-supply.sink-basin": null, // Sink basin (per each)
-    "bathroom-kitchen-supply.basin-taps": null, // Basin taps (per each)
-    "bathroom-kitchen-supply.bathroom-fit": null, // Bathroom fit (per room)
-    "bathroom-kitchen-supply.bathroom-supply-only": null, // Bathroom supply only (per room)
-    "bathroom-kitchen-supply.kitchen-fit-only": null, // Kitchen fit (per item)
-    "bathroom-kitchen-supply.kitchen-supply-only": null, // Kitchen supply only (per item)
-    "bathroom-kitchen-supply.grouting-m2": null, // Grouting per m² (per m²)
-    "bathroom-kitchen-supply.tiling-m2": null, // Tiling per m² (per m²)
+    "bathroom-kitchen-supply.shower-tray": { low: null, typical: null, high: null, unit: "each", source: null }, // Shower tray
+    "bathroom-kitchen-supply.shower-enclosure": { low: null, typical: null, high: null, unit: "each", source: null }, // Shower enclosure
+    "bathroom-kitchen-supply.toilet": { low: null, typical: null, high: null, unit: "each", source: null }, // Toilet
+    "bathroom-kitchen-supply.sink-basin": { low: null, typical: null, high: null, unit: "each", source: null }, // Sink basin
+    "bathroom-kitchen-supply.basin-taps": { low: null, typical: null, high: null, unit: "each", source: null }, // Basin taps
+    "bathroom-kitchen-supply.bathroom-fit": { low: null, typical: null, high: null, unit: "room", source: null }, // Bathroom fit
+    "bathroom-kitchen-supply.bathroom-supply-only": { low: null, typical: null, high: null, unit: "room", source: null }, // Bathroom supply only
+    "bathroom-kitchen-supply.kitchen-fit-only": { low: null, typical: null, high: null, unit: "item", source: null }, // Kitchen fit
+    "bathroom-kitchen-supply.kitchen-supply-only": { low: null, typical: null, high: null, unit: "item", source: null }, // Kitchen supply only
+    "bathroom-kitchen-supply.grouting-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Grouting per m²
+    "bathroom-kitchen-supply.tiling-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Tiling per m²
     // Painting & Decorating
-    "painting.mist-coat-room": null, // Mist coat per room (per room)
-    "painting.paint-standard-m2": null, // Paint (standard white) per m² (per m²)
-    "painting.full-room-paint": null, // Full room paint per room (standard white) (per room)
-    "painting.wallpaper-m2": null, // Wallpaper per m² (per m²)
-    "painting.feature-wall": null, // Feature wall (per each)
-    "painting.sanding-patching-m2": null, // Sanding & patching per m² (per m²)
+    "painting.mist-coat-room": { low: null, typical: null, high: null, unit: "room", source: null }, // Mist coat per room
+    "painting.paint-standard-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Paint (standard white) per m²
+    "painting.full-room-paint": { low: null, typical: null, high: null, unit: "room", source: null }, // Full room paint per room (standard white)
+    "painting.wallpaper-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Wallpaper per m²
+    "painting.feature-wall": { low: null, typical: null, high: null, unit: "each", source: null }, // Feature wall
+    "painting.sanding-patching-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Sanding & patching per m²
     // Garden & Landscaping
-    "garden.garden-clear": null, // Garden clear (per item)
-    "garden.new-lawn-m2": null, // New lawn per m² (per m²)
-    "garden.slabbing-paving-m2": null, // Slabbing/paving per m² (per m²)
-    "garden.patio-m2": null, // Patio per m² (per m²)
-    "garden.decking-m2": null, // Decking per m² (per m²)
+    "garden.garden-clear": { low: null, typical: null, high: null, unit: "item", source: null }, // Garden clear
+    "garden.new-lawn-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // New lawn per m²
+    "garden.slabbing-paving-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Slabbing/paving per m²
+    "garden.patio-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Patio per m²
+    "garden.decking-m2": { low: null, typical: null, high: null, unit: "m²", source: null }, // Decking per m²
     // Energy efficiency (EPC)
-    "epc.loft-insulation": null, // Loft insulation (per m²)
-    "epc.cavity-wall-insulation": null, // Cavity wall insulation (per m²)
-    "epc.solid-wall-insulation": null, // Solid wall insulation (internal or external) (per m²)
-    "epc.double-glazing": null, // Double glazing (per each)
-    "epc.heating-upgrade": null, // Heating system or boiler upgrade (per item)
-    "epc.heating-controls": null, // Heating controls (programmer, thermostat, TRVs) (per item)
-    "epc.led-lighting": null, // LED lighting (per room)
-    "epc.cylinder-insulation": null, // Hot water cylinder insulation (per item)
+    "epc.loft-insulation": { low: null, typical: null, high: null, unit: "m²", source: null }, // Loft insulation
+    "epc.cavity-wall-insulation": { low: null, typical: null, high: null, unit: "m²", source: null }, // Cavity wall insulation
+    "epc.solid-wall-insulation": { low: null, typical: null, high: null, unit: "m²", source: null }, // Solid wall insulation (internal or external)
+    "epc.double-glazing": { low: null, typical: null, high: null, unit: "each", source: null }, // Double glazing
+    "epc.heating-upgrade": { low: null, typical: null, high: null, unit: "item", source: null }, // Heating system or boiler upgrade
+    "epc.heating-controls": { low: null, typical: null, high: null, unit: "item", source: null }, // Heating controls (programmer, thermostat, TRVs)
+    "epc.led-lighting": { low: null, typical: null, high: null, unit: "room", source: null }, // LED lighting
+    "epc.cylinder-insulation": { low: null, typical: null, high: null, unit: "item", source: null }, // Hot water cylinder insulation
   },
 };

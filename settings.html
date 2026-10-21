@@ -259,6 +259,11 @@
         <p class="hint" style="margin-bottom:1rem">Your own price per unit for each refurb line item. They pre-fill new estimates in the Refurbishment Estimator, labelled "Your rate". Leave any blank.</p>
         <div id="rc-locked" class="hint" style="display:none">Your refurb rates are part of the paid plan, with the Refurbishment Estimator.</div>
         <div id="rc-wrap" style="display:none">
+          <div class="field" style="max-width:320px">
+            <label for="rc-region">Your region</label>
+            <select id="rc-region" onchange="saveRefurbRegion(this.value)"></select>
+          </div>
+          <p class="hint" style="margin:-.25rem 0 1rem">Indicative guide rates are adjusted for this region when you haven't entered your own rate. An estimate linked to a deal with a postcode uses that deal's region instead. Saved on this device.</p>
           <div id="rc-editor"></div>
           <button class="btn-primary" id="btn-save-rates" style="margin-top:.75rem" onclick="saveRefurbRates()">Save my rates</button>
           <p class="save-msg" id="rc-msg"></p>
@@ -325,10 +330,26 @@ async function loadRefurbRates(isPaid){
   if(!isPaid){ document.getElementById('rc-locked').style.display='block'; return; }
   const rc=await RefurbRateCard.load(currentSession);
   document.getElementById('rc-wrap').style.display='block';
+  renderRefurbRegion();
   RefurbRateCard.renderEditor(document.getElementById('rc-editor'),rc.rates||{});
   const msg=document.getElementById('rc-msg');
   if(rc.needsMigration){ msg.className='save-msg'; msg.textContent='Saving your rates needs a quick database update first.'; }
   else if(rc.error){ msg.className='save-msg error'; msg.textContent=rc.error; }
+}
+function renderRefurbRegion(){
+  const sel=document.getElementById('rc-region');
+  const cur=RefurbRateCard.getRegion();
+  sel.innerHTML=RefurbRateCard.regions().map(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; if(r===cur)o.selected=true; return o.outerHTML; }).join('');
+}
+function saveRefurbRegion(region){
+  RefurbRateCard.setRegion(region);
+  // Update the indicative placeholders in place, keeping anything typed.
+  document.querySelectorAll('#rc-editor input[data-key]').forEach(el=>{
+    const g=RefurbRateCard.guideRate(el.dataset.key);
+    el.placeholder=g!=null?'Indicative '+RefurbRateCard.money(g):'£';
+  });
+  const msg=document.getElementById('rc-msg');
+  msg.className='save-msg success'; msg.textContent='Region set to '+RefurbRateCard.getRegion()+'.';
 }
 async function saveRefurbRates(){
   const msg=document.getElementById('rc-msg');

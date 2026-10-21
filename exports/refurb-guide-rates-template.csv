@@ -1,0 +1,97 @@
+﻿category,item,unit,low,typical,high,ref
+Demolition & Alterations,Strip out,item,,,,demolition.strip-out
+Demolition & Alterations,Skip 8yd (without permit),each,,,,demolition.skip-8yd
+Demolition & Alterations,Skip 12yd (without permit),each,,,,demolition.skip-12yd
+Demolition & Alterations,Skip permit,each,,,,demolition.skip-permit
+Masonry & Groundworks,Extension per m²,m²,,,,masonry.extension-m2
+Masonry & Groundworks,Repointing per m²,m²,,,,masonry.repointing-m2
+Masonry & Groundworks,Underpinning per m²,m²,,,,masonry.underpinning-m2
+Masonry & Groundworks,Large lintel incl. fit,each,,,,masonry.large-lintel
+Masonry & Groundworks,Small lintel incl. fit,each,,,,masonry.small-lintel
+Masonry & Groundworks,Beams incl. fit,each,,,,masonry.beams
+Masonry & Groundworks,Rendering per m²,m²,,,,masonry.rendering-m2
+Masonry & Groundworks,DPC per metre,linear m,,,,masonry.dpc-metre
+Masonry & Groundworks,Brick up big window,each,,,,masonry.brick-big-window
+Masonry & Groundworks,Brick up small window,each,,,,masonry.brick-small-window
+Masonry & Groundworks,Structural engineer,item,,,,masonry.structural-engineer
+Roofing & Scaffolding,New roof per m²,m²,,,,roofing.new-roof-m2
+Roofing & Scaffolding,New roof (full),item,,,,roofing.new-roof-full
+Roofing & Scaffolding,Scaffolding,item,,,,roofing.scaffolding
+Roofing & Scaffolding,Chimney flashing,each,,,,roofing.chimney-flashing
+Plastering,Skimming per room,room,,,,plastering.skimming-room
+Plastering,Skimming per m²,m²,,,,plastering.skimming-m2
+Plastering,Boarding per m²,m²,,,,plastering.boarding-m2
+Plastering,Boarding ceiling,room,,,,plastering.boarding-ceiling
+Joinery,Skirting per m²,m²,,,,joinery.skirting-m2
+Joinery,Fire door fit only,each,,,,joinery.fire-door-fit
+Joinery,Fire door supply only,each,,,,joinery.fire-door-supply
+Joinery,Standard door supply only,each,,,,joinery.standard-door-supply
+Joinery,Standard door fit only,each,,,,joinery.standard-door-fit
+Joinery,Ironmongery,each,,,,joinery.ironmongery
+Joinery,Stud walls,m²,,,,joinery.stud-walls
+Joinery,Roof rafters,each,,,,joinery.roof-rafters
+Joinery,Stairs internal,item,,,,joinery.stairs-internal
+Windows & Doors,Small window,each,,,,windows-doors.small-window
+Windows & Doors,Large window,each,,,,windows-doors.large-window
+Windows & Doors,Bi-folding doors,each,,,,windows-doors.bifold-doors
+Windows & Doors,uPVC door,each,,,,windows-doors.upvc-door
+Windows & Doors,French door,each,,,,windows-doors.french-door
+Windows & Doors,Sash window,each,,,,windows-doors.sash-window
+Electrics,Full rewire,item,,,,electrics.full-rewire
+Electrics,New consumer unit,each,,,,electrics.consumer-unit
+Electrics,Emergency lighting,each,,,,electrics.emergency-lighting
+Electrics,Automatic lighting,each,,,,electrics.automatic-lighting
+Electrics,Wired fire alarm,each,,,,electrics.wired-fire-alarm
+Electrics,Battery fire alarm,each,,,,electrics.battery-fire-alarm
+Electrics,Plug socket,each,,,,electrics.plug-socket
+Electrics,Light switch,each,,,,electrics.light-switch
+Electrics,IP rated pendant,each,,,,electrics.ip-rated-pendant
+Electrics,Fire alarm system,item,,,,electrics.fire-alarm-system
+Electrics,CCTV cameras,each,,,,electrics.cctv-cameras
+Electrics,EICR test,item,,,,electrics.eicr-test
+Plumbing,Full replumb,item,,,,plumbing.full-replumb
+Plumbing,Hourly rate for plumber,hour,,,,plumbing.plumber-hourly
+Plumbing,Boiler supply & fit,item,,,,plumbing.boiler-supply-fit
+Plumbing,Guttering,linear m,,,,plumbing.guttering
+Plumbing,New manhole installation,item,,,,plumbing.manhole-installation
+Plumbing,Plumbing day rate,day,,,,plumbing.kitchen-fit
+Plumbing,Gas safety cert,item,,,,plumbing.gas-safety-cert
+Plumbing,Radiators,each,,,,plumbing.radiators
+Plumbing,Boiler relocation,item,,,,plumbing.boiler-relocation
+Flooring & Tiling,Laminate per m²,m²,,,,flooring.laminate-m2
+Flooring & Tiling,Vinyl per m²,m²,,,,flooring.vinyl-m2
+Flooring & Tiling,Grouting per m²,m²,,,,flooring.grouting-m2
+Flooring & Tiling,Herringbone flooring per m²,m²,,,,flooring.herringbone-m2
+Flooring & Tiling,Aqua panels,m²,,,,flooring.aqua-panels
+Flooring & Tiling,Tiling per m²,m²,,,,flooring.tiling-m2
+Flooring & Tiling,Carpet per m²,m²,,,,flooring.carpet-m2
+Bathroom & Kitchen,Shower tray,each,,,,bathroom-kitchen-supply.shower-tray
+Bathroom & Kitchen,Shower enclosure,each,,,,bathroom-kitchen-supply.shower-enclosure
+Bathroom & Kitchen,Toilet,each,,,,bathroom-kitchen-supply.toilet
+Bathroom & Kitchen,Sink basin,each,,,,bathroom-kitchen-supply.sink-basin
+Bathroom & Kitchen,Basin taps,each,,,,bathroom-kitchen-supply.basin-taps
+Bathroom & Kitchen,Bathroom fit,room,,,,bathroom-kitchen-supply.bathroom-fit
+Bathroom & Kitchen,Bathroom supply only,room,,,,bathroom-kitchen-supply.bathroom-supply-only
+Bathroom & Kitchen,Kitchen fit,item,,,,bathroom-kitchen-supply.kitchen-fit-only
+Bathroom & Kitchen,Kitchen supply only,item,,,,bathroom-kitchen-supply.kitchen-supply-only
+Bathroom & Kitchen,Grouting per m²,m²,,,,bathroom-kitchen-supply.grouting-m2
+Bathroom & Kitchen,Tiling per m²,m²,,,,bathroom-kitchen-supply.tiling-m2
+Painting & Decorating,Mist coat per room,room,,,,painting.mist-coat-room
+Painting & Decorating,Paint (standard white) per m²,m²,,,,painting.paint-standard-m2
+Painting & Decorating,Full room paint per room (standard white),room,,,,painting.full-room-paint
+Painting & Decorating,Wallpaper per m²,m²,,,,painting.wallpaper-m2
+Painting & Decorating,Feature wall,each,,,,painting.feature-wall
+Painting & Decorating,Sanding & patching per m²,m²,,,,painting.sanding-patching-m2
+Garden & Landscaping,Garden clear,item,,,,garden.garden-clear
+Garden & Landscaping,New lawn per m²,m²,,,,garden.new-lawn-m2
+Garden & Landscaping,Slabbing/paving per m²,m²,,,,garden.slabbing-paving-m2
+Garden & Landscaping,Patio per m²,m²,,,,garden.patio-m2
+Garden & Landscaping,Decking per m²,m²,,,,garden.decking-m2
+Energy efficiency (EPC),Loft insulation,m²,,,,epc.loft-insulation
+Energy efficiency (EPC),Cavity wall insulation,m²,,,,epc.cavity-wall-insulation
+Energy efficiency (EPC),Solid wall insulation (internal or external),m²,,,,epc.solid-wall-insulation
+Energy efficiency (EPC),Double glazing,each,,,,epc.double-glazing
+Energy efficiency (EPC),Heating system or boiler upgrade,item,,,,epc.heating-upgrade
+Energy efficiency (EPC),"Heating controls (programmer, thermostat, TRVs)",item,,,,epc.heating-controls
+Energy efficiency (EPC),LED lighting,room,,,,epc.led-lighting
+Energy efficiency (EPC),Hot water cylinder insulation,item,,,,epc.cylinder-insulation

@@ -3,7 +3,7 @@
 //
 // Edit freely. Nothing here is a price: these are QUANTITIES only (how
 // many rooms, roughly how many m² and so on). Rates always come from the
-// user's own rate card, then the guide rates (refurb-guide-rates.js), then
+// user's own rate card, then the indicative guide rates (refurb-guide-rates.js), then
 // empty. If no rates are set the estimator still fills the quantities and
 // shows "Add rates to see a total".
 //

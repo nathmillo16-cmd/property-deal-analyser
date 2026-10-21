@@ -162,7 +162,7 @@
           const x = refurbItemByKey(rule.key); if (!x) return;
           covered[rule.key] = (covered[rule.key] || 0) + q;
           const l = li[rule.key] || {};
-          items.push({ label: x.item.label, qty: q, unit: unitOf(rule.key), rate: l.rate != null ? l.rate : null });
+          items.push({ label: x.item.label, qty: q, unit: unitOf(rule.key), rate: refurbLineRate(l) });
         });
         anything = true;
         heading(card.label + '  ·  ' + (ch.condition === 'replace' ? 'Replace' : 'Refresh'), sectionTotalText(items));
@@ -176,7 +176,7 @@
       refurbItemList().forEach(({ key, item }) => {
         const l = li[key]; if (!l || !(Number(l.qty) > 0)) return;
         const extra = Math.round((Number(l.qty) - (covered[key] || 0)) * 100) / 100;
-        if (extra > 0) other.push({ key, label: item.label, qty: extra, unit: unitOf(key), rate: l.rate != null ? l.rate : null, note: (extras[key] || {}).note || l.note });
+        if (extra > 0) other.push({ key, label: item.label, qty: extra, unit: unitOf(key), rate: refurbLineRate(l), note: (extras[key] || {}).note || l.note });
       });
       if (other.length) {
         anything = true;
@@ -188,7 +188,7 @@
         const items = s.items.map(it => {
           const key = s.id + '.' + it.id, l = li[key];
           if (!l || !(Number(l.qty) > 0)) return null;
-          return { key, label: it.label, qty: Number(l.qty), unit: unitOf(key), rate: l.rate != null ? l.rate : null, note: (extras[key] || {}).note || l.note };
+          return { key, label: it.label, qty: Number(l.qty), unit: unitOf(key), rate: refurbLineRate(l), note: (extras[key] || {}).note || l.note };
         }).filter(Boolean);
         if (!items.length) continue;
         anything = true;
