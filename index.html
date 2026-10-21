@@ -535,7 +535,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label>Letting fee a year (£)</label><input type="text" inputmode="decimal" id="b-letfee" value="0" oninput="markStaleBTL()"/></div>
           <div class="f"><label>Safety certificates a year (£)</label><input type="text" inputmode="decimal" id="b-certs" value="0" oninput="markStaleBTL()"/></div>
         </div>
-        <p class="hint">Stamp duty auto-calculated with the additional property surcharge. Deposit uses purchase price. Yields use end market value.</p>
+        <p class="hint">Stamp duty auto-calculated with the additional property surcharge. Deposit uses purchase price. Gross yield is on purchase price (also shown on end value); net yield uses end market value.</p>
         <p class="sl section-gap">Targets</p>
         <div class="tr"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
         <div class="tr"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
@@ -628,8 +628,9 @@ body.theme-light .dd-trigger::after{
           <div class="metric-grid">
             <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bm-nm">—</p></div>
             <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bm-ny">—</p></div>
-            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bm-gy">—</p></div>
-            <div class="m"><p class="ml">Net yield</p><p class="mv" id="bm-ny2">—</p></div>
+            <div class="m"><p class="ml">Gross yield (on price)</p><p class="mv" id="bm-gy">—</p></div>
+            <div class="m"><p class="ml">Gross yield (on end value)</p><p class="mv" id="bm-gye">—</p></div>
+            <div class="m"><p class="ml">Net yield (on end value)</p><p class="mv" id="bm-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="bm-roi">—</p></div>
             <div class="m"><p class="ml">Total initial investment</p><p class="mv" id="bm-ti">—</p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="bm-pb">—</p></div>
@@ -646,8 +647,9 @@ body.theme-light .dd-trigger::after{
           <div class="metric-grid">
             <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="br-nm">—</p></div>
             <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="br-ny">—</p></div>
-            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="br-gy">—</p></div>
-            <div class="m"><p class="ml">Net yield</p><p class="mv" id="br-ny2">—</p></div>
+            <div class="m"><p class="ml">Gross yield (on price)</p><p class="mv" id="br-gy">—</p></div>
+            <div class="m"><p class="ml">Gross yield (on end value)</p><p class="mv" id="br-gye">—</p></div>
+            <div class="m"><p class="ml">Net yield (on end value)</p><p class="mv" id="br-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="br-roi">—</p></div>
             <div class="m"><p class="ml">Total initial investment</p><p class="mv" id="br-ti">—</p></div>
             <div class="m"><p class="ml">Payback (years)</p><p class="mv" id="br-pb">—</p></div>
@@ -664,8 +666,9 @@ body.theme-light .dd-trigger::after{
           <div class="metric-grid">
             <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bc-nm">—</p></div>
             <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bc-ny">—</p></div>
-            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bc-gy">—</p></div>
-            <div class="m"><p class="ml">Net yield</p><p class="mv" id="bc-ny2">—</p></div>
+            <div class="m"><p class="ml">Gross yield (on price)</p><p class="mv" id="bc-gy">—</p></div>
+            <div class="m"><p class="ml">Gross yield (on end value)</p><p class="mv" id="bc-gye">—</p></div>
+            <div class="m"><p class="ml">Net yield (on end value)</p><p class="mv" id="bc-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="bc-roi">—</p></div>
             <div class="m"><p class="ml">Total investment</p><p class="mv" id="bc-ti">—</p></div>
             <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bc-mli">—</p></div>
@@ -676,8 +679,9 @@ body.theme-light .dd-trigger::after{
           <div class="metric-grid">
             <div class="m"><p class="ml">Monthly rental net</p><p class="mv" id="bb-nm">—</p></div>
             <div class="m"><p class="ml">Annual rental net</p><p class="mv" id="bb-ny">—</p></div>
-            <div class="m"><p class="ml">Gross yield</p><p class="mv" id="bb-gy">—</p></div>
-            <div class="m"><p class="ml">Net yield</p><p class="mv" id="bb-ny2">—</p></div>
+            <div class="m"><p class="ml">Gross yield (on price)</p><p class="mv" id="bb-gy">—</p></div>
+            <div class="m"><p class="ml">Gross yield (on end value)</p><p class="mv" id="bb-gye">—</p></div>
+            <div class="m"><p class="ml">Net yield (on end value)</p><p class="mv" id="bb-ny2">—</p></div>
             <div class="m"><p class="ml">ROI</p><p class="mv" id="bb-roi">—</p></div>
             <div class="m"><p class="ml">Total investment</p><p class="mv" id="bb-ti">—</p></div>
             <div class="m"><p class="ml">Money left in deal</p><p class="mv" id="bb-mli">—</p><p class="m-sub" id="bb-mli-sub" hidden></p></div>
@@ -697,7 +701,7 @@ body.theme-light .dd-trigger::after{
         <div id="b-sn" class="sn"></div>
         <p class="sn-note">England and NI rates. Scotland and Wales use different taxes.</p>
         <p class="sl section-gap">Recommended offer prices</p>
-        <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
+        <div class="ob"><p class="ot">To achieve <span id="b-ly">7</span>% gross yield on price</p><p class="ov" id="b-oy">—</p><p class="on" id="b-oyn"></p></div>
         <div class="ob"><p class="ot">To achieve <span id="b-lr">15</span>% ROI (interest-only mortgage)</p><p class="ov" id="b-or">—</p><p class="on" id="b-orn"></p></div>
         </details>
         <div class="rsecs">
@@ -3153,8 +3157,9 @@ DEAL INPUTS:
 - Stamp duty (auto-calculated BTL): £${d.stampDuty.toLocaleString()}
 
 CALCULATED RESULTS:
-- Gross yield: ${d.gy}% (target: ${d.ty}%)
-- Net yield (mortgage): ${d.mny}%
+- Gross yield on purchase price: ${d.gy}% (target: ${d.ty}%)
+- Gross yield on end value: ${d.gyEmv!=null?d.gyEmv+'%':'n/a'}
+- Net yield (mortgage, on end value): ${d.mny}%
 - ROI (mortgage): ${d.mROI}% (target: ${d.tr}%)
 - Monthly cashflow (mortgage): £${d.mNm.toLocaleString()}
 - Monthly cashflow (cash): £${d.cNm.toLocaleString()}

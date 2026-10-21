@@ -95,7 +95,7 @@ function runCostLines(grossYear,voidPct,letFee,certs){
   if(voidPct>0)h+=line('Voids, '+(+(voidPct*100).toFixed(2))+'% of rent','-'+fmt(grossYear*voidPct))+line('Rent after voids',fmt(grossYear*(1-voidPct)));
   if(letFee>0)h+=line('Letting fee a year','-'+fmt(letFee));
   if(certs>0)h+=line('Safety certificates a year','-'+fmt(certs));
-  return h+'<p class="xc-note">Voids come off the rent before running costs, cashflow, yields, ROI and max bid. The lender check uses the full rent.</p>';
+  return h+'<p class="xc-note">Voids come off the rent for cashflow, net yield, ROI and the ROI max bid. Gross yield, the yield max bid, HMO bills and the lender check use the full rent.</p>';
 }
 
 function cBTL(){
@@ -129,12 +129,20 @@ function cBTL(){
   const maintC=rent*maint, mgmtC=rent*mgmt;
   const mNm=rent-ins-annC-maintC-mgmtC-mm, mNy=mNm*12;
   const cNm=rent-maintC-ins-annC-mgmtC, cNy=cNm*12;
-  const ag=rent*12;
+  // Gross yield and the yield max bid use the full rent: voids only affect
+  // the net figures (cashflow, ROI, net yield, ROI max bids). Owner's
+  // instruction, 2026-10-21.
+  const ag=grossRent*12;
   // Stamp duty is part of the cash needed to buy, so it counts in total
   // investment, money left in, ROI and max bid (same as HMO and Flip).
   // Added on the owner's explicit instruction, October 2026.
   const mTI=sol+mf+srch+dep+ref+sd.total, cTI=pp+sol+mf+srch+ref+sd.total;
-  const gy=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
+  // Gross yield is on PURCHASE PRICE (the main figure, owner's explicit
+  // instruction, 2026-10-21; it used to be on end value). gyEmv keeps the
+  // end-value version, shown alongside and labelled "on end value". Net
+  // yields stay on end value. The yield max bid (oY = annual rent / target)
+  // is the price at which gross yield on price hits the target.
+  const gy=pp>0?(ag/pp)*100:0, gyEmv=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
   const mMLI=cTI-loan, mROI=mMLI!==0?(mNy/mMLI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
   const mPB=mNy!==0?mMLI/mNy:0, cPB=cNy>0?cTI/cNy:0;
 
@@ -199,22 +207,22 @@ function cBTL(){
   document.getElementById('b-ly').textContent=ty;
   document.getElementById('b-lr').textContent=tr;
   s('bm-nm',fmt(mNm),cl(mNm,200,0));s('bm-ny',fmt(mNy),cl(mNy,2400,0));
-  s('bm-gy',fP(gy),cl(gy,7,5));s('bm-ny2',fP(mny),cl(mny,4,2));
+  s('bm-gy',fP(gy),cl(gy,7,5));s('bm-gye',fP(gyEmv),cl(gyEmv,7,5));s('bm-ny2',fP(mny),cl(mny,4,2));
   s('bm-roi',fP(mROI),cl(mROI,15,8));s('bm-ti',fmt(mTI));
   s('bm-mli',fmt(mMLI),mMLI<=0?'good':'');s('bm-pb',mPB!==0?Math.abs(mPB).toFixed(2)+' yrs':'N/A');
   s('bm-loan',fmt(loan));s('bm-rate',fP(mr));s('bm-deposit',fmt(dep));s('bm-mpay',fmt(mm));
   s('bc-nm',fmt(cNm),cl(cNm,200,0));s('bc-ny',fmt(cNy),cl(cNy,2400,0));
-  s('bc-gy',fP(gy),cl(gy,7,5));s('bc-ny2',fP(cny),cl(cny,4,2));
+  s('bc-gy',fP(gy),cl(gy,7,5));s('bc-gye',fP(gyEmv),cl(gyEmv,7,5));s('bc-ny2',fP(cny),cl(cny,4,2));
   s('bc-roi',fP(cROI),cl(cROI,15,8));s('bc-ti',fmt(cTI));
   s('bc-mli',fmt(cTI));s('bc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
   s('bb-nm',fmt(bbNm),cl(bbNm,200,0));s('bb-ny',fmt(bbNy),cl(bbNy,2400,0));
-  s('bb-gy',fP(gy),cl(gy,7,5));s('bb-ny2',fP(bbny),cl(bbny,4,2));
+  s('bb-gy',fP(gy),cl(gy,7,5));s('bb-gye',fP(gyEmv),cl(gyEmv,7,5));s('bb-ny2',fP(bbny),cl(bbny,4,2));
   s('bb-roi',fP(bbROI),cl(bbROI,15,8));s('bb-ti',fmt(cTI));
   s('bb-mli',fmt(bbMLI),bbMLI<=0?'good':'');s('bb-pb',bbPB!==0?Math.abs(bbPB).toFixed(2)+' yrs':'N/A');
   s('bb-refi-loan',fmt(bbRefiLoan));s('bb-refi-ltv-out',fP(bbRefiLtv*100));
   s('bb-refi-rate',fP(mr));s('bb-refi-mpay',fmt(bbRefiPay));
   s('br-nm',fmt(rNm),cl(rNm,200,0));s('br-ny',fmt(rNy),cl(rNy,2400,0));
-  s('br-gy',fP(gy),cl(gy,7,5));s('br-ny2',fP(rny),cl(rny,4,2));
+  s('br-gy',fP(gy),cl(gy,7,5));s('br-gye',fP(gyEmv),cl(gyEmv,7,5));s('br-ny2',fP(rny),cl(rny,4,2));
   s('br-roi',fP(rROI),cl(rROI,15,8));s('br-ti',fmt(mTI));
   s('br-mli',fmt(mMLI),mMLI<=0?'good':'');s('br-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
   s('br-loan',fmt(loan));s('br-rate',fP(mr));s('br-deposit',fmt(dep));s('br-mpay',fmt(rmm));s('br-term',term);
@@ -236,7 +244,7 @@ function cBTL(){
     voids:+(voidPct*100).toFixed(2),letFee,certs,rentAfterVoids:+rent.toFixed(2),voidLossYearly:Math.round(grossRent*voidPct*12),ref,sol,mf,srch,ins,mgmt:mgmt*100,maint:maint*100,ty,tr,term,
     loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
     mNm:Math.round(mNm),mNy:Math.round(mNy),cNm:Math.round(cNm),cNy:Math.round(cNy),
-    gy:+gy.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
+    gy:+gy.toFixed(2),gyEmv:+gyEmv.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
     mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
     mMLI:Math.round(mMLI),mTI:Math.round(mTI),cTI:Math.round(cTI),
     mPB:+Math.abs(mPB).toFixed(2),cPB:+cPB.toFixed(2),
@@ -280,22 +288,23 @@ function cHMO(){
   rooms.forEach(([price,num,id])=>{const t=price*num;totalRent+=t;document.getElementById(id).textContent='£'+t.toLocaleString();});
   document.getElementById('h-tr').textContent='£'+totalRent.toLocaleString();
   // Voids, letting fee and certificates, same as BTL (owner's instruction,
-  // 2026-10-21): from here totalRent is the rent after voids, so bills,
-  // maintenance, management, cashflow, yields, ROI and max bid all use it.
-  // grossTotalRent is what's saved as hmoData.totalRent. All 0 when blank.
+  // 2026-10-21): from here totalRent is the rent after voids, used by
+  // maintenance, management, cashflow, net yield, ROI and the ROI max bid.
+  // Bills (10%), gross yield and the yield max bid stay on the full rent,
+  // grossTotalRent, which is also what's saved as hmoData.totalRent.
   const hVoidPct=numOr('h-voids',0)/100;
   const hLetFee=moneyVal('h-letfee'), hCerts=moneyVal('h-certs');
   const hAnnC=(hLetFee+hCerts)/12;
   const grossTotalRent=totalRent;
   totalRent=grossTotalRent*(1-hVoidPct);
-  const bills=totalRent*0.1;
+  const bills=grossTotalRent*0.1;
   document.getElementById('h-bills').textContent='£'+Math.round(bills).toLocaleString();
 
   const sd=stamp(pp), dep=pp*dp, loan=pp-dep, mm=mort(loan,mr);
   const maintC=totalRent*maint, mgmtC=totalRent*mgmt;
   const mNm=totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-mm, mNy=mNm*12;
   const cNm=totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC, cNy=cNm*12;
-  const ag=totalRent*12;
+  const ag=grossTotalRent*12;
   // Searches count in the mortgage total too, same as BTL and SA and the
   // HMO cash total. Added on the owner's explicit instruction, October 2026.
   const mTI=dep+sol+mf+lic+ref+sd.total+srch, cTI=pp+sol+mf+lic+ref+sd.total+srch;

@@ -29,7 +29,7 @@ Shared/reused across strategies:
 
 BTL:
 - Mortgage loan = EMV − deposit.
-- Gross yield, and both mortgage and cash net yield, calculated against EMV (not purchase price) — this applies uniformly, confirmed against the live code.
+- Gross yield is on PURCHASE PRICE (btlData.gy), changed from EMV on the owner's explicit instruction, 2026-10-21, flagged for Nathan's review. The EMV version is kept as btlData.gyEmv and shown alongside as "Gross yield (on end value)". Net yields (mortgage, repayment, cash, BRRR) stay on EMV and are labelled "on end value". Because gy feeds meetsYield, the verdict, deal cards, the compare table, the buy box min-yield check and the AI prompt, those all use yield on price for BTL now. Old saved BTL deals keep their EMV-based gy until re-run. HMO and SA gross yields are still on EMV. Hand-check: £10,200 a year / £140,000 = 7.29% on price; / £200,000 = 5.10% on end value. The yield max bid (annual rent / target) was always a price-based formula, so it now matches gross yield exactly.
 - Max bid = the MAXIMUM price to pay to hit target. Yield max bid = annual rent / target yield. ROI max bid solved by working back from target money-left-in.
 
 HMO:
@@ -37,13 +37,13 @@ HMO:
 - Bills auto-calculated at 10% of total rent.
 - Searches count in both the mortgage and cash total investment and in the ROI max-bid bisections (the mortgage total used to leave them out while the cash total included them; fixed on the owner's explicit instruction, 2026-10-20, flagged for Nathan's review).
 - Council tax entered annually, divided by 12 for monthly display.
-- Same EMV-based yield convention as BTL. ROI max bid uses an 80-iteration bisection search (stamp duty is banded/non-linear, so no closed form).
+- Yields on EMV (BTL's gross yield moved to purchase price on 2026-10-21; HMO's did not). ROI max bid uses an 80-iteration bisection search (stamp duty is banded/non-linear, so no closed form).
 
 Voids, letting fee and safety certificates (BTL, BRRR and HMO; not SA or Flip). Added on the owner's explicit instruction, 2026-10-21, flagged for Nathan's review:
-- Voids % comes off the monthly rent (BTL: b-rent; HMO: the room total) before every other figure: management %, maintenance % and HMO bills (10%) are worked on the rent after voids, and so are cashflow, gross and net yield, ROI and both max bids (the yield max bid too). The lender check (ICR) stays on the full rent: btlData.rent and hmoData.totalRent are still the gross rent, with rentAfterVoids and voidLossYearly saved alongside.
+- Voids % comes off the monthly rent (BTL: b-rent; HMO: the room total) for the net figures only: management % and maintenance % are worked on the rent after voids, and so are cashflow, net yield, ROI and the ROI max bids. Gross yield, the yield max bid, HMO bills (10%) and the lender check (ICR) stay on the full rent (owner's instruction, 2026-10-21). btlData.rent and hmoData.totalRent are still the full rent, with rentAfterVoids and voidLossYearly saved alongside.
 - Letting fee £ and safety certificates £ are yearly costs, taken off monthly as (fee + certificates) / 12 in every cashflow (interest-only, repayment, cash, BRRR) and in the max-bid bisections. Not upfront costs, so total investment is unchanged.
 - All three default to 0 (a deal saved before this reopens with 0, never the user's Settings defaults), so every figure is identical when they're 0: verified against 56 BTL and 60 HMO saved fields and 88 on-screen values. Each set item shows as its own line in the Full breakdown (b-rc / h-rc).
-- Worked example (default £140k / £200k EMV / £850 BTL with deposit 20%, rate 5%, insurance £40, management 8%, maintenance 5%, solicitor £1,500, searches £300, mortgage fees £1,495, plus 4% voids, £300 letting fee, £200 certificates): rent after voids £816/mo (£9,792 a year, £408 voids); cashflow 9,792 - 480 - 783.36 - 489.60 - 300 - 200 - 5,600 = £1,939 a year (was £2,794); ROI 1,939 / 48,595 = 3.99%; gross yield 9,792 / 200,000 = 4.90%; yield max bid at 8% = £122,400.
+- Worked example (default £140k / £200k EMV / £850 BTL with deposit 20%, rate 5%, insurance £40, management 8%, maintenance 5%, solicitor £1,500, searches £300, mortgage fees £1,495, plus 4% voids, £300 letting fee, £200 certificates): rent after voids £816/mo (£9,792 a year, £408 voids); cashflow 9,792 - 480 - 783.36 - 489.60 - 300 - 200 - 5,600 = £1,939 a year (was £2,794); ROI 1,939 / 48,595 = 3.99%; net yield 1,939 / 200,000 = 0.97%; gross yield stays 10,200 / 140,000 = 7.29% on price; yield max bid at 8% = 10,200 / 0.08 = £127,500.
 
 SA (Serviced Accommodation):
 - Revenue = nightly rate × (occupancy% / 100) × 365.
