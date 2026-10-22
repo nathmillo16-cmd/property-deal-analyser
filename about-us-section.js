@@ -40,6 +40,7 @@ var ABOUT_US_FOUNDERS = [
 // ---------------------------------------------------------------------
 var TEAM_ICONS = {
   building: '<path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16"/><path d="M15 9h4a1 1 0 0 1 1 1v11"/><path d="M8 8h3M8 12h3M8 16h3"/><path d="M2 21h20"/>',
+  home: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>',
   pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
   compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
@@ -53,27 +54,28 @@ var TEAM_MEMBERS = [
     name: 'Cameron Hearne',
     initials: 'CH',
     photo: null,
-    role: 'Co-founder · Investor & Product',
-    bio: "Director of Hearne Property Group, a limited-company buy-to-let and BRRR portfolio in the East Midlands. Cameron built his investment approach from the numbers up, and every assumption in PROPulsion is one he's used with his own capital.",
+    role: 'Co-founder',
+    bio: 'Cameron is a property investor and company director, building a buy-to-let and BRRR portfolio in the East Midlands. He shapes PROPulsion around the decisions investors actually face: what to offer, how much money stays in, and when to refinance.',
     credentials: [
-      { icon: 'building', text: 'Director, Hearne Property Group Ltd' },
-      { icon: 'pin', text: 'BTL and BRRR investor, East Midlands' },
-      { icon: 'compass', text: 'Leads product and investor experience' }
+      { icon: 'home', text: 'Portfolio landlord, BTL and BRRR' },
+      { icon: 'building', text: 'Director of a property investment company' },
+      { icon: 'pin', text: 'East Midlands' }
     ],
-    linkedin: '#'
+    linkedin: 'https://www.linkedin.com/in/cameronhearne/'
   },
   {
     name: 'Nathan Millington',
     initials: 'NM',
     photo: null,
-    role: 'Co-founder · Sourcing & Technology',
-    bio: 'Nathan has spent over five years sourcing deals for investors and managing refurbs and lettings from offer to tenant. He built PROPulsion\'s analysis engine around how deals actually perform on the ground, not how they look on paper.',
+    role: 'Co-founder',
+    bio: 'Nathan is a property investor who has spent over five years sourcing deals for other investors and managing refurbs and lettings from offer to tenant. He makes sure every number in PROPulsion reflects how deals perform on the ground.',
     credentials: [
-      { icon: 'search', text: '5+ years sourcing property for investors' },
-      { icon: 'key', text: 'Refurb and lettings management' },
-      { icon: 'chart', text: 'Leads technology and deal data' }
+      { icon: 'chart', text: 'Property investor' },
+      { icon: 'search', text: '5+ years sourcing for investors' },
+      { icon: 'key', text: 'Refurb and lettings management' }
     ],
-    linkedin: '#'
+    // No LinkedIn button until a profile URL is set here.
+    linkedin: null
   }
 ];
 
@@ -122,7 +124,7 @@ function renderTeamVariant(root, escapeHtml) {
     return '<article class="team-card">' +
       '<div class="team-top">' + photo +
         '<div class="team-id"><h3 class="team-name">' + escapeHtml(m.name) + '</h3><p class="team-role">' + escapeHtml(m.role) + '</p></div>' +
-        '<a class="team-li" href="' + escapeHtml(m.linkedin) + '" target="_blank" rel="noopener" aria-label="' + escapeHtml(m.name) + ' on LinkedIn">' + LINKEDIN_SVG + '</a>' +
+        (m.linkedin ? '<a class="team-li" href="' + escapeHtml(m.linkedin) + '" target="_blank" rel="noopener noreferrer" aria-label="' + escapeHtml(m.name) + ' on LinkedIn">' + LINKEDIN_SVG + '</a>' : '') +
       '</div>' +
       '<p class="team-bio">' + escapeHtml(m.bio) + '</p>' +
       '<ul class="team-creds">' + creds + '</ul>' +

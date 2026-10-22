@@ -259,8 +259,9 @@ body.theme-light .showcase-card{
 
 /* ---- pricing teaser ---- */
 /* ---- how it works: journey section ---- */
-.journey-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.75rem 1.5rem;margin-top:2rem}
-@media(max-width:760px){.journey-grid{grid-template-columns:1fr}}
+.journey-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.75rem 1.5rem;margin-top:2rem}
+@media(max-width:960px){.journey-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.journey-grid{grid-template-columns:1fr}}
 .journey-step{display:flex;gap:.9rem;align-items:flex-start}
 .journey-num{
   flex-shrink:0;width:2.25rem;height:2.25rem;border-radius:50%;
@@ -271,10 +272,119 @@ body.theme-light .showcase-card{
 .journey-step h3{font-family:var(--font-head);font-size:15px;margin:0 0 .35rem}
 .journey-step p{font-size:12.5px;color:var(--muted);margin:0;line-height:1.55}
 
-.pricing-teaser{text-align:center}
-.price-from{font-family:var(--font-head);font-weight:800;font-size:2.4rem;color:var(--ink);margin:0 0 .75rem;font-variant-numeric:tabular-nums}
-.price-from span{font-family:var(--font-body);font-size:15px;font-weight:600;color:var(--muted)}
-.pricing-teaser .btn-primary{margin-top:1.5rem;padding:13px 26px;font-size:14.5px}
+/* ---- section heads that sit centred ---- */
+.lp-center{text-align:center}
+.lp-center h2,.lp-center .lp-lead{margin-left:auto;margin-right:auto}
+
+/* ---- product screenshots: HTML mock-ups of real screens, filled with
+   invented example data (never a real user's). Each sits in a simple
+   window frame with small annotation tags. ---- */
+.shots-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.25rem;text-align:left}
+@media(max-width:980px){.shots-grid{grid-template-columns:minmax(0,1fr);max-width:460px;margin:0 auto}}
+.shot{margin:0;min-width:0;display:flex;flex-direction:column}
+.shot-frame{
+  background:var(--surface);border:1px solid rgba(0,0,0,.09);border-radius:14px;overflow:hidden;
+  box-shadow:0 1px 2px rgba(20,20,40,.04),0 12px 32px rgba(20,20,40,.07);
+  flex:1;display:flex;flex-direction:column;
+}
+.shot-bar{display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid var(--hairline);background:var(--surface-2)}
+.shot-bar i{width:8px;height:8px;border-radius:50%;background:rgba(0,0,0,.12);display:block}
+.shot-bar span{margin-left:8px;font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shot-body{padding:14px;position:relative;font-size:12px;flex:1;display:flex;flex-direction:column}
+.shot figcaption{font-size:13.5px;color:var(--muted);line-height:1.55;margin:.9rem .25rem 0}
+.shot figcaption strong{display:block;color:var(--ink);font-family:var(--font-head);font-size:15px;margin-bottom:.2rem}
+.ss-tag{
+  display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.01em;
+  color:var(--accent);background:rgba(75,69,178,.09);border:1px solid rgba(75,69,178,.22);
+  border-radius:999px;padding:3px 9px;white-space:nowrap;
+}
+.ss-tag::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.ss-tag.on-dark{color:#fff;background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.32)}
+.ss-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:12px}
+.ss-hero{background:linear-gradient(135deg,var(--accent),#37317f);color:#fff;border-radius:10px;padding:12px 13px}
+.ss-hl{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.72);margin:0 0 2px}
+.ss-hv{font-weight:700;font-size:22px;letter-spacing:-.01em;margin:0;font-variant-numeric:tabular-nums}
+.ss-sub{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.18)}
+.ss-sub b{display:block;font-size:13px;font-variant-numeric:tabular-nums}
+.ss-sub small{display:block;font-size:9.5px;color:rgba(255,255,255,.68);white-space:nowrap}
+.ss-rows{margin-top:10px}
+.ss-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;border-top:1px solid var(--hairline)}
+.ss-row:first-child{border-top:none}
+.ss-row .ss-n{min-width:0}
+.ss-row .ss-n b{display:block;font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-row .ss-n small{font-size:10.5px;color:var(--muted)}
+.ss-row .ss-v{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+.ss-row .ss-v small{display:block;font-weight:500;font-size:10px;color:var(--muted)}
+.ss-v.good{color:var(--success)}
+.ss-answer{border:1px solid rgba(75,69,178,.22);background:rgba(75,69,178,.05);border-radius:10px;padding:11px 12px}
+.ss-answer p{margin:0}
+.ss-answer .ss-al{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.ss-answer .ss-at{font-size:13px;font-weight:600;color:var(--ink);line-height:1.4}
+.ss-answer .ss-as{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45}
+.ss-board{align-items:start;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.ss-col{background:var(--surface-2);border-radius:9px;padding:7px;min-width:0}
+.ss-col-h{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:var(--ink);margin:1px 2px 7px}
+.ss-col-h i{width:7px;height:7px;border-radius:50%;display:block;flex-shrink:0}
+.ss-col-h em{font-style:normal;color:var(--muted);font-weight:600;margin-left:auto}
+.ss-card{background:var(--surface);border:1px solid rgba(0,0,0,.08);border-radius:7px;padding:7px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.ss-card:last-child{margin-bottom:0}
+.ss-card b{display:block;font-size:10.5px;color:var(--ink);line-height:1.3}
+.ss-card small{display:block;font-size:9.5px;color:var(--muted);margin-top:2px}
+.ss-pill{display:inline-block;font-size:9.5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--surface-2);border-radius:999px;padding:1px 6px;margin-top:5px}
+.ss-fit{display:inline-block;font-size:9px;font-weight:700;color:var(--success);background:var(--success-bg);border-radius:999px;padding:1px 6px;margin-top:5px}
+.ss-card.lift{transform:rotate(-2deg);box-shadow:0 8px 18px rgba(20,20,40,.14);border-color:rgba(75,69,178,.35)}
+
+/* ---- free tools ---- */
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}
+.tool-link{
+  display:flex;flex-direction:column;gap:.35rem;text-decoration:none;color:inherit;
+  background:var(--surface);border:1px solid rgba(0,0,0,.09);border-radius:14px;padding:1.15rem 1.2rem;
+  box-shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.02);transition:border-color .15s ease,transform .15s ease;
+}
+.tool-link:hover{border-color:rgba(75,69,178,.4);transform:translateY(-2px)}
+.tool-link b{font-family:var(--font-head);font-size:15px;color:var(--ink)}
+.tool-link span{font-size:13px;color:var(--muted);line-height:1.5}
+.tool-link em{font-style:normal;font-size:12.5px;font-weight:600;color:var(--accent);margin-top:auto;padding-top:.35rem}
+
+/* ---- free vs paid ---- */
+.plan-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem;max-width:860px;margin:0 auto;text-align:left}
+@media(max-width:700px){.plan-grid{grid-template-columns:minmax(0,1fr)}}
+.plan-card{background:var(--surface);border:1px solid rgba(0,0,0,.09);border-radius:16px;padding:1.6rem 1.6rem 1.5rem;box-shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.02);display:flex;flex-direction:column}
+.plan-card.paid{border:1.5px solid rgba(75,69,178,.45);box-shadow:0 10px 30px rgba(75,69,178,.12)}
+.plan-name{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0 0 .5rem}
+.plan-price{font-family:var(--font-head);font-weight:800;font-size:2rem;color:var(--ink);margin:0 0 .25rem;font-variant-numeric:tabular-nums}
+.plan-price span{font-family:var(--font-body);font-size:14px;font-weight:600;color:var(--muted)}
+.plan-sum{font-size:13px;color:var(--muted);margin:0 0 1.1rem}
+.plan-list{list-style:none;padding:0;margin:0 0 1.4rem}
+.plan-list li{font-size:13.5px;color:var(--ink);padding:.5rem 0;border-top:1px solid var(--hairline);display:flex;gap:.6rem;line-height:1.45}
+.plan-list li:first-child{border-top:none}
+.plan-list li::before{content:"\2713";color:var(--success);font-weight:700;flex-shrink:0}
+.plan-card .btn-primary,.plan-card .btn-ghost{margin-top:auto;text-align:center;display:block;padding:12px}
+.btn-ghost{border:1.5px solid var(--accent);color:var(--accent);border-radius:var(--radius);font-size:14px;font-weight:700;text-decoration:none}
+.btn-ghost:hover{background:rgba(75,69,178,.06)}
+.plan-more{text-align:center;margin-top:1.5rem;font-size:13px}
+.plan-more a{color:var(--accent);font-weight:600;text-decoration:none}
+
+/* ---- deal sourcing waitlist ---- */
+.soon-card{
+  max-width:760px;margin:0 auto;text-align:center;border-radius:16px;padding:clamp(1.5rem,4vw,2.25rem);
+  background:var(--surface);border:1px solid rgba(0,0,0,.09);box-shadow:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.02);
+}
+.soon-badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:rgba(75,69,178,.09);border-radius:999px;padding:4px 11px;margin:0 0 .9rem}
+.soon-card h2{font-size:clamp(1.3rem,2.6vw,1.65rem);margin:0 auto .6rem;max-width:30ch}
+.soon-card .lp-lead{margin:0 auto 1.4rem;font-size:14px;text-align:center;max-width:52ch}
+.wl-form{display:flex;gap:10px;max-width:440px;margin:0 auto;flex-wrap:wrap}
+.wl-form input{
+  flex:1;min-width:0;flex-basis:200px;border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:11px 12px;
+  font-size:14px;background:var(--input-surface);color:var(--input-ink);font-family:var(--font-body);
+}
+.wl-form input:focus{outline:none;border-color:var(--input-accent)}
+.wl-form .btn-primary{padding:11px 20px;white-space:nowrap;border:none;cursor:pointer;font-family:var(--font-body)}
+@media(max-width:480px){.wl-form .btn-primary{flex:1 1 100%}}
+.wl-form .btn-primary:disabled{opacity:.6;cursor:default}
+.wl-note{font-size:11.5px;color:var(--muted);margin:.8rem auto 0;max-width:440px}
+.wl-error{font-size:13px;color:var(--danger);margin:.6rem 0 0;min-height:1em}
+.wl-joined{font-size:15px;font-weight:600;color:var(--ink);margin:0}
 
 /* ---- footer ---- */
 footer{padding:2.5rem 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;border-top:1px solid var(--hairline)}
@@ -283,6 +393,7 @@ footer .flinks{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem}
 footer .flinks a{font-size:12px;color:var(--muted);text-decoration:none}
 footer .flinks a:hover{color:var(--ink)}
 footer .fcopy{font-size:11.5px;color:var(--muted)}
+footer .flegal{flex-basis:100%;font-size:11.5px;line-height:1.6;color:var(--muted);margin:0;max-width:72ch}
 
 /* ---- Free calculator: BRRR tab, Advanced/Full breakdown sections, and
    hidden-results-on-warning. Same behaviour as index.html. ---- */
@@ -354,12 +465,100 @@ details.breakdown>summary{margin-bottom:.5rem}
   </section>
 </div>
 
+<!-- PRODUCT SCREENSHOTS: mock-ups of real screens. Every figure, place and
+     deal here is invented example data, never a real user's. The numbers
+     agree with each other (the Chesterfield semi is the same property in
+     the portfolio and the refinance planner). -->
+<div class="shell">
+  <section class="lp-section reveal" id="inside-the-app">
+    <div class="lp-center">
+      <p class="lp-kicker">Inside the app</p>
+      <h2>Your portfolio, your next refinance and every live deal.</h2>
+      <p class="lp-lead">Example data shown. Your own figures fill these in once you add properties and deals.</p>
+    </div>
+    <div class="shots-grid">
+
+      <figure class="shot">
+        <div class="shot-frame" role="img" aria-label="Portfolio dashboard showing four example properties, £477,500 invested and £1,846 a month cashflow">
+          <div class="shot-bar"><i></i><i></i><i></i><span>Portfolio</span></div>
+          <div class="shot-body">
+            <div class="ss-hero">
+              <p class="ss-hl">Total invested</p>
+              <p class="ss-hv">£477,500</p>
+              <div class="ss-sub">
+                <div><b>4</b><small>Properties</small></div>
+                <div><b>£1,846</b><small>Cashflow /mo</small></div>
+                <div><b>11.9%</b><small>Blended yield</small></div>
+              </div>
+            </div>
+            <div class="ss-rows">
+              <div class="ss-row"><div class="ss-n"><b>5-bed HMO, Nottingham</b><small>Yield 16.8%</small></div><div class="ss-v good">£905<small>a month</small></div></div>
+              <div class="ss-row"><div class="ss-n"><b>3-bed semi, Chesterfield</b><small>Yield 8.8%</small></div><div class="ss-v good">£388<small>a month</small></div></div>
+              <div class="ss-row"><div class="ss-n"><b>3-bed terrace, Mansfield</b><small>Yield 9.4%</small></div><div class="ss-v good">£312<small>a month</small></div></div>
+              <div class="ss-row"><div class="ss-n"><b>2-bed flat, Derby</b><small>Yield 9.5%</small></div><div class="ss-v good">£241<small>a month</small></div></div>
+            </div>
+            <div class="ss-tags"><span class="ss-tag">Cashflow after mortgages</span><span class="ss-tag">Yield weighted by price</span></div>
+          </div>
+        </div>
+        <figcaption><strong>Portfolio dashboard</strong>Every property you own, with cashflow and yield in one place.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <div class="shot-frame" role="img" aria-label="Refinance planner showing about £25,800 releasable from an example property in March 2027">
+          <div class="shot-bar"><i></i><i></i><i></i><span>Refinance planner</span></div>
+          <div class="shot-body">
+            <div class="ss-answer">
+              <p class="ss-al">Your next opportunity</p>
+              <p class="ss-at">3-bed semi, Chesterfield in Mar 2027: about £25,800 releasable.</p>
+              <p class="ss-as">New mortgage about £550 a month, leaving £181 a month cashflow.</p>
+            </div>
+            <div class="ss-rows">
+              <div class="ss-row"><div class="ss-n"><b>3-bed semi, Chesterfield</b><small>Mar 2027 · value £160,000</small></div><div class="ss-v good">£25,800<small>releasable</small></div></div>
+              <div class="ss-row"><div class="ss-n"><b>3-bed terrace, Mansfield</b><small>Aug 2027 · value £130,000</small></div><div class="ss-v good">£16,275<small>releasable</small></div></div>
+              <div class="ss-row"><div class="ss-n"><b>2-bed flat, Derby</b><small>Jan 2028 · value £90,000</small></div><div class="ss-v good">£3,450<small>releasable</small></div></div>
+            </div>
+            <div class="ss-tags"><span class="ss-tag">Lower of LTV and rent cover</span><span class="ss-tag">Fees taken off</span></div>
+          </div>
+        </div>
+        <figcaption><strong>Refinance planner</strong>See when each fixed rate ends and how much cash you could pull out.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <div class="shot-frame" role="img" aria-label="Deals board with example deals in the Viewing, Offered and Agreed stages">
+          <div class="shot-bar"><i></i><i></i><i></i><span>Deals board</span></div>
+          <div class="shot-body">
+            <div class="ss-board">
+              <div class="ss-col">
+                <p class="ss-col-h"><i style="background:#a49ee0"></i>Viewing<em>2</em></p>
+                <div class="ss-card"><b>2-bed terrace, Worksop</b><small>BTL · 3 days</small><span class="ss-pill">£89,000</span></div>
+                <div class="ss-card"><b>4-bed semi, Ilkeston</b><small>HMO · 6 days</small><span class="ss-fit">Fits buy box</span></div>
+              </div>
+              <div class="ss-col">
+                <p class="ss-col-h"><i style="background:#7a72d4"></i>Offered<em>2</em></p>
+                <div class="ss-card lift"><b>3-bed terrace, Shirebrook</b><small>BRRR · 5 days</small><span class="ss-fit">Fits buy box</span></div>
+                <div class="ss-card"><b>1-bed flat, Derby</b><small>BTL · 2 days</small><span class="ss-pill">£64,500</span></div>
+              </div>
+              <div class="ss-col">
+                <p class="ss-col-h"><i style="background:#4b45b2"></i>Agreed<em>1</em></p>
+                <div class="ss-card"><b>3-bed semi, Mansfield</b><small>BRRR · 12 days</small><span class="ss-pill">£112,000</span></div>
+              </div>
+            </div>
+            <div class="ss-tags"><span class="ss-tag">Drag deals between stages</span><span class="ss-tag">Buy box check on every card</span></div>
+          </div>
+        </div>
+        <figcaption><strong>Deals board</strong>Track every deal from first look to completion, with offers and notes on each one.</figcaption>
+      </figure>
+
+    </div>
+  </section>
+</div>
+
 <!-- FREE CALCULATOR TASTER -->
 <div class="shell">
   <section class="lp-section reveal" id="calculator">
     <div class="calc-head">
       <p class="lp-kicker">Run a real deal now<span class="free-badge">Free, no login</span></p>
-      <h2 style="margin-left:auto;margin-right:auto">Know if a Deal Meets Your Yield.</h2>
+      <h2 style="margin-left:auto;margin-right:auto">Know if a deal meets your yield.</h2>
       <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">Enter your numbers, get the full picture.</p>
       <p class="calc-hint" style="text-align:center">Same calculation engine as the app: BRRR, BTL, HMO, serviced accommodation and flip. Filled in with an example deal. Change any number. Nothing is saved unless you sign up.</p>
     </div>
@@ -767,7 +966,7 @@ details.breakdown>summary{margin-bottom:.5rem}
     <div class="nudge-strip">
       <a class="nudge-card" href="/login.html?mode=signup">
         <p class="nlock">🔒 Sign up to unlock</p>
-        <h4>Save This Deal</h4>
+        <h4>Save this deal</h4>
         <p>Keep every deal you run, come back to it any time.</p>
       </a>
       <a class="nudge-card web-only" href="/login.html?mode=signup">
@@ -777,7 +976,7 @@ details.breakdown>summary{margin-bottom:.5rem}
       </a>
       <a class="nudge-card" href="/login.html?mode=signup">
         <p class="nlock">🔒 Sign up to unlock</p>
-        <h4>Track It in Your Pipeline</h4>
+        <h4>Track it in your pipeline</h4>
         <p>Move it through analysing → viewing → offered → agreed → completed.</p>
       </a>
     </div>
@@ -811,17 +1010,89 @@ details.breakdown>summary{margin-bottom:.5rem}
   </section>
 </div>
 
-<!-- PRICING TEASER (website only, hidden in the iOS app) -->
+<!-- FREE TOOLS: the five standalone calculators, all work without an account -->
+<div class="shell">
+  <section class="lp-section reveal" id="free-tools">
+    <p class="lp-kicker">Free tools</p>
+    <h2>Quick answers, no account needed.</h2>
+    <p class="lp-lead">Five standalone calculators for the questions that come up on every deal.</p>
+    <div class="tools-grid">
+      <a class="tool-link" href="/stamp-duty-calculator.html"><b>Stamp duty</b><span>What you pay on an additional property, band by band.</span><em>Open calculator</em></a>
+      <a class="tool-link" href="/brrr-refinance-calculator.html"><b>Refinance</b><span>How much cash comes back out when you refinance.</span><em>Open calculator</em></a>
+      <a class="tool-link" href="/lender-affordability-calculator.html"><b>Lender affordability</b><span>The most a buy-to-let lender will lend on the rent.</span><em>Open calculator</em></a>
+      <a class="tool-link" href="/bridging-cost-calculator.html"><b>Bridging</b><span>The full cost of a bridging loan, interest and fees.</span><em>Open calculator</em></a>
+      <a class="tool-link" href="/personal-vs-ltd-calculator.html"><b>Personal vs Ltd</b><span>Tax on rental profit in your own name or a company.</span><em>Open calculator</em></a>
+    </div>
+  </section>
+</div>
+
+<!-- PRICING: free vs paid (website only, hidden in the iOS app). Lists only
+     what is actually gated in the app: free users get the calculator, 2
+     saved deals, the buy box and the free tools; everything else checks
+     profiles.plan === 'paid' on the server. -->
 <div class="shell web-only">
-  <section class="lp-section pricing-teaser reveal" id="pricing">
-    <p class="price-from">From £29<span>/month</span></p>
-    <p class="lp-lead" style="margin-left:auto;margin-right:auto;text-align:center">The calculator is free to try. Everything else, from £29 a month.</p>
-    <a class="btn-primary" href="/pricing.html">See pricing</a>
+  <section class="lp-section reveal" id="pricing">
+    <div class="lp-center">
+      <p class="lp-kicker">Pricing</p>
+      <h2>Start free. Upgrade when you're buying.</h2>
+      <p class="lp-lead">One paid plan, no tiers. Cancel any time.</p>
+    </div>
+    <div class="plan-grid">
+      <div class="plan-card">
+        <p class="plan-name">Free</p>
+        <p class="plan-price">£0</p>
+        <p class="plan-sum">For running the numbers on a deal.</p>
+        <ul class="plan-list">
+          <li>Deal calculator for BRRR, BTL, HMO, serviced accommodation and flip</li>
+          <li>Max bid, money left in, cashflow and ROI</li>
+          <li>Save up to 2 deals</li>
+          <li>Buy box to score deals against your criteria</li>
+          <li>All five free calculators</li>
+        </ul>
+        <a class="btn-ghost" href="/login.html?mode=signup">Sign up free</a>
+      </div>
+      <div class="plan-card paid">
+        <p class="plan-name">Paid</p>
+        <p class="plan-price">£29<span>/month</span></p>
+        <p class="plan-sum">Everything in Free, plus:</p>
+        <ul class="plan-list">
+          <li>Unlimited saved deals</li>
+          <li>Full Analysis on any deal, up to 50 a month</li>
+          <li>Sold-price comparables, crime, planning and employment data</li>
+          <li>Deals board with offers, notes, contacts and key dates</li>
+          <li>Portfolio, refinance planner, stress test and private finance</li>
+          <li>Refurb estimator and letter templates</li>
+        </ul>
+        <a class="btn-primary" href="/pricing.html">See pricing</a>
+      </div>
+    </div>
   </section>
 </div>
 
 <div id="about-us-root" data-variant="team"></div>
 <script src="/about-us-section.js"></script>
+
+<!-- DEAL SOURCING WAITLIST: same /api/sourcing-waitlist endpoint as
+     deal-sourcing-apply.html (website only). -->
+<div class="shell web-only">
+  <section class="lp-section reveal" id="deal-sourcing">
+    <div class="soon-card">
+      <p class="soon-badge">Coming soon</p>
+      <h2>Done-for-you deal sourcing</h2>
+      <p class="lp-lead">A private BRRR sourcing service for investors in the East Midlands, starting with Mansfield. Join the waitlist and we'll email you when it opens.</p>
+      <div id="wl-wrap">
+        <form class="wl-form" id="wl-form" novalidate>
+          <label for="wl-email" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Email</label>
+          <input type="email" id="wl-email" autocomplete="email" placeholder="you@example.com" required/>
+          <button type="submit" class="btn-primary" id="wl-submit">Join the waitlist</button>
+        </form>
+        <p class="wl-error" id="wl-error" role="alert"></p>
+        <p class="wl-note">By joining, you agree to receive emails about this service. You can unsubscribe at any time.</p>
+      </div>
+      <p class="wl-joined" id="wl-joined" hidden>You're on the waitlist. We'll email you when it opens.</p>
+    </div>
+  </section>
+</div>
 
 <div class="shell">
   <footer>
@@ -829,12 +1100,16 @@ details.breakdown>summary{margin-bottom:.5rem}
     <div class="flinks">
       <a href="#calculator">Calculator</a>
       <a href="/pricing.html" class="web-only">Pricing</a>
-      <a href="/deal-sourcing/apply" target="_blank" rel="noopener" class="web-only">Deal Sourcing</a>
-      <a href="/support.html">Support</a>
-      <a href="/privacy.html">Privacy</a>
+      <a href="/deal-sourcing/apply" target="_blank" rel="noopener" class="web-only">Deal sourcing</a>
+      <a href="/privacy.html">Privacy policy</a>
+      <!-- TODO: terms.html does not exist yet. Add it before this goes live. -->
+      <a href="/terms.html">Terms</a>
+      <a href="/support.html">Contact</a>
       <a href="/login.html">Log in</a>
     </div>
     <span class="fcopy">© 2026 PROPulsion</span>
+    <!-- TODO (Cameron): fill in the three placeholders below before pushing. -->
+    <p class="flegal">PROPulsion is a trading name of [COMPANY NAME] Ltd, registered in England and Wales, company number [COMPANY NUMBER]. Registered office: [REGISTERED OFFICE ADDRESS].</p>
   </footer>
 </div>
 
@@ -1024,6 +1299,45 @@ function markStaleFlip(){ if(flipAnalysed) document.getElementById('flip-stale')
 runBTL(); runHMO(); runSA(); runFlip();
 initMoneyFields();
 checkValueWarningBTL();checkValueWarningHMO();checkValueWarningSA();checkValueWarningFlip();
+
+// Deal Sourcing waitlist block. Same endpoint and messages as
+// deal-sourcing-apply.html; a duplicate email is treated as success there.
+(function(){
+  const form=document.getElementById('wl-form');
+  if(!form)return;
+  form.addEventListener('submit',async function(e){
+    e.preventDefault();
+    const errorEl=document.getElementById('wl-error');
+    const btn=document.getElementById('wl-submit');
+    const email=document.getElementById('wl-email').value.trim();
+    errorEl.textContent='';
+    if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      errorEl.textContent='Enter a valid email address.';
+      return;
+    }
+    btn.disabled=true;
+    btn.textContent='Joining...';
+    try{
+      const res=await fetch(API_BASE+'/api/sourcing-waitlist',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email})
+      });
+      const body=await res.json().catch(()=>({}));
+      if(!res.ok){
+        errorEl.textContent=body.error||'Something went wrong. Please try again.';
+        return;
+      }
+      document.getElementById('wl-wrap').hidden=true;
+      document.getElementById('wl-joined').hidden=false;
+    }catch(err){
+      errorEl.textContent='Something went wrong. Please try again.';
+    }finally{
+      btn.disabled=false;
+      btn.textContent='Join the waitlist';
+    }
+  });
+})();
 
 // Subtle scroll-reveal: fades .reveal elements in as they enter view.
 // Purely presentational, skipped entirely under prefers-reduced-motion.
