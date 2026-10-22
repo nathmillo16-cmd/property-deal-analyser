@@ -51,6 +51,21 @@ function stamp(p){
   return{total:Math.round(tax),detail};
 }
 function mort(loan,rate){return(loan*rate/100)/12;}
+// Max-bid check (owner's sign-off, 2026-10-22). Stamp duty jumps from £0 to
+// £2,000 at £40,000, so a max-bid search can land on exactly £40,000 when the
+// real answer is £39,999 (at £40,000 the ROI falls well short of the target).
+// After each ROI max-bid search, check the whole-pound figure actually meets
+// the target (to the 2 decimal places ROI is shown at); if it doesn't, step it
+// down £1 at a time until it does. Away from that jump the figure already
+// meets the target, so it is returned untouched. Not-achievable results (on
+// the search floor) and over-ceiling results are also returned untouched.
+function bidMeetingTarget(bid,roiAt,target,floor,ceiling){
+  let p=Math.round(bid);
+  if(!(p>floor+1)||p>=ceiling)return bid;
+  if(roiAt(p)>=target-0.005)return bid;
+  for(let n=0;n<5000&&p>floor+1;n++){p--;if(roiAt(p)>=target-0.005)return p;}
+  return bid;
+}
 function mortRepay(loan,rate,termYears){
   const r=(rate/100)/12, n=termYears*12;
   if(n<=0) return 0;
@@ -178,30 +193,55 @@ function cBTL(){
   // proven bisection pattern rather than re-deriving closed-form algebra.
   let oR=0;
   {
-    let lo=10000,hi=2000000;
-    for(let i=0;i<80;i++){
-      const mid=(lo+hi)/2;
+    const roiAt=mid=>{
       const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
       const mNyM=(rent-ins-annC-maintC-mgmtC-mmM)*12;
       const mMLIM=(mid+sol+mf+srch+ref+stamp(mid).total)-loanM;
-      const roiM=mMLIM!==0?(mNyM/mMLIM)*100:0;
-      if(roiM>tr)lo=mid;else hi=mid;
+      return mMLIM!==0?(mNyM/mMLIM)*100:0;
+    };
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(roiAt(mid)>tr)lo=mid;else hi=mid;
     }
-    oR=(lo+hi)/2;
+    oR=bidMeetingTarget((lo+hi)/2,roiAt,tr,10000,1900000);
   }
 
   let roR=0;
   {
-    let lo=10000,hi=2000000;
-    for(let i=0;i<80;i++){
-      const mid=(lo+hi)/2;
+    const roiAt=mid=>{
       const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
       const rNyM=(rent-ins-annC-maintC-mgmtC-rmmM)*12;
       const mMLIM=(mid+sol+mf+srch+ref+stamp(mid).total)-loanM;
-      const roiM=mMLIM!==0?(rNyM/mMLIM)*100:0;
-      if(roiM>tr)lo=mid;else hi=mid;
+      return mMLIM!==0?(rNyM/mMLIM)*100:0;
+    };
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(roiAt(mid)>tr)lo=mid;else hi=mid;
     }
-    roR=(lo+hi)/2;
+    roR=bidMeetingTarget((lo+hi)/2,roiAt,tr,10000,1900000);
+  }
+
+  // BRRR max bid for the target ROI (owner's sign-off, 2026-10-22): the
+  // highest price where cashflow after refinance / money left in after
+  // refinance reaches the target ROI; getting all the money out counts as
+  // reaching it. Cashflow after refinance (bbNy) doesn't depend on price
+  // (rent and the refinance loan are both end-value based), so this is the
+  // highest price where money left in <= bbNy / target. Money left in only
+  // rises with price, so a halving search finds it, and Math.floor keeps the
+  // result on the side that meets the target. 0 (not achievable) when the
+  // cashflow after refinance is £0 or less.
+  let bbOR=0;
+  if(bbNy>0&&tr>0){
+    const maxLeftIn=bbNy/(tr/100);
+    const leftInAt=p=>(p+sol+mf+srch+ref+stamp(p).total)-bbRefiLoan;
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(leftInAt(mid)<=maxLeftIn)lo=mid;else hi=mid;
+    }
+    bbOR=Math.floor(lo);
   }
 
   document.getElementById('b-ly').textContent=ty;
@@ -239,6 +279,12 @@ function cBTL(){
     const brornEl=document.getElementById('b-rorn');
     if(brornEl) brornEl.textContent=(roR-pp)<0?fmt(Math.abs(roR-pp))+' below asking':fmt(roR-pp)+' above asking';
   }
+  const bbborEl=document.getElementById('b-bbor');
+  if(bbborEl) bbborEl.textContent=bbOR>0&&bbOR<1900000?fmt(bbOR):'Cannot achieve at these inputs';
+  if(bbOR>0&&bbOR<1900000){
+    const bbbornEl=document.getElementById('b-bborn');
+    if(bbbornEl) bbbornEl.textContent=(bbOR-pp)<0?fmt(Math.abs(bbOR-pp))+' below asking':fmt(bbOR-pp)+' above asking';
+  }
 
   btlData={pp,emv,rent:grossRent,mr,dp:dp*100,
     voids:+(voidPct*100).toFixed(2),letFee,certs,rentAfterVoids:+rent.toFixed(2),voidLossYearly:Math.round(grossRent*voidPct*12),ref,sol,mf,srch,ins,mgmt:mgmt*100,maint:maint*100,ty,tr,term,
@@ -257,7 +303,7 @@ function cBTL(){
     bbROI:+bbROI.toFixed(2),bbMLI:Math.round(bbMLI),bbPB:+Math.abs(bbPB).toFixed(2),
     brrrLtv:+(bbRefiLtv*100).toFixed(1),brrrType:bbRefiType,
     brrrLoan:Math.round(bbRefiLoan),brrrPayment:Math.round(bbRefiPay),
-    meetsROIBRRR:bbROI>=tr};
+    meetsROIBRRR:bbROI>=tr,bbOR:Math.round(bbOR)};
 }
 
 function cHMO(){
@@ -373,34 +419,59 @@ function cHMO(){
   // it must be re-evaluated at every step same as stamp duty already was.
   let oR=0;
   if(totalRent>0){
-    let lo=10000,hi=2000000;
-    for(let i=0;i<80;i++){
-      const mid=(lo+hi)/2;
+    const roiAt=mid=>{
       const sdM=stamp(mid).total;
       const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
       const mNyM=(totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-mmM)*12;
       const tiM=depM+sol+mf+lic+ref+sdM+srch;
-      const roiM=tiM!==0?(mNyM/tiM)*100:0;
-      if(roiM>troi)lo=mid;else hi=mid;
+      return tiM!==0?(mNyM/tiM)*100:0;
+    };
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(roiAt(mid)>troi)lo=mid;else hi=mid;
     }
-    oR=(lo+hi)/2;
+    oR=bidMeetingTarget((lo+hi)/2,roiAt,troi,10000,1900000);
   }
   document.getElementById('h-or').textContent=oR>0&&oR<1900000?fmt(oR):'Cannot achieve at these inputs';
   if(oR>0&&oR<1900000){document.getElementById('h-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';}
 
   let roR=0;
   if(totalRent>0){
-    let rlo=10000,rhi=2000000;
-    for(let i=0;i<80;i++){
-      const mid=(rlo+rhi)/2;
+    const roiAt=mid=>{
       const sdM=stamp(mid).total;
       const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
       const rNyM=(totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-rmmM)*12;
       const tiM=depM+sol+mf+lic+ref+sdM+srch;
-      const roiM=tiM!==0?(rNyM/tiM)*100:0;
-      if(roiM>troi)rlo=mid;else rhi=mid;
+      return tiM!==0?(rNyM/tiM)*100:0;
+    };
+    let rlo=10000,rhi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(rlo+rhi)/2;
+      if(roiAt(mid)>troi)rlo=mid;else rhi=mid;
     }
-    roR=(rlo+rhi)/2;
+    roR=bidMeetingTarget((rlo+rhi)/2,roiAt,troi,10000,1900000);
+  }
+
+  // BRRR max bid for the target ROI, same rule as BTL's bbOR (owner's
+  // sign-off, 2026-10-22): highest price where money left in after refinance
+  // <= cashflow after refinance / target ROI.
+  let bbOR=0;
+  if(hbNy>0&&troi>0){
+    const maxLeftIn=hbNy/(troi/100);
+    const leftInAt=p=>(p+sol+mf+lic+ref+stamp(p).total+srch)-hbRefiLoan;
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(leftInAt(mid)<=maxLeftIn)lo=mid;else hi=mid;
+    }
+    bbOR=Math.floor(lo);
+  }
+  const hbborEl=document.getElementById('h-bbor');
+  if(hbborEl) hbborEl.textContent=bbOR>0&&bbOR<1900000?fmt(bbOR):'Cannot achieve at these inputs';
+  if(bbOR>0&&bbOR<1900000){
+    const hbbornEl=document.getElementById('h-bborn');
+    if(hbbornEl) hbbornEl.textContent=(bbOR-pp)<0?fmt(Math.abs(bbOR-pp))+' below asking':fmt(bbOR-pp)+' above asking';
   }
   const hrorEl=document.getElementById('h-ror');
   if(hrorEl) hrorEl.textContent=roR>0&&roR<1900000?fmt(roR):'Cannot achieve at these inputs';
@@ -426,7 +497,7 @@ function cHMO(){
     bbROI:+hbROI.toFixed(2),bbMLI:Math.round(hbMLI),bbPB:+Math.abs(hbPB).toFixed(2),
     brrrLtv:+(hbRefiLtv*100).toFixed(1),brrrType:hbRefiType,
     brrrLoan:Math.round(hbRefiLoan),brrrPayment:Math.round(hbRefiPay),
-    meetsROIBRRR:hbROI>=troi,
+    meetsROIBRRR:hbROI>=troi,bbOR:Math.round(bbOR),
     // Additive only — lets a saved HMO deal be re-run later with its real
     // room mix restored, instead of only the aggregated totalRent. Doesn't
     // feed into any calculation above; totalRent (already computed from
@@ -517,30 +588,49 @@ function cSA(){
   // existing, proven bisection pattern rather than re-deriving algebra.
   let oR=0;
   {
-    let lo=10000,hi=2000000;
-    for(let i=0;i<80;i++){
-      const mid=(lo+hi)/2;
+    const roiAt=mid=>{
       const depM=mid*dp, loanM=mid-depM, mmM=mort(loanM,mr);
       const mCFyM=netInc-mmM*12;
       const mMLIM=(mid+sol+mf+srch+ref+furn+wg+stamp(mid).total)-loanM;
-      const roiM=mMLIM!==0?(mCFyM/mMLIM)*100:0;
-      if(roiM>troi)lo=mid;else hi=mid;
+      return mMLIM!==0?(mCFyM/mMLIM)*100:0;
+    };
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(roiAt(mid)>troi)lo=mid;else hi=mid;
     }
-    oR=(lo+hi)/2;
+    oR=bidMeetingTarget((lo+hi)/2,roiAt,troi,10000,1900000);
   }
 
   let roR=0;
   {
-    let lo=10000,hi=2000000;
-    for(let i=0;i<80;i++){
-      const mid=(lo+hi)/2;
+    const roiAt=mid=>{
       const depM=mid*dp, loanM=mid-depM, rmmM=mortRepay(loanM,mr,term);
       const rCFyM=netInc-rmmM*12;
       const mMLIM=(mid+sol+mf+srch+ref+furn+wg+stamp(mid).total)-loanM;
-      const roiM=mMLIM!==0?(rCFyM/mMLIM)*100:0;
-      if(roiM>troi)lo=mid;else hi=mid;
+      return mMLIM!==0?(rCFyM/mMLIM)*100:0;
+    };
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(roiAt(mid)>troi)lo=mid;else hi=mid;
     }
-    roR=(lo+hi)/2;
+    roR=bidMeetingTarget((lo+hi)/2,roiAt,troi,10000,1900000);
+  }
+
+  // BRRR max bid for the target ROI, same rule as BTL's bbOR (owner's
+  // sign-off, 2026-10-22): highest price where money left in after refinance
+  // <= cashflow after refinance / target ROI.
+  let bbOR=0;
+  if(sabCFy>0&&troi>0){
+    const maxLeftIn=sabCFy/(troi/100);
+    const leftInAt=p=>(p+sol+mf+srch+ref+furn+wg+stamp(p).total)-sabRefiLoan;
+    let lo=10000,hi=2000000;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(leftInAt(mid)<=maxLeftIn)lo=mid;else hi=mid;
+    }
+    bbOR=Math.floor(lo);
   }
 
   document.getElementById('sa-ly').textContent=ty;
@@ -598,6 +688,12 @@ function cSA(){
     const sarornEl=document.getElementById('sa-rorn');
     if(sarornEl) sarornEl.textContent=(roR-pp)<0?fmt(Math.abs(roR-pp))+' below asking':fmt(roR-pp)+' above asking';
   }
+  const sabborEl=document.getElementById('sa-bbor');
+  if(sabborEl) sabborEl.textContent=bbOR>0&&bbOR<1900000?fmt(bbOR):'Cannot achieve at these inputs';
+  if(bbOR>0&&bbOR<1900000){
+    const sabbornEl=document.getElementById('sa-bborn');
+    if(sabbornEl) sabbornEl.textContent=(bbOR-pp)<0?fmt(Math.abs(bbOR-pp))+' below asking':fmt(bbOR-pp)+' above asking';
+  }
 
   saData={rate,occ,pp,emv,mr,dp:dp*100,sol,mf,srch,ref,furn,wg,mgmt:mgmt*100,util:util*100,maint:maint*100,clean,ins,ct,ty,troi,term,
     loan:Math.round(loan),deposit:Math.round(dep),monthlyPayment:Math.round(mm),
@@ -616,7 +712,7 @@ function cSA(){
     bbROI:+sabROI.toFixed(2),bbMLI:Math.round(sabMLI),
     brrrLtv:+(sabRefiLtv*100).toFixed(1),brrrType:sabRefiType,
     brrrLoan:Math.round(sabRefiLoan),brrrPayment:Math.round(sabRefiPay),
-    meetsROIBRRR:sabROI>=troi};
+    meetsROIBRRR:sabROI>=troi,bbOR:Math.round(bbOR)};
 }
 
 function cFlip(){
@@ -650,16 +746,18 @@ function cFlip(){
 
   let oR=0;
   if(sv>0){
-    let lo=1000,hi=sv;
-    for(let i=0;i<80;i++){
-      const mid=(lo+hi)/2;
+    const roiAt=mid=>{
       const sdM=stamp(mid).total;
       const tiM=mid+sdM+bf+ref+contAmt;
       const profitM=sv-mid-sdM-bf-ref-contAmt-agentAmt;
-      const roiM=tiM!==0?(profitM/tiM)*100:0;
-      if(roiM>troi)lo=mid; else hi=mid;
+      return tiM!==0?(profitM/tiM)*100:0;
+    };
+    let lo=1000,hi=sv;
+    for(let i=0;i<80;i++){
+      const mid=(lo+hi)/2;
+      if(roiAt(mid)>troi)lo=mid; else hi=mid;
     }
-    oR=(lo+hi)/2;
+    oR=bidMeetingTarget((lo+hi)/2,roiAt,troi,1000,Infinity);
   }
   document.getElementById('fl-or').textContent=oR>0?fmt(oR):'Cannot achieve at these inputs';
   if(oR>0)document.getElementById('fl-orn').textContent=(oR-pp)<0?fmt(Math.abs(oR-pp))+' below asking':fmt(oR-pp)+' above asking';
