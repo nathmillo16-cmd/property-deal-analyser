@@ -22,6 +22,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
+<script src="/results-disclaimer.js"></script>
 <script src="/deal-verdict.js"></script>
 <script src="/planning-tools.js"></script>
 <script src="/deal-cards.js"></script>
@@ -586,7 +587,7 @@ async function init(){
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
-    if(!currentSession){window.location.href='/';return;}
+    if(!currentSession){dnySessionEnded();return;}
     updateTopbar();
   });
 }

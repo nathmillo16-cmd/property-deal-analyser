@@ -384,8 +384,8 @@ var PlanningTools = (function () {
         d.pp != null ? gbp(d.pp) + ' vs your max ' + gbp(b.max_price) : 'No purchase price saved');
     }
     if (rental && b.min_yield != null) {
-      add('min_yield', 'Gross yield', cmp(d.gy, function (v) { return v >= b.min_yield; }),
-        d.gy != null ? pctText(d.gy) + ' vs your min ' + pctText(b.min_yield) : 'No yield saved');
+      add('min_yield', 'Gross yield (on price)', cmp(d.gy, function (v) { return v >= b.min_yield; }),
+        d.gy != null ? pctText(d.gy) + ' vs your min ' + pctText(b.min_yield) + (d.gyEmv == null ? ' (saved before 21 Oct, re-run to update)' : '') : 'No yield saved');
     }
     if (rental && b.min_cashflow != null) {
       var cfKey = (CF_KEY_MODE[base] || {})[mode];

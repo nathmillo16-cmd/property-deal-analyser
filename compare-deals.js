@@ -24,13 +24,13 @@ const COMPARE_FIELDS = {
     { label: 'Monthly cashflow', key: 'bbNm', type: 'c' },
     { label: 'ROI (after refinance)', key: 'bbROI', type: 'p' },
     { label: 'Refinance LTV', key: 'brrrLtv', type: 'p' },
-    { label: 'Gross yield', key: 'gy', type: 'p' },
+    { label: 'Gross yield (on price)', key: 'gy', type: 'p' },
     { label: 'Max bid (ROI)', key: 'oR', type: 'c', notAchievableAtOrBelow: 10000 }
   ],
   btl: [
     { label: 'Purchase price', key: 'pp', type: 'c' },
-    { label: 'EMV', key: 'emv', type: 'c' },
-    { label: 'Gross yield', key: 'gy', type: 'p' },
+    { label: 'End value', key: 'emv', type: 'c' },
+    { label: 'Gross yield (on price)', key: 'gy', type: 'p' },
     { label: 'ROI (mortgage)', key: 'mROI', type: 'p' },
     { label: 'ROI (cash)', key: 'cROI', type: 'p' },
     { label: 'Money left in (mortgage)', key: 'mMLI', type: 'c' },
@@ -39,8 +39,8 @@ const COMPARE_FIELDS = {
   ],
   hmo: [
     { label: 'Purchase price', key: 'pp', type: 'c' },
-    { label: 'EMV', key: 'emv', type: 'c' },
-    { label: 'Gross yield', key: 'gy', type: 'p' },
+    { label: 'End value', key: 'emv', type: 'c' },
+    { label: 'Gross yield (on price)', key: 'gy', type: 'p' },
     { label: 'ROI (mortgage)', key: 'mROI', type: 'p' },
     { label: 'ROI (cash)', key: 'cROI', type: 'p' },
     { label: 'Total investment (mortgage)', key: 'mTI', type: 'c' },
@@ -49,9 +49,9 @@ const COMPARE_FIELDS = {
   ],
   sa: [
     { label: 'Purchase price', key: 'pp', type: 'c' },
-    { label: 'EMV', key: 'emv', type: 'c' },
+    { label: 'End value', key: 'emv', type: 'c' },
     { label: 'Annual revenue', key: 'annualRevenue', type: 'c' },
-    { label: 'Gross yield', key: 'gy', type: 'p' },
+    { label: 'Gross yield (on price)', key: 'gy', type: 'p' },
     { label: 'ROI (mortgage)', key: 'mROI', type: 'p' },
     { label: 'ROI (cash)', key: 'cROI', type: 'p' },
     { label: 'Max bid (yield)', key: 'oY', type: 'c' },
@@ -82,6 +82,21 @@ function fmtCompareField(f, v) {
   return f.type === 'c' ? fmtCompareC(v) : fmtCompareP(v);
 }
 
+// Gross yield moved from end value to purchase price on 21 Oct 2026, and
+// gyEmv (the end-value version) started being saved at the same time. A
+// rental deal with gy but no gyEmv was saved before that, so its gy is still
+// the old end-value figure until it's re-run. Display only.
+const GY_STALE_NOTE = 'Saved before 21 Oct, re-run to update';
+function isGrossYieldPreOct21(d) {
+  const st = dealStrategy(d);
+  if (!['btl', 'brrr', 'hmo', 'sa'].includes(st)) return false;
+  const dd = (d && d.deal_data) || {};
+  return dd.gy != null && dd.gyEmv == null;
+}
+function gyStaleFlagHTML() {
+  return '<span class="gy-stale" style="display:block;font-family:var(--font-body);font-size:10.5px;font-weight:500;line-height:1.3;color:var(--warn-ink,var(--muted));white-space:normal">' + GY_STALE_NOTE + '</span>';
+}
+
 function escapeHtmlForCompare(s) {
   const div = document.createElement('div');
   div.textContent = s;
@@ -110,10 +125,16 @@ function buildCompareTableHTML(deals) {
       const fields = COMPARE_FIELDS[dealStrategy(d)] || [];
       const f = fields.find(x => x.label === label);
       const val = f ? fmtCompareField(f, d.deal_data[f.key]) : '—';
-      html += `<td>${val}</td>`;
+      const flag = f && f.key === 'gy' && isGrossYieldPreOct21(d) ? gyStaleFlagHTML() : '';
+      html += `<td>${val}${flag}</td>`;
     });
     html += '</tr>';
   });
   html += '</tbody></table>';
+  // Same "not financial advice" line as every other results panel
+  // (results-disclaimer.js, loaded by both pages that use this table).
+  if (typeof RESULTS_DISCLAIMER_TEXT !== 'undefined') {
+    html += '<p class="results-disclaimer">' + RESULTS_DISCLAIMER_TEXT + '</p>';
+  }
   return html;
 }

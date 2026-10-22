@@ -26,6 +26,7 @@
 <script src="/calc-engine.js"></script>
 <script src="/planning-tools.js"></script>
 <script src="/home-widgets.js"></script>
+<script src="/results-disclaimer.js"></script>
 <style>
 /* page-specific layout only — colours/fonts/radius all come from styles.css
    (theme-light tokens on this page, since <body> carries that class). */
@@ -112,7 +113,8 @@
 .recent-item:first-child{border-top:none;padding-top:0}
 .recent-item .rname{font-size:13.5px;font-weight:600;color:var(--ink);display:block}
 .recent-item .rmeta{font-size:11.5px;color:var(--muted);margin-top:2px;display:block}
-.recent-item .rfigure{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--accent);white-space:nowrap;font-variant-numeric:tabular-nums}
+.recent-item .rfigure{font-family:var(--font-body);font-weight:700;font-size:14px;color:var(--accent);white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
+.recent-item .rstale{display:block;font-size:10.5px;font-weight:500;color:var(--warn-ink,var(--muted));white-space:normal;margin-top:2px}
 
 /* ---- needs attention: flagged-deal rows, same shape as .recent-item ---- */
 .na-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:.65rem 0;border-top:1px solid var(--hairline);text-decoration:none}
@@ -378,11 +380,12 @@ body.ms-modal-open{overflow:hidden}
         <label class="qa-field"><span>Monthly rent (£)</span><input type="text" inputmode="decimal" id="qa-rent" placeholder="e.g. 900" autocomplete="off"/></label>
       </div>
       <div class="qa-results" id="qa-results" aria-live="polite">
-        <div class="qa-res"><span class="qa-res-l">Gross yield</span><span class="qa-res-v" id="qa-yield">—</span></div>
+        <div class="qa-res"><span class="qa-res-l">Gross yield (on price)</span><span class="qa-res-v" id="qa-yield">—</span></div>
         <div class="qa-res"><span class="qa-res-l" id="qa-bid-label">Max bid at 7% yield</span><span class="qa-res-v" id="qa-bid">—</span></div>
       </div>
       <p class="qa-note" id="qa-note">Yield on purchase price. Add end value and costs in the full analysis.</p>
       <button type="button" class="btn-secondary qa-full" id="qa-full">Full analysis</button>
+      <p class="results-disclaimer"></p>
       <div hidden id="qa-engine" aria-hidden="true"></div>
     </div>
   </div>
@@ -445,9 +448,9 @@ const STAGE_LABELS={analysing:'Analysing',viewing:'Viewing',offered:'Offered',ag
 const STAGE_COLORS={analysing:'#c7c4ea',viewing:'#a49ee0',offered:'#7a72d4',agreed:'#4b45b2',completed:'#0f7a5a',lost:'#b9b6ae'};
 const KEY_FIGURE={
   brrr:{label:'Money left in',key:'bbMLI',type:'c'},
-  btl:{label:'Gross yield',key:'gy',type:'p'},
-  hmo:{label:'Gross yield',key:'gy',type:'p'},
-  sa:{label:'Gross yield',key:'gy',type:'p'},
+  btl:{label:'Gross yield (on price)',key:'gy',type:'p'},
+  hmo:{label:'Gross yield (on price)',key:'gy',type:'p'},
+  sa:{label:'Gross yield (on price)',key:'gy',type:'p'},
   flip:{label:'Net profit',key:'profit',type:'c'}
 };
 
@@ -479,7 +482,10 @@ function keyFigure(d){
   if(!f)return null;
   const v=d.deal_data&&d.deal_data[f.key];
   if(v==null)return null;
-  return {label:f.label, value:f.type==='c'?fmtC(v):fmtP(v)};
+  // Gross yield moved to purchase price on 21 Oct 2026; a deal saved before
+  // then has no gyEmv and still holds the old end-value figure.
+  const stale=f.key==='gy'&&d.deal_data.gyEmv==null;
+  return {label:f.label, value:f.type==='c'?fmtC(v):fmtP(v), stale};
 }
 
 // Greeting: "Good morning, Cameron" using the first name from the profile
@@ -705,7 +711,7 @@ function render(){
         <span class="rname">${escapeHtml(dealDisplayName(d))}</span>
         <span class="rmeta">${escapeHtml(meta)}</span>
       </span>
-      <span class="rfigure">${fig?escapeHtml(fig.value):'—'}</span>
+      <span class="rfigure">${fig?escapeHtml(fig.value):'—'}${fig&&fig.stale?'<span class="rstale">Saved before 21 Oct, re-run to update</span>':''}</span>
     </div>`;
   }).join('');
 }
@@ -740,7 +746,7 @@ async function init(){
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
-    if(!currentSession)window.location.href='/';
+    if(!currentSession)dnySessionEnded();
   });
 }
 

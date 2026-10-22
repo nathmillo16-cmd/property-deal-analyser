@@ -260,7 +260,7 @@
     var ROWS = [
       { label: 'Monthly cashflow', show: function (c) { return money(c.m.cf); }, score: function (c) { return c.m.cf; } },
       { label: 'ROI', show: function (c) { return c.m.allOut ? 'All money out' : pct(c.m.roi); }, score: function (c) { return c.m.allOut ? Infinity : c.m.roi; } },
-      { label: 'Gross yield', show: function (c) { return pct(c.m.gy); }, score: function (c) { return c.m.gy; } },
+      { label: 'Gross yield (on price)', show: function (c) { return pct(c.m.gy); }, score: function (c) { return c.m.gy; } },
       { label: 'Money left in', show: function (c) { return money(Math.max(0, c.m.cashIn)); }, score: function (c) { return -Math.max(0, c.m.cashIn); } },
       { label: 'Verdict', show: function (c) { return '<span class="cmp-v di-' + c.v.level + '"><span class="di-dot" aria-hidden="true"></span>' + esc(c.v.label) + '</span>'; }, score: function (c) { return LEVEL_RANK[c.v.level]; }, html: true }
     ];

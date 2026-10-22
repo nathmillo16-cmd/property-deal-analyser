@@ -31,6 +31,7 @@
 <script src="/refurb-workflow.js"></script>
 <script src="/company-details.js"></script>
 <script src="/refurb-scope-pdf.js"></script>
+<script src="/results-disclaimer.js"></script>
 <style>
 /* page-specific layout only: colours/fonts/radius all come from styles.css */
 [hidden]{display:none!important}
@@ -519,6 +520,7 @@ details[open]>summary .chev{transform:rotate(-135deg)}
             </div>
 
             <button class="btn-primary" style="width:100%;margin-top:1.1rem" id="rf-save-btn" onclick="saveEstimate()">Save estimate</button>
+            <p class="results-disclaimer"></p>
             <p class="save-msg" id="rf-msg"></p>
             <div class="sum-actions">
               <button type="button" class="mini-btn" onclick="openPdfModal()">Scope of works PDF</button>
@@ -1912,7 +1914,7 @@ async function init(){
   });
   sbClient.auth.onAuthStateChange((_event,session)=>{
     currentSession=session;
-    if(!currentSession){window.location.href='/';return;}
+    if(!currentSession){dnySessionEnded();return;}
     updateTopbar();
   });
 }

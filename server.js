@@ -2194,6 +2194,13 @@ app.post('/api/deals/:id/viewing-date', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to update deals.' });
 
+  // Viewing date belongs to the pipeline's Stage section, so it's paid-only
+  // like the stage change itself. Checked before touching the deal.
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') {
+    return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
+  }
+
   // Blank/null clears it (per the agreed decision); a non-empty value must
   // be a plain YYYY-MM-DD date string — viewing_date is a date column, no
   // time component.
@@ -2487,6 +2494,17 @@ async function dealBelongsToRequester(supabase, dealId) {
 // assignment onto a specific deal (deal_contact_roles, db/054) is its own
 // group further down, alongside the other deal-scoped endpoints.
 // ---------------------------------------------------------------------
+// Friendly answers for when Contacts or Key Dates tables haven't been
+// created yet (migrations db/053-056 not run). Same 409 needs_migration
+// shape as the other newer features, so the page shows a plain sentence
+// rather than a raw Postgres error.
+function contactsNotSetUp(res) {
+  return res.status(409).json({ needs_migration: true, error: 'Contacts are not set up yet. They need a quick database update (db/053 and db/054) first.' });
+}
+function keyDatesNotSetUp(res) {
+  return res.status(409).json({ needs_migration: true, error: 'Key dates are not set up yet. They need a quick database update (db/055) first.' });
+}
+
 function validateContactInput(body) {
   const { name, company, phone, email, notes } = body;
   if (typeof name !== 'string' || !name.trim()) return { error: 'Enter a name.' };
@@ -2502,6 +2520,7 @@ app.get('/api/contacts', async (req, res) => {
   if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock contacts.' });
 
   const { data, error } = await supabase.from('deal_contacts').select('*').order('name', { ascending: true });
+  if (error && isMissingSchemaError(error)) return contactsNotSetUp(res);
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
@@ -2517,6 +2536,7 @@ app.post('/api/contacts', async (req, res) => {
   if (validationError) return res.status(400).json({ error: validationError });
 
   const { data, error } = await supabase.from('deal_contacts').insert(value).select().single();
+  if (error && isMissingSchemaError(error)) return contactsNotSetUp(res);
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
@@ -2532,6 +2552,7 @@ app.put('/api/contacts/:id', async (req, res) => {
   if (validationError) return res.status(400).json({ error: validationError });
 
   const { data, error } = await supabase.from('deal_contacts').update(value).eq('id', req.params.id).select().single();
+  if (error && isMissingSchemaError(error)) return contactsNotSetUp(res);
   if (error || !data) return res.status(404).json({ error: 'Contact not found.' });
   res.json(data);
 });
@@ -2550,6 +2571,7 @@ app.delete('/api/contacts/:id', async (req, res) => {
   // app already treats cascading deletes elsewhere (deleting a refurb
   // estimate silently unlinks it from any deal via on delete set null).
   const { error } = await supabase.from('deal_contacts').delete().eq('id', req.params.id);
+  if (error && isMissingSchemaError(error)) return contactsNotSetUp(res);
   if (error) return res.status(400).json({ error: error.message });
   res.json({ deleted: true });
 });
@@ -2567,6 +2589,7 @@ app.get('/api/contacts/:id/deals', async (req, res) => {
   if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock contacts.' });
 
   const { data: roles, error } = await supabase.from('deal_contact_roles').select('deal_id, role').eq('contact_id', req.params.id);
+  if (error && isMissingSchemaError(error)) return contactsNotSetUp(res);
   if (error) return res.status(400).json({ error: error.message });
   if (!roles.length) return res.json([]);
 
@@ -2603,11 +2626,13 @@ app.get('/api/deals/:dealId/contacts', async (req, res) => {
   if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
 
   const { data: roleRows, error } = await supabase.from('deal_contact_roles').select('*').eq('deal_id', req.params.dealId);
+  if (error && isMissingSchemaError(error)) return contactsNotSetUp(res);
   if (error) return res.status(400).json({ error: error.message });
   if (!roleRows.length) return res.json([]);
 
   const contactIds = roleRows.map((r) => r.contact_id);
   const { data: contacts, error: contactsErr } = await supabase.from('deal_contacts').select('*').in('id', contactIds);
+  if (contactsErr && isMissingSchemaError(contactsErr)) return contactsNotSetUp(res);
   if (contactsErr) return res.status(400).json({ error: contactsErr.message });
 
   const contactsById = new Map(contacts.map((c) => [c.id, c]));
@@ -2646,6 +2671,7 @@ app.post('/api/deals/:dealId/contacts', async (req, res) => {
       .delete()
       .eq('deal_id', req.params.dealId)
       .eq('role', role);
+    if (error && isMissingSchemaError(error)) return contactsNotSetUp(res);
     if (error) return res.status(400).json({ error: error.message });
     return res.json({ role, contact: null });
   }
@@ -2653,11 +2679,13 @@ app.post('/api/deals/:dealId/contacts', async (req, res) => {
   // RLS-scoped select — a hit here means the contact genuinely belongs to
   // this user, same trick dealBelongsToRequester uses for deals.
   const { data: contact, error: contactErr } = await supabase.from('deal_contacts').select('*').eq('id', contact_id).single();
+  if (contactErr && isMissingSchemaError(contactErr)) return contactsNotSetUp(res);
   if (contactErr || !contact) return res.status(404).json({ error: 'Contact not found.' });
 
   const { error } = await supabase
     .from('deal_contact_roles')
     .upsert({ deal_id: req.params.dealId, role, contact_id }, { onConflict: 'deal_id,role' });
+  if (error && isMissingSchemaError(error)) return contactsNotSetUp(res);
   if (error) return res.status(400).json({ error: error.message });
   res.json({ role, contact });
 });
@@ -2687,6 +2715,7 @@ app.get('/api/deals/:dealId/key-dates', async (req, res) => {
   if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock the pipeline.' });
 
   const { data, error } = await supabase.from('deal_key_dates').select('*').eq('deal_id', req.params.dealId);
+  if (error && isMissingSchemaError(error)) return keyDatesNotSetUp(res);
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
@@ -2720,6 +2749,7 @@ app.post('/api/deals/:dealId/key-dates', async (req, res) => {
     .select()
     .single();
 
+  if (error && isMissingSchemaError(error)) return keyDatesNotSetUp(res);
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
@@ -2974,8 +3004,19 @@ app.get('/api/deals/:dealId/activity', async (req, res) => {
     supabase.from('deal_key_date_log').select('*').eq('deal_id', req.params.dealId),
   ]);
 
+  // Notes and offers are the core of the feed. If either table is missing,
+  // say so plainly rather than passing on a raw Postgres error.
+  if ((notesRes.error && isMissingSchemaError(notesRes.error)) || (offersRes.error && isMissingSchemaError(offersRes.error))) {
+    return res.status(409).json({ needs_migration: true, error: 'The activity feed is not set up yet. It needs a quick database update first.' });
+  }
   if (notesRes.error) return res.status(400).json({ error: notesRes.error.message });
   if (offersRes.error) return res.status(400).json({ error: offersRes.error.message });
+  // The three log tables (db/038, db/039, db/056) only add extra entries.
+  // A missing one is treated as empty, same as Needs Attention does with
+  // the newer tables, so the rest of the feed still shows.
+  for (const r of [stageRes, refurbRes, keyDateLogRes]) {
+    if (r.error && isMissingSchemaError(r.error)) { r.error = null; r.data = []; }
+  }
   if (stageRes.error) return res.status(400).json({ error: stageRes.error.message });
   if (refurbRes.error) return res.status(400).json({ error: refurbRes.error.message });
   if (keyDateLogRes.error) return res.status(400).json({ error: keyDateLogRes.error.message });

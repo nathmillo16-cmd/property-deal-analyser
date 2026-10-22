@@ -120,6 +120,8 @@ body.theme-light .submit-btn{box-shadow:0 1px 2px rgba(75,69,178,.3)}
 .msg.error{background:rgba(232,116,107,.12);color:#E8746B}
 body.theme-light .msg.success{background:var(--success-bg);color:var(--success)}
 body.theme-light .msg.error{background:var(--danger-bg);color:var(--danger)}
+.msg.info{background:rgba(224,164,88,.12);color:var(--accent-2)}
+body.theme-light .msg.info{background:var(--warn-bg);color:var(--warn-ink)}
 .link{font-size:12px;color:var(--accent);text-decoration:none;cursor:pointer;display:inline-block;margin-top:.75rem;font-family:var(--font-body)}
 .link:hover{text-decoration:underline}
 .link-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
@@ -239,7 +241,17 @@ async function init(){
   // the PASSWORD_RECOVERY handler gets to show the set-new-password panel.
   const isRecovery=location.hash.includes('type=recovery');
 
-  if(!isRecovery){
+  // Sent here because the server refused this browser's session (it expired,
+  // or the account was deleted). Clear what's left of it on this device so
+  // the "already logged in" redirect below can't send the user straight
+  // back into the app, then ask them to log in again.
+  const sessionEnded=new URLSearchParams(location.search).get('session')==='ended';
+  if(sessionEnded&&!isRecovery){
+    try{ await client.auth.signOut({scope:'local'}); }catch(e){}
+    showMsg('msg-login', 'Your session ended, please log in again.', 'info');
+  }
+
+  if(!isRecovery&&!sessionEnded){
     const { data:{ session } } = await client.auth.getSession();
     if(session){
       // Signed in with a password but two-step sign in still to do.
@@ -343,7 +355,7 @@ document.getElementById('form-forgot').addEventListener('submit', async (e)=>{
   const email=document.getElementById('forgot-email').value;
   btn.disabled=true;btn.textContent='Sending...';
   const { error } = await client.auth.resetPasswordForEmail(email, {
-    redirectTo: 'https://dealsnyields.com/login.html'
+    redirectTo: BACKEND_URL+'/login.html'
   });
   btn.disabled=false;btn.textContent='Send reset email';
   if(error){
@@ -382,7 +394,11 @@ document.getElementById('form-signup').addEventListener('submit', async (e)=>{
   // write the profile), then copied to profiles.name by Home on first login.
   const firstName=document.getElementById('signup-first-name').value.trim();
   btn.disabled=true;btn.textContent='Signing up...';
-  const { error } = await client.auth.signUp(firstName?{ email, password, options:{ data:{ first_name:firstName } } }:{ email, password });
+  // The confirmation link brings them back to the login page on our own site
+  // (BACKEND_URL in app-config.js), not whatever Supabase's default is.
+  const options={ emailRedirectTo: BACKEND_URL+'/login.html' };
+  if(firstName) options.data={ first_name:firstName };
+  const { error } = await client.auth.signUp({ email, password, options });
   btn.disabled=false;btn.textContent='Sign up';
   if(error){
     showMsg('msg-signup', error.message, 'error');

@@ -17,6 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/auth-guard.js"></script>
 <script src="/planning-tools.js"></script>
+<script src="/results-disclaimer.js"></script>
 </head>
 <body class="theme-light">
 <div class="shell">
@@ -62,7 +63,7 @@
             <span class="tf-affix pre"><span>£</span><input id="bb-max-price" type="text" inputmode="decimal" data-money autocomplete="off" placeholder="Any"></span>
           </div>
           <div class="tf">
-            <label for="bb-min-yield">Min gross yield</label>
+            <label for="bb-min-yield">Min gross yield (on price)</label>
             <span class="tf-affix post"><span>%</span><input id="bb-min-yield" type="number" inputmode="decimal" step="0.1" placeholder="Any"></span>
           </div>
           <div class="tf">
@@ -109,6 +110,7 @@
         <div class="tool-card" style="padding-top:var(--space-2);padding-bottom:var(--space-2)" id="bb-deals"></div>
         <p class="tool-more"><a href="/saved-deals.html?buybox=fits">See deals that fit on the Deals page</a></p>
       </section>
+      <p class="results-disclaimer"></p>
     </div>
   </main>
 </div>

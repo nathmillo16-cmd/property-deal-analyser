@@ -219,7 +219,7 @@
     var rows = [
       ['Monthly cashflow', money(m.cf), money(sm.cf)],
       ['ROI', roiText(m), roiText(sm)],
-      ['Gross yield', pct(m.gy), pct(sm.gy)],
+      ['Gross yield (on price)', pct(m.gy), pct(sm.gy)],
       [cashLabel, mode === 'brrr' && m.cashIn <= 0 ? '£0' : money(m.cashIn), mode === 'brrr' && sm.cashIn <= 0 ? '£0' : money(sm.cashIn)]
     ];
     var sum = document.getElementById(PREFIX[st] + '-sec-stress-sum');

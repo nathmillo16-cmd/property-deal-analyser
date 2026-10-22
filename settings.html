@@ -799,7 +799,7 @@ async function init(){
 
   sbClient.auth.onAuthStateChange((_event,session)=>{
     currentSession=session;
-    if(!currentSession)window.location.href='/';
+    if(!currentSession)dnySessionEnded();
   });
 }
 
@@ -1352,8 +1352,9 @@ async function signOutEverywhere(){
   if(!confirm('Sign out of every device, including this one?'))return;
   const btn=$('btn-signout-all'), msg=$('signout-msg');
   btn.disabled=true; btn.textContent='Signing out…';
+  dnyMarkLoggingOut();
   const {error}=await sbClient.auth.signOut({scope:'global'});
-  if(error){ btn.disabled=false; btn.textContent='Sign out everywhere'; msg.className='msg error'; msg.textContent='Could not sign out everywhere: '+error.message; return; }
+  if(error){ window.__dnyLoggingOut=false; btn.disabled=false; btn.textContent='Sign out everywhere'; msg.className='msg error'; msg.textContent='Could not sign out everywhere: '+error.message; return; }
   window.location.href='/';
 }
 
@@ -1432,6 +1433,7 @@ async function confirmDeleteAccount(){
     const {res,body}=await api('/api/account/delete',{method:'POST'});
     if(!res.ok)throw new Error(body.error||'Could not delete your account.');
     Object.keys(forms).forEach(k=>forms[k].ready=false);
+    dnyMarkLoggingOut();
     await sbClient.auth.signOut();
     window.location.href='/';
   }catch(e){

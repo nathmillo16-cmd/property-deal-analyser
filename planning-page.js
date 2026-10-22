@@ -54,7 +54,7 @@ var PlanningPage = (function () {
     }
     auth.client.auth.onAuthStateChange(function (_e, session) {
       state.session = session;
-      if (!session) window.location.href = '/';
+      if (!session) dnySessionEnded();
     });
     return { session: state.session, profile: state.profile, paid: paid };
   }

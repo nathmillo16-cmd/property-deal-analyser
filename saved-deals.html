@@ -1220,7 +1220,8 @@ function renderWorkspaceAnalysis(deal){
   const fields=COMPARE_FIELDS[dealStrategy(deal)]||[];
   listEl.innerHTML=fields.map(f=>{
     const val=fmtCompareField(f, deal.deal_data ? deal.deal_data[f.key] : null);
-    return `<div class="analysis-row"><span class="analysis-label">${escapeHtml(f.label)}</span><span class="analysis-value">${escapeHtml(val)}</span></div>`;
+    const flag=f.key==='gy'&&isGrossYieldPreOct21(deal)?gyStaleFlagHTML():'';
+    return `<div class="analysis-row"><span class="analysis-label">${escapeHtml(f.label)}</span><span class="analysis-value">${escapeHtml(val)}${flag}</span></div>`;
   }).join('');
 }
 
@@ -1563,7 +1564,10 @@ async function downloadPropertyPack(){
     y+=headlineH+18;
   }
 
-  const secondary=packSecondaryFields(dealStrategy(deal));
+  // A deal saved before 21 Oct still holds gross yield on end value, so the
+  // pack says so rather than printing the newer "(on price)" label.
+  const secondary=packSecondaryFields(dealStrategy(deal)).map(f=>
+    f.key==='gy'&&isGrossYieldPreOct21(deal)?Object.assign({},f,{label:'Gross yield (on end value)'}):f);
   const cols=3;
   const gap=12;
   const boxW=(contentW-gap*(cols-1))/cols;
@@ -3161,7 +3165,7 @@ async function init(){
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
-    if(!currentSession){window.location.href='/';return;}
+    if(!currentSession){dnySessionEnded();return;}
   });
 }
 

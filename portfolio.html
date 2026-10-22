@@ -26,6 +26,7 @@
 <script src="/portfolio-shared.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="/tax-summary.js"></script>
+<script src="/results-disclaimer.js"></script>
 <link rel="stylesheet" href="/portfolio.css">
 <style>
 /* page-specific layout only; shared portfolio styles live in portfolio.css */
@@ -109,6 +110,7 @@ body.theme-light .empty-card{border:1px solid rgba(0,0,0,.09);border-radius:14px
     </div>
 
     <div class="pf-list" id="pf-list"><p class="hint">Loading…</p></div>
+    <p class="results-disclaimer"></p>
   </div>
 </div>
 
@@ -354,7 +356,7 @@ async function init(){
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
-    if(!currentSession){window.location.href='/';return;}
+    if(!currentSession){dnySessionEnded();return;}
     updateTopbar();
   });
 }

@@ -70,7 +70,7 @@ var DealCards = (function () {
     }
     var cfKey = st === 'brrr' ? (V.CF_KEY.btl.brrr) : (V.CF_KEY[st] ? V.CF_KEY[st].m : null);
     var figs = [
-      { l: 'Gross yield', v: pct(d.gy) },
+      { l: 'Gross yield (on price)', v: pct(d.gy), note: (d.gy != null && d.gyEmv == null) ? 'Saved before 21 Oct, re-run to update' : '' },
       { l: 'Cashflow /mo', v: money(cfKey ? d[cfKey] : null) }
     ];
     if (st === 'brrr') figs.push({ l: 'Left in', v: d.bbMLI != null && d.bbMLI <= 0 ? '£0' : money(d.bbMLI) });
@@ -107,7 +107,8 @@ var DealCards = (function () {
     var level = v ? v.level : 'none';
     var dotTitle = v ? v.label + (v.basis ? ' (' + v.basis + ')' : '') + ': ' + v.reason : 'No verdict for this deal yet. Re-run it in the calculator.';
     var figs = cardFigures(deal).map(function (f) {
-      return '<span class="dc-fig"><span class="dc-fig-l">' + esc(f.l) + '</span><span class="dc-fig-v">' + esc(f.v) + '</span></span>';
+      return '<span class="dc-fig"><span class="dc-fig-l">' + esc(f.l) + '</span><span class="dc-fig-v">' + esc(f.v) + '</span>' +
+        (f.note ? '<span class="dc-fig-note">' + esc(f.note) + '</span>' : '') + '</span>';
     }).join('');
     var lost = deal.pipeline_stage === 'lost' && deal.lost_reason ? ' · ' + esc(LOST_REASONS[deal.lost_reason] || deal.lost_reason) : '';
     var stagePill = opts.showStage
@@ -317,6 +318,7 @@ var DealCards = (function () {
     '.dc-fig{display:flex;flex-direction:column;min-width:0}' +
     '.dc-fig-l{font-size:10.5px;color:var(--muted);letter-spacing:.02em}' +
     '.dc-fig-v{font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}' +
+    '.dc-fig-note{font-size:10px;line-height:1.3;color:var(--warn-ink,var(--muted));margin-top:1px}' +
     '.dc-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px}' +
     '.dc-stage{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--accent);background:rgba(75,69,178,.10);border:1px solid rgba(75,69,178,.18);border-radius:999px;padding:3px 10px;white-space:nowrap}' +
     '.dc-stage-dot{width:7px;height:7px;border-radius:50%}' +

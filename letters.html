@@ -1040,7 +1040,7 @@ async function init(){
 
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
-    if(!currentSession){window.location.href='/';return;}
+    if(!currentSession){dnySessionEnded();return;}
     updateTopbar();
   });
 }

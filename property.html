@@ -27,6 +27,7 @@
      the rate check. Nothing on this page calls its calculators. -->
 <script src="/calc-engine.js"></script>
 <script src="/portfolio-shared.js"></script>
+<script src="/results-disclaimer.js"></script>
 <style>
 .hint{font-size:12.5px;color:var(--muted);font-style:italic}
 .locked-panel{text-align:center;padding:3.5rem 1rem}
@@ -163,6 +164,7 @@
     </section>
 
     <div class="pp-sections" id="pp-sections"></div>
+    <p class="results-disclaimer"></p>
   </div>
 </div>
 
@@ -295,7 +297,7 @@ async function init(){
   await loadProperty();
   sbClient.auth.onAuthStateChange((_event, session)=>{
     currentSession=session;
-    if(!currentSession){window.location.href='/';return;}
+    if(!currentSession){dnySessionEnded();return;}
     updateTopbar();
   });
 }
