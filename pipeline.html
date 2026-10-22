@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>PROPulsion · Deals board</title>
+<title>Deals board · PROPulsion</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
@@ -13,8 +13,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Propulsion">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
 <script src="/app-config.js"></script>
+<script src="/track.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -409,7 +410,7 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
     <div class="modal-section">
       <p class="subhead">Notes</p>
       <div class="modal-form-row">
-        <div class="field"><label>Note</label><input type="text" id="note-input"/></div>
+        <div class="field"><label for="note-input">Note</label><input type="text" id="note-input"/></div>
         <button class="btn-primary" onclick="addNote()">Add note</button>
       </div>
       <p class="save-msg" id="note-msg"></p>
@@ -419,11 +420,11 @@ body.theme-light .drag-handle:hover{background:rgba(75,69,178,.1)}
     <div class="modal-section">
       <p class="subhead">Offer history</p>
       <div class="modal-form-row">
-        <div class="field"><label>Amount (£)</label><input type="number" id="offer-amount"/></div>
-        <div class="field"><label>Date</label><input type="date" id="offer-date"/></div>
-        <div class="field"><label>Outcome</label>
+        <div class="field"><label for="offer-amount">Amount (£)</label><input type="number" id="offer-amount"/></div>
+        <div class="field"><label for="offer-date">Date</label><input type="date" id="offer-date"/></div>
+        <div class="field"><label id="offer-outcome-label">Outcome</label>
           <div class="dd" id="offer-outcome" data-value="Pending">
-            <button type="button" class="dd-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'offer-outcome')" onkeydown="ddKeydown(event,'offer-outcome')">
+            <button type="button" id="offer-outcome-trigger" class="dd-trigger" aria-labelledby="offer-outcome-label offer-outcome-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleDD(event,'offer-outcome')" onkeydown="ddKeydown(event,'offer-outcome')">
               <span>Pending</span>
             </button>
             <ul class="dd-list" role="listbox">

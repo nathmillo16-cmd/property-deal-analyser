@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Page not found · PROPulsion</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<meta name="theme-color" content="#4b45b2">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
+<script src="/app-config.js"></script>
+<script src="/track.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<style>
+/* Served by server.js's catch-all for any unknown address, so every link
+   and asset here is absolute (/...), never relative to the missing path. */
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;overflow-x:hidden;position:relative}
+body::before,body::after{content:"";position:fixed;border-radius:50%;filter:blur(70px);z-index:0;pointer-events:none}
+body::before{width:420px;height:420px;background:#c7c4ea;opacity:.5;top:-140px;right:-120px}
+body::after{width:340px;height:340px;background:#a49ee0;opacity:.3;bottom:-160px;left:-100px}
+.nf{position:relative;z-index:1;max-width:460px;width:100%;text-align:center}
+.nf-logo{display:inline-block;margin:0 0 2rem}
+.nf-logo img{height:48px;width:auto;display:block}
+.nf .nf-code{font-family:var(--font-head);font-weight:700;font-size:64px;line-height:1;color:var(--accent);margin:0 0 .75rem;letter-spacing:-.02em}
+.nf h1{font-family:var(--font-head);font-size:22px;margin:0 0 .6rem;color:var(--ink)}
+.nf p{color:var(--muted);font-size:14.5px;line-height:1.55;margin:0 0 1.75rem}
+.nf-actions{display:flex;flex-wrap:wrap;gap:.75rem;justify-content:center}
+.nf-actions a{min-height:44px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.nf-links{margin-top:2rem;font-size:13px;color:var(--muted)}
+.nf-links a{color:var(--accent);text-decoration:none;display:inline-block;padding:.6rem .4rem}
+.nf-links a:hover{text-decoration:underline}
+</style>
+</head>
+<body class="theme-light">
+<main class="nf">
+  <a class="nf-logo" href="/"><img src="/assets/propulsion-logo.png" alt="PROPulsion"></a>
+  <p class="nf-code" aria-hidden="true">404</p>
+  <h1>We can't find that page</h1>
+  <p>The link may be old, or the address may have a typo. Everything else is where you left it.</p>
+  <div class="nf-actions">
+    <a class="btn-primary" href="/home.html">Go to the app</a>
+    <a class="btn-secondary" href="/">Back to the homepage</a>
+  </div>
+  <div class="nf-links">
+    Free tools:
+    <a href="/stamp-duty-calculator.html">Stamp duty</a>
+    <a href="/brrr-refinance-calculator.html">BRRR refinance</a>
+    <a href="/bridging-cost-calculator.html">Bridging cost</a>
+  </div>
+</main>
+</body>
+</html>

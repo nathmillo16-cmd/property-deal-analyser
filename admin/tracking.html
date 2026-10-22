@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Admin: tracking · PROPulsion</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
+<script src="/app-config.js"></script>
+<script src="/track.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/admin/admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<script src="/admin-guard.js"></script>
+<script src="/admin/crm-shared.js"></script>
+<style>
+.tr-week{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.tr-week .u{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.tr-event{white-space:nowrap;font-weight:600}
+.tr-msg{min-width:260px;max-width:520px;word-break:break-word}
+.tr-msg details{margin-top:.35rem}
+.tr-msg summary{cursor:pointer;font-size:12px;color:var(--accent)}
+.tr-msg pre{white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.45;background:var(--surface-2);padding:.6rem;border-radius:8px;margin:.4rem 0 0;max-height:240px;overflow:auto}
+.tr-nowrap{white-space:nowrap}
+.tr-src{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;background:var(--surface-2);color:var(--muted)}
+.tr-src.server{background:var(--danger-bg);color:var(--danger-ink)}
+.tr-src.browser{background:var(--warn-bg);color:var(--warn-ink)}
+</style>
+</head>
+<body class="theme-light">
+
+<div id="state-loading"><p class="hint" style="padding:1.5rem">Loading…</p></div>
+
+<div class="shell" id="app" style="display:none">
+  <div id="admin-nav-root" data-active="tracking"></div>
+  <script src="/admin/admin-nav.js"></script>
+
+  <p class="page-title">Tracking</p>
+  <p class="hint" id="tr-setup" style="display:none"></p>
+
+  <div class="crm-panel">
+    <p class="subhead">Feature use by week</p>
+    <p class="hint" style="margin:-.4rem 0 1rem">How often each key action happened, per week (weeks start Monday). The small number is how many different signed-in users did it. Calculator and analysis events count once per visit.</p>
+    <div class="filter-bar">
+      <div class="field"><label for="tr-weeks">Weeks shown</label>
+        <select id="tr-weeks" onchange="loadTracking()">
+          <option value="4">4</option>
+          <option value="8" selected>8</option>
+          <option value="12">12</option>
+          <option value="26">26</option>
+        </select>
+      </div>
+    </div>
+    <div class="crm-table-wrap">
+      <table class="crm-table">
+        <thead id="tr-events-head"><tr><th>Event</th></tr></thead>
+        <tbody id="tr-events-body"><tr><td class="hint">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="crm-panel">
+    <p class="subhead">Recent errors</p>
+    <p class="hint" style="margin:-.4rem 0 1rem">The latest 200, newest first. Server errors are any failed request (status 500 and up) or crash; browser errors come from people's pages.</p>
+    <div class="filter-bar">
+      <div class="field"><label for="tr-source">Source</label>
+        <select id="tr-source" onchange="renderErrors()">
+          <option value="">All</option>
+          <option value="server">Server</option>
+          <option value="browser">Browser</option>
+        </select>
+      </div>
+    </div>
+    <div class="crm-table-wrap">
+      <table class="crm-table">
+        <thead><tr><th>When</th><th>Source</th><th>Where</th><th>Message</th><th>User</th></tr></thead>
+        <tbody id="tr-errors-body"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let sbClient=null, currentSession=null, trackingData=null;
+
+// Plain-English names for the event keys server.js stores.
+const EVENT_LABELS={
+  'analysis_run:btl':'Analysis run: BTL','analysis_run:brrr':'Analysis run: BRRR','analysis_run:hmo':'Analysis run: HMO',
+  'analysis_run:sa':'Analysis run: SA','analysis_run:flip':'Analysis run: Flip',
+  'deal_saved':'Deal saved','stage_changed':'Stage changed','refurb_estimate_saved':'Refurb estimate saved','letter_generated':'Letter generated',
+  'planning_tool_opened:portfolio_stress_test':'Opened: Portfolio stress test','planning_tool_opened:refinance_planner':'Opened: Refinance planner',
+  'planning_tool_opened:buy_box':'Opened: Buy box','planning_tool_opened:private_finance':'Opened: Private finance',
+  'calculator_used:stamp_duty':'Calculator: Stamp duty','calculator_used:brrr_refinance':'Calculator: BRRR refinance',
+  'calculator_used:lender_affordability':'Calculator: Lender affordability','calculator_used:bridging_cost':'Calculator: Bridging cost',
+  'calculator_used:personal_vs_ltd':'Calculator: Personal vs Ltd'
+};
+
+function fmtWeek(iso){
+  const d=new Date(iso+'T00:00:00Z');
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
+}
+
+async function loadTracking(){
+  const weeks=document.getElementById('tr-weeks').value;
+  const setup=document.getElementById('tr-setup');
+  try{
+    const res=await fetch(API_BASE+'/api/admin/tracking?weeks='+encodeURIComponent(weeks),{headers:{'Authorization':'Bearer '+currentSession.access_token}});
+    const body=await res.json();
+    if(!res.ok)throw new Error(body.error||'Could not load tracking.');
+    setup.style.display='none';
+    trackingData=body;
+    renderEvents();
+    renderErrors();
+  }catch(e){
+    setup.style.display='block';
+    setup.textContent=e.message;
+    document.getElementById('tr-events-body').innerHTML='<tr><td class="hint">Nothing to show.</td></tr>';
+    document.getElementById('tr-errors-body').innerHTML='<tr><td colspan="5" class="hint">Nothing to show.</td></tr>';
+  }
+}
+
+function renderEvents(){
+  const d=trackingData;
+  document.getElementById('tr-events-head').innerHTML='<tr><th>Event</th>'+d.weeks.map(w=>'<th class="tr-week">w/c '+fmtWeek(w)+'</th>').join('')+'</tr>';
+  const body=document.getElementById('tr-events-body');
+  if(!d.events.length){
+    body.innerHTML='<tr><td colspan="'+(d.weeks.length+1)+'" class="hint">No feature use recorded in these weeks yet.</td></tr>';
+    return;
+  }
+  body.innerHTML=d.events.map(ev=>'<tr><td class="tr-event">'+crmEscapeHtml(EVENT_LABELS[ev.event]||ev.event)+'</td>'+
+    ev.weeks.map(c=>'<td class="tr-week">'+(c.uses?c.uses.toLocaleString()+'<span class="u">'+c.users+(c.users===1?' user':' users')+'</span>':'<span class="hint">0</span>')+'</td>').join('')+
+  '</tr>').join('')+
+  (d.events_capped?'<tr><td colspan="'+(d.weeks.length+1)+'" class="hint">Only the latest 50,000 events were counted. Pick fewer weeks for exact figures.</td></tr>':'');
+}
+
+function renderErrors(){
+  if(!trackingData)return;
+  const src=document.getElementById('tr-source').value;
+  const rows=trackingData.errors.filter(r=>!src||r.source===src);
+  const body=document.getElementById('tr-errors-body');
+  if(!rows.length){ body.innerHTML='<tr><td colspan="5" class="hint">No errors recorded.</td></tr>'; return; }
+  body.innerHTML=rows.map(r=>{
+    const where=[r.status?String(r.status):'',r.route||'',r.page?'on '+r.page:''].filter(Boolean).join(' ');
+    return '<tr>'+
+      '<td class="muted-cell tr-nowrap">'+crmFmtDateTime(r.created_at)+'</td>'+
+      '<td><span class="tr-src '+crmEscapeAttr(r.source)+'">'+(r.source==='server'?'Server':'Browser')+'</span></td>'+
+      '<td class="tr-nowrap">'+crmEscapeHtml(where||'Unknown')+'</td>'+
+      '<td class="tr-msg">'+crmEscapeHtml(r.message)+(r.stack?'<details><summary>Stack</summary><pre>'+crmEscapeHtml(r.stack)+'</pre></details>':'')+'</td>'+
+      '<td class="muted-cell tr-nowrap" title="'+crmEscapeAttr(r.user_id||'')+'">'+(r.user_id?crmEscapeHtml(r.user_id.slice(0,8)):'None')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+async function init(){
+  const auth=await requireSuperuser();
+  if(!auth)return;
+  sbClient=auth.client;
+  currentSession=auth.session;
+  document.getElementById('state-loading').style.display='none';
+  document.getElementById('app').style.display='block';
+  loadTracking();
+}
+init();
+</script>
+</body>
+</html>

@@ -15,9 +15,18 @@ var PlanningPage = (function () {
 
   var state = { client: null, session: null, profile: null };
 
+  // Feature use (track.js): which planning tool was opened.
+  var TOOL_EVENTS = {
+    '/portfolio-stress-test.html': 'planning_tool_opened:portfolio_stress_test',
+    '/refinance-planner.html': 'planning_tool_opened:refinance_planner',
+    '/buy-box.html': 'planning_tool_opened:buy_box',
+    '/private-finance.html': 'planning_tool_opened:private_finance'
+  };
+
   async function start() {
     var auth = await requireAuth();
     if (!auth) return null;
+    if (window.dnyTrack && TOOL_EVENTS[location.pathname]) dnyTrack(TOOL_EVENTS[location.pathname], { once: true });
     state.client = auth.client;
     state.session = auth.session;
 

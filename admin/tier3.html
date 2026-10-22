@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>PROPulsion Admin · Tier 3 Private Sourcing</title>
+<title>Admin: tier 3 private sourcing · PROPulsion</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
@@ -13,8 +13,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Propulsion">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
 <script src="/app-config.js"></script>
+<script src="/track.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,7 +34,7 @@
   <div id="admin-nav-root" data-active="tier3"></div>
   <script src="/admin/admin-nav.js"></script>
 
-  <p class="page-title">Tier 3 — Private Sourcing</p>
+  <p class="page-title">Tier 3: Private Sourcing</p>
 
   <!-- Deal Sourcing waitlist (from the coming-soon page at
        /deal-sourcing/apply). Read-only; superuser-gated server-side via
@@ -190,7 +191,7 @@ async function addReviewQuick(contactId){
     // (db/029, guaranteed regardless of API path) — this page doesn't show
     // tasks inline, so this toast is the only place that surfaces it here;
     // the task itself is visible on the contact's Full profile page.
-    alert('Review added. A follow-up task ("Follow up on '+address+' review", due in 2 days) was created automatically — see this contact\'s Full profile for it.');
+    alert('Review added. A follow-up task ("Follow up on '+address+' review", due in 2 days) was created automatically. See this contact\'s Full profile for it.');
   }catch(e){
     alert('Could not add review: '+e.message);
   }

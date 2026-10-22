@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>PROPulsion Admin · Tier 1 Software</title>
+<title>Admin: tier 1 software · PROPulsion</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
@@ -13,8 +13,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Propulsion">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
 <script src="/app-config.js"></script>
+<script src="/track.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,15 +34,15 @@
   <div id="admin-nav-root" data-active="tier1"></div>
   <script src="/admin/admin-nav.js"></script>
 
-  <p class="page-title">Tier 1 — Software</p>
+  <p class="page-title">Tier 1: Software</p>
 
   <div class="test-mode-banner" id="test-mode-banner" style="display:none">
-    ⚠ Stripe test mode — the subscription/revenue figures below reflect the connected Stripe <strong>test</strong> account, not real customer billing. This banner disappears automatically once a live Stripe key is configured.
+    ⚠ Stripe test mode: the subscription/revenue figures below reflect the connected Stripe <strong>test</strong> account, not real customer billing. This banner disappears automatically once a live Stripe key is configured.
   </div>
 
   <div class="crm-panel">
     <p class="subhead">Signed-up users</p>
-    <p class="hint" style="margin:-.4rem 0 1rem">Every real PROPulsion signup, read straight from the database — not a CRM contact list. This auto-updates as people sign up; there's no manual add here.</p>
+    <p class="hint" style="margin:-.4rem 0 1rem">Every real PROPulsion signup, read straight from the database, not a CRM contact list. This auto-updates as people sign up; there's no manual add here.</p>
 
     <div class="crm-table-wrap">
       <table class="crm-table">
@@ -100,7 +101,7 @@ function renderStripeCell(u){
     return '<span class="hint">Stripe error</span>';
   }
   const tone=STRIPE_STATUS_TONE[u.stripe_status]||'muted';
-  const label=STRIPE_STATUS_LABELS[u.stripe_status]||u.stripe_status||'—';
+  const label=STRIPE_STATUS_LABELS[u.stripe_status]||u.stripe_status||'None';
   const amount=fmtStripeAmount(u.stripe_amount,u.stripe_currency,u.stripe_interval);
   return '<span class="plan-pill '+tone+'">'+crmEscapeHtml(label)+'</span>'+(amount?' <span class="muted-cell" style="font-size:12px">'+crmEscapeHtml(amount)+'</span>':'');
 }

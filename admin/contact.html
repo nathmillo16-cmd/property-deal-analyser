@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>PROPulsion Admin · Contact</title>
+<title>Admin: contact · PROPulsion</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
@@ -13,8 +13,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Propulsion">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
 <script src="/app-config.js"></script>
+<script src="/track.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,14 +35,14 @@
   <script src="/admin/admin-nav.js"></script>
 
   <a class="back-link" id="section-back-link" href="/admin/index.html">← Back</a>
-  <p class="page-title"><span id="ct-name">—</span><span class="archived-tag" id="ct-archived-tag" style="display:none">Archived</span></p>
+  <p class="page-title"><span id="ct-name">Loading…</span><span class="archived-tag" id="ct-archived-tag" style="display:none">Archived</span></p>
 
   <!-- Pending state: a Tier 1 signed-up user with no CRM record yet. Shown
        instead of everything below until a note/task actually creates one
        (see createLinkedContactAndAddNote). -->
   <div class="crm-panel" id="pending-panel" style="display:none">
     <p class="subhead">No CRM record yet</p>
-    <p class="hint" style="margin:-.3rem 0 1rem">This is a real signed-up user with nothing logged about them yet. Add a note below to start one — nothing is created until you do.</p>
+    <p class="hint" style="margin:-.3rem 0 1rem">This is a real signed-up user with nothing logged about them yet. Add a note below to start one. Nothing is created until you do.</p>
     <div class="field"><label>Note</label><textarea id="pending-note"></textarea></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="mini-btn" onclick="addPendingNote()">Add note</button>
@@ -73,7 +74,7 @@
           <div class="field"><label>Phone</label><input type="text" id="ed-phone"/></div>
           <div class="field"><label>Tier</label>
             <select id="ed-tier">
-              <option value="">—</option>
+              <option value="">Not set</option>
               <option value="tier1_software">Tier 1 · Software</option>
               <option value="tier2_acquisition_partner">Tier 2 · Acquisition Partner</option>
               <option value="tier3_private_sourcing">Tier 3 · Private Sourcing</option>
@@ -96,7 +97,7 @@
           <div class="field"><label>Business name</label><input type="text" id="ed-business-name"/></div>
           <div class="field"><label>Business category</label>
             <select id="ed-business-category">
-              <option value="">—</option>
+              <option value="">Not set</option>
               <option value="mortgage_broker">Mortgage Broker</option>
               <option value="accountant">Accountant</option>
               <option value="solicitor">Solicitor</option>
@@ -107,7 +108,7 @@
           </div>
           <div class="field"><label>Partner tier</label>
             <select id="ed-partner-tier">
-              <option value="">—</option>
+              <option value="">Not set</option>
               <option value="1">1</option>
               <option value="2">2</option>
               <option value="3">3</option>
@@ -141,7 +142,7 @@
           <button class="mini-btn" onclick="quickAdd('email_sent','qa-email')">Log email</button>
         </div>
       </div>
-      <p class="voice-unsupported" id="voice-unsupported-hint" style="display:none">Voice capture needs Chrome's Web Speech API — not available in this browser. Type the note instead.</p>
+      <p class="voice-unsupported" id="voice-unsupported-hint" style="display:none">Voice capture needs Chrome's Web Speech API, which this browser doesn't have. Type the note instead.</p>
       <p class="save-msg" id="qa-msg"></p>
     </div>
 
@@ -178,7 +179,7 @@
 
     <div class="crm-panel" id="referrals-panel" style="display:none">
       <p class="subhead">Referrals</p>
-      <p class="hint">Sent <strong id="ref-sent-count">0</strong> · Received <strong id="ref-received-count">0</strong> — add or manage referrals from <a href="/admin/partners.html">the Partners page</a>.</p>
+      <p class="hint">Sent <strong id="ref-sent-count">0</strong> · Received <strong id="ref-received-count">0</strong>. Add or manage referrals from <a href="/admin/partners.html">the Partners page</a>.</p>
       <div id="referrals-list"></div>
     </div>
 
@@ -315,17 +316,17 @@ function ownerOptionsHtml(selectedId, includeUnassignedLabel){
 function renderCoreView(){
   const c=contact;
   const rows=[
-    ['Email', c.email||'—'],
-    ['Phone', c.phone||'—'],
+    ['Email', c.email||'Not set'],
+    ['Phone', c.phone||'Not set'],
     ['Category', CRM_CATEGORY_LABELS[c.contact_category]||c.contact_category],
-    ['Tier', c.tier?(CRM_TIER_LABELS[c.tier]||c.tier):'—'],
+    ['Tier', c.tier?(CRM_TIER_LABELS[c.tier]||c.tier):'Not set'],
     ['Stage', CRM_STAGE_LABELS[c.stage]||c.stage],
-    ['Source', c.source||'—'],
+    ['Source', c.source||'Not set'],
     ['Owner', ownerNameById(c.owner_id)||'Unassigned'],
-    ['Linked user id', c.linked_user_id||'—'],
-    ['Business name', c.business_name||'—'],
-    ['Business category', c.business_category?(CRM_BUSINESS_CATEGORY_LABELS[c.business_category]||c.business_category):'—'],
-    ['Partner tier', c.partner_tier||'—'],
+    ['Linked user id', c.linked_user_id||'Not set'],
+    ['Business name', c.business_name||'Not set'],
+    ['Business category', c.business_category?(CRM_BUSINESS_CATEGORY_LABELS[c.business_category]||c.business_category):'Not set'],
+    ['Partner tier', c.partner_tier||'Not set'],
     ['Created', crmFmtDate(c.created_at)],
     ['Last updated', crmFmtDate(c.updated_at)]
   ];
@@ -395,7 +396,7 @@ async function saveCore(){
 
 async function toggleArchive(){
   const archiving=!contact.is_archived;
-  if(!confirm(archiving?'Archive this contact? It stays in the database and can be restored later — nothing is deleted.':'Restore this contact from the archive?'))return;
+  if(!confirm(archiving?'Archive this contact? It stays in the database and can be restored later. Nothing is deleted.':'Restore this contact from the archive?'))return;
   try{
     contact=await apiSend('/api/admin/crm/contacts/'+contactId,'PUT',{is_archived:archiving});
     renderAll();
@@ -511,7 +512,7 @@ async function addDealReview(){
     // timeline) is what makes it show up in Open tasks without a full
     // page reload.
     renderTasks(full.tasks);
-    msg.textContent='Review added — a follow-up task was created automatically, due in 2 days.';
+    msg.textContent='Review added. A follow-up task was created automatically, due in 2 days.';
   }catch(e){
     msg.textContent=e.message;msg.className='save-msg error';
   }
@@ -535,9 +536,9 @@ function renderReferrals(referrals){
 // filter by tier/category server-side.
 function sectionForContact(c){
   if(c.contact_category==='referral_partner') return {href:'/admin/partners.html', label:'Partners'};
-  if(c.tier==='tier2_acquisition_partner') return {href:'/admin/tier2.html', label:'Tier 2 — Acquisition Partners'};
-  if(c.tier==='tier3_private_sourcing') return {href:'/admin/tier3.html', label:'Tier 3 — Private Sourcing'};
-  return {href:'/admin/index.html', label:'Tier 1 — Software'};
+  if(c.tier==='tier2_acquisition_partner') return {href:'/admin/tier2.html', label:'Tier 2: Acquisition Partners'};
+  if(c.tier==='tier3_private_sourcing') return {href:'/admin/tier3.html', label:'Tier 3: Private Sourcing'};
+  return {href:'/admin/index.html', label:'Tier 1: Software'};
 }
 
 function renderAll(){
@@ -595,7 +596,7 @@ async function init(){
     }else{
       document.getElementById('ct-name').textContent=prefillName||prefillEmail||'Signed-up user';
       document.getElementById('section-back-link').href='/admin/index.html';
-      document.getElementById('section-back-link').textContent='← Back to Tier 1 — Software';
+      document.getElementById('section-back-link').textContent='← Back to Tier 1: Software';
       document.getElementById('pending-panel').style.display='block';
     }
 

@@ -3,7 +3,20 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>PROPulsion · Log in / Sign up</title>
+<title>Log in or sign up · PROPulsion</title>
+<meta name="description" content="Log in to PROPulsion or create a free account to analyse, save and track UK property deals.">
+<!-- Share previews. __SITE_ORIGIN__ is filled in by server.js with the site's own address when the page is served. -->
+<link rel="canonical" href="__SITE_ORIGIN__/login.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PROPulsion">
+<meta property="og:title" content="Log in or sign up · PROPulsion">
+<meta property="og:description" content="Log in to PROPulsion or create a free account to analyse, save and track UK property deals.">
+<meta property="og:url" content="__SITE_ORIGIN__/login.html">
+<meta property="og:image" content="__SITE_ORIGIN__/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PROPulsion: analyse, value and track UK property deals">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
@@ -13,8 +26,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Propulsion">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
 <script src="/app-config.js"></script>
+<script src="/track.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -129,6 +143,11 @@ body.theme-light .msg.info{background:var(--warn-bg);color:var(--warn-ink)}
 .link-muted{color:var(--muted)}
 .legal-note{font-size:12px;line-height:1.5;color:var(--muted);text-align:center;margin:.85rem 0 0;font-family:var(--font-body)}
 .legal-note a{color:var(--accent);text-decoration:none;font-weight:600}
+/* Phones: the small text links get a 44px tap area without looking bigger. */
+@media(max-width:760px){
+  .link-row .link{min-height:44px;display:inline-flex;align-items:center;padding:0 .35rem;margin-top:.25rem}
+  .legal-note a{display:inline-flex;align-items:center;min-height:44px;vertical-align:middle;margin:-12px 0}
+}
 .legal-note a:hover{text-decoration:underline}
 </style>
 </head>
@@ -147,8 +166,8 @@ body.theme-light .msg.info{background:var(--warn-bg);color:var(--warn-ink)}
 
     <div class="panel active" id="panel-login">
       <form id="form-login">
-        <div class="f"><label>Email</label><input type="email" id="login-email" required autocomplete="email"/></div>
-        <div class="f"><label>Password</label><input type="password" id="login-password" required autocomplete="current-password"/></div>
+        <div class="f"><label for="login-email">Email</label><input type="email" id="login-email" required autocomplete="email"/></div>
+        <div class="f"><label for="login-password">Password</label><input type="password" id="login-password" required autocomplete="current-password"/></div>
         <button type="submit" class="submit-btn" id="btn-login">Log in</button>
       </form>
       <div class="msg" id="msg-login"></div>
@@ -161,9 +180,9 @@ body.theme-light .msg.info{background:var(--warn-bg);color:var(--warn-ink)}
 
     <div class="panel" id="panel-signup">
       <form id="form-signup">
-        <div class="f"><label>First name (optional)</label><input type="text" id="signup-first-name" autocomplete="given-name" maxlength="60"/></div>
-        <div class="f"><label>Email</label><input type="email" id="signup-email" required autocomplete="email"/></div>
-        <div class="f"><label>Password</label><input type="password" id="signup-password" required minlength="6" autocomplete="new-password"/></div>
+        <div class="f"><label for="signup-first-name">First name (optional)</label><input type="text" id="signup-first-name" autocomplete="given-name" maxlength="60"/></div>
+        <div class="f"><label for="signup-email">Email</label><input type="email" id="signup-email" required autocomplete="email"/></div>
+        <div class="f"><label for="signup-password">Password</label><input type="password" id="signup-password" required minlength="6" autocomplete="new-password"/></div>
         <button type="submit" class="submit-btn" id="btn-signup">Sign up</button>
       </form>
       <!-- TODO: add "our <a href="/terms.html">Terms</a> and" once terms.html exists. -->
@@ -176,7 +195,7 @@ body.theme-light .msg.info{background:var(--warn-bg);color:var(--warn-ink)}
 
     <div class="panel" id="panel-forgot">
       <form id="form-forgot">
-        <div class="f"><label>Email</label><input type="email" id="forgot-email" required autocomplete="email"/></div>
+        <div class="f"><label for="forgot-email">Email</label><input type="email" id="forgot-email" required autocomplete="email"/></div>
         <button type="submit" class="submit-btn" id="btn-forgot">Send reset email</button>
       </form>
       <div class="msg" id="msg-forgot"></div>
@@ -187,7 +206,7 @@ body.theme-light .msg.info{background:var(--warn-bg);color:var(--warn-ink)}
       <p style="font-size:14px;font-weight:600;margin:0 0 .35rem">Two-step sign in</p>
       <p style="font-size:13px;color:var(--muted);margin:0 0 1rem;line-height:1.5">Enter the 6-digit code from your authenticator app.</p>
       <form id="form-mfa">
-        <div class="f"><label>Code</label><input type="text" id="mfa-code" required inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" style="letter-spacing:.3em;font-size:18px"/></div>
+        <div class="f"><label for="mfa-code">Code</label><input type="text" id="mfa-code" required inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" style="letter-spacing:.3em;font-size:18px"/></div>
         <button type="submit" class="submit-btn" id="btn-mfa">Verify</button>
       </form>
       <div class="msg" id="msg-mfa"></div>
@@ -196,8 +215,8 @@ body.theme-light .msg.info{background:var(--warn-bg);color:var(--warn-ink)}
 
     <div class="panel" id="panel-reset">
       <form id="form-reset">
-        <div class="f"><label>New password</label><input type="password" id="reset-password" required minlength="6" autocomplete="new-password"/></div>
-        <div class="f"><label>Confirm new password</label><input type="password" id="reset-password-confirm" required minlength="6" autocomplete="new-password"/></div>
+        <div class="f"><label for="reset-password">New password</label><input type="password" id="reset-password" required minlength="6" autocomplete="new-password"/></div>
+        <div class="f"><label for="reset-password-confirm">Confirm new password</label><input type="password" id="reset-password-confirm" required minlength="6" autocomplete="new-password"/></div>
         <button type="submit" class="submit-btn" id="btn-reset">Set new password</button>
       </form>
       <div class="msg" id="msg-reset"></div>

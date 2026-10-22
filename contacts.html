@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>PROPulsion · Address book</title>
+<title>Address book · PROPulsion</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
@@ -13,8 +13,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Propulsion">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
 <script src="/app-config.js"></script>
+<script src="/track.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -134,11 +135,11 @@ body.theme-light .saved-chevron{color:var(--accent)}
     <div class="split-panel">
       <div class="card add-contact-card">
         <h2>Add contact</h2>
-        <div class="field"><label>Name</label><input type="text" id="ct-name"/></div>
-        <div class="field"><label>Company</label><input type="text" id="ct-company"/></div>
-        <div class="field"><label>Phone</label><input type="text" id="ct-phone"/></div>
-        <div class="field"><label>Email</label><input type="text" id="ct-email"/></div>
-        <div class="field"><label>Notes</label><textarea id="ct-notes" rows="2"></textarea></div>
+        <div class="field"><label for="ct-name">Name</label><input type="text" id="ct-name"/></div>
+        <div class="field"><label for="ct-company">Company</label><input type="text" id="ct-company"/></div>
+        <div class="field"><label for="ct-phone">Phone</label><input type="text" id="ct-phone"/></div>
+        <div class="field"><label for="ct-email">Email</label><input type="text" id="ct-email"/></div>
+        <div class="field"><label for="ct-notes">Notes</label><textarea id="ct-notes" rows="2"></textarea></div>
         <button class="btn-primary" onclick="addContact()" id="btn-add-contact">Add contact</button>
         <p class="save-msg" id="ct-msg"></p>
       </div>
@@ -157,11 +158,11 @@ body.theme-light .saved-chevron{color:var(--accent)}
       <button class="modal-close" onclick="closeContactDetail()" aria-label="Close">×</button>
     </div>
 
-    <div class="field"><label>Name</label><input type="text" id="ctm-name"/></div>
-    <div class="field"><label>Company</label><input type="text" id="ctm-company"/></div>
-    <div class="field"><label>Phone</label><input type="text" id="ctm-phone"/></div>
-    <div class="field"><label>Email</label><input type="text" id="ctm-email"/></div>
-    <div class="field"><label>Notes</label><textarea id="ctm-notes" rows="2"></textarea></div>
+    <div class="field"><label for="ctm-name">Name</label><input type="text" id="ctm-name"/></div>
+    <div class="field"><label for="ctm-company">Company</label><input type="text" id="ctm-company"/></div>
+    <div class="field"><label for="ctm-phone">Phone</label><input type="text" id="ctm-phone"/></div>
+    <div class="field"><label for="ctm-email">Email</label><input type="text" id="ctm-email"/></div>
+    <div class="field"><label for="ctm-notes">Notes</label><textarea id="ctm-notes" rows="2"></textarea></div>
     <p class="save-msg" id="ct-modal-msg"></p>
 
     <div class="modal-section">

@@ -35,7 +35,7 @@ var ToolShell = (function () {
     document.write('<script src="/nav.js"><\/script><script src="/crm-nav.js"><\/script>');
   } else if (root) {
     root.innerHTML =
-      '<div class="topbar tool-public-bar">' +
+      '<div class="topbar tool-public-bar public-topbar">' +
         '<a class="wordmark" href="/"><img src="/assets/propulsion-logo.png" alt="PROPulsion" class="wordmark-logo"></a>' +
         '<div class="auth-bar">' +
           '<a href="/login.html">Log in</a>' +
@@ -117,8 +117,24 @@ var ToolShell = (function () {
 
   // Wires every input in the form: money fields get commas, and any change
   // re-runs the page's calculation.
+  // Feature use (track.js): a calculator counts as used once someone
+  // changes one of its inputs, at most once per visit.
+  var CALC_EVENTS = {
+    '/stamp-duty-calculator.html': 'calculator_used:stamp_duty',
+    '/brrr-refinance-calculator.html': 'calculator_used:brrr_refinance',
+    '/lender-affordability-calculator.html': 'calculator_used:lender_affordability',
+    '/bridging-cost-calculator.html': 'calculator_used:bridging_cost',
+    '/personal-vs-ltd-calculator.html': 'calculator_used:personal_vs_ltd'
+  };
+  function noteUsed() {
+    var ev = CALC_EVENTS[location.pathname];
+    if (ev && window.dnyTrack) window.dnyTrack(ev, { once: true });
+  }
+
   function bind(onChange) {
     document.querySelectorAll('.tool-inputs input, .tool-inputs select').forEach(function (el) {
+      el.addEventListener('input', noteUsed);
+      el.addEventListener('change', noteUsed);
       if (el.dataset.money !== undefined) {
         formatMoney(el);
         el.addEventListener('input', function () { formatMoney(el); onChange(); });

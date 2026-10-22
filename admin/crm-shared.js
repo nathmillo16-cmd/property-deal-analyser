@@ -35,12 +35,12 @@ function crmEscapeAttr(s) {
 }
 
 function crmFmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'None';
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function crmFmtDateTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'None';
   const d = new Date(iso);
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' +
     d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -61,8 +61,8 @@ function crmFormatActivity(row) {
     case 'call_logged': return 'Call logged: "' + crmEscapeHtml(d.text || '') + '"';
     case 'email_sent': return 'Email logged: "' + crmEscapeHtml(d.text || '') + '"';
     case 'stage_changed':
-      return 'Stage changed: ' + crmEscapeHtml(CRM_STAGE_LABELS[d.old_stage] || d.old_stage || '—') +
-        ' → ' + crmEscapeHtml(CRM_STAGE_LABELS[d.new_stage] || d.new_stage || '—');
+      return 'Stage changed: ' + crmEscapeHtml(CRM_STAGE_LABELS[d.old_stage] || d.old_stage || 'none') +
+        ' → ' + crmEscapeHtml(CRM_STAGE_LABELS[d.new_stage] || d.new_stage || 'none');
     case 'deal_reviewed':
       return 'Deal reviewed: ' + crmEscapeHtml(d.property_address || '') + ' (' + crmEscapeHtml(d.outcome || '') + ')';
     case 'task_completed': return 'Task completed: "' + crmEscapeHtml(d.title || '') + '"';

@@ -143,6 +143,17 @@ p{margin:0}
   color:var(--muted);text-decoration:none;cursor:pointer;
 }
 .auth-bar a:hover{color:var(--accent)}
+/* Public pages' headers (landing, pricing, support, privacy, the free
+   calculators, deal sourcing): on phones every link is at least 44px tall
+   and wide so it's easy to tap. The logged-in nav is not affected. */
+@media(max-width:760px){
+  .public-topbar .nav-links{row-gap:0}
+  .public-topbar .nav-links a,
+  .public-topbar .auth-bar > a,
+  .public-topbar a.wordmark,
+  .ds-header.public-topbar > a{min-height:44px;min-width:44px;display:inline-flex;align-items:center;box-sizing:border-box}
+  .public-topbar .nav-links a{padding-top:4px}
+}
 
 /* ---------- user menu (nav.js) ----------
    Replaces the old bare "Log out" link — a small dropdown holding the

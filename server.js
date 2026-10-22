@@ -1,5 +1,6 @@
 require('dotenv').config();
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
@@ -40,6 +41,121 @@ app.use(createMfaGuard({
   verifyToken: supabaseTokenVerifier(supabaseAdmin),
   isGuardedPath: (p) => p.startsWith('/api/') || p === '/analyse',
 }));
+
+// ---------------------------------------------------------------------
+// In-house tracking (db/058). No third parties.
+//  - error_log: server errors (any 5xx response, an Express error, or a
+//    crash) and browser errors posted to POST /api/client-errors.
+//  - feature_events: user id + event name + time, for key actions. Some
+//    are logged here by the server when the action succeeds (deal saved,
+//    stage changed, refurb estimate saved); the rest come from the
+//    browser via POST /api/events (track.js).
+// Written with the service-role client, since logged-out visitors (the
+// public calculators) have no user to write as. Only superusers can read
+// either table (RLS in db/058), via GET /api/admin/tracking below.
+// Every write is best effort: a missing table, a Supabase hiccup or a full
+// rate limit never affects the request that triggered it.
+// No personal data beyond the user id: no email, no IP, no browser string,
+// and page addresses are stored as the path only (no query string).
+// ---------------------------------------------------------------------
+const TRACKING_EVENTS = new Set([
+  'analysis_run:btl', 'analysis_run:brrr', 'analysis_run:hmo', 'analysis_run:sa', 'analysis_run:flip',
+  'deal_saved', 'stage_changed', 'refurb_estimate_saved', 'letter_generated',
+  'planning_tool_opened:portfolio_stress_test', 'planning_tool_opened:refinance_planner',
+  'planning_tool_opened:buy_box', 'planning_tool_opened:private_finance',
+  'calculator_used:stamp_duty', 'calculator_used:brrr_refinance', 'calculator_used:lender_affordability',
+  'calculator_used:bridging_cost', 'calculator_used:personal_vs_ltd',
+]);
+
+// Server-wide backstop so a flood can't fill the tables, whatever the
+// per-visitor limits below decide: at most this many rows a minute each.
+const TRACKING_GLOBAL_PER_MIN = { error: 120, event: 600 };
+const trackingGlobalCount = { error: 0, event: 0 };
+setInterval(() => { trackingGlobalCount.error = 0; trackingGlobalCount.event = 0; }, 60 * 1000).unref();
+
+let trackingTablesMissingWarned = false;
+async function writeTrackingRow(kind, table, row) {
+  if (trackingGlobalCount[kind] >= TRACKING_GLOBAL_PER_MIN[kind]) return;
+  trackingGlobalCount[kind] += 1;
+  try {
+    const { error } = await supabaseAdmin.from(table).insert(row);
+    if (error) {
+      if (isMissingSchemaError(error)) {
+        if (!trackingTablesMissingWarned) { trackingTablesMissingWarned = true; console.warn('Tracking: run db/058 to create error_log and feature_events.'); }
+      } else {
+        console.warn('Tracking: ' + table + ' insert failed:', error.message);
+      }
+    }
+  } catch (e) {
+    console.warn('Tracking: ' + table + ' insert failed:', e.message);
+  }
+}
+
+const cut = (v, n) => (v == null ? null : String(v).slice(0, n));
+// Paths only, with ids swapped for :id so the same error groups together.
+function trackingPath(p) {
+  return cut(String(p || '').split(/[?#]/)[0]
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, ':id')
+    .replace(/\/\d+(?=\/|$)/g, '/:id'), 300);
+}
+// URLs inside a stack trace lose their query strings (they can carry ids
+// or tokens). Never the whole stack beyond 4,000 characters.
+function trackingStack(stack) {
+  return cut(String(stack || '').replace(/(https?:\/\/[^\s?#)]+)[?#][^\s)]*/g, '$1'), 4000) || null;
+}
+
+// Bearer token -> user id, checked with Supabase (so nobody can claim to be
+// someone else) and cached for 5 minutes. A missing or bad token is just
+// "no user", never an error.
+const trackingUserCache = new Map();
+async function trackingUserId(req) {
+  const token = getBearerToken(req);
+  if (!token) return null;
+  const hit = trackingUserCache.get(token);
+  if (hit && hit.until > Date.now()) return hit.id;
+  let id = null;
+  try {
+    const { data } = await supabaseAdmin.auth.getUser(token);
+    id = (data && data.user && data.user.id) || null;
+  } catch (e) { id = null; }
+  if (trackingUserCache.size > 2000) trackingUserCache.delete(trackingUserCache.keys().next().value);
+  trackingUserCache.set(token, { id, until: Date.now() + 5 * 60 * 1000 });
+  return id;
+}
+
+function logServerError(req, status, message, stack) {
+  const route = req ? (req.method + ' ' + trackingPath(req.originalUrl || req.url)) : null;
+  const write = (userId) => writeTrackingRow('error', 'error_log', {
+    source: 'server', user_id: userId, status: status || null,
+    route, page: null, message: cut(message || 'Server error', 1000), stack: trackingStack(stack),
+  });
+  if (!req) return write(null);
+  return trackingUserId(req).then(write, () => write(null));
+}
+
+// Logs a feature event for the user making this request. Fire and forget.
+function trackFeature(req, event) {
+  if (!TRACKING_EVENTS.has(event)) return;
+  trackingUserId(req)
+    .then((userId) => writeTrackingRow('event', 'feature_events', { user_id: userId, event }))
+    .catch(() => {});
+}
+
+// Any 5xx response is logged, with the error message the route sent.
+// Routes keep working exactly as before: this only watches.
+app.use((req, res, next) => {
+  const json = res.json.bind(res);
+  res.json = (body) => {
+    if (res.statusCode >= 500 && body && typeof body === 'object') res.locals.trackedErrorMessage = body.error || body.message;
+    return json(body);
+  };
+  res.on('finish', () => {
+    if (res.statusCode >= 500 && !res.locals.errorAlreadyLogged) {
+      logServerError(req, res.statusCode, res.locals.trackedErrorMessage || ('HTTP ' + res.statusCode), null);
+    }
+  });
+  next();
+});
 
 // Must be registered with express.raw(), and BEFORE app.use(express.json())
 // below, so Stripe's signature check gets the exact raw bytes it signed.
@@ -790,7 +906,7 @@ app.use(express.json());
 // precedence over static's default "index.html answers /" behavior. The
 // calculator remains reachable at its own explicit /index.html path.
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'landing.html'));
+  sendPublicPage(req, res, 'landing.html');
 });
 
 // Deal Sourcing sales page: a standalone, public, no-login marketing/
@@ -798,7 +914,84 @@ app.get('/', (req, res) => {
 // /deal-sourcing-apply.html (the actual file, still reachable there too via
 // express.static below, but this is the route that's actually linked to).
 app.get('/deal-sourcing/apply', (req, res) => {
-  res.sendFile(path.join(__dirname, 'deal-sourcing-apply.html'));
+  sendPublicPage(req, res, 'deal-sourcing-apply.html');
+});
+
+// ---------------------------------------------------------------------
+// Search engines and share previews. The site's own address is worked out
+// from the request (never hard-coded), so these follow the domain if it
+// changes. Public pages carry __SITE_ORIGIN__ in their canonical and
+// og:url/og:image tags, which sendPublicPage() fills in when serving.
+// ---------------------------------------------------------------------
+function siteOrigin(req) {
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+  const host = String(req.get('host') || '').replace(/[^a-zA-Z0-9.:-]/g, '');
+  return proto + '://' + host;
+}
+
+// Public pages with share tags, and the sitemap's list. Path -> file.
+const PUBLIC_SEO_PAGES = {
+  '/': 'landing.html',
+  '/pricing.html': 'pricing.html',
+  '/login.html': 'login.html',
+  '/deal-sourcing/apply': 'deal-sourcing-apply.html',
+  '/privacy.html': 'privacy.html',
+  '/support.html': 'support.html',
+  '/stamp-duty-calculator.html': 'stamp-duty-calculator.html',
+  '/brrr-refinance-calculator.html': 'brrr-refinance-calculator.html',
+  '/lender-affordability-calculator.html': 'lender-affordability-calculator.html',
+  '/bridging-cost-calculator.html': 'bridging-cost-calculator.html',
+  '/personal-vs-ltd-calculator.html': 'personal-vs-ltd-calculator.html',
+};
+const PUBLIC_SEO_FILES = new Set(Object.values(PUBLIC_SEO_PAGES));
+// Not listed in the sitemap: the login page isn't content worth ranking.
+const SITEMAP_EXCLUDE = new Set(['/login.html']);
+
+const publicPageCache = new Map();
+function sendPublicPage(req, res, file) {
+  let html = publicPageCache.get(file);
+  if (html === undefined) {
+    try { html = fs.readFileSync(path.join(__dirname, file), 'utf8'); } catch (e) { html = null; }
+    publicPageCache.set(file, html);
+  }
+  if (html == null) return res.status(404).end();
+  res.set('Cache-Control', 'no-cache');
+  res.type('html').send(req.method === 'HEAD' ? '' : html.split('__SITE_ORIGIN__').join(siteOrigin(req)));
+}
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send([
+    'User-agent: *',
+    'Allow: /',
+    // The logged-in app and admin area: nothing useful to index there.
+    'Disallow: /api/',
+    'Disallow: /admin/',
+    'Disallow: /home.html',
+    'Disallow: /index.html',
+    'Disallow: /saved-deals.html',
+    'Disallow: /pipeline.html',
+    'Disallow: /portfolio.html',
+    'Disallow: /property.html',
+    'Disallow: /refurb.html',
+    'Disallow: /letters.html',
+    'Disallow: /settings.html',
+    'Disallow: /billing.html',
+    'Disallow: /contacts.html',
+    'Disallow: /help.html',
+    '',
+    'Sitemap: ' + siteOrigin(req) + '/sitemap.xml',
+    '',
+  ].join('\n'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const origin = siteOrigin(req);
+  const urls = Object.entries(PUBLIC_SEO_PAGES)
+    .filter(([p]) => !SITEMAP_EXCLUDE.has(p))
+    // No <lastmod>: on Render every file's date is the deploy time, which
+    // would tell search engines every page changed on every deploy.
+    .map(([p]) => '  <url><loc>' + origin + p + '</loc></url>');
+  res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.join('\n') + '\n</urlset>\n');
 });
 
 // Static files: ONLY the frontend is public. This used to be
@@ -823,6 +1016,7 @@ app.use((req, res, next) => {
     return res.redirect(301, req.path + '/');
   }
   if (!PUBLIC_FILES.has(rel)) return next();
+  if (PUBLIC_SEO_FILES.has(rel)) return sendPublicPage(req, res, rel);
   req.url = '/' + rel.split('/').map(encodeURIComponent).join('/');
   serveFrontend(req, res, next);
 });
@@ -832,6 +1026,100 @@ app.get('/api/config', (req, res) => {
     supabaseUrl: process.env.SUPABASE_URL,
     supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY
   });
+});
+
+// Tracking endpoints (see "In-house tracking" near the top). Both always
+// answer 204, even when they drop something, so a page never shows an
+// error (or redirects to login) because of tracking. Per-visitor limits
+// are in memory, keyed by the same client IP rule as the waitlist limiter
+// (the IP itself is never stored).
+const trackingHits = { error: new Map(), event: new Map() };
+const TRACKING_LIMITS = { error: 20, event: 120 }; // per visitor per 5 minutes
+const TRACKING_WINDOW_MS = 5 * 60 * 1000;
+function trackingAllowed(kind, req) {
+  const ip = waitlistClientIp(req);
+  const key = isPrivateIp(ip) ? 'local' : ip;
+  const now = Date.now();
+  const recent = (trackingHits[kind].get(key) || []).filter((t) => now - t < TRACKING_WINDOW_MS);
+  if (recent.length >= TRACKING_LIMITS[kind]) return false;
+  recent.push(now);
+  trackingHits[kind].set(key, recent);
+  return true;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const kind of Object.keys(trackingHits)) {
+    for (const [k, hits] of trackingHits[kind]) {
+      if (!hits.some((t) => now - t < TRACKING_WINDOW_MS)) trackingHits[kind].delete(k);
+    }
+  }
+}, TRACKING_WINDOW_MS).unref();
+
+app.post('/api/client-errors', async (req, res) => {
+  res.status(204).end();
+  if (!trackingAllowed('error', req)) return;
+  const b = req.body || {};
+  const message = cut(b.message, 1000);
+  if (!message) return;
+  const where = b.source_file ? (trackingPath(b.source_file) + (b.line ? ':' + Number(b.line) : '')) : null;
+  const userId = await trackingUserId(req).catch(() => null);
+  writeTrackingRow('error', 'error_log', {
+    source: 'browser', user_id: userId, status: null,
+    route: cut(where, 300), page: trackingPath(b.page), message, stack: trackingStack(b.stack),
+  });
+});
+
+app.post('/api/events', async (req, res) => {
+  res.status(204).end();
+  const event = req.body && req.body.event;
+  if (!TRACKING_EVENTS.has(event) || !trackingAllowed('event', req)) return;
+  trackFeature(req, event);
+});
+
+// Admin > Tracking: recent errors, and feature use counted by week (weeks
+// start Monday, UTC). Read with the admin's own RLS-scoped client, so
+// db/058's superuser-only read policy is what actually allows it.
+app.get('/api/admin/tracking', async (req, res) => {
+  const supabase = await requireSuperuser(req, res);
+  if (!supabase) return;
+
+  const weeks = Math.min(Math.max(parseInt(req.query.weeks, 10) || 8, 1), 26);
+  const now = new Date();
+  const thisMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - ((now.getUTCDay() + 6) % 7)));
+  const since = new Date(thisMonday.getTime() - (weeks - 1) * 7 * 86400000);
+
+  const [errRes, evRes] = await Promise.all([
+    supabase.from('error_log').select('id, created_at, source, user_id, status, route, page, message, stack').order('created_at', { ascending: false }).limit(200),
+    supabase.from('feature_events').select('event, user_id, created_at').gte('created_at', since.toISOString()).order('created_at', { ascending: false }).limit(50000),
+  ]);
+  if ((errRes.error && isMissingSchemaError(errRes.error)) || (evRes.error && isMissingSchemaError(evRes.error))) {
+    return res.status(409).json({ needs_migration: true, error: 'Tracking is not set up yet. It needs a quick database update (db/058) first.' });
+  }
+  if (errRes.error) return res.status(400).json({ error: errRes.error.message });
+  if (evRes.error) return res.status(400).json({ error: evRes.error.message });
+
+  const weekStarts = [];
+  for (let i = 0; i < weeks; i++) weekStarts.push(new Date(since.getTime() + i * 7 * 86400000).toISOString().slice(0, 10));
+  const counts = {}; // event -> { weekStart: { uses, users:Set } }
+  for (const e of evRes.data || []) {
+    const t = new Date(e.created_at);
+    const idx = Math.floor((t.getTime() - since.getTime()) / (7 * 86400000));
+    if (idx < 0 || idx >= weeks) continue;
+    const wk = weekStarts[idx];
+    const byWeek = counts[e.event] || (counts[e.event] = {});
+    const cell = byWeek[wk] || (byWeek[wk] = { uses: 0, users: new Set() });
+    cell.uses += 1;
+    if (e.user_id) cell.users.add(e.user_id);
+  }
+  const events = Object.keys(counts).sort().map((event) => ({
+    event,
+    weeks: weekStarts.map((wk) => {
+      const c = counts[event][wk];
+      return { week: wk, uses: c ? c.uses : 0, users: c ? c.users.size : 0 };
+    }),
+  }));
+
+  res.json({ weeks: weekStarts, events, errors: errRes.data || [], events_capped: (evRes.data || []).length >= 50000 });
 });
 
 // Deal Sourcing waitlist. The service isn't taking applications yet, so the
@@ -1648,6 +1936,7 @@ app.post('/api/deals', async (req, res) => {
     .single();
 
   if (error) return res.status(400).json({ error: error.message });
+  trackFeature(req, 'deal_saved');
   res.json(data);
 });
 
@@ -2410,6 +2699,7 @@ app.post('/api/pipeline', async (req, res) => {
     .single();
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
+  trackFeature(req, 'stage_changed');
   res.json(data);
 });
 
@@ -2474,6 +2764,7 @@ app.post('/api/pipeline/:id/stage', async (req, res) => {
   }
 
   if (error || !data) return res.status(404).json({ error: 'Deal not found.' });
+  trackFeature(req, 'stage_changed');
   res.json(stage === 'lost' ? { ...data, reason_saved: reasonSaved } : data);
 });
 
@@ -4342,6 +4633,7 @@ app.post('/api/refurb-estimates', async (req, res) => {
     (row) => supabase.from('refurb_estimates').insert(row).select().single());
 
   if (error) return res.status(400).json({ error: error.message });
+  trackFeature(req, 'refurb_estimate_saved');
   res.json({ ...data, details_saved: detailsSaved });
 });
 
@@ -4379,6 +4671,7 @@ app.put('/api/refurb-estimates/:id', async (req, res) => {
     (row) => supabase.from('refurb_estimates').update(row).eq('id', req.params.id).select().single());
 
   if (error || !data) return res.status(404).json({ error: 'Estimate not found.' });
+  trackFeature(req, 'refurb_estimate_saved');
   res.json({ ...data, details_saved: detailsSaved });
 });
 
@@ -6911,6 +7204,41 @@ cron.schedule('0 8 * * 1', () => {
     .then(() => console.log('Weekly digest sent.'))
     .catch(e => console.error('Weekly digest failed:', e.message));
 }, { timezone: 'Europe/London' });
+
+// ---------------------------------------------------------------------
+// Catch-all 404, registered after every other route. API calls get JSON;
+// a page request gets the branded 404.html (with a real 404 status).
+// ---------------------------------------------------------------------
+app.use((req, res) => {
+  if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found.' });
+  if ((req.method === 'GET' || req.method === 'HEAD') && req.accepts('html')) {
+    return res.status(404).sendFile(path.join(__dirname, '404.html'));
+  }
+  res.status(404).type('text/plain').send('Not found');
+});
+
+// Errors thrown inside a route (rather than answered by it) end up here:
+// logged to error_log, then a plain JSON 500 instead of Express's default
+// HTML error page.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  res.locals.errorAlreadyLogged = true;
+  logServerError(req, 500, err && err.message, err && err.stack);
+  if (res.headersSent) return;
+  res.status(500).json({ error: 'Something went wrong. Please try again.' });
+});
+
+// A crash is logged before the process exits, exactly as it would have
+// without this (Render then restarts it). Waits at most 2 seconds for the
+// log write so a stuck database can't hold up the restart.
+function logCrashThenExit(kind, err) {
+  console.error(kind, err);
+  const done = () => process.exit(1);
+  setTimeout(done, 2000).unref();
+  Promise.resolve(logServerError(null, null, kind + ': ' + ((err && err.message) || String(err)), err && err.stack)).then(done, done);
+}
+process.on('uncaughtException', (err) => logCrashThenExit('Uncaught exception', err));
+process.on('unhandledRejection', (err) => logCrashThenExit('Unhandled promise rejection', err));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => console.log(`Running on port ${PORT}`));

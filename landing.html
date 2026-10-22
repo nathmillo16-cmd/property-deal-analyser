@@ -3,7 +3,20 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>PROPulsion · Analyse, value and track property deals</title>
+<title>Analyse, value and track property deals · PROPulsion</title>
+<meta name="description" content="Analyse UK property deals in seconds. Max bid, yields, ROI and cashflow for BTL, HMO, BRRR, serviced accommodation and flips, then track each deal through your pipeline.">
+<!-- Share previews. __SITE_ORIGIN__ is filled in by server.js with the site's own address when the page is served. -->
+<link rel="canonical" href="__SITE_ORIGIN__/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PROPulsion">
+<meta property="og:title" content="PROPulsion: analyse, value and track UK property deals">
+<meta property="og:description" content="Analyse UK property deals in seconds. Max bid, yields, ROI and cashflow for BTL, HMO, BRRR, serviced accommodation and flips, then track each deal through your pipeline.">
+<meta property="og:url" content="__SITE_ORIGIN__/">
+<meta property="og:image" content="__SITE_ORIGIN__/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PROPulsion: analyse, value and track UK property deals">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
@@ -13,8 +26,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Propulsion">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
 <script src="/app-config.js"></script>
+<script src="/track.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -427,7 +441,7 @@ details.breakdown>summary{margin-bottom:.5rem}
 <body class="theme-light">
 
 <div class="shell">
-  <div class="topbar">
+  <div class="topbar public-topbar">
     <a class="wordmark" href="/"><img src="/assets/propulsion-logo.png" alt="PROPulsion" class="wordmark-logo"></a>
     <div class="nav-links">
       <a href="#how-it-works">How it works</a>
@@ -577,29 +591,29 @@ details.breakdown>summary{margin-bottom:.5rem}
         <div class="input-zone">
           <p class="subhead">Property details</p>
           <div class="field-grid">
-            <div class="field"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="b-pp" value="140000" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>End market value (£)</label><input type="text" inputmode="decimal" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Monthly rent (£)</label><input type="text" inputmode="decimal" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
-            <div class="field btl-only"><label>Deposit % (of purchase price)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
-            <div class="field brrr-only"><label>Refinance LTV % (of end value)</label><input type="number" id="bb-refi-ltv" value="75" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-pp">Purchase price (£)</label><input type="text" inputmode="decimal" id="b-pp" value="140000" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-emv">End market value (£)</label><input type="text" inputmode="decimal" id="b-emv" value="200000" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-rent">Monthly rent (£)</label><input type="text" inputmode="decimal" id="b-rent" value="850" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-ref">Refurb (£)</label><input type="text" inputmode="decimal" id="b-ref" value="10000" oninput="markStaleBTL()"/></div>
+            <div class="field btl-only"><label for="b-dp">Deposit % (of purchase price)</label><input type="number" id="b-dp" value="25" oninput="markStaleBTL()"/></div>
+            <div class="field brrr-only"><label for="bb-refi-ltv">Refinance LTV % (of end value)</label><input type="number" id="bb-refi-ltv" value="75" oninput="markStaleBTL()"/></div>
           </div>
           <p class="calc-hint brrr-only">Buy with cash, refurbish, then refinance at the LTV above (interest-only, at the mortgage rate under Advanced).</p>
           <details class="adv">
             <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
           <div class="field-grid">
-            <div class="field"><label>Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="b-mf" value="300" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Searches (£)</label><input type="text" inputmode="decimal" id="b-srch" value="0" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Insurance /mo (£)</label><input type="text" inputmode="decimal" id="b-ins" value="50" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="markStaleBTL()"/></div>
-            <div class="field"><label>Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-mr">Mortgage rate %</label><input type="number" id="b-mr" value="4" step="0.1" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-sol">Solicitor fees (£)</label><input type="text" inputmode="decimal" id="b-sol" value="1800" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-mf">Mortgage fees (£)</label><input type="text" inputmode="decimal" id="b-mf" value="300" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-srch">Searches (£)</label><input type="text" inputmode="decimal" id="b-srch" value="0" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-ins">Insurance /mo (£)</label><input type="text" inputmode="decimal" id="b-ins" value="50" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-mgmt">Management % of rent</label><input type="number" id="b-mgmt" value="0" step="0.5" oninput="markStaleBTL()"/></div>
+            <div class="field"><label for="b-maint">Maintenance % of rent</label><input type="number" id="b-maint" value="10" oninput="markStaleBTL()"/></div>
           </div>
           <p class="calc-hint">Stamp duty automatically calculated with BTL surcharge. Deposit uses purchase price. Gross yield is on purchase price; net yield uses end market value.</p>
           <p class="subhead" style="margin-top:1.5rem">Targets</p>
-          <div class="target-row"><label>Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
-          <div class="target-row"><label>Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
+          <div class="target-row"><label for="b-ty">Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
+          <div class="target-row"><label for="b-tr">Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
           </details>
           <button class="btn-primary run-btn" onclick="runBTL()" id="btn-run-btl">Analyse deal</button>
 
@@ -702,10 +716,10 @@ details.breakdown>summary{margin-bottom:.5rem}
         <div class="input-zone">
           <p class="subhead">Property details</p>
           <div class="field-grid">
-            <div class="field"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>End market value (£)</label><input type="text" inputmode="decimal" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Refurb (£)</label><input type="text" inputmode="decimal" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-pp">Purchase price (£)</label><input type="text" inputmode="decimal" id="h-pp" value="140000" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-emv">End market value (£)</label><input type="text" inputmode="decimal" id="h-emv" value="200000" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-ref">Refurb (£)</label><input type="text" inputmode="decimal" id="h-ref" value="10000" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-dp">Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
           </div>
           <p class="subhead" style="margin-top:1.5rem">Room breakdown</p>
           <div class="room-grid"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
@@ -717,21 +731,21 @@ details.breakdown>summary{margin-bottom:.5rem}
           <details class="adv">
             <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
           <div class="field-grid">
-            <div class="field"><label>Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="h-mf" value="300" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Licensing fee (£)</label><input type="text" inputmode="decimal" id="h-lic" value="650" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Searches (£)</label><input type="text" inputmode="decimal" id="h-srch" value="0" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Insurance /mo (£)</label><input type="text" inputmode="decimal" id="h-ins" value="30" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>WiFi /mo (£)</label><input type="text" inputmode="decimal" id="h-wifi" value="50" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Council tax annual (£)</label><input type="text" inputmode="decimal" id="h-ct" value="2265" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="markStaleHMO()"/></div>
-            <div class="field"><label>Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-mr">Mortgage rate %</label><input type="number" id="h-mr" value="5" step="0.1" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-sol">Solicitor fees (£)</label><input type="text" inputmode="decimal" id="h-sol" value="1800" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-mf">Mortgage fees (£)</label><input type="text" inputmode="decimal" id="h-mf" value="300" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-lic">Licensing fee (£)</label><input type="text" inputmode="decimal" id="h-lic" value="650" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-srch">Searches (£)</label><input type="text" inputmode="decimal" id="h-srch" value="0" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-ins">Insurance /mo (£)</label><input type="text" inputmode="decimal" id="h-ins" value="30" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-wifi">WiFi /mo (£)</label><input type="text" inputmode="decimal" id="h-wifi" value="50" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-ct">Council tax annual (£)</label><input type="text" inputmode="decimal" id="h-ct" value="2265" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-maint">Maintenance % of rent</label><input type="number" id="h-maint" value="0" oninput="markStaleHMO()"/></div>
+            <div class="field"><label for="h-mgmt">Management % of rent</label><input type="number" id="h-mgmt" value="0" step="0.5" oninput="markStaleHMO()"/></div>
           </div>
           <p class="calc-hint">Bills automatically calculated as 10% of total rent. Stamp duty automatically calculated. Council tax entered annually.</p>
           <p class="subhead">Targets</p>
-          <div class="target-row"><label>Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
-          <div class="target-row"><label>Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
+          <div class="target-row"><label for="h-ty">Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
+          <div class="target-row"><label for="h-troi">Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
           </details>
           <button class="btn-primary run-btn" onclick="runHMO()" id="btn-run-hmo">Analyse deal</button>
 
@@ -806,37 +820,37 @@ details.breakdown>summary{margin-bottom:.5rem}
         <div class="input-zone">
           <p class="subhead">Property details</p>
           <div class="field-grid">
-            <div class="field"><label>Nightly rate (£)</label><input type="text" inputmode="decimal" id="sa-rate" value="150" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
-            <div class="field"><label>End market value (£)</label><input type="text" inputmode="decimal" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Deposit % (of purchase price)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-rate">Nightly rate (£)</label><input type="text" inputmode="decimal" id="sa-rate" value="150" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-occ">Occupancy %</label><input type="number" id="sa-occ" value="65" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-pp">Purchase price (£)</label><input type="text" inputmode="decimal" id="sa-pp" value="200000" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-emv">End market value (£)</label><input type="text" inputmode="decimal" id="sa-emv" value="240000" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-ref">Refurbishment (£)</label><input type="text" inputmode="decimal" id="sa-ref" value="15000" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-dp">Deposit % (of purchase price)</label><input type="number" id="sa-dp" value="25" oninput="markStaleSA()"/></div>
           </div>
           <details class="adv">
             <summary>Advanced <span>fees, mortgage, running costs and targets</span></summary>
           <p class="subhead">Mortgage and upfront costs</p>
           <div class="field-grid">
-            <div class="field"><label>Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Solicitor fees (£)</label><input type="text" inputmode="decimal" id="sa-sol" value="1800" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Mortgage fees (£)</label><input type="text" inputmode="decimal" id="sa-mf" value="300" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Searches (£)</label><input type="text" inputmode="decimal" id="sa-srch" value="0" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Furnishings (£)</label><input type="text" inputmode="decimal" id="sa-furn" value="8000" oninput="markStaleSA()"/></div>
-            <div class="field"><label>White goods (£)</label><input type="text" inputmode="decimal" id="sa-wg" value="2000" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-mr">Mortgage rate %</label><input type="number" id="sa-mr" value="5" step="0.1" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-sol">Solicitor fees (£)</label><input type="text" inputmode="decimal" id="sa-sol" value="1800" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-mf">Mortgage fees (£)</label><input type="text" inputmode="decimal" id="sa-mf" value="300" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-srch">Searches (£)</label><input type="text" inputmode="decimal" id="sa-srch" value="0" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-furn">Furnishings (£)</label><input type="text" inputmode="decimal" id="sa-furn" value="8000" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-wg">White goods (£)</label><input type="text" inputmode="decimal" id="sa-wg" value="2000" oninput="markStaleSA()"/></div>
           </div>
           <p class="subhead" style="margin-top:1.5rem">Running costs</p>
           <div class="field-grid">
-            <div class="field"><label>Management % of revenue</label><input type="number" id="sa-mgmt" value="10" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Utilities % of revenue</label><input type="number" id="sa-util" value="10" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Maintenance % of revenue</label><input type="number" id="sa-maint" value="10" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Cleaning /mo (£)</label><input type="text" inputmode="decimal" id="sa-clean" value="400" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Insurance /mo (£)</label><input type="text" inputmode="decimal" id="sa-ins" value="40" oninput="markStaleSA()"/></div>
-            <div class="field"><label>Council tax annual (£)</label><input type="text" inputmode="decimal" id="sa-ct" value="2265" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-mgmt">Management % of revenue</label><input type="number" id="sa-mgmt" value="10" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-util">Utilities % of revenue</label><input type="number" id="sa-util" value="10" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-maint">Maintenance % of revenue</label><input type="number" id="sa-maint" value="10" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-clean">Cleaning /mo (£)</label><input type="text" inputmode="decimal" id="sa-clean" value="400" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-ins">Insurance /mo (£)</label><input type="text" inputmode="decimal" id="sa-ins" value="40" oninput="markStaleSA()"/></div>
+            <div class="field"><label for="sa-ct">Council tax annual (£)</label><input type="text" inputmode="decimal" id="sa-ct" value="2265" oninput="markStaleSA()"/></div>
           </div>
           <p class="calc-hint">Revenue = nightly rate × occupancy % × 365. Stamp duty automatically calculated with BTL surcharge. Deposit uses purchase price. Gross yield is on purchase price; net yield uses end market value.</p>
           <p class="subhead" style="margin-top:1.5rem">Targets</p>
-          <div class="target-row"><label>Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
-          <div class="target-row"><label>Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
+          <div class="target-row"><label for="sa-ty">Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
+          <div class="target-row"><label for="sa-troi">Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
           </details>
           <button class="btn-primary run-btn" onclick="runSA()" id="btn-run-sa">Analyse deal</button>
 
@@ -909,20 +923,20 @@ details.breakdown>summary{margin-bottom:.5rem}
         <div class="input-zone">
           <p class="subhead">Property details</p>
           <div class="field-grid">
-            <div class="field"><label>Purchase price (£)</label><input type="text" inputmode="decimal" id="fl-pp" value="150000" oninput="markStaleFlip()"/></div>
-            <div class="field"><label>Sale value (£)</label><input type="text" inputmode="decimal" id="fl-sv" value="220000" oninput="markStaleFlip()"/></div>
-            <div class="field"><label>Refurbishment (£)</label><input type="text" inputmode="decimal" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
+            <div class="field"><label for="fl-pp">Purchase price (£)</label><input type="text" inputmode="decimal" id="fl-pp" value="150000" oninput="markStaleFlip()"/></div>
+            <div class="field"><label for="fl-sv">Sale value (£)</label><input type="text" inputmode="decimal" id="fl-sv" value="220000" oninput="markStaleFlip()"/></div>
+            <div class="field"><label for="fl-ref">Refurbishment (£)</label><input type="text" inputmode="decimal" id="fl-ref" value="25000" oninput="markStaleFlip()"/></div>
           </div>
           <details class="adv">
             <summary>Advanced <span>fees, contingency and target</span></summary>
           <div class="field-grid">
-            <div class="field"><label>Buying fees (£)</label><input type="text" inputmode="decimal" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
-            <div class="field"><label>Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
-            <div class="field"><label>Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
+            <div class="field"><label for="fl-bf">Buying fees (£)</label><input type="text" inputmode="decimal" id="fl-bf" value="2000" oninput="markStaleFlip()"/></div>
+            <div class="field"><label for="fl-agent">Estate agent fee %</label><input type="number" id="fl-agent" value="2" step="0.1" oninput="markStaleFlip()"/></div>
+            <div class="field"><label for="fl-cont">Contingency % of refurb (optional)</label><input type="number" id="fl-cont" placeholder="0" oninput="markStaleFlip()"/></div>
           </div>
           <p class="calc-hint">Stamp duty automatically calculated with BTL surcharge on purchase price. Contingency is optional: leave blank to treat as £0. Cash only strategy, no mortgage version.</p>
           <p class="subhead" style="margin-top:1.5rem">Target</p>
-          <div class="target-row"><label>Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
+          <div class="target-row"><label for="fl-troi">Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
           </details>
           <button class="btn-primary run-btn" onclick="runFlip()" id="btn-run-flip">Analyse deal</button>
 

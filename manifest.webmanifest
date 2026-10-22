@@ -1,7 +1,7 @@
 {
   "id": "/",
   "name": "Propulsion Property",
-  "short_name": "Propulsion",
+  "short_name": "PROPulsion",
   "description": "Analyse UK property deals, track your pipeline and manage your portfolio.",
   "start_url": "/",
   "scope": "/",

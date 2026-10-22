@@ -9,7 +9,7 @@
 // regular logged-in pages at all.
 //
 // Usage: <div id="admin-nav-root" data-active="tier1"></div>
-//   data-active — one of: tier1, tier2, tier3, partners, support.
+//   data-active: one of tier1, tier2, tier3, partners, support, tracking.
 //
 // Auth/role gating is NOT this file's job — admin-guard.js's
 // requireSuperuser() already redirected a non-superuser away before this
@@ -17,11 +17,12 @@
 // the regular app.
 
 var ADMIN_NAV_LINKS = [
-  { key: 'tier1', href: '/admin/index.html', label: 'Tier 1 — Software' },
-  { key: 'tier2', href: '/admin/tier2.html', label: 'Tier 2 — Acquisition Partners' },
-  { key: 'tier3', href: '/admin/tier3.html', label: 'Tier 3 — Private Sourcing' },
+  { key: 'tier1', href: '/admin/index.html', label: 'Tier 1: Software' },
+  { key: 'tier2', href: '/admin/tier2.html', label: 'Tier 2: Acquisition Partners' },
+  { key: 'tier3', href: '/admin/tier3.html', label: 'Tier 3: Private Sourcing' },
   { key: 'partners', href: '/admin/partners.html', label: 'Partners' },
-  { key: 'support', href: '/admin/support.html', label: 'Support' }
+  { key: 'support', href: '/admin/support.html', label: 'Support' },
+  { key: 'tracking', href: '/admin/tracking.html', label: 'Tracking' }
 ];
 
 (function renderAdminNav(){
