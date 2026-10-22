@@ -1894,18 +1894,26 @@ function renderMoneyLeftIn(id,subId,v){
 // rather than a headline-sized figure. ROI max-bid searches start at
 // £10,000 (BTL/HMO/SA) or £1,000 (Flip); a result sitting on that floor
 // means no price tested hits the target.
+// BRRR max bid message: say plainly when the deal loses money after
+// refinancing (no price can fix that), otherwise suggest a lower target.
+function brrrBidReason(d){
+  const m=Math.round(d.bbNm!=null?d.bbNm:d.bbCFm);
+  if(m<0)return 'Not achievable. You would lose £'+Math.abs(m).toLocaleString()+' a month after refinancing.';
+  if(!(m>0))return 'Not achievable. No cashflow after refinancing.';
+  return 'Not achievable at this target. Try a lower target ROI.';
+}
 const OFFER_BOXES={
   btl:[{ov:'b-or',note:'b-orn',key:'oR',floor:10000,reason:'Not achievable at this rent. Try a higher rent, lower costs or a lower target ROI.'},
        {ov:'b-ror',note:'b-rorn',key:'rOR',floor:10000,reason:'Not achievable at this rent. Try a higher rent, lower costs or a lower target ROI.'},
-       {ov:'b-bbor',note:'b-bborn',key:'bbOR',floor:10000,reason:'Not achievable. Cashflow after refinance is too low for this target. Try a higher rent or refinance LTV, lower costs or a lower target ROI.'}],
+       {ov:'b-bbor',note:'b-bborn',key:'bbOR',floor:10000,reason:brrrBidReason}],
   hmo:[{ov:'h-oy',note:'h-oyn',key:'oY',reason:'Add at least one room with a rent to work this out.'},
        {ov:'h-or',note:'h-orn',key:'oR',floor:10000,reason:'Not achievable at these room rents. Try higher rents, lower costs or a lower target ROI.'},
        {ov:'h-ror',note:'h-rorn',key:'rOR',floor:10000,reason:'Not achievable at these room rents. Try higher rents, lower costs or a lower target ROI.'},
-       {ov:'h-bbor',note:'h-bborn',key:'bbOR',floor:10000,reason:'Not achievable. Cashflow after refinance is too low for this target. Try a higher rent or refinance LTV, lower costs or a lower target ROI.'}],
+       {ov:'h-bbor',note:'h-bborn',key:'bbOR',floor:10000,reason:brrrBidReason}],
   sa:[{ov:'sa-oy',note:'sa-oyn',key:'oY',reason:'Enter a nightly rate and occupancy to work this out.'},
       {ov:'sa-or',note:'sa-orn',key:'oR',floor:10000,reason:'Not achievable at this income. Try a higher nightly rate or occupancy, lower costs or a lower target ROI.'},
       {ov:'sa-ror',note:'sa-rorn',key:'rOR',floor:10000,reason:'Not achievable at this income. Try a higher nightly rate or occupancy, lower costs or a lower target ROI.'},
-      {ov:'sa-bbor',note:'sa-bborn',key:'bbOR',floor:10000,reason:'Not achievable. Cashflow after refinance is too low for this target. Try a higher nightly rate or refinance LTV, lower costs or a lower target ROI.'}],
+      {ov:'sa-bbor',note:'sa-bborn',key:'bbOR',floor:10000,reason:brrrBidReason}],
   flip:[{ov:'fl-or',note:'fl-orn',key:'oR',floor:1000,reason:'Not achievable at this sale value. Try a higher sale value, lower costs or a lower target ROI.'}]
 };
 const OFFER_CEILING_REASON='Over £1.9m. Your target is met at every price tested, so check the rent figure.';
@@ -1922,8 +1930,9 @@ function renderOfferBoxes(s){
     if(!ov)return;
     const v=d[b.key];
     let reason=null;
-    if(!(v>0))reason=b.reason;
-    else if(b.floor&&v<=b.floor+1)reason=b.reason;
+    const why=typeof b.reason==='function'?b.reason(d):b.reason;
+    if(!(v>0))reason=why;
+    else if(b.floor&&v<=b.floor+1)reason=why;
     else if((b.key==='oR'||b.key==='rOR'||b.key==='bbOR')&&s!=='flip'&&v>=1900000)reason=OFFER_CEILING_REASON;
     ov.classList.toggle('ov-msg',!!reason);
     if(reason){
