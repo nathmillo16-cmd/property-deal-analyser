@@ -408,8 +408,8 @@ details[open]>summary .chev{transform:rotate(-135deg)}
           </button>
           <button type="button" class="start-opt" onclick="startWith('rooms')">
             <span class="so-icon"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span>
-            <span class="so-title">Walk room by room</span>
-            <span class="so-hint">Best on your phone at a viewing. Tap Fine, Refresh or Replace for each room.</span>
+            <span class="so-title">Cost room by room</span>
+            <span class="so-hint">Tap Fine, Refresh or Replace for each room and the costs fill in. At a viewing? Use Start viewing on the deal instead.</span>
           </button>
           <button type="button" class="start-opt" onclick="startWith('lines')">
             <span class="so-icon"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
@@ -772,7 +772,7 @@ function startWith(kind, fromWork){
   wizardMode=kind; wizardFromWork=!!fromWork;
   const base=kind==='template'?(templateState||{}):(roomState.type?roomState:(templateState||{}));
   wiz={ type:base.type||null, beds:base.beds||null, scope:kind==='template'?(base.scope||null):null };
-  document.getElementById('wiz-title').textContent=kind==='template'?'Use a template':'Walk room by room';
+  document.getElementById('wiz-title').textContent=kind==='template'?'Use a template':'Cost room by room';
   renderWizard();
   showScreen('wizard');
 }

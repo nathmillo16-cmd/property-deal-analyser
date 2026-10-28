@@ -1,5 +1,5 @@
 // refurb-templates.js: the quantity rules behind "Start from a template"
-// and "Walk room by room" on the Refurbishment Estimator.
+// and "Cost room by room" on the Refurbishment Estimator.
 //
 // Edit freely. Nothing here is a price: these are QUANTITIES only (how
 // many rooms, roughly how many m² and so on). Rates always come from the

@@ -77,6 +77,8 @@ body.theme-light{background:var(--bg)}
 .vw-pill.good[aria-pressed="true"]{background:var(--success-bg);border-color:var(--success);color:var(--success-ink)}
 .vw-pill.concern[aria-pressed="true"]{background:var(--danger-bg);border-color:var(--danger);color:var(--danger-ink)}
 .vw-pills.wrap{flex-wrap:wrap}
+.vw-choice{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;justify-content:center}
+a.vw-pill{display:inline-flex;align-items:center;text-decoration:none;color:var(--accent);border-color:var(--accent)}
 .vw-pill.opt{min-width:44px}
 .vw-pill.opt[aria-pressed="true"]{background:var(--accent-soft,#ecebfa);border-color:var(--accent);color:var(--accent)}
 .vw-check-name.fixed,.vw-check > .vw-field{flex:none}
@@ -543,8 +545,16 @@ document.addEventListener('input',e=>{
 async function sendToRefurb(btn){
   const msg=$('vw-send-msg');const sd=summaryData();
   if(!navigator.onLine){msg.textContent='You need signal to create the estimate. Everything else is saved on your phone.';msg.className='vw-msg error';return;}
-  if(deal.refurb_estimate_id&&!confirm('This deal already has a refurb estimate linked. Link a new one from this viewing instead? The old estimate is kept.'))return;
-  btn.disabled=true;msg.textContent='Creating the estimate…';msg.className='vw-msg';
+  // Already linked: ask on the page, not with a pop-up (the phone app blocks pop-ups).
+  if(deal.refurb_estimate_id&&!btn.dataset.replace){
+    msg.className='vw-msg';
+    msg.innerHTML=`This deal already has a refurb estimate. Make a new one from this viewing and link that instead? The old one is kept.
+      <span class="vw-choice"><button type="button" class="vw-pill opt" data-act="send-refurb" data-replace="1">Make a new one</button>
+      <a class="vw-pill opt" href="/refurb.html?estimate=${encodeURIComponent(deal.refurb_estimate_id)}">Open the current one</a></span>`;
+    return;
+  }
+  const main=document.querySelector('.vw-primary[data-act="send-refurb"]');if(main)main.disabled=true;
+  msg.textContent='Creating the estimate…';msg.className='vw-msg';
   try{
     const res=await fetch(API_BASE+'/api/refurb-estimates',{method:'POST',headers:authHeaders(true),body:JSON.stringify({
       name:('Viewing: '+dealTitle()).slice(0,120),mode:'quick',line_items:sd.trades,contingency_enabled:false,contingency_pct:10,vat_rate:0})});
@@ -556,7 +566,7 @@ async function sendToRefurb(btn){
     deal.refurb_estimate_id=est.id;saveLocal();
     msg.textContent='Estimate created and linked to the deal. Opening the estimator…';msg.className='vw-msg success';
     location.href='/refurb.html?estimate='+encodeURIComponent(est.id);
-  }catch(e){msg.textContent=e.message;msg.className='vw-msg error';btn.disabled=false;}
+  }catch(e){msg.textContent=e.message;msg.className='vw-msg error';if(main)main.disabled=false;}
 }
 
 // ---------- start ----------
