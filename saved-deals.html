@@ -2672,8 +2672,8 @@ async function updateOfferOutcomeFromActivity(offerId, outcome, counterAmount){
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
       body:JSON.stringify(body)
     });
-    const body=await res.json();
-    if(!res.ok)throw new Error(body.error||'Could not update offer.');
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Could not update offer.');
     await loadActivity(workspaceDealId);
   }catch(e){
     alert('Could not update offer: '+e.message);
