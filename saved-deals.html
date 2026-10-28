@@ -684,7 +684,7 @@ body.theme-light .dd-trigger::after{
       <button class="mini-btn danger" onclick="deleteFromWorkspace()">Delete</button>
       <button class="mini-btn" onclick="moveToPortfolioFromWorkspace()">Move to portfolio</button>
       <button class="mini-btn" onclick="renameFromWorkspace()">Rename</button>
-      <button class="mini-btn" onclick="downloadPropertyPack()">Download pack</button>
+      <button class="mini-btn" id="ws-pack-btn" onclick="downloadPropertyPack()">Download pack</button>
       <button class="mini-btn" onclick="openInCalculatorFromWorkspace()">Open in calculator</button>
     </div>
   </div>
@@ -1475,10 +1475,68 @@ function packCallout(doc, x, y, w, h, labelLines, value, tone){
   doc.text(value, x+12, valueY);
 }
 
+// ---------- photos for the pack ----------
+// The deal's photos (paid; a free user or any failure just means no photo
+// pages), grouped by viewing room in walk order: Whole property, then each
+// room, then anything untagged. Each image is shrunk in the browser to keep
+// the PDF a sensible size.
+const PACK_PHOTO_MAX_SIDE=1100, PACK_PHOTO_QUALITY=0.75;
+async function packPhotoDataUrl(url){
+  const res=await fetch(url);
+  if(!res.ok)throw new Error('photo '+res.status);
+  const blob=await res.blob();
+  const objUrl=URL.createObjectURL(blob);
+  try{
+    const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('bad photo'));i.src=objUrl;});
+    const scale=Math.min(1,PACK_PHOTO_MAX_SIDE/Math.max(img.naturalWidth,img.naturalHeight));
+    const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
+    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+    return {data:c.toDataURL('image/jpeg',PACK_PHOTO_QUALITY),w,h};
+  }finally{ URL.revokeObjectURL(objUrl); }
+}
+async function loadPackPhotoGroups(deal){
+  if(currentPlan!=='paid')return [];
+  let list;
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${deal.id}/photos`,{headers:authHeaders()});
+    if(!res.ok)return [];
+    list=await res.json();
+  }catch(e){ return []; }
+  if(!Array.isArray(list)||!list.length)return [];
+  const vc=deal.viewing_checklist;
+  const order=['property',...((vc&&vc.v===2&&vc.rooms)||[]).map(r=>r.id)];
+  const names=viewingRoomNames(vc);
+  const groups=new Map();
+  order.forEach(id=>groups.set(id,[]));
+  groups.set('',[]);
+  list.forEach(p=>{const k=p.room&&groups.has(p.room)?p.room:'';groups.get(k).push(p);});
+  const out=[];
+  for(const [id,photos] of groups){
+    if(!photos.length)continue;
+    const imgs=[];
+    for(const p of photos){ if(!p.url)continue; try{ imgs.push(await packPhotoDataUrl(p.url)); }catch(e){} }
+    if(imgs.length)out.push({name:id?names[id]:(out.length?'Other photos':'Photos'),imgs});
+  }
+  return out;
+}
+
 async function downloadPropertyPack(){
+  const btn=document.getElementById('ws-pack-btn');
+  if(btn&&btn.disabled)return;
+  if(btn){btn.disabled=true;btn.textContent='Building pack…';}
+  try{ await buildPropertyPack(); }
+  catch(e){ alertPackError(e); }
+  finally{ if(btn){btn.disabled=false;btn.textContent='Download pack';} }
+}
+function alertPackError(e){
+  const el=document.getElementById('ws-photo-msg');
+  if(el)setMsg('ws-photo-msg','Could not build the pack: '+(e&&e.message||'unknown error'),'error');
+}
+async function buildPropertyPack(){
   if(!workspaceDealId)return;
   const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
   if(!deal)return;
+  const photoGroupsPromise=loadPackPhotoGroups(deal);
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'pt', format:'a4' });
@@ -1624,6 +1682,35 @@ async function downloadPropertyPack(){
       doc.setTextColor(...PACK_INK);
       doc.text(String(val), pageW-margin, y+16, {align:'right'});
       y+=22;
+    });
+  }
+
+  // --- Photos, on their own pages, two across ---
+  const photoGroups=await photoGroupsPromise;
+  if(photoGroups.length){
+    doc.addPage();
+    y=margin+10;
+    y=packSectionHeader(doc,'Photos',margin,y);
+    const gap=12, cellW=(contentW-gap)/2, cellH=cellW*0.75;
+    photoGroups.forEach(g=>{
+      y=ensureSpace(doc,y,22+cellH,margin,contentPageH);
+      doc.setFont('Sora','bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...PACK_INK);
+      doc.text(g.name, margin, y+4);
+      y+=14;
+      g.imgs.forEach((im,i)=>{
+        const col=i%2;
+        if(col===0&&i>0)y+=cellH+gap;
+        if(col===0)y=ensureSpace(doc,y,cellH,margin,contentPageH);
+        const x=margin+col*(cellW+gap);
+        // Fit inside the cell without stretching, centred.
+        const s=Math.min(cellW/im.w,cellH/im.h), w=im.w*s, h=im.h*s;
+        doc.setFillColor(...PACK_HAIRLINE);
+        doc.rect(x,y,cellW,cellH,'F');
+        doc.addImage(im.data,'JPEG',x+(cellW-w)/2,y+(cellH-h)/2,w,h);
+      });
+      y+=cellH+gap+8;
     });
   }
 
