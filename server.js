@@ -2021,7 +2021,11 @@ function cleanViewingItem(item) {
     const n = Number(item.cost);
     if (Number.isFinite(n) && n >= 0 && n <= 10000000) cost = Math.round(n);
   }
-  return (status || note || cost !== null) ? { status, note, cost } : null;
+  // A picked option for checks that aren't Fine / Needs work: EPC rating
+  // (a-g, unknown), parking type, area feel (good/ok/poor).
+  const value = typeof item.value === 'string' && /^[a-z0-9_-]{1,20}$/.test(item.value) ? item.value : null;
+  if (!(status || note || cost !== null || value)) return null;
+  return value ? { status, note, cost, value } : { status, note, cost };
 }
 
 function cleanViewingChecklistV2(vc) {

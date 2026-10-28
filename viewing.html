@@ -76,6 +76,11 @@ body.theme-light{background:var(--bg)}
 .vw-pill{font:inherit;font-size:12.5px;font-weight:600;min-height:38px;padding:0 12px;border-radius:8px;border:1px solid var(--hairline-strong);background:var(--surface);color:var(--muted);cursor:pointer}
 .vw-pill.good[aria-pressed="true"]{background:var(--success-bg);border-color:var(--success);color:var(--success-ink)}
 .vw-pill.concern[aria-pressed="true"]{background:var(--danger-bg);border-color:var(--danger);color:var(--danger-ink)}
+.vw-pills.wrap{flex-wrap:wrap}
+.vw-pill.opt{min-width:44px}
+.vw-pill.opt[aria-pressed="true"]{background:var(--accent-soft,#ecebfa);border-color:var(--accent);color:var(--accent)}
+.vw-check-name.fixed,.vw-check > .vw-field{flex:none}
+.vw-hint{margin:0;font-size:12px;color:var(--muted)}
 .vw-detail{display:flex;gap:8px;flex-wrap:wrap}
 .vw-field{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted)}
 .vw-field.grow{flex:1 1 160px;min-width:0}
@@ -133,9 +138,23 @@ const ROOM_CHECKS={
 };
 function checksFor(kind){ return ROOM_CHECKS[kind]||BASE_CHECKS; }
 // Same keys as the original 8-item checklist, so older saved checklists carry over.
+// A 4th element makes a check something other than Fine / Needs work:
+// a pick-one option list (EPC rating, parking, area feel) or just a note.
 const PROPERTY_CHECKS=[
-  ['condition','Overall condition','painting'],['roof','Roof','roofing'],['boiler','Boiler','plumbing'],['epc','EPC','epc'],
-  ['damp','Damp','masonry'],['parking','Parking',null],['neighbours','Neighbours',null],['area','Area feel',null]];
+  ['condition','Overall condition','painting'],['roof','Roof','roofing'],['boiler','Boiler','plumbing'],
+  ['epc','EPC rating','epc',{type:'choice',options:[['a','A'],['b','B'],['c','C'],['d','D'],['e','E'],['f','F'],['g','G'],['unknown','Not known']]}],
+  ['damp','Damp','masonry'],
+  ['parking','Parking',null,{type:'choice',options:[['driveway','Driveway'],['garage','Garage'],['on-street','On-street'],['permit','Permit'],['none','None']]}],
+  ['neighbours','Neighbours',null,{type:'note',hint:'Who lives either side, how the houses are kept, any noise.'}],
+  ['area','Area feel',null,{type:'choice',hint:'Traffic, how nearby houses are kept, shops and transport, would tenants want to live here.',options:[['good','Good'],['ok','OK'],['poor','Poor']]}]];
+function optionLabel(spec,v){const o=spec&&spec.options&&spec.options.find(x=>x[0]===v);return o?o[1]:null;}
+// Has this check been answered?
+function isDone(spec,it){
+  if(!it)return false;
+  if(spec&&spec.type==='choice')return !!it.value;
+  if(spec&&spec.type==='note')return !!(it.note&&String(it.note).trim());
+  return !!it.status;
+}
 const ROOM_KINDS=[['bedroom','Bedroom'],['bathroom','Bathroom'],['kitchen','Kitchen'],['lounge','Lounge'],['dining','Dining room'],
   ['utility','Utility'],['hallway','Hallway'],['landing','Landing'],['loft','Loft'],['outside','Outside'],['garden','Garden'],['other','Other room']];
 const PROPERTY_TYPE_LABELS={'detached':'Detached','semi-detached':'Semi-detached','terraced':'Terraced','end-terrace':'End of terrace','flat':'Flat','bungalow':'Bungalow','maisonette':'Maisonette','other':'Other'};
@@ -169,7 +188,7 @@ function fromServer(vc){
       rooms:Array.isArray(vc.rooms)&&vc.rooms.length?vc.rooms.map(r=>({...r,items:r.items||{}})):defaultRooms()};
   }
   const property={};
-  if(vc&&typeof vc==='object')PROPERTY_CHECKS.forEach(([k])=>{if(vc[k])property[k]={status:vc[k].status||null,note:vc[k].note||null,cost:null};});
+  if(vc&&typeof vc==='object')PROPERTY_CHECKS.forEach(([k,,,spec])=>{if(vc[k])property[k]={status:spec?null:(vc[k].status||null),note:vc[k].note||null,cost:null};});
   return {v:2,property,property_notes:null,rooms:defaultRooms()};
 }
 // The whole property is shown as the first "room".
@@ -179,7 +198,7 @@ function allSections(){
 }
 function sectionStats(sec){
   let done=0,work=0,cost=0;
-  sec.checks.forEach(([k])=>{const it=sec.items[k];if(it&&it.status){done++;if(it.status==='concern'){work++;cost+=it.cost||0;}}});
+  sec.checks.forEach(([k,,,spec])=>{const it=sec.items[k];if(isDone(spec,it)){done++;if(!spec&&it.status==='concern'){work++;cost+=it.cost||0;}}});
   const photoCount=photos.filter(p=>p.room===sec.id).length+pending.filter(p=>p.room===sec.id).length;
   return {done,total:sec.checks.length,work,cost,photoCount,complete:done===sec.checks.length};
 }
@@ -359,8 +378,18 @@ function renderSection(sec){
   const roomPhotos=photos.filter(p=>p.room===sec.id);const roomPending=pending.filter(p=>p.room===sec.id);
   const thumbs=roomPhotos.map(p=>`<div class="vw-thumb">${p.url?`<img src="${esc(p.url)}" alt="${esc(sec.name)} photo" loading="lazy" data-act="zoom"/>`:''}<button type="button" aria-label="Delete photo" data-act="del-photo" data-id="${p.id}">×</button></div>`).join('')
     +roomPending.map(p=>`<div class="vw-thumb"><img src="data:image/jpeg;base64,${p.data}" alt="${esc(sec.name)} photo, waiting to upload" data-act="zoom"/><span class="wait">Waiting</span><button type="button" aria-label="Remove photo" data-act="del-pending" data-id="${p.qid}">×</button></div>`).join('');
-  const checks=sec.checks.map(([k,label,trade])=>{
+  const checks=sec.checks.map(([k,label,trade,spec])=>{
     const it=sec.items[k]||{};const st=it.status||null;
+    if(spec){
+      const pills=spec.type==='choice'?`<span class="vw-pills wrap" role="group" aria-labelledby="lbl-${k}">${spec.options.map(([v,l])=>
+        `<button type="button" class="vw-pill opt" aria-pressed="${it.value===v}" data-act="value" data-key="${k}" data-val="${v}">${esc(l)}</button>`).join('')}</span>`:'';
+      return `<div class="vw-check" data-key="${k}">
+        <div class="vw-check-name fixed" id="lbl-${k}">${esc(label)}</div>
+        ${spec.hint?`<p class="vw-hint">${esc(spec.hint)}</p>`:''}
+        ${pills}
+        <label class="vw-field">Notes<input type="text" maxlength="1000" data-field="note" data-key="${k}" value="${esc(it.note||'')}"/></label>
+      </div>`;
+    }
     return `<div class="vw-check ${st==='concern'?'concern':''}" data-key="${k}">
       <div class="vw-check-head"><span class="vw-check-name" id="lbl-${k}">${esc(label)}</span>
         <span class="vw-pills" role="group" aria-labelledby="lbl-${k}">
@@ -400,21 +429,31 @@ function summaryData(){
   allSections().forEach(s=>{
     const lines=[];const st=sectionStats(s);
     if(!st.done)unchecked.push(s.name);
-    s.checks.forEach(([k,label,trade])=>{
-      const it=s.items[k];if(!it||it.status!=='concern')return;
+    s.checks.forEach(([k,label,trade,spec])=>{
+      const it=s.items[k];if(spec||!it||it.status!=='concern')return;
       count++;lines.push({text:label+(it.note?': '+it.note:''),cost:it.cost});
-      if(it.cost){total+=it.cost;if(trade)trades[trade]=(trades[trade]||0)+it.cost;}else if(trade)uncosted++;
+      if(it.cost)total+=it.cost;else if(trade)uncosted++;
+      // Every needs-work trade goes to the estimator, at £0 when there's no
+      // rough cost yet, so it can be priced there.
+      if(trade)trades[trade]=(trades[trade]||0)+(it.cost||0);
     });
     if(lines.length)groups.push({name:s.name,lines,total:lines.reduce((a,l)=>a+(l.cost||0),0)});
   });
-  return {groups,total,count,unchecked,trades,uncosted};
+  // Whole property facts (EPC, parking, area, neighbours) for the summary.
+  const facts=[];
+  PROPERTY_CHECKS.forEach(([k,label,,spec])=>{
+    if(!spec)return;const it=data.property[k];if(!it)return;
+    const v=spec.type==='choice'?optionLabel(spec,it.value):null;
+    const note=it.note&&String(it.note).trim();
+    if(v||note)facts.push({label,text:[v,note].filter(Boolean).join(' · ')});
+  });
+  return {groups,total,count,unchecked,trades,uncosted,facts};
 }
 function renderSummary(){
   const sd=summaryData();
   const photoTotal=photos.length+pending.length;
   const groups=sd.groups.map(g=>`<div class="vw-sum-room"><div class="vw-sum-head"><span>${esc(g.name)}</span><span>${g.total?gbp(g.total):''}</span></div>
     ${g.lines.map(l=>`<div class="vw-sum-line"><span>${esc(l.text)}</span><span>${l.cost?gbp(l.cost):'No cost yet'}</span></div>`).join('')}</div>`).join('');
-  const canSend=Object.keys(sd.trades).length>0;
   $('vw').innerHTML=`
     <div class="vw-top"><a class="vw-back" href="#" aria-label="Back to rooms">${backSvg()}</a>${statusPill()}</div>
     <h1>Viewing summary</h1>
@@ -424,12 +463,13 @@ function renderSummary(){
     ${flashHtml()}
     <div class="vw-label">Needs work</div>
     <div class="vw-list">${groups||'<div class="vw-sum-room" style="color:var(--muted);font-size:13px">Nothing marked as needing work.</div>'}
+      ${sd.facts.length?`<div class="vw-sum-room"><div class="vw-sum-head"><span>About the property</span></div>${sd.facts.map(f=>`<div class="vw-sum-line"><span><b>${esc(f.label)}:</b> ${esc(f.text)}</span></div>`).join('')}</div>`:''}
       ${sd.unchecked.length?`<div class="vw-sum-room" style="font-size:13px;color:var(--muted)"><b style="color:var(--ink)">Not checked yet:</b> ${esc(sd.unchecked.join(', '))}</div>`:''}
-      ${sd.uncosted?`<p class="vw-note-line">${sd.uncosted} item${sd.uncosted===1?' has':'s have'} no rough cost yet, so ${sd.uncosted===1?'it isn\'t':'they aren\'t'} in the total.</p>`:''}
+      ${sd.uncosted?`<p class="vw-note-line">${sd.uncosted} item${sd.uncosted===1?' has':'s have'} no rough cost yet, so ${sd.uncosted===1?'it isn\'t':'they aren\'t'} in the total. ${sd.uncosted===1?'It goes':'They go'} to the estimator at £0 for you to price.</p>`:''}
     </div>
     <div class="vw-foot">
       <p class="vw-msg" id="vw-send-msg" role="status"></p>
-      <button type="button" class="vw-primary" data-act="send-refurb" ${canSend?'':'disabled'}>Send to refurb estimator</button>
+      <button type="button" class="vw-primary" data-act="send-refurb">Send to refurb estimator</button>
       <a class="vw-secondary" href="${dealLink()}">Back to the deal</a>
     </div>`;
   setStatus();
@@ -462,6 +502,10 @@ document.addEventListener('click',async e=>{
     changed();render();
     if(cur.status==='concern'){const inp=document.querySelector(`input[data-field="note"][data-key="${k}"]`);if(inp)inp.focus();}
   }
+  else if(act==='value'&&sec){
+    const items=itemsFor(sec);const k=t.dataset.key;const cur=items[k]||{status:null,note:null,cost:null};
+    cur.value=cur.value===t.dataset.val?null:t.dataset.val;items[k]=cur;changed();render();
+  }
   else if(act==='photo'&&sec)takePhoto(sec.id);
   else if(act==='zoom')openLightbox(t.src);
   else if(act==='del-photo')deletePhoto(t.dataset.id);
@@ -489,7 +533,8 @@ document.addEventListener('input',e=>{
   const t=e.target;const f=t.dataset&&t.dataset.field;if(!f)return;
   const sec=currentSection();if(!sec)return;
   if(f==='notes'){if(sec.isProperty)data.property_notes=t.value;else sec.room.notes=t.value;changed();return;}
-  const items=itemsFor(sec);const k=t.dataset.key;const cur=items[k]||{status:'concern',note:null,cost:null};
+  const items=itemsFor(sec);const k=t.dataset.key;const spec=(sec.checks.find(c=>c[0]===k)||[])[3];
+  const cur=items[k]||{status:spec?null:'concern',note:null,cost:null};
   if(f==='note')cur.note=t.value;
   if(f==='cost'){const n=Number(String(t.value).replace(/[^0-9.]/g,''));cur.cost=t.value.trim()===''||!Number.isFinite(n)?null:Math.round(n);}
   items[k]=cur;changed();
@@ -509,8 +554,8 @@ async function sendToRefurb(btn){
     const lb=await link.json();
     if(!link.ok)throw new Error(lb.error||'The estimate was created but could not be linked to the deal.');
     deal.refurb_estimate_id=est.id;saveLocal();
-    msg.innerHTML=`Estimate created and linked. <a href="/refurb.html?estimate=${encodeURIComponent(est.id)}">Open it</a> or <a href="${dealLink()}">re-run the deal's numbers</a>.`;
-    msg.className='vw-msg success';
+    msg.textContent='Estimate created and linked to the deal. Opening the estimator…';msg.className='vw-msg success';
+    location.href='/refurb.html?estimate='+encodeURIComponent(est.id);
   }catch(e){msg.textContent=e.message;msg.className='vw-msg error';btn.disabled=false;}
 }
 
