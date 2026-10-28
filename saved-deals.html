@@ -290,6 +290,7 @@ body.theme-light .dd-trigger::after{
 .ws-file{font-size:13px;max-width:100%}
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:460;display:flex;align-items:center;justify-content:center;padding:1rem;cursor:zoom-out}
 .lightbox img{max-width:100%;max-height:100%;border-radius:6px}
+.ws-photo-room{position:absolute;left:4px;bottom:4px;font-size:10.5px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;border-radius:6px;padding:1px 6px;pointer-events:none;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .check-row{border-top:1px solid var(--hairline);padding:.65rem 0}
 .check-row:first-child{border-top:none}
 .check-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
@@ -500,15 +501,13 @@ body.theme-light .dd-trigger::after{
         <p class="save-msg" id="ws-paste-msg"></p>
         <div id="ws-paste-result"></div>
 
+        <p class="subhead" style="margin-top:1.75rem">Viewing</p>
+        <div id="ws-viewing"></div>
+
         <p class="subhead" style="margin-top:1.75rem">Photos</p>
         <input type="file" id="ws-photo-input" class="ws-file" accept="image/*" multiple onchange="uploadDealPhotos(this.files)"/>
         <p class="save-msg" id="ws-photo-msg"></p>
         <div class="ws-photos" id="ws-photos"></div>
-
-        <p class="subhead" style="margin-top:1.75rem">Viewing checklist</p>
-        <div id="ws-checklist"></div>
-        <button class="btn-primary" onclick="saveChecklist()">Save checklist</button>
-        <p class="save-msg" id="ws-checklist-msg"></p>
 
         <p class="subhead" style="margin-top:1.75rem">Reminders</p>
         <div class="modal-form-row">
@@ -2120,7 +2119,6 @@ function resetExtras(){
   document.getElementById('ws-paste-result').innerHTML='';
   setMsg('ws-paste-msg','');
   setMsg('ws-photo-msg','');
-  setMsg('ws-checklist-msg','');
   setMsg('ws-reminder-msg','');
   document.getElementById('ws-photo-input').value='';
   document.getElementById('ws-reminder-date').value='';
@@ -2254,8 +2252,11 @@ async function loadDealPhotos(dealId){
     if(workspaceDealId!==dealId)return;
     if(res.status===409&&body.needs_migration){ grid.innerHTML='<p class="hint">Photos need a quick database update before they can be added.</p>'; return; }
     if(!res.ok)throw new Error(body.error||'Could not load photos.');
+    const dealNow=currentDeal();
+    const roomNames=viewingRoomNames(dealNow&&dealNow.viewing_checklist);
     grid.innerHTML=body.length?body.map(p=>`<div class="ws-photo">
-        ${p.url?`<img src="${escapeHtml(p.url)}" alt="Deal photo" loading="lazy" onclick="openLightbox(this.src)"/>`:''}
+        ${p.url?`<img src="${escapeHtml(p.url)}" alt="${p.room&&roomNames[p.room]?escapeHtml(roomNames[p.room])+' photo':'Deal photo'}" loading="lazy" onclick="openLightbox(this.src)"/>`:''}
+        ${p.room&&roomNames[p.room]?`<span class="ws-photo-room">${escapeHtml(roomNames[p.room])}</span>`:''}
         <button type="button" class="ws-photo-del" aria-label="Delete photo" onclick="deleteDealPhoto('${p.id}')">×</button>
       </div>`).join(''):'<p class="hint">No photos yet. Add some from the viewing.</p>';
   }catch(e){ grid.innerHTML='<p class="hint">'+escapeHtml(e.message)+'</p>'; }
@@ -2281,44 +2282,33 @@ function openLightbox(src){
   document.body.appendChild(box);
 }
 
-// ---------- viewing checklist ----------
-const CHECKLIST=[['condition','Condition'],['damp','Damp'],['roof','Roof'],['boiler','Boiler'],['epc','EPC'],['parking','Parking'],['neighbours','Neighbours'],['area','Area feel']];
+// ---------- viewing (viewing.html) ----------
+// The room-by-room viewing lives on its own phone-first page. Here: a short
+// summary of what was found, and the button to start or carry on. Reads
+// both the v2 shape and the original flat 8-item checklist.
+function viewingSummary(vc){
+  if(!vc||typeof vc!=='object')return null;
+  const groups=vc.v===2?[vc.property||{},...(vc.rooms||[]).map(r=>r.items||{})]:[vc];
+  let checked=0,work=0,cost=0;
+  groups.forEach(items=>Object.values(items).forEach(it=>{
+    if(!it||typeof it!=='object'||!it.status)return;
+    checked++; if(it.status==='concern'){work++;cost+=Number(it.cost)||0;}
+  }));
+  return checked?{checked,work,cost,rooms:vc.v===2?(vc.rooms||[]).length:0,updated:vc.updated_at||null}:null;
+}
+function viewingRoomNames(vc){
+  const m={property:'Whole property'};
+  if(vc&&vc.v===2)(vc.rooms||[]).forEach(r=>{m[r.id]=r.name;});
+  return m;
+}
 function renderChecklist(deal){
-  const c=deal.viewing_checklist||{};
-  document.getElementById('ws-checklist').innerHTML=CHECKLIST.map(([k,label])=>{
-    const item=c[k]||{};
-    return `<div class="check-row" data-key="${k}">
-      <div class="check-head"><span class="check-label" id="chk-${k}-l">${label}</span>
-        <span class="check-pills" role="group" aria-labelledby="chk-${k}-l">
-          <button type="button" class="check-pill good${item.status==='good'?' active':''}" aria-pressed="${item.status==='good'}" onclick="toggleCheckPill(this,'good')">Good</button>
-          <button type="button" class="check-pill concern${item.status==='concern'?' active':''}" aria-pressed="${item.status==='concern'}" onclick="toggleCheckPill(this,'concern')">Concern</button>
-        </span></div>
-      <input type="text" maxlength="1000" aria-label="${label} notes" placeholder="Notes" value="${escapeHtml(item.note||'')}"/>
-    </div>`;
-  }).join('');
-}
-function toggleCheckPill(btn,status){
-  const row=btn.closest('.check-row');
-  const was=btn.classList.contains('active');
-  row.querySelectorAll('.check-pill').forEach(p=>{p.classList.remove('active');p.setAttribute('aria-pressed','false');});
-  if(!was){btn.classList.add('active');btn.setAttribute('aria-pressed','true');}
-}
-async function saveChecklist(){
-  const deal=currentDeal(); if(!deal)return;
-  const out={};
-  document.querySelectorAll('#ws-checklist .check-row').forEach(row=>{
-    const active=row.querySelector('.check-pill.active');
-    out[row.dataset.key]={status:active?(active.classList.contains('good')?'good':'concern'):null,note:row.querySelector('input').value.trim()};
-  });
-  setMsg('ws-checklist-msg','Saving…');
-  try{
-    const res=await fetch(API_BASE+`/api/deals/${deal.id}/details`,{method:'POST',headers:authHeaders(true),body:JSON.stringify({viewing_checklist:out})});
-    const body=await res.json();
-    if(res.status===409&&body.needs_migration){ setMsg('ws-checklist-msg',NEEDS_DB_MSG,'error'); return; }
-    if(!res.ok)throw new Error(body.error||'Could not save.');
-    mergeDealIntoCache(body);
-    setMsg('ws-checklist-msg','Saved.','success');
-  }catch(e){ setMsg('ws-checklist-msg',e.message,'error'); }
+  const el=document.getElementById('ws-viewing'); if(!el)return;
+  const sum=viewingSummary(deal.viewing_checklist);
+  const href='/viewing.html?deal='+encodeURIComponent(deal.id);
+  const line=sum
+    ? `<p class="hint" style="font-style:normal;margin:0 0 .6rem">${sum.checked} check${sum.checked===1?'':'s'} done${sum.work?` · <b style="color:var(--danger-ink)">${sum.work} need${sum.work===1?'s':''} work${sum.cost?' · £'+Math.round(sum.cost).toLocaleString('en-GB'):''}</b>`:' · nothing needs work'}</p>`
+    : '<p class="hint" style="margin:0 0 .6rem">Walk the property room by room on your phone: mark what needs work, add rough costs and take photos as you go. It saves even with no signal.</p>';
+  el.innerHTML=line+`<a class="btn-primary" style="display:inline-block;text-decoration:none" href="${href}">${sum?'Open viewing':'Start viewing'}</a>`;
 }
 
 // ---------- reminders ----------
