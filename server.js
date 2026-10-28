@@ -322,6 +322,10 @@ app.post('/api/deals/:dealId/photos', express.json({ limit: '8mb' }), async (req
   const buffer = Buffer.from(body.data, 'base64');
   if (buffer.length === 0 || buffer.length > DEAL_PHOTO_MAX_BYTES) return res.status(400).json({ error: 'That photo is too large.' });
 
+  // Optional room tag from viewing mode (db/060): a room id from the deal's
+  // viewing checklist, or 'property' for whole-property photos.
+  const room = typeof body.room === 'string' && /^[a-z0-9_-]{1,40}$/.test(body.room) ? body.room : null;
+
   const storagePath = `${userId}/${req.params.dealId}/${crypto.randomUUID()}.jpg`;
   const { error: uploadErr } = await supabase.storage
     .from('deal-photos')
@@ -331,16 +335,24 @@ app.post('/api/deals/:dealId/photos', express.json({ limit: '8mb' }), async (req
     return res.status(400).json({ error: 'That photo could not be uploaded. Try again.' });
   }
 
-  const { data: row, error } = await supabase
+  let { data: row, error } = await supabase
     .from('deal_photos')
-    .insert({ deal_id: req.params.dealId, storage_path: storagePath })
+    .insert(room ? { deal_id: req.params.dealId, storage_path: storagePath, room } : { deal_id: req.params.dealId, storage_path: storagePath })
     .select('id, created_at')
     .single();
+  // Before db/060 there is no room column: keep the photo, just untagged.
+  if (error && room && isMissingSchemaError(error)) {
+    ({ data: row, error } = await supabase
+      .from('deal_photos')
+      .insert({ deal_id: req.params.dealId, storage_path: storagePath })
+      .select('id, created_at')
+      .single());
+  }
   if (error) {
     await supabase.storage.from('deal-photos').remove([storagePath]);
     return res.status(400).json({ error: 'That photo could not be saved. Try again.' });
   }
-  res.json(row);
+  res.json({ ...row, room });
 });
 
 // Property photo upload (db/046): one photo per portfolio property, shown
@@ -977,6 +989,7 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /settings.html',
     'Disallow: /billing.html',
     'Disallow: /contacts.html',
+    'Disallow: /viewing.html',
     'Disallow: /help.html',
     '',
     'Sitemap: ' + siteOrigin(req) + '/sitemap.xml',
@@ -1987,6 +2000,70 @@ app.get('/api/deals', async (req, res) => {
 // sections. Returns 409 { needs_migration: true } if db/045 isn't run yet.
 const CHECKLIST_ITEMS = ['condition', 'damp', 'roof', 'boiler', 'epc', 'parking', 'neighbours', 'area'];
 
+// Viewing mode (viewing.html) saves the checklist in a room-by-room shape:
+// { v: 2, property: { <CHECKLIST_ITEMS key>: item }, rooms: [ { id, name,
+// kind, items: { <key>: item }, notes } ], updated_at }, where an item is
+// { status: 'good'|'concern'|null, note, cost }. 'good' shows as Fine and
+// 'concern' as Needs work. The old flat shape (just the CHECKLIST_ITEMS
+// keys) is still accepted and becomes the v2 "property" section when
+// viewing.html opens it.
+const VIEWING_ROOMS_MAX = 30;
+const VIEWING_ROOM_ITEMS_MAX = 20;
+const VIEWING_ROOM_KINDS = ['hallway', 'lounge', 'kitchen', 'bathroom', 'bedroom', 'dining', 'utility', 'landing', 'loft', 'outside', 'garden', 'other'];
+const VIEWING_KEY_RE = /^[a-z0-9_-]{1,40}$/;
+
+function cleanViewingItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const status = ['good', 'concern'].includes(item.status) ? item.status : null;
+  const note = cleanText(item.note, 1000);
+  let cost = null;
+  if (item.cost !== null && item.cost !== undefined && item.cost !== '') {
+    const n = Number(item.cost);
+    if (Number.isFinite(n) && n >= 0 && n <= 10000000) cost = Math.round(n);
+  }
+  // A picked option for checks that aren't Fine / Needs work: EPC rating
+  // (a-g, unknown), parking type, area feel (good/ok/poor).
+  const value = typeof item.value === 'string' && /^[a-z0-9_-]{1,20}$/.test(item.value) ? item.value : null;
+  if (!(status || note || cost !== null || value)) return null;
+  return value ? { status, note, cost, value } : { status, note, cost };
+}
+
+function cleanViewingChecklistV2(vc) {
+  const out = { v: 2, property: {}, rooms: [], updated_at: new Date().toISOString() };
+  const prop = vc.property && typeof vc.property === 'object' ? vc.property : {};
+  for (const key of CHECKLIST_ITEMS) {
+    const item = cleanViewingItem(prop[key]);
+    if (item) out.property[key] = item;
+  }
+  if (vc.property_notes !== undefined) out.property_notes = cleanText(vc.property_notes, 2000);
+  const rooms = Array.isArray(vc.rooms) ? vc.rooms : [];
+  if (rooms.length > VIEWING_ROOMS_MAX) return { error: `Up to ${VIEWING_ROOMS_MAX} rooms per viewing.` };
+  const seen = new Set();
+  for (const r of rooms) {
+    if (!r || typeof r !== 'object' || typeof r.id !== 'string' || !VIEWING_KEY_RE.test(r.id) || seen.has(r.id)) {
+      return { error: 'Each room needs its own id.' };
+    }
+    seen.add(r.id);
+    const room = {
+      id: r.id,
+      name: cleanText(r.name, 60) || 'Room',
+      kind: VIEWING_ROOM_KINDS.includes(r.kind) ? r.kind : 'other',
+      items: {},
+      notes: cleanText(r.notes, 2000),
+    };
+    const items = r.items && typeof r.items === 'object' ? r.items : {};
+    const keys = Object.keys(items);
+    if (keys.length > VIEWING_ROOM_ITEMS_MAX) return { error: 'Too many checks in one room.' };
+    for (const k of keys) {
+      if (!VIEWING_KEY_RE.test(k)) continue;
+      const item = cleanViewingItem(items[k]);
+      if (item) room.items[k] = item;
+    }
+    out.rooms.push(room);
+  }
+  return { value: out };
+}
+
 function cleanText(v, max) {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
@@ -2028,7 +2105,11 @@ function validateDealDetails(body, plan) {
     if (plan !== 'paid') return { error: 'Upgrade to use the viewing checklist.', status: 403 };
     if (body.viewing_checklist === null) value.viewing_checklist = null;
     else if (typeof body.viewing_checklist !== 'object') return { error: 'viewing_checklist must be an object.' };
-    else {
+    else if (body.viewing_checklist.v === 2) {
+      const r = cleanViewingChecklistV2(body.viewing_checklist);
+      if (r.error) return { error: r.error };
+      value.viewing_checklist = r.value;
+    } else {
       const out = {};
       for (const key of CHECKLIST_ITEMS) {
         const item = body.viewing_checklist[key];
@@ -3462,11 +3543,19 @@ app.get('/api/deals/:dealId/photos', async (req, res) => {
   const plan = await getUserPlan(supabase);
   if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to unlock photos.' });
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('deal_photos')
-    .select('id, storage_path, created_at')
+    .select('id, storage_path, created_at, room')
     .eq('deal_id', req.params.dealId)
     .order('created_at', { ascending: true });
+  // Before db/060 there is no room column: list them untagged.
+  if (error && isMissingSchemaError(error)) {
+    ({ data, error } = await supabase
+      .from('deal_photos')
+      .select('id, storage_path, created_at')
+      .eq('deal_id', req.params.dealId)
+      .order('created_at', { ascending: true }));
+  }
   if (error && isMissingSchemaError(error)) return needsMigration(res);
   if (error) return res.status(400).json({ error: error.message });
 
@@ -3477,7 +3566,7 @@ app.get('/api/deals/:dealId/photos', async (req, res) => {
     .createSignedUrls(rows.map((r) => r.storage_path), DEAL_PHOTO_URL_SECONDS);
   if (signErr) return res.status(400).json({ error: 'Photos could not be loaded. Try again.' });
   const urlByPath = new Map((signed || []).map((s) => [s.path, s.signedUrl]));
-  res.json(rows.map((r) => ({ id: r.id, created_at: r.created_at, url: urlByPath.get(r.storage_path) || null })));
+  res.json(rows.map((r) => ({ id: r.id, created_at: r.created_at, room: r.room || null, url: urlByPath.get(r.storage_path) || null })));
 });
 
 app.delete('/api/photos/:id', async (req, res) => {

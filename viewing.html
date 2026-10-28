@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Viewing · PROPulsion</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+<link rel="shortcut icon" href="/assets/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#4b45b2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PROPulsion">
+<script src="/app-config.js"></script>
+<script src="/track.js"></script>
+<script src="/pwa.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth-guard.js"></script>
+<style>
+/* Viewing mode: a phone-first, full-screen walkthrough of one deal's
+   viewing (rooms list, one room, summary). No top nav on purpose: it's
+   used standing in a property. Colours and fonts from styles.css. */
+body.theme-light{background:var(--bg)}
+.vw{max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:env(safe-area-inset-top,0px)}
+.vw-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 0 6px}
+.vw-back{width:44px;height:44px;display:flex;align-items:center;color:var(--ink);text-decoration:none;background:none;border:none;padding:0;cursor:pointer}
+.vw-status{font-size:12px;font-weight:600;border-radius:99px;padding:5px 10px;white-space:nowrap}
+.vw-status.ok{color:var(--success-ink);background:var(--success-bg)}
+.vw-status.wait{color:var(--warn-ink);background:var(--warn-bg)}
+.vw-eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.vw h1{margin:2px 0 0;font-size:22px;font-weight:700;line-height:1.25;text-wrap:balance}
+.vw-sub{font-size:13px;color:var(--muted);margin-top:2px}
+.vw-card{background:var(--surface);border-radius:14px;padding:12px 14px}
+.vw-progress{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.vw-progress-row{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
+.vw-bar{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+.vw-bar span{display:block;height:100%;background:var(--accent)}
+.vw-bad{color:var(--danger-ink);font-weight:600}
+.vw-label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:16px 0 8px}
+.vw-list{display:flex;flex-direction:column;gap:8px}
+.vw-row{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:12px;padding:12px 14px;min-height:44px;text-decoration:none;color:var(--ink)}
+.vw-mark{width:34px;height:34px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:var(--surface-3);color:var(--muted)}
+.vw-mark.done{background:var(--success-bg);color:var(--success-ink)}
+.vw-mark.work{background:var(--danger-bg);color:var(--danger-ink)}
+.vw-row-text{flex:1;min-width:0;display:flex;flex-direction:column}
+.vw-row-name{font-weight:600;font-size:15px}
+.vw-row-detail{font-size:12px;color:var(--muted)}
+.vw-add{font:inherit;font-size:14px;font-weight:600;color:var(--accent);background:none;border:1.5px dashed var(--accent);border-radius:12px;padding:12px;min-height:44px;cursor:pointer;opacity:.85}
+.vw-add-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.vw-add-form select,.vw-add-form input{font:inherit;font-size:14px;border:1px solid var(--hairline-strong);border-radius:10px;padding:10px;background:var(--surface);color:var(--ink);min-height:44px}
+.vw-add-form input{flex:1 1 140px;min-width:0}
+.vw-foot{position:sticky;bottom:0;margin-top:auto;background:var(--bg);border-top:1px solid var(--hairline);padding:12px 0 calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px}
+.vw-primary{display:block;width:100%;text-align:center;text-decoration:none;background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:600;font-size:15px;border:none;border-radius:12px;padding:14px;min-height:48px;cursor:pointer}
+.vw-primary[disabled]{opacity:.5;cursor:default}
+.vw-secondary{display:block;width:100%;text-align:center;text-decoration:none;background:var(--surface);color:var(--accent);font:inherit;font-weight:600;font-size:14px;border:1.5px solid var(--accent);border-radius:12px;padding:12px;min-height:44px;cursor:pointer}
+.vw-note-line{font-size:12px;color:var(--muted);text-align:center}
+.vw-photos{display:flex;gap:8px;overflow-x:auto;padding:10px 0 4px}
+.vw-cam{width:76px;height:76px;flex:none;border-radius:12px;border:1.5px dashed var(--accent);background:var(--surface);color:var(--accent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:inherit;font-size:11px;font-weight:600;cursor:pointer}
+.vw-thumb{position:relative;width:76px;height:76px;flex:none;border-radius:12px;overflow:hidden;background:var(--surface-3)}
+.vw-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
+.vw-thumb .wait{position:absolute;left:4px;bottom:4px;font-size:10px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;border-radius:6px;padding:1px 5px}
+.vw-thumb-ask{position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.vw-thumb-ask button{font:inherit;font-size:11px;font-weight:600;border:none;border-radius:6px;padding:4px 8px;min-height:26px;cursor:pointer}
+.vw-thumb-ask .yes{background:var(--danger);color:#fff}.vw-thumb-ask .no{background:#fff;color:var(--ink)}
+.vw-thumb > button{position:absolute;top:3px;right:3px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;cursor:pointer}
+.vw-check{background:var(--surface);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;border:1.5px solid transparent}
+.vw-check.concern{border-color:var(--danger)}
+.vw-check-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.vw-check-name{flex:1 1 120px;font-weight:600;font-size:14px}
+.vw-pills{display:flex;gap:6px}
+.vw-pill{font:inherit;font-size:12.5px;font-weight:600;min-height:38px;padding:0 12px;border-radius:8px;border:1px solid var(--hairline-strong);background:var(--surface);color:var(--muted);cursor:pointer}
+.vw-pill.good[aria-pressed="true"]{background:var(--success-bg);border-color:var(--success);color:var(--success-ink)}
+.vw-pill.concern[aria-pressed="true"]{background:var(--danger-bg);border-color:var(--danger);color:var(--danger-ink)}
+.vw-pills.wrap{flex-wrap:wrap}
+.vw-choice{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;justify-content:center}
+a.vw-pill{display:inline-flex;align-items:center;text-decoration:none;color:var(--accent);border-color:var(--accent)}
+.vw-pill.opt{min-width:44px}
+.vw-pill.opt[aria-pressed="true"]{background:var(--accent-soft,#ecebfa);border-color:var(--accent);color:var(--accent)}
+.vw-check-name.fixed,.vw-check > .vw-field{flex:none}
+.vw-hint{margin:0;font-size:12px;color:var(--muted)}
+.vw-detail{display:flex;gap:8px;flex-wrap:wrap}
+.vw-field{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted)}
+.vw-field.grow{flex:1 1 160px;min-width:0}
+.vw-field.cost{width:100px}
+.vw-field input,.vw-field textarea{font:inherit;font-size:14px;color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:9px;background:var(--input-bg);width:100%;box-sizing:border-box}
+.vw-field textarea{min-height:60px;resize:vertical}
+.vw-link{font:inherit;font-size:13px;color:var(--muted);background:none;border:none;text-decoration:underline;cursor:pointer;padding:8px 0;align-self:center}
+.vw-total{background:var(--accent);color:var(--accent-ink);border-radius:14px;padding:16px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap}
+.vw-total b{display:block;font-size:30px;font-variant-numeric:tabular-nums}
+.vw-sum-room{background:var(--surface);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.vw-sum-head{display:flex;justify-content:space-between;font-weight:700;font-size:14px;gap:8px}
+.vw-sum-line{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.vw-sum-line span:first-child{color:var(--ink);min-width:0}
+.vw-sum-line span:last-child{color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+.vw-msg{font-size:13px;text-align:center}
+.vw-msg.error{color:var(--danger-ink)}
+.vw-msg.success{color:var(--success-ink)}
+.vw-state{padding:48px 0;text-align:center;color:var(--muted)}
+.vw-state h2{color:var(--ink);font-size:20px;margin:0 0 8px}
+.vw-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.vw-lightbox img{max-width:100%;max-height:100%;border-radius:8px}
+.vw-pill:focus-visible,.vw-primary:focus-visible,.vw-secondary:focus-visible,.vw-add:focus-visible,.vw-cam:focus-visible,.vw-row:focus-visible,.vw-back:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body class="theme-light">
+<div class="vw" id="vw"><div class="vw-state">Loading the viewing…</div></div>
+<input type="file" id="vw-camera" accept="image/*" capture="environment" multiple class="sr-only" aria-label="Take a photo"/>
+<script>
+// ---------------------------------------------------------------------
+// Viewing mode. One record per deal, saved in deals.viewing_checklist as
+// { v: 2, property: {...}, rooms: [...] } (see server.js
+// cleanViewingChecklistV2). Every change is written to this phone first
+// (localStorage), then sent to the server when there's signal. Photos are
+// queued on the phone (IndexedDB) and uploaded when there's signal, tagged
+// with their room (deal_photos.room, db/060). Status 'good' = Fine,
+// 'concern' = Needs work.
+// ---------------------------------------------------------------------
+const DEAL_ID=new URLSearchParams(location.search).get('deal');
+const LS_KEY='pp-viewing-'+DEAL_ID;
+let sbClient=null, currentSession=null, deal=null, data=null;
+let photos=[], pending=[], dirty=false, syncing=false, syncTimer=null, offlineBoot=false;
+let addingRoom=false, flash=null;
+// On-page questions instead of pop-ups (the phone app blocks pop-ups): 'rename', 'remove' or 'photo:<id>'.
+let ask=null;
+
+// [key, label, refurb quick trade it costs into (null: no cost box)]
+const BASE_CHECKS=[
+  ['walls','Walls and ceiling','plastering'],['floor','Floor','flooring'],['windows','Windows and doors','windows-doors'],
+  ['electrics','Electrics','electrics'],['heating','Heating','plumbing'],['damp','Damp','masonry'],['decor','Decoration','painting']];
+const ROOM_CHECKS={
+  kitchen:[['units','Units and worktop','kitchen'],...BASE_CHECKS],
+  bathroom:[['suite','Bathroom suite','bathroom'],...BASE_CHECKS],
+  outside:[['brickwork','Brickwork and render','masonry'],['gutters','Gutters and downpipes','roofing'],['windows','Windows and doors','windows-doors'],['drive','Drive and paths','garden']],
+  garden:[['fences','Fences and walls','garden'],['lawn','Lawn and planting','garden'],['outbuildings','Sheds and outbuildings','garden']],
+  loft:[['insulation','Insulation','epc'],['timbers','Roof timbers','roofing'],['damp','Damp','masonry']],
+};
+function checksFor(kind){ return ROOM_CHECKS[kind]||BASE_CHECKS; }
+// Same keys as the original 8-item checklist, so older saved checklists carry over.
+// A 4th element makes a check something other than Fine / Needs work:
+// a pick-one option list (EPC rating, parking, area feel) or just a note.
+const PROPERTY_CHECKS=[
+  ['condition','Overall condition','painting'],['roof','Roof','roofing'],['boiler','Boiler','plumbing'],
+  ['epc','EPC rating','epc',{type:'choice',options:[['a','A'],['b','B'],['c','C'],['d','D'],['e','E'],['f','F'],['g','G'],['unknown','Not known']]}],
+  ['damp','Damp','masonry'],
+  ['parking','Parking',null,{type:'choice',options:[['driveway','Driveway'],['garage','Garage'],['on-street','On-street'],['permit','Permit'],['none','None']]}],
+  ['neighbours','Neighbours',null,{type:'note',hint:'Who lives either side, how the houses are kept, any noise.'}],
+  ['area','Area feel',null,{type:'choice',hint:'Traffic, how nearby houses are kept, shops and transport, would tenants want to live here.',options:[['good','Good'],['ok','OK'],['poor','Poor']]}]];
+function optionLabel(spec,v){const o=spec&&spec.options&&spec.options.find(x=>x[0]===v);return o?o[1]:null;}
+// Has this check been answered?
+function isDone(spec,it){
+  if(!it)return false;
+  if(spec&&spec.type==='choice')return !!it.value;
+  if(spec&&spec.type==='note')return !!(it.note&&String(it.note).trim());
+  return !!it.status;
+}
+const ROOM_KINDS=[['bedroom','Bedroom'],['bathroom','Bathroom'],['kitchen','Kitchen'],['lounge','Lounge'],['dining','Dining room'],
+  ['utility','Utility'],['hallway','Hallway'],['landing','Landing'],['loft','Loft'],['outside','Outside'],['garden','Garden'],['other','Other room']];
+const PROPERTY_TYPE_LABELS={'detached':'Detached','semi-detached':'Semi-detached','terraced':'Terraced','end-terrace':'End of terrace','flat':'Flat','bungalow':'Bungalow','maisonette':'Maisonette','other':'Other'};
+
+const $=id=>document.getElementById(id);
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function gbp(n){return '£'+Math.round(n).toLocaleString('en-GB');}
+function uid(){return 'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function authHeaders(json){const h={'Authorization':'Bearer '+currentSession.access_token};if(json)h['Content-Type']='application/json';return h;}
+function dealTitle(){return (deal&&(deal.address||(deal.deal_data&&deal.deal_data.name)))||'This deal';}
+function dealLink(){return '/saved-deals.html?openDeal='+encodeURIComponent(DEAL_ID);}
+
+// ---------- rooms ----------
+function bedroomCount(){
+  if(deal&&deal.bedrooms>0)return Math.min(deal.bedrooms,10);
+  const rb=deal&&deal.deal_data&&deal.deal_data.roomBreakdown;
+  if(Array.isArray(rb)){const n=rb.reduce((a,r)=>a+(Number(r.count)||0),0);if(n>0)return Math.min(n,10);}
+  return 2;
+}
+function defaultRooms(){
+  const rooms=[{kind:'hallway',name:'Hallway'},{kind:'lounge',name:'Lounge'},{kind:'kitchen',name:'Kitchen'},{kind:'bathroom',name:'Bathroom'}];
+  const n=bedroomCount();
+  for(let i=1;i<=n;i++)rooms.push({kind:'bedroom',name:n===1?'Bedroom':'Bedroom '+i});
+  rooms.push({kind:'outside',name:'Outside'});
+  if(!deal||deal.property_type!=='flat')rooms.push({kind:'garden',name:'Garden'});
+  return rooms.map(r=>({id:uid(),name:r.name,kind:r.kind,items:{},notes:null}));
+}
+function fromServer(vc){
+  if(vc&&vc.v===2){
+    return {v:2,property:vc.property||{},property_notes:vc.property_notes||null,
+      rooms:Array.isArray(vc.rooms)&&vc.rooms.length?vc.rooms.map(r=>({...r,items:r.items||{}})):defaultRooms()};
+  }
+  const property={};
+  if(vc&&typeof vc==='object')PROPERTY_CHECKS.forEach(([k,,,spec])=>{if(vc[k])property[k]={status:spec?null:(vc[k].status||null),note:vc[k].note||null,cost:null};});
+  return {v:2,property,property_notes:null,rooms:defaultRooms()};
+}
+// The whole property is shown as the first "room".
+function allSections(){
+  return [{id:'property',name:'Whole property',checks:PROPERTY_CHECKS,items:data.property,isProperty:true},
+    ...data.rooms.map(r=>({id:r.id,name:r.name,checks:checksFor(r.kind),items:r.items,room:r}))];
+}
+function sectionStats(sec){
+  let done=0,work=0,cost=0;
+  sec.checks.forEach(([k,,,spec])=>{const it=sec.items[k];if(isDone(spec,it)){done++;if(!spec&&it.status==='concern'){work++;cost+=it.cost||0;}}});
+  const photoCount=photos.filter(p=>p.room===sec.id).length+pending.filter(p=>p.room===sec.id).length;
+  return {done,total:sec.checks.length,work,cost,photoCount,complete:done===sec.checks.length};
+}
+
+// ---------- saving: phone first, then server ----------
+function saveLocal(){
+  try{localStorage.setItem(LS_KEY,JSON.stringify({data,dirty,at:Date.now(),
+    deal:deal?{address:deal.address,deal_data:deal.deal_data?{name:deal.deal_data.name,pp:deal.deal_data.pp}:null,bedrooms:deal.bedrooms,property_type:deal.property_type,refurb_estimate_id:deal.refurb_estimate_id}:null}));}catch(e){}
+}
+function loadLocal(){try{return JSON.parse(localStorage.getItem(LS_KEY)||'null');}catch(e){return null;}}
+function changed(){dirty=true;saveLocal();setStatus();clearTimeout(syncTimer);syncTimer=setTimeout(sync,1200);}
+async function sync(){
+  if(!dirty||syncing||!navigator.onLine||!currentSession)return;
+  syncing=true;setStatus();
+  const sent=JSON.stringify(data);
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${DEAL_ID}/details`,{method:'POST',headers:authHeaders(true),body:JSON.stringify({viewing_checklist:data})});
+    const body=await res.json().catch(()=>({}));
+    if(res.ok){ if(JSON.stringify(data)===sent){dirty=false;saveLocal();} }
+    else if(res.status===400){ flash={text:body.error||'Could not save the viewing.',kind:'error'}; }
+  }catch(e){}
+  finally{syncing=false;setStatus();if(dirty&&navigator.onLine){clearTimeout(syncTimer);syncTimer=setTimeout(sync,5000);}}
+}
+function setStatus(){
+  const el=$('vw-status');if(!el)return;
+  const waiting=pending.length;
+  let text,cls;
+  if(!navigator.onLine){text='No signal: saved on your phone';cls='wait';}
+  else if(dirty||syncing||waiting){text=waiting?`Uploading ${waiting} photo${waiting===1?'':'s'}…`:'Saving…';cls='wait';}
+  else{text='All saved';cls='ok';}
+  el.textContent=text;el.className='vw-status '+cls;
+}
+
+// ---------- photos: queued on the phone, uploaded when there's signal ----------
+function idb(){
+  return new Promise((resolve,reject)=>{
+    if(!('indexedDB' in window))return reject(new Error('no idb'));
+    const req=indexedDB.open('pp-viewing',1);
+    req.onupgradeneeded=()=>req.result.createObjectStore('photos',{keyPath:'qid'});
+    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  });
+}
+async function queueOp(mode,fn){
+  try{const db=await idb();return await new Promise((resolve,reject)=>{const tx=db.transaction('photos',mode);const r=fn(tx.objectStore('photos'));tx.oncomplete=()=>resolve(r&&r.result);tx.onerror=()=>reject(tx.error);});}
+  catch(e){return null;}
+}
+const queueAll=()=>queueOp('readonly',s=>s.getAll());
+const queuePut=rec=>queueOp('readwrite',s=>s.put(rec));
+const queueDel=qid=>queueOp('readwrite',s=>s.delete(qid));
+
+const PHOTO_MAX_SIDE=1600, PHOTO_QUALITY=0.82;
+function compressPhoto(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);const img=new Image();
+    img.onload=()=>{
+      const scale=Math.min(1,PHOTO_MAX_SIDE/Math.max(img.naturalWidth,img.naturalHeight));
+      const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
+      const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);const d=c.toDataURL('image/jpeg',PHOTO_QUALITY);resolve(d.slice(d.indexOf(',')+1));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('That file could not be read as a photo.'));};
+    img.src=url;
+  });
+}
+let cameraRoom=null;
+function takePhoto(room){cameraRoom=room;const inp=$('vw-camera');inp.value='';inp.click();}
+$('vw-camera').addEventListener('change',async e=>{
+  const files=[...(e.target.files||[])];const room=cameraRoom;
+  for(const f of files){
+    try{
+      const d=await compressPhoto(f);
+      const rec={qid:uid(),dealId:DEAL_ID,room,data:d,at:Date.now()};
+      pending.push(rec);await queuePut(rec);
+    }catch(err){flash={text:err.message,kind:'error'};}
+  }
+  render();drainQueue();
+});
+let draining=false;
+async function drainQueue(){
+  if(draining||!navigator.onLine||!currentSession||!pending.length)return;
+  draining=true;setStatus();
+  let uploaded=0;
+  for(const rec of [...pending]){
+    try{
+      const res=await fetch(API_BASE+`/api/deals/${DEAL_ID}/photos`,{method:'POST',headers:authHeaders(true),body:JSON.stringify({type:'image/jpeg',data:rec.data,room:rec.room})});
+      const body=await res.json().catch(()=>({}));
+      if(res.ok){pending=pending.filter(p=>p.qid!==rec.qid);await queueDel(rec.qid);uploaded++;}
+      else if(res.status>=400&&res.status<500){
+        // The server refused it (photo limit, not a JPEG): drop it so it doesn't block the rest.
+        pending=pending.filter(p=>p.qid!==rec.qid);await queueDel(rec.qid);
+        flash={text:body.error||'A photo could not be uploaded.',kind:'error'};
+      }else break;
+    }catch(e){break;}
+  }
+  draining=false;
+  if(uploaded)await loadPhotos();
+  render();
+}
+async function loadPhotos(){
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${DEAL_ID}/photos`,{headers:authHeaders()});
+    if(res.ok)photos=await res.json();
+  }catch(e){}
+}
+async function deletePhoto(id){
+  try{
+    const res=await fetch(API_BASE+`/api/photos/${id}`,{method:'DELETE',headers:authHeaders()});
+    const body=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(body.error||'Could not delete the photo.');
+    photos=photos.filter(p=>p.id!==id);render();
+  }catch(e){flash={text:e.message,kind:'error'};render();}
+}
+async function deletePending(qid){
+  pending=pending.filter(p=>p.qid!==qid);await queueDel(qid);render();
+}
+function openLightbox(src){
+  const box=document.createElement('div');box.className='vw-lightbox';box.innerHTML='<img alt="Viewing photo"/>';
+  box.querySelector('img').src=src;
+  const close=()=>{box.remove();document.removeEventListener('keydown',onKey,true);};
+  const onKey=e=>{if(e.key==='Escape'){e.stopPropagation();close();}};
+  box.onclick=close;document.addEventListener('keydown',onKey,true);document.body.appendChild(box);
+}
+
+// ---------- views ----------
+function statusPill(){return '<span class="vw-status" id="vw-status" role="status" aria-live="polite"></span>';}
+function flashHtml(){if(!flash)return '';const f=flash;flash=null;return `<p class="vw-msg ${f.kind}">${esc(f.text)}</p>`;}
+function backSvg(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';}
+
+function renderRooms(){
+  const secs=allSections();
+  let checked=0,work=0,cost=0;
+  secs.forEach(s=>{const st=sectionStats(s);if(st.complete)checked++;work+=st.work;cost+=st.cost;});
+  const dd=deal&&deal.deal_data||{};
+  const sub=[deal&&deal.property_type?(PROPERTY_TYPE_LABELS[deal.property_type]||deal.property_type):null,
+    deal&&deal.bedrooms?deal.bedrooms+' bed':null, dd.pp?'Asking '+gbp(dd.pp):null].filter(Boolean).join(' · ');
+  const rows=secs.map(s=>{
+    const st=sectionStats(s);
+    let mark='',cls='',detail;
+    if(st.work){mark=String(st.work);cls='work';detail=`${st.work} need${st.work===1?'s':''} work${st.cost?' · '+gbp(st.cost):''}`;}
+    else if(st.complete){mark='✓';cls='done';detail='All fine';}
+    else if(st.done){detail=`${st.done} of ${st.total} checked`;}
+    else detail='Not checked yet';
+    if(st.photoCount)detail+=` · ${st.photoCount} photo${st.photoCount===1?'':'s'}`;
+    return `<a class="vw-row" href="#${s.isProperty?'property':'room-'+s.id}">
+      <span class="vw-mark ${cls}" aria-hidden="true">${mark}</span>
+      <span class="vw-row-text"><span class="vw-row-name">${esc(s.name)}</span><span class="vw-row-detail">${esc(detail)}</span></span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color:var(--muted)"><path d="M9 6l6 6-6 6"/></svg></a>`;
+  }).join('');
+  const add=addingRoom?`<div class="vw-add-form">
+      <label class="sr-only" for="vw-add-kind">Room type</label>
+      <select id="vw-add-kind">${ROOM_KINDS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select>
+      <label class="sr-only" for="vw-add-name">Room name</label>
+      <input id="vw-add-name" maxlength="60" placeholder="Name (optional)"/>
+      <button type="button" class="vw-pill good" aria-pressed="true" data-act="add-room-save">Add</button>
+      <button type="button" class="vw-link" data-act="add-room-cancel">Cancel</button></div>`
+    :'<button type="button" class="vw-add" data-act="add-room">+ Add a room</button>';
+  $('vw').innerHTML=`
+    <div class="vw-top"><a class="vw-back" href="${dealLink()}" aria-label="Back to the deal">${backSvg()}</a>${statusPill()}</div>
+    <div class="vw-eyebrow">Viewing</div>
+    <h1>${esc(dealTitle())}</h1>
+    ${sub?`<div class="vw-sub">${esc(sub)}</div>`:''}
+    <div class="vw-card vw-progress">
+      <div class="vw-progress-row"><span><b>${checked} of ${secs.length}</b> checked</span>${work?`<span class="vw-bad">${work} need${work===1?'s':''} work${cost?' · '+gbp(cost):''}</span>`:''}</div>
+      <div class="vw-bar" aria-hidden="true"><span style="width:${Math.round(checked/secs.length*100)}%"></span></div>
+    </div>
+    ${flashHtml()}
+    <div class="vw-label">Rooms</div>
+    <div class="vw-list">${rows}${add}</div>
+    <div class="vw-foot"><a class="vw-primary" href="#summary">Finish viewing</a></div>`;
+  setStatus();
+  if(addingRoom){const s=$('vw-add-kind');if(s)s.focus();}
+}
+
+function renderSection(sec){
+  const secs=allSections();const idx=secs.findIndex(s=>s.id===sec.id);const next=secs[idx+1];
+  const roomPhotos=photos.filter(p=>p.room===sec.id);const roomPending=pending.filter(p=>p.room===sec.id);
+  const thumbs=roomPhotos.map(p=>`<div class="vw-thumb">${p.url?`<img src="${esc(p.url)}" alt="${esc(sec.name)} photo" loading="lazy" data-act="zoom"/>`:''}${ask==='photo:'+p.id
+      ?`<div class="vw-thumb-ask"><button type="button" class="yes" data-act="del-photo-yes" data-id="${p.id}">Delete</button><button type="button" class="no" data-act="ask-cancel">Keep</button></div>`
+      :`<button type="button" aria-label="Delete photo" data-act="del-photo" data-id="${p.id}">×</button>`}</div>`).join('')
+    +roomPending.map(p=>`<div class="vw-thumb"><img src="data:image/jpeg;base64,${p.data}" alt="${esc(sec.name)} photo, waiting to upload" data-act="zoom"/><span class="wait">Waiting</span><button type="button" aria-label="Remove photo" data-act="del-pending" data-id="${p.qid}">×</button></div>`).join('');
+  const checks=sec.checks.map(([k,label,trade,spec])=>{
+    const it=sec.items[k]||{};const st=it.status||null;
+    if(spec){
+      const pills=spec.type==='choice'?`<span class="vw-pills wrap" role="group" aria-labelledby="lbl-${k}">${spec.options.map(([v,l])=>
+        `<button type="button" class="vw-pill opt" aria-pressed="${it.value===v}" data-act="value" data-key="${k}" data-val="${v}">${esc(l)}</button>`).join('')}</span>`:'';
+      return `<div class="vw-check" data-key="${k}">
+        <div class="vw-check-name fixed" id="lbl-${k}">${esc(label)}</div>
+        ${spec.hint?`<p class="vw-hint">${esc(spec.hint)}</p>`:''}
+        ${pills}
+        <label class="vw-field">Notes<input type="text" maxlength="1000" data-field="note" data-key="${k}" value="${esc(it.note||'')}"/></label>
+      </div>`;
+    }
+    return `<div class="vw-check ${st==='concern'?'concern':''}" data-key="${k}">
+      <div class="vw-check-head"><span class="vw-check-name" id="lbl-${k}">${esc(label)}</span>
+        <span class="vw-pills" role="group" aria-labelledby="lbl-${k}">
+          <button type="button" class="vw-pill good" aria-pressed="${st==='good'}" data-act="status" data-key="${k}" data-val="good">Fine</button>
+          <button type="button" class="vw-pill concern" aria-pressed="${st==='concern'}" data-act="status" data-key="${k}" data-val="concern">Needs work</button>
+        </span></div>
+      ${st==='concern'?`<div class="vw-detail">
+        <label class="vw-field grow">What's wrong<input type="text" maxlength="1000" data-field="note" data-key="${k}" value="${esc(it.note||'')}"/></label>
+        ${trade?`<label class="vw-field cost">Rough cost (£)<input type="text" inputmode="decimal" data-field="cost" data-key="${k}" value="${it.cost!=null?Number(it.cost).toLocaleString('en-GB'):''}"/></label>`:''}
+      </div>`:''}
+    </div>`;
+  }).join('');
+  const notesVal=sec.isProperty?(data.property_notes||''):(sec.room.notes||'');
+  $('vw').innerHTML=`
+    <div class="vw-top"><a class="vw-back" href="#" aria-label="Back to rooms">${backSvg()}</a>${statusPill()}</div>
+    <h1>${esc(sec.name)}</h1>
+    <div class="vw-sub">${esc(dealTitle())} · ${idx+1} of ${secs.length}</div>
+    <div class="vw-photos">
+      <button type="button" class="vw-cam" data-act="photo" aria-label="Take a photo of the ${esc(sec.name)}">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Photo</button>
+      ${thumbs}
+    </div>
+    ${flashHtml()}
+    <div class="vw-list">${checks}
+      <label class="vw-field">Other notes<textarea maxlength="2000" data-field="notes">${esc(notesVal)}</textarea></label>
+      ${sec.isProperty?'':ask==='rename'?`<div class="vw-add-form"><label class="sr-only" for="vw-rename">Room name</label>
+          <input id="vw-rename" maxlength="60" value="${esc(sec.room.name)}"/>
+          <button type="button" class="vw-pill good" aria-pressed="true" data-act="rename-save">Save</button>
+          <button type="button" class="vw-link" data-act="ask-cancel">Cancel</button></div>`
+        :ask==='remove'?`<div class="vw-sum-room" style="font-size:13px">Remove ${esc(sec.name)} and its checks? Its photos stay on the deal.
+          <span class="vw-choice" style="justify-content:flex-start"><button type="button" class="vw-pill concern" aria-pressed="true" data-act="remove-room-yes">Remove</button>
+          <button type="button" class="vw-pill" data-act="ask-cancel">Keep it</button></span></div>`
+        :`<button type="button" class="vw-link" data-act="rename">Rename room</button><button type="button" class="vw-link" data-act="remove-room">Remove this room</button>`}
+    </div>
+    <div class="vw-foot">
+      <p class="vw-note-line">No signal? Everything saves on your phone and uploads later.</p>
+      ${next?`<a class="vw-primary" href="#room-${next.id}">Next: ${esc(next.name)}</a>`:'<a class="vw-primary" href="#summary">Finish viewing</a>'}
+    </div>`;
+  setStatus();
+}
+
+function summaryData(){
+  const groups=[];let total=0,count=0;const unchecked=[];const trades={};let uncosted=0;
+  allSections().forEach(s=>{
+    const lines=[];const st=sectionStats(s);
+    if(!st.done)unchecked.push(s.name);
+    s.checks.forEach(([k,label,trade,spec])=>{
+      const it=s.items[k];if(spec||!it||it.status!=='concern')return;
+      count++;lines.push({text:label+(it.note?': '+it.note:''),cost:it.cost});
+      if(it.cost)total+=it.cost;else if(trade)uncosted++;
+      // Every needs-work trade goes to the estimator, at £0 when there's no
+      // rough cost yet, so it can be priced there.
+      if(trade)trades[trade]=(trades[trade]||0)+(it.cost||0);
+    });
+    if(lines.length)groups.push({name:s.name,lines,total:lines.reduce((a,l)=>a+(l.cost||0),0)});
+  });
+  // Whole property facts (EPC, parking, area, neighbours) for the summary.
+  const facts=[];
+  PROPERTY_CHECKS.forEach(([k,label,,spec])=>{
+    if(!spec)return;const it=data.property[k];if(!it)return;
+    const v=spec.type==='choice'?optionLabel(spec,it.value):null;
+    const note=it.note&&String(it.note).trim();
+    if(v||note)facts.push({label,text:[v,note].filter(Boolean).join(' · ')});
+  });
+  return {groups,total,count,unchecked,trades,uncosted,facts};
+}
+function renderSummary(){
+  const sd=summaryData();
+  const photoTotal=photos.length+pending.length;
+  const groups=sd.groups.map(g=>`<div class="vw-sum-room"><div class="vw-sum-head"><span>${esc(g.name)}</span><span>${g.total?gbp(g.total):''}</span></div>
+    ${g.lines.map(l=>`<div class="vw-sum-line"><span>${esc(l.text)}</span><span>${l.cost?gbp(l.cost):'No cost yet'}</span></div>`).join('')}</div>`).join('');
+  $('vw').innerHTML=`
+    <div class="vw-top"><a class="vw-back" href="#" aria-label="Back to rooms">${backSvg()}</a>${statusPill()}</div>
+    <h1>Viewing summary</h1>
+    <div class="vw-sub">${esc(dealTitle())}${photoTotal?` · ${photoTotal} photo${photoTotal===1?'':'s'}`:''}</div>
+    <div class="vw-total"><div><span style="font-size:12px;opacity:.85">Rough cost of works</span><b>${gbp(sd.total)}</b></div>
+      <span style="font-size:13px;opacity:.9">${sd.count} item${sd.count===1?'':'s'} need${sd.count===1?'s':''} work</span></div>
+    ${flashHtml()}
+    <div class="vw-label">Needs work</div>
+    <div class="vw-list">${groups||'<div class="vw-sum-room" style="color:var(--muted);font-size:13px">Nothing marked as needing work.</div>'}
+      ${sd.facts.length?`<div class="vw-sum-room"><div class="vw-sum-head"><span>About the property</span></div>${sd.facts.map(f=>`<div class="vw-sum-line"><span><b>${esc(f.label)}:</b> ${esc(f.text)}</span></div>`).join('')}</div>`:''}
+      ${sd.unchecked.length?`<div class="vw-sum-room" style="font-size:13px;color:var(--muted)"><b style="color:var(--ink)">Not checked yet:</b> ${esc(sd.unchecked.join(', '))}</div>`:''}
+      ${sd.uncosted?`<p class="vw-note-line">${sd.uncosted} item${sd.uncosted===1?' has':'s have'} no rough cost yet, so ${sd.uncosted===1?'it isn\'t':'they aren\'t'} in the total. ${sd.uncosted===1?'It goes':'They go'} to the estimator at £0 for you to price.</p>`:''}
+    </div>
+    <div class="vw-foot">
+      <p class="vw-msg" id="vw-send-msg" role="status"></p>
+      <button type="button" class="vw-primary" data-act="send-refurb">Send to refurb estimator</button>
+      <a class="vw-secondary" href="${dealLink()}">Back to the deal</a>
+    </div>`;
+  setStatus();
+}
+
+function render(){
+  if(!data)return;
+  const h=location.hash;
+  if(h==='#summary')renderSummary();
+  else if(h==='#property')renderSection(allSections()[0]);
+  else if(h.startsWith('#room-')){const s=allSections().find(x=>x.id===h.slice(6));if(s)renderSection(s);else renderRooms();}
+  else renderRooms();
+}
+window.addEventListener('hashchange',()=>{ask=null;render();window.scrollTo(0,0);});
+
+// ---------- actions ----------
+function currentSection(){
+  const h=location.hash;
+  if(h==='#property')return allSections()[0];
+  if(h.startsWith('#room-'))return allSections().find(x=>x.id===h.slice(6))||null;
+  return null;
+}
+function itemsFor(sec){return sec.isProperty?data.property:sec.room.items;}
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-act]');if(!t)return;
+  const act=t.dataset.act;const sec=currentSection();
+  if(act==='status'&&sec){
+    const items=itemsFor(sec);const k=t.dataset.key;const cur=items[k]||{status:null,note:null,cost:null};
+    cur.status=cur.status===t.dataset.val?null:t.dataset.val;items[k]=cur;
+    changed();render();
+    if(cur.status==='concern'){const inp=document.querySelector(`input[data-field="note"][data-key="${k}"]`);if(inp)inp.focus();}
+  }
+  else if(act==='value'&&sec){
+    const items=itemsFor(sec);const k=t.dataset.key;const cur=items[k]||{status:null,note:null,cost:null};
+    cur.value=cur.value===t.dataset.val?null:t.dataset.val;items[k]=cur;changed();render();
+  }
+  else if(act==='photo'&&sec)takePhoto(sec.id);
+  else if(act==='zoom')openLightbox(t.src);
+  else if(act==='del-photo'){ask='photo:'+t.dataset.id;render();}
+  else if(act==='del-photo-yes'){ask=null;deletePhoto(t.dataset.id);}
+  else if(act==='ask-cancel'){ask=null;render();}
+  else if(act==='del-pending')deletePending(t.dataset.id);
+  else if(act==='add-room'){addingRoom=true;render();}
+  else if(act==='add-room-cancel'){addingRoom=false;render();}
+  else if(act==='add-room-save'){
+    const kind=$('vw-add-kind').value;const label=(ROOM_KINDS.find(r=>r[0]===kind)||[,'Room'])[1];
+    let name=$('vw-add-name').value.trim();
+    if(!name){const same=data.rooms.filter(r=>r.kind===kind).length;name=same?`${label} ${same+1}`:label;}
+    if(data.rooms.length>=30){flash={text:'Up to 30 rooms per viewing.',kind:'error'};addingRoom=false;render();return;}
+    data.rooms.push({id:uid(),name:name.slice(0,60),kind,items:{},notes:null});
+    addingRoom=false;changed();render();
+  }
+  else if(act==='remove-room'&&sec&&!sec.isProperty){ask='remove';render();}
+  else if(act==='remove-room-yes'&&sec&&!sec.isProperty){
+    ask=null;data.rooms=data.rooms.filter(r=>r.id!==sec.id);changed();location.hash='';
+  }
+  else if(act==='rename'&&sec&&!sec.isProperty){ask='rename';render();const i=$('vw-rename');if(i){i.focus();i.select();}}
+  else if(act==='rename-save'&&sec&&!sec.isProperty){
+    const n=($('vw-rename')||{}).value||'';ask=null;
+    if(n.trim()){sec.room.name=n.trim().slice(0,60);changed();}
+    render();
+  }
+  else if(act==='send-refurb')sendToRefurb(t);
+});
+document.addEventListener('keydown',e=>{
+  if(e.target&&e.target.id==='vw-rename'){if(e.key==='Enter'){e.preventDefault();document.querySelector('[data-act="rename-save"]').click();}else if(e.key==='Escape'){ask=null;render();}}
+});
+document.addEventListener('input',e=>{
+  const t=e.target;const f=t.dataset&&t.dataset.field;if(!f)return;
+  const sec=currentSection();if(!sec)return;
+  if(f==='notes'){if(sec.isProperty)data.property_notes=t.value;else sec.room.notes=t.value;changed();return;}
+  const items=itemsFor(sec);const k=t.dataset.key;const spec=(sec.checks.find(c=>c[0]===k)||[])[3];
+  const cur=items[k]||{status:spec?null:'concern',note:null,cost:null};
+  if(f==='note')cur.note=t.value;
+  if(f==='cost'){const n=Number(String(t.value).replace(/[^0-9.]/g,''));cur.cost=t.value.trim()===''||!Number.isFinite(n)?null:Math.round(n);}
+  items[k]=cur;changed();
+});
+
+async function sendToRefurb(btn){
+  const msg=$('vw-send-msg');const sd=summaryData();
+  if(!navigator.onLine){msg.textContent='You need signal to create the estimate. Everything else is saved on your phone.';msg.className='vw-msg error';return;}
+  // Already linked: ask on the page, not with a pop-up (the phone app blocks pop-ups).
+  if(deal.refurb_estimate_id&&!btn.dataset.replace){
+    msg.className='vw-msg';
+    msg.innerHTML=`This deal already has a refurb estimate. Make a new one from this viewing and link that instead? The old one is kept.
+      <span class="vw-choice"><button type="button" class="vw-pill opt" data-act="send-refurb" data-replace="1">Make a new one</button>
+      <a class="vw-pill opt" href="/refurb.html?estimate=${encodeURIComponent(deal.refurb_estimate_id)}">Open the current one</a></span>`;
+    return;
+  }
+  const main=document.querySelector('.vw-primary[data-act="send-refurb"]');if(main)main.disabled=true;
+  msg.textContent='Creating the estimate…';msg.className='vw-msg';
+  try{
+    const res=await fetch(API_BASE+'/api/refurb-estimates',{method:'POST',headers:authHeaders(true),body:JSON.stringify({
+      name:('Viewing: '+dealTitle()).slice(0,120),mode:'quick',line_items:sd.trades,contingency_enabled:false,contingency_pct:10,vat_rate:0})});
+    const est=await res.json();
+    if(!res.ok)throw new Error(est.error||'Could not create the estimate.');
+    const link=await fetch(API_BASE+`/api/deals/${DEAL_ID}/refurb-estimate`,{method:'PUT',headers:authHeaders(true),body:JSON.stringify({refurb_estimate_id:est.id})});
+    const lb=await link.json();
+    if(!link.ok)throw new Error(lb.error||'The estimate was created but could not be linked to the deal.');
+    deal.refurb_estimate_id=est.id;saveLocal();
+    msg.textContent='Estimate created and linked to the deal. Opening the estimator…';msg.className='vw-msg success';
+    location.href='/refurb.html?estimate='+encodeURIComponent(est.id);
+  }catch(e){msg.textContent=e.message;msg.className='vw-msg error';if(main)main.disabled=false;}
+}
+
+// ---------- start ----------
+function showState(title,text){
+  $('vw').innerHTML=`<div class="vw-top"><a class="vw-back" href="/saved-deals.html" aria-label="Back to deals">${backSvg()}</a></div>
+    <div class="vw-state"><h2>${esc(title)}</h2><p>${text}</p></div>`;
+}
+window.addEventListener('online',()=>{if(offlineBoot){location.reload();return;}setStatus();sync();drainQueue();});
+window.addEventListener('offline',setStatus);
+
+async function init(){
+  if(!DEAL_ID){showState('No deal chosen','Open a deal and press Start viewing.');return;}
+  const local=loadLocal();
+  pending=((await queueAll())||[]).filter(r=>r.dealId===DEAL_ID);
+  // Opened with no signal: carry on from what's saved on this phone.
+  if(!navigator.onLine&&local&&local.data){
+    offlineBoot=true;deal={id:DEAL_ID,...(local.deal||{})};data=local.data;dirty=!!local.dirty;render();return;
+  }
+  const auth=await requireAuth();if(!auth)return;
+  sbClient=auth.client;currentSession=auth.session;
+  sbClient.auth.onAuthStateChange((_e,s)=>{currentSession=s;if(!s)dnySessionEnded();});
+  try{
+    const prof=await (await fetch(API_BASE+'/api/profile',{headers:authHeaders()})).json();
+    if(prof.plan!=='paid'){showState('Viewing mode is on the paid plan','Upgrade to check properties room by room with photos. <a href="/billing.html">See plans</a>');return;}
+    const res=await fetch(API_BASE+'/api/deals',{headers:authHeaders()});
+    const deals=await res.json();
+    if(!res.ok)throw new Error(deals.error||'Could not load the deal.');
+    deal=deals.find(d=>d.id===DEAL_ID);
+    if(!deal){showState('Deal not found','It may have been deleted. <a href="/saved-deals.html">Back to your deals</a>');return;}
+  }catch(e){
+    if(local&&local.data){offlineBoot=true;deal={id:DEAL_ID,...(local.deal||{})};data=local.data;dirty=!!local.dirty;render();return;}
+    showState('Could not load the viewing',esc(e.message)+' <a href="/saved-deals.html">Back to your deals</a>');return;
+  }
+  // Unsent changes on this phone win over what the server has.
+  if(local&&local.dirty&&local.data){data=local.data;dirty=true;}
+  else data=fromServer(deal.viewing_checklist);
+  saveLocal();
+  await loadPhotos();
+  render();
+  if(!deal.viewing_checklist||deal.viewing_checklist.v!==2)dirty=true;
+  sync();drainQueue();
+}
+init();
+</script>
+</body>
+</html>
