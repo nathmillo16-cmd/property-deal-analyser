@@ -369,7 +369,7 @@ details[open]>summary .chev{transform:rotate(-135deg)}
   <div id="state-locked" style="display:none">
     <div class="locked-panel">
       <h2>The Refurbishment Estimator is a paid feature</h2>
-      <p>Cost a refurb from a template, room by room or line by line, compare builder quotes and track your spend.</p>
+      <p>Cost a refurb room by room, line by line or as a quick total by trade, compare builder quotes and track your spend.</p>
       <button class="btn-primary" id="upgrade-btn" onclick="upgradeNow()">Subscribe / Upgrade · £29/mo</button>
     </div>
   </div>
@@ -401,11 +401,6 @@ details[open]>summary .chev{transform:rotate(-135deg)}
         <h2>How do you want to start?</h2>
         <p class="start-sub">You can switch between these at any time.</p>
         <div class="start-options">
-          <button type="button" class="start-opt" onclick="startWith('template')">
-            <span class="so-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
-            <span class="so-title">Use a template</span>
-            <span class="so-hint">Pick the property and how much work it needs. The quantities are filled in for you.</span>
-          </button>
           <button type="button" class="start-opt" onclick="startWith('rooms')">
             <span class="so-icon"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span>
             <span class="so-title">Cost room by room</span>
@@ -416,13 +411,17 @@ details[open]>summary .chev{transform:rotate(-135deg)}
             <span class="so-title">Build line by line</span>
             <span class="so-hint">Open each category and enter your own quantities and rates.</span>
           </button>
+          <button type="button" class="start-opt" onclick="startWith('quick')">
+            <span class="so-icon"><svg viewBox="0 0 24 24"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg></span>
+            <span class="so-title">Quick total by trade</span>
+            <span class="so-hint">One figure per trade, such as kitchen, electrics or plastering. Fastest when you know roughly what each will cost.</span>
+          </button>
         </div>
-        <button type="button" class="link-btn muted" onclick="startWith('quick')">Or enter a quick total by trade</button>
       </div>
 
       <!-- Wizard: template or rooms setup, one question at a time -->
       <div class="card wiz" id="rf-wizard" hidden>
-        <h2 id="wiz-title">Use a template</h2>
+        <h2 id="wiz-title">Cost room by room</h2>
         <div class="wiz-step" id="wiz-type">
           <p class="wiz-q">What type of property is it?</p>
           <div class="choice-row" id="wiz-type-choices"></div>
@@ -463,7 +462,6 @@ details[open]>summary .chev{transform:rotate(-135deg)}
             <button type="button" id="view-btn-quick" onclick="switchView('quick')">Quick total</button>
           </div>
           <div style="display:flex;gap:14px;flex-wrap:wrap">
-            <button type="button" class="link-btn" id="rf-template-btn" onclick="startWith('template', true)">Apply a template</button>
             <button type="button" class="link-btn muted" onclick="newEstimate()">Start a new estimate</button>
           </div>
         </div>
@@ -1191,7 +1189,6 @@ function switchView(view, skipRecalc){
   document.getElementById('rf-detailed-panel').hidden=view!=='detailed';
   document.getElementById('rf-rooms-panel').hidden=view!=='rooms';
   document.getElementById('rf-quick-panel').hidden=view!=='quick';
-  document.getElementById('rf-template-btn').hidden=view==='quick';
   if(view==='rooms')renderRoomsPanel();
   if(!skipRecalc)recalcSummary();
 }
