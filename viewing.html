@@ -67,7 +67,10 @@ body.theme-light{background:var(--bg)}
 .vw-thumb{position:relative;width:76px;height:76px;flex:none;border-radius:12px;overflow:hidden;background:var(--surface-3)}
 .vw-thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
 .vw-thumb .wait{position:absolute;left:4px;bottom:4px;font-size:10px;font-weight:600;background:rgba(0,0,0,.6);color:#fff;border-radius:6px;padding:1px 5px}
-.vw-thumb button{position:absolute;top:3px;right:3px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;cursor:pointer}
+.vw-thumb-ask{position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.vw-thumb-ask button{font:inherit;font-size:11px;font-weight:600;border:none;border-radius:6px;padding:4px 8px;min-height:26px;cursor:pointer}
+.vw-thumb-ask .yes{background:var(--danger);color:#fff}.vw-thumb-ask .no{background:#fff;color:var(--ink)}
+.vw-thumb > button{position:absolute;top:3px;right:3px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;cursor:pointer}
 .vw-check{background:var(--surface);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;border:1.5px solid transparent}
 .vw-check.concern{border-color:var(--danger)}
 .vw-check-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -126,6 +129,8 @@ const LS_KEY='pp-viewing-'+DEAL_ID;
 let sbClient=null, currentSession=null, deal=null, data=null;
 let photos=[], pending=[], dirty=false, syncing=false, syncTimer=null, offlineBoot=false;
 let addingRoom=false, flash=null;
+// On-page questions instead of pop-ups (the phone app blocks pop-ups): 'rename', 'remove' or 'photo:<id>'.
+let ask=null;
 
 // [key, label, refurb quick trade it costs into (null: no cost box)]
 const BASE_CHECKS=[
@@ -306,7 +311,6 @@ async function loadPhotos(){
   }catch(e){}
 }
 async function deletePhoto(id){
-  if(!confirm('Delete this photo?'))return;
   try{
     const res=await fetch(API_BASE+`/api/photos/${id}`,{method:'DELETE',headers:authHeaders()});
     const body=await res.json().catch(()=>({}));
@@ -378,7 +382,9 @@ function renderRooms(){
 function renderSection(sec){
   const secs=allSections();const idx=secs.findIndex(s=>s.id===sec.id);const next=secs[idx+1];
   const roomPhotos=photos.filter(p=>p.room===sec.id);const roomPending=pending.filter(p=>p.room===sec.id);
-  const thumbs=roomPhotos.map(p=>`<div class="vw-thumb">${p.url?`<img src="${esc(p.url)}" alt="${esc(sec.name)} photo" loading="lazy" data-act="zoom"/>`:''}<button type="button" aria-label="Delete photo" data-act="del-photo" data-id="${p.id}">×</button></div>`).join('')
+  const thumbs=roomPhotos.map(p=>`<div class="vw-thumb">${p.url?`<img src="${esc(p.url)}" alt="${esc(sec.name)} photo" loading="lazy" data-act="zoom"/>`:''}${ask==='photo:'+p.id
+      ?`<div class="vw-thumb-ask"><button type="button" class="yes" data-act="del-photo-yes" data-id="${p.id}">Delete</button><button type="button" class="no" data-act="ask-cancel">Keep</button></div>`
+      :`<button type="button" aria-label="Delete photo" data-act="del-photo" data-id="${p.id}">×</button>`}</div>`).join('')
     +roomPending.map(p=>`<div class="vw-thumb"><img src="data:image/jpeg;base64,${p.data}" alt="${esc(sec.name)} photo, waiting to upload" data-act="zoom"/><span class="wait">Waiting</span><button type="button" aria-label="Remove photo" data-act="del-pending" data-id="${p.qid}">×</button></div>`).join('');
   const checks=sec.checks.map(([k,label,trade,spec])=>{
     const it=sec.items[k]||{};const st=it.status||null;
@@ -417,7 +423,14 @@ function renderSection(sec){
     ${flashHtml()}
     <div class="vw-list">${checks}
       <label class="vw-field">Other notes<textarea maxlength="2000" data-field="notes">${esc(notesVal)}</textarea></label>
-      ${sec.isProperty?'':`<button type="button" class="vw-link" data-act="rename">Rename room</button><button type="button" class="vw-link" data-act="remove-room">Remove this room</button>`}
+      ${sec.isProperty?'':ask==='rename'?`<div class="vw-add-form"><label class="sr-only" for="vw-rename">Room name</label>
+          <input id="vw-rename" maxlength="60" value="${esc(sec.room.name)}"/>
+          <button type="button" class="vw-pill good" aria-pressed="true" data-act="rename-save">Save</button>
+          <button type="button" class="vw-link" data-act="ask-cancel">Cancel</button></div>`
+        :ask==='remove'?`<div class="vw-sum-room" style="font-size:13px">Remove ${esc(sec.name)} and its checks? Its photos stay on the deal.
+          <span class="vw-choice" style="justify-content:flex-start"><button type="button" class="vw-pill concern" aria-pressed="true" data-act="remove-room-yes">Remove</button>
+          <button type="button" class="vw-pill" data-act="ask-cancel">Keep it</button></span></div>`
+        :`<button type="button" class="vw-link" data-act="rename">Rename room</button><button type="button" class="vw-link" data-act="remove-room">Remove this room</button>`}
     </div>
     <div class="vw-foot">
       <p class="vw-note-line">No signal? Everything saves on your phone and uploads later.</p>
@@ -485,7 +498,7 @@ function render(){
   else if(h.startsWith('#room-')){const s=allSections().find(x=>x.id===h.slice(6));if(s)renderSection(s);else renderRooms();}
   else renderRooms();
 }
-window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);});
+window.addEventListener('hashchange',()=>{ask=null;render();window.scrollTo(0,0);});
 
 // ---------- actions ----------
 function currentSection(){
@@ -510,7 +523,9 @@ document.addEventListener('click',async e=>{
   }
   else if(act==='photo'&&sec)takePhoto(sec.id);
   else if(act==='zoom')openLightbox(t.src);
-  else if(act==='del-photo')deletePhoto(t.dataset.id);
+  else if(act==='del-photo'){ask='photo:'+t.dataset.id;render();}
+  else if(act==='del-photo-yes'){ask=null;deletePhoto(t.dataset.id);}
+  else if(act==='ask-cancel'){ask=null;render();}
   else if(act==='del-pending')deletePending(t.dataset.id);
   else if(act==='add-room'){addingRoom=true;render();}
   else if(act==='add-room-cancel'){addingRoom=false;render();}
@@ -522,14 +537,20 @@ document.addEventListener('click',async e=>{
     data.rooms.push({id:uid(),name:name.slice(0,60),kind,items:{},notes:null});
     addingRoom=false;changed();render();
   }
-  else if(act==='remove-room'&&sec&&!sec.isProperty){
-    if(!confirm(`Remove ${sec.name} and its checks? Its photos stay on the deal.`))return;
-    data.rooms=data.rooms.filter(r=>r.id!==sec.id);changed();location.hash='';
+  else if(act==='remove-room'&&sec&&!sec.isProperty){ask='remove';render();}
+  else if(act==='remove-room-yes'&&sec&&!sec.isProperty){
+    ask=null;data.rooms=data.rooms.filter(r=>r.id!==sec.id);changed();location.hash='';
   }
-  else if(act==='rename'&&sec&&!sec.isProperty){
-    const n=prompt('Room name',sec.room.name);if(n&&n.trim()){sec.room.name=n.trim().slice(0,60);changed();render();}
+  else if(act==='rename'&&sec&&!sec.isProperty){ask='rename';render();const i=$('vw-rename');if(i){i.focus();i.select();}}
+  else if(act==='rename-save'&&sec&&!sec.isProperty){
+    const n=($('vw-rename')||{}).value||'';ask=null;
+    if(n.trim()){sec.room.name=n.trim().slice(0,60);changed();}
+    render();
   }
   else if(act==='send-refurb')sendToRefurb(t);
+});
+document.addEventListener('keydown',e=>{
+  if(e.target&&e.target.id==='vw-rename'){if(e.key==='Enter'){e.preventDefault();document.querySelector('[data-act="rename-save"]').click();}else if(e.key==='Escape'){ask=null;render();}}
 });
 document.addEventListener('input',e=>{
   const t=e.target;const f=t.dataset&&t.dataset.field;if(!f)return;
