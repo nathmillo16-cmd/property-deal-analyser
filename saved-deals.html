@@ -15,6 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="PROPulsion">
 <script src="/app-config.js"></script>
+<script src="/company-details.js"></script>
 <script src="/track.js"></script>
 <script src="/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -294,6 +295,19 @@ body.theme-light .dd-trigger::after{
 
 /* Deal page additions (details, photos, checklist, reminders, listing reader). */
 .modal-card.workspace-card{max-width:680px}
+/* Property pack options panel (togglePackPanel) */
+.pack-panel{border:1px solid var(--hairline);border-radius:12px;padding:14px;margin:0 0 12px;background:var(--surface)}
+.pack-panel-title{font-weight:700;font-size:14px;margin:0 0 8px;color:var(--ink)}
+.pack-opts,.pack-brand{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.pack-opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--hairline);border-radius:10px;padding:10px 12px;cursor:pointer;min-height:44px;box-sizing:border-box}
+.pack-opt input{margin-top:3px;accent-color:var(--accent)}
+.pack-opt span{display:flex;flex-direction:column;gap:2px;font-size:13.5px;color:var(--ink)}
+.pack-opt em{font-style:normal;font-size:12px;color:var(--muted)}
+.pack-opt.off{opacity:.55;cursor:default}
+.pack-opt:has(input:checked){border-color:var(--accent)}
+.pack-brand-note{font-size:12.5px;color:var(--muted);margin:12px 0 0}
+.pack-panel-actions{display:flex;gap:10px;align-items:center;margin-top:14px}
+
 .ws-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 12px}
 .ws-link{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);margin:-.35rem 0 .85rem;overflow-wrap:anywhere}
 .ws-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:.25rem}
@@ -725,11 +739,23 @@ body.theme-light .dd-trigger::after{
     <!-- Reminders: iOS app only. Stays hidden on the website; native-reminders.js fills and shows it. -->
     <div class="modal-section" id="workspace-reminders" hidden></div>
 
+    <!-- Property pack options: opened by Download pack. -->
+    <div class="pack-panel" id="ws-pack-panel" hidden>
+      <p class="pack-panel-title">What goes in the pack</p>
+      <div class="pack-opts" id="ws-pack-opts"></div>
+      <div id="ws-pack-brand"></div>
+      <div class="pack-panel-actions">
+        <button type="button" class="btn-primary" id="ws-pack-go" onclick="downloadPropertyPack()">Download PDF</button>
+        <button type="button" class="mini-btn" onclick="togglePackPanel(false)">Cancel</button>
+      </div>
+      <p class="save-msg" id="ws-pack-msg"></p>
+    </div>
+
     <div class="modal-actions">
       <button class="mini-btn danger" onclick="deleteFromWorkspace()">Delete</button>
       <button class="mini-btn" onclick="moveToPortfolioFromWorkspace()">Move to portfolio</button>
       <button class="mini-btn" onclick="renameFromWorkspace()">Rename</button>
-      <button class="mini-btn" id="ws-pack-btn" onclick="downloadPropertyPack()">Download pack</button>
+      <button class="mini-btn" id="ws-pack-btn" onclick="togglePackPanel()">Download pack</button>
       <button class="mini-btn" onclick="openInCalculatorFromWorkspace()">Open in calculator</button>
     </div>
   </div>
@@ -749,7 +775,7 @@ function buildWorkspaceAccordions(){
   const card=document.querySelector('.workspace-card');if(!card||card.querySelector('.ws-acc'))return;
   const actions=card.querySelector('.modal-actions');
   const list=document.createElement('div');list.className='ws-acc-list';
-  card.insertBefore(list,actions);
+  card.insertBefore(list,card.querySelector('#ws-pack-panel')||actions);
   const open=wsAccOpenSet();
   const sections={};card.querySelectorAll('.modal-section[data-acc]').forEach(sec=>{sections[sec.dataset.acc]=sec;});
   WS_ACC_ORDER.forEach(key=>{
@@ -1280,6 +1306,7 @@ document.addEventListener('keydown', function(e){
 // updateWorkspaceGating below). workspaceDealId carries the open deal's id
 // the same way movingDealId does for Move to portfolio, above.
 let workspaceDealId=null;
+let currentProfile=null, wsPhotoCount=0;
 
 const WORKSPACE_STAGES=DealCards.STAGES;
 const WORKSPACE_STAGE_LABELS=DealCards.STAGE_LABELS;
@@ -1674,23 +1701,112 @@ async function loadPackPhotoGroups(deal){
   return out;
 }
 
+// ---------- pack options: what goes in, and whose branding ----------
+// Choices are remembered on this device. Free packs carry PROPulsion
+// branding; paid users can switch to their own (Settings > Company & letters).
+const PACK_PREFS_KEY='pp-pack-prefs';
+const PACK_SECTIONS=[
+  ['numbers','Key numbers','Max bid and the headline figures'],
+  ['comps','Comps','Our sold prices, crime, planning and employment'],
+  ['yours','Your comparables','The ones you added or removed'],
+  ['photos','Photos','Grouped by room from the viewing']
+];
+function packPrefs(){
+  let p={};try{p=JSON.parse(localStorage.getItem(PACK_PREFS_KEY)||'{}')||{};}catch(e){}
+  return {sections:Object.assign({numbers:true,comps:true,yours:true,photos:true},p.sections||{}),brand:p.brand==='company'?'company':'propulsion'};
+}
+function savePackPrefs(p){try{localStorage.setItem(PACK_PREFS_KEY,JSON.stringify(p));}catch(e){}}
+function packAvailable(deal){
+  const paid=currentPlan==='paid';
+  return {
+    numbers:'',
+    comps:deal.comps_snapshot?'':'No comps saved',
+    yours:!paid?'Paid plan':(window.MyComps&&MyComps.changed(deal.user_comps)?'':'None added'),
+    photos:!paid?'Paid plan':(wsPhotoCount?'':'No photos yet')
+  };
+}
+function togglePackPanel(show){
+  const panel=document.getElementById('ws-pack-panel');
+  const deal=currentDeal();
+  if(show===undefined)show=panel.hidden;
+  panel.hidden=!show;
+  if(!show||!deal)return;
+  requestAnimationFrame(()=>panel.scrollIntoView({block:'nearest',behavior:'smooth'}));
+  const prefs=packPrefs(), avail=packAvailable(deal);
+  document.getElementById('ws-pack-opts').innerHTML=PACK_SECTIONS.map(([k,label,hint])=>{
+    const off=avail[k];
+    return `<label class="pack-opt${off?' off':''}"><input type="checkbox" data-pack="${k}" ${!off&&prefs.sections[k]?'checked':''} ${off?'disabled':''}/>
+      <span><b>${label}</b><em>${escapeHtml(off||hint)}</em></span></label>`;
+  }).join('');
+  const company=window.CompanyDetails&&currentProfile?CompanyDetails.fromProfile(currentProfile):null;
+  const hasCompany=!!(company&&(company.name||company.hasLogo));
+  const brandEl=document.getElementById('ws-pack-brand');
+  if(currentPlan!=='paid'){
+    brandEl.innerHTML='<p class="pack-brand-note">Packs carry PROPulsion branding. On the paid plan you can use your own logo and details instead.</p>';
+  }else{
+    const brand=hasCompany?prefs.brand:'propulsion';
+    brandEl.innerHTML=`<p class="pack-panel-title" style="margin-top:14px">Branding</p>
+      <div class="pack-brand">
+        <label class="pack-opt"><input type="radio" name="ws-pack-brand" value="company" ${brand==='company'?'checked':''} ${hasCompany?'':'disabled'}/>
+          <span><b>Your branding</b><em>${hasCompany?escapeHtml(company.name||'Your logo')+(company.hasLogo?' with your logo':''):'Add your company in <a href="/settings.html#company">Settings</a> first'}</em></span></label>
+        <label class="pack-opt"><input type="radio" name="ws-pack-brand" value="propulsion" ${brand==='propulsion'?'checked':''}/>
+          <span><b>PROPulsion</b><em>Our logo and footer</em></span></label>
+      </div>`;
+  }
+  setMsg('ws-pack-msg','','');
+}
+function readPackChoices(){
+  const sections={};
+  document.querySelectorAll('#ws-pack-opts input[data-pack]').forEach(i=>{sections[i.dataset.pack]=i.checked;});
+  const r=document.querySelector('input[name="ws-pack-brand"]:checked');
+  const brand=currentPlan==='paid'&&r?r.value:'propulsion';
+  return {sections,brand};
+}
 async function downloadPropertyPack(){
-  const btn=document.getElementById('ws-pack-btn');
+  const btn=document.getElementById('ws-pack-go');
   if(btn&&btn.disabled)return;
+  const choices=readPackChoices();
+  if(!Object.values(choices.sections).some(Boolean)){setMsg('ws-pack-msg','Tick at least one thing to include.','error');return;}
+  const prev=packPrefs();
+  savePackPrefs({sections:Object.assign({},prev.sections,choices.sections),brand:currentPlan==='paid'?choices.brand:prev.brand});
   if(btn){btn.disabled=true;btn.textContent='Building pack…';}
-  try{ await buildPropertyPack(); }
-  catch(e){ alertPackError(e); }
-  finally{ if(btn){btn.disabled=false;btn.textContent='Download pack';} }
+  try{ await buildPropertyPack(choices); togglePackPanel(false); }
+  catch(e){ setMsg('ws-pack-msg','Could not build the pack: '+(e&&e.message||'unknown error'),'error'); }
+  finally{ if(btn){btn.disabled=false;btn.textContent='Download PDF';} }
 }
-function alertPackError(e){
-  const el=document.getElementById('ws-photo-msg');
-  if(el)setMsg('ws-photo-msg','Could not build the pack: '+(e&&e.message||'unknown error'),'error');
+
+// A logo as a PNG data URL jsPDF can embed (redrawn through a canvas so any
+// PNG or JPEG works), with its size.
+async function packImageFromUrl(url){
+  const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('logo'));i.src=url;});
+  const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+  c.getContext('2d').drawImage(img,0,0);
+  return {data:c.toDataURL('image/png'),w:img.naturalWidth,h:img.naturalHeight};
 }
-async function buildPropertyPack(){
+let propulsionLogoPromise=null;
+function propulsionPackLogo(){
+  if(!propulsionLogoPromise)propulsionLogoPromise=packImageFromUrl('/assets/propulsion-logo.png').catch(()=>{propulsionLogoPromise=null;return null;});
+  return propulsionLogoPromise;
+}
+async function packBranding(brand){
+  if(brand==='company'&&currentPlan==='paid'&&window.CompanyDetails&&currentProfile){
+    const c=CompanyDetails.fromProfile(currentProfile);
+    let logo=null;
+    if(c.hasLogo){try{const l=await CompanyDetails.logo(currentSession);if(l)logo=await packImageFromUrl(l.data);}catch(e){}}
+    const contact=[c.phone,c.email].filter(Boolean).join(' · ');
+    return {kind:'company',logo,name:c.name||c.personName||'',footer:'Prepared by '+(c.name||c.personName||'')+(contact?' · '+contact:'')};
+  }
+  return {kind:'propulsion',logo:await propulsionPackLogo(),name:'PROPulsion',footer:'Made with PROPulsion'};
+}
+
+async function buildPropertyPack(choices){
   if(!workspaceDealId)return;
   const deal=savedDealsCache.find(d=>d.id===workspaceDealId);
   if(!deal)return;
-  const photoGroupsPromise=loadPackPhotoGroups(deal);
+  const opts=choices||{sections:{numbers:true,comps:true,yours:true,photos:true},brand:'propulsion'};
+  const want=k=>opts.sections[k]!==false;
+  const photoGroupsPromise=want('photos')?loadPackPhotoGroups(deal):Promise.resolve([]);
+  const brandingPromise=packBranding(opts.brand);
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'pt', format:'a4' });
@@ -1760,9 +1876,28 @@ async function buildPropertyPack(){
   doc.setFontSize(9);
   doc.text('Generated '+generatedDate, pageW-margin, 30, {align:'right'});
 
+  // Brand mark, top right on a white tile: PROPulsion or the user's own.
+  const branding=await brandingPromise;
+  {
+    const tileW=130, tileH=40, tx=pageW-margin-tileW, ty=44;
+    if(branding.logo){
+      doc.setFillColor(...PACK_WHITE);
+      doc.roundedRect(tx,ty,tileW,tileH,6,6,'F');
+      const sc=Math.min((tileW-16)/branding.logo.w,(tileH-12)/branding.logo.h);
+      const lw=branding.logo.w*sc, lh=branding.logo.h*sc;
+      doc.addImage(branding.logo.data,'PNG',tx+(tileW-lw)/2,ty+(tileH-lh)/2,lw,lh);
+    }else if(branding.name){
+      doc.setFont('Sora','bold');doc.setFontSize(11);doc.setTextColor(...PACK_WHITE);
+      const nm=doc.splitTextToSize(branding.name,tileW)[0];
+      doc.text(nm,pageW-margin,ty+24,{align:'right'});
+      doc.setFont('Sora','normal');
+    }
+  }
+
   let y=headerH+38;
 
   // --- Key numbers ---
+  if(want('numbers')){
   y=packSectionHeader(doc,'Key numbers',margin,y);
   y+=6;
 
@@ -1803,10 +1938,11 @@ async function buildPropertyPack(){
   });
   const secondaryRows=Math.ceil(secondary.length/cols);
   y=y+secondaryRows*(boxH+gap)+10;
+  }
 
   // --- Comps (only if a snapshot was saved with this deal) ---
   const snap=deal.comps_snapshot;
-  if(snap){
+  if(snap&&want('comps')){
     y=ensureSpace(doc,y,140,margin,contentPageH);
     y=packSectionHeader(doc,'Comps',margin,y);
 
@@ -1839,11 +1975,46 @@ async function buildPropertyPack(){
     });
   }
 
+  // --- Your comparables (my-comps.js): their figure, what they added, what they removed ---
+  if(want('yours')&&currentPlan==='paid'&&window.MyComps&&MyComps.changed(deal.user_comps)){
+    const uc=MyComps.normalise(deal.user_comps);
+    const ours=(snap&&snap.comps&&snap.comps.comps)||[];
+    const st=MyComps.stats(ours,uc);
+    const gbp=n=>'£'+Math.round(n).toLocaleString('en-GB');
+    y=ensureSpace(doc,y+10,120,margin,contentPageH);
+    y=packSectionHeader(doc,'Your comparables',margin,y);
+    if(st.count){
+      doc.setFont('Sora','bold');doc.setFontSize(10);doc.setTextColor(...PACK_INDIGO);
+      doc.text('Your comps median '+gbp(st.median)+(st.psqm?' · '+gbp(st.psqm)+' per sqm':'')+' · '+st.count+' sale'+(st.count===1?'':'s'),margin,y+2);
+      y+=18;
+    }
+    const statusLabel={sold:'Sold',stc:'Sold STC','for-sale':'For sale'};
+    const line=(left,sub,right)=>{
+      y=ensureSpace(doc,y,sub?30:20,margin,contentPageH);
+      doc.setDrawColor(...PACK_HAIRLINE);doc.setLineWidth(0.5);doc.line(margin,y+4,pageW-margin,y+4);
+      doc.setFont('Sora','normal');doc.setFontSize(10);doc.setTextColor(...PACK_INK);
+      doc.text(doc.splitTextToSize(left,contentW-110)[0],margin,y+16);
+      doc.setFont('Sora','bold');doc.text(right,pageW-margin,y+16,{align:'right'});
+      if(sub){doc.setFont('Sora','normal');doc.setFontSize(8.5);doc.setTextColor(...PACK_MUTED);doc.text(doc.splitTextToSize(sub,contentW-110)[0],margin,y+27);y+=10;}
+      y+=22;
+    };
+    uc.added.forEach(a=>{
+      const sub=[statusLabel[a.status]||'Sold',a.date?packDateOnly(a.date):'',a.beds?a.beds+' bed':'',a.sqm?a.sqm+' sqm':'',a.note||''].filter(Boolean).join(' · ');
+      line(a.address||'Your comparable',sub,gbp(a.price));
+    });
+    const removed=ours.filter(c=>uc.excluded.includes(MyComps.key(c)));
+    if(removed.length){
+      y=ensureSpace(doc,y+6,30,margin,contentPageH);
+      doc.setFont('Sora','normal');doc.setFontSize(8.5);doc.setTextColor(...PACK_MUTED);
+      const txt=doc.splitTextToSize('Left out of our comps: '+removed.map(c=>(c.address||'Sale')+' ('+gbp(c.price)+')').join(', '),contentW);
+      doc.text(txt,margin,y+10);y+=10+txt.length*11;
+    }
+  }
+
   // --- Photos, on their own pages, two across ---
   const photoGroups=await photoGroupsPromise;
   if(photoGroups.length){
-    doc.addPage();
-    y=margin+10;
+    if(y>headerH+60){doc.addPage();y=margin+10;}
     y=packSectionHeader(doc,'Photos',margin,y);
     const gap=12, cellW=(contentW-gap)/2, cellH=cellW*0.75;
     photoGroups.forEach(g=>{
@@ -1880,7 +2051,10 @@ async function buildPropertyPack(){
     doc.setTextColor(...PACK_MUTED);
     doc.text(disclaimerLines, margin, footerDisclaimerY, {lineHeightFactor:footerLineH/disclaimerFontSize});
     doc.setFontSize(8);
-    doc.text('Generated '+generatedDate+(createdDate?' · figures as analysed on '+createdDate:''), margin, footerInfoY);
+    let info=branding.footer+' · Generated '+generatedDate+(createdDate?' · figures as analysed on '+createdDate:'');
+    if(doc.getTextWidth(info)>contentW-70)info=branding.footer+' · Generated '+generatedDate;
+    if(doc.getTextWidth(info)>contentW-70)info=doc.splitTextToSize(info,contentW-70)[0];
+    doc.text(info, margin, footerInfoY);
     doc.text('Page '+p+' of '+pageCount, pageW-margin, footerInfoY, {align:'right'});
   }
 
@@ -2493,6 +2667,7 @@ async function loadDealPhotos(dealId){
     if(workspaceDealId!==dealId)return;
     if(res.status===409&&body.needs_migration){ grid.innerHTML='<p class="hint">Photos need a quick database update before they can be added.</p>'; return; }
     if(!res.ok)throw new Error(body.error||'Could not load photos.');
+    wsPhotoCount=Array.isArray(body)?body.length:0;
     const dealNow=currentDeal();
     const roomNames=viewingRoomNames(dealNow&&dealNow.viewing_checklist);
     grid.innerHTML=body.length?body.map(p=>`<div class="ws-photo">
@@ -3362,6 +3537,7 @@ async function init(){
     const profRes=await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+currentSession.access_token}});
     const prof=await profRes.json();
     currentPlan=prof.plan==='paid'?'paid':'free';
+    currentProfile=prof;
     currentProfileName=typeof prof.name==='string'?prof.name:'';
   }catch(e){
     currentPlan='free';
