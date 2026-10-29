@@ -1906,7 +1906,7 @@ app.post('/api/deals', async (req, res) => {
   const supabase = supabaseForRequest(req);
   if (!supabase) return res.status(401).json({ error: 'Log in to save deals.' });
 
-  const { deal_type, deal_data, comps_snapshot, force } = req.body;
+  const { deal_type, deal_data, comps_snapshot, force, user_comps } = req.body;
   if (!['btl', 'hmo', 'sa', 'flip'].includes(deal_type)) {
     return res.status(400).json({ error: 'deal_type must be "btl", "hmo", "sa", or "flip".' });
   }
@@ -1949,6 +1949,15 @@ app.post('/api/deals', async (req, res) => {
     .single();
 
   if (error) return res.status(400).json({ error: error.message });
+  // Your own comparables from the Comps tab: saved separately so a missing
+  // column (db/061 not run) never stops the deal itself saving.
+  if (user_comps && plan === 'paid') {
+    const { value: uc } = cleanUserComps(user_comps);
+    if (uc && (uc.excluded.length || uc.added.length)) {
+      const { error: ucErr } = await supabase.from('deals').update({ user_comps: uc }).eq('id', data.id);
+      if (!ucErr) data.user_comps = uc;
+    }
+  }
   trackFeature(req, 'deal_saved');
   res.json(data);
 });
@@ -1988,7 +1997,7 @@ app.get('/api/deals', async (req, res) => {
   const { data, error } = await selectDealsList(supabase);
 
   if (error) return res.status(400).json({ error: error.message });
-  res.json(await attachDealFacts(supabase, data));
+  res.json(await attachUserComps(supabase, await attachDealFacts(supabase, data)));
 });
 
 // Deal page details (db/045): listing link, address, postcode, agent,
@@ -2159,6 +2168,69 @@ function validateDealFacts(body) {
 
 // Adds property_type and bedrooms to a list of deals. Failure-tolerant:
 // before db/052 the deals are returned as they are.
+// ---------------------------------------------------------------------
+// Your own comparables (my-comps.js, deals.user_comps, db/061): which of
+// our comps the user removed and the ones they added. Read and written
+// with their own queries so a database without the column still works.
+// ---------------------------------------------------------------------
+const USER_COMPS_EXCLUDED_MAX = 300;
+const USER_COMPS_ADDED_MAX = 50;
+function cleanUserComps(v) {
+  if (v === null) return { value: null };
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return { error: 'user_comps must be an object.' };
+  const excluded = Array.isArray(v.excluded) ? v.excluded : [];
+  const added = Array.isArray(v.added) ? v.added : [];
+  if (excluded.length > USER_COMPS_EXCLUDED_MAX) return { error: 'Too many removed comparables.' };
+  if (added.length > USER_COMPS_ADDED_MAX) return { error: `Up to ${USER_COMPS_ADDED_MAX} of your own comparables per deal.` };
+  const str = (x, n) => (typeof x === 'string' && x.trim() ? x.trim().slice(0, n) : null);
+  const int = (x, lo, hi) => { const n = Number(x); return Number.isFinite(n) && n >= lo && n <= hi ? Math.round(n) : null; };
+  const out = { excluded: [], added: [] };
+  for (const k of excluded) if (typeof k === 'string' && k.length <= 300) out.excluded.push(k);
+  for (const a of added) {
+    if (!a || typeof a !== 'object') continue;
+    const price = int(a.price, 1, 100000000);
+    if (!price) return { error: 'Each of your comparables needs a price.' };
+    const link = str(a.link, 500);
+    out.added.push({
+      id: str(a.id, 40) || crypto.randomUUID(),
+      address: str(a.address, 200),
+      price,
+      status: ['sold', 'stc', 'for-sale'].includes(a.status) ? a.status : 'sold',
+      date: typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : null,
+      beds: int(a.beds, 0, 50),
+      sqm: int(a.sqm, 1, 100000),
+      link: link && /^https?:\/\//i.test(link) ? link : null,
+      note: str(a.note, 300),
+    });
+  }
+  return { value: out };
+}
+async function attachUserComps(supabase, rows) {
+  if (!Array.isArray(rows) || !rows.length) return rows;
+  try {
+    const { data, error } = await supabase.from('deals').select('id, user_comps');
+    if (error || !data) return rows;
+    const byId = new Map(data.map((r) => [r.id, r.user_comps]));
+    return rows.map((d) => ({ ...d, user_comps: byId.get(d.id) || null }));
+  } catch (e) {
+    return rows;
+  }
+}
+
+app.post('/api/deals/:id/user-comps', async (req, res) => {
+  const supabase = supabaseForRequest(req);
+  if (!supabase) return res.status(401).json({ error: 'Log in to update deals.' });
+  const plan = await getUserPlan(supabase);
+  if (plan !== 'paid') return res.status(403).json({ error: 'Upgrade to keep your own comparables.' });
+  const { value, error: vErr } = cleanUserComps(req.body ? req.body.user_comps : undefined);
+  if (vErr) return res.status(400).json({ error: vErr });
+  const { data, error } = await supabase.from('deals').update({ user_comps: value }).eq('id', req.params.id).select('id, user_comps');
+  if (error && isMissingSchemaError(error)) return needsMigration(res);
+  if (error) return res.status(400).json({ error: error.message });
+  if (!data || !data.length) return res.status(404).json({ error: 'Deal not found.' });
+  res.json(data[0]);
+});
+
 async function attachDealFacts(supabase, rows) {
   if (!Array.isArray(rows) || !rows.length) return rows;
   try {
@@ -2796,7 +2868,7 @@ app.get('/api/pipeline', async (req, res) => {
   const { data, error } = await selectDealsList(supabase, (q) => q.not('pipeline_stage', 'is', null));
 
   if (error) return res.status(400).json({ error: error.message });
-  res.json(await attachDealFacts(supabase, data));
+  res.json(await attachUserComps(supabase, await attachDealFacts(supabase, data)));
 });
 
 // 'lost' (the last board column) can carry a reason, stored in db/045's
