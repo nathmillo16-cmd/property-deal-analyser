@@ -76,7 +76,11 @@ function fmtCompareP(n) { return n.toFixed(2) + '%'; }
 function isMaxBidNotAchievable(f, v) {
   return !!f && f.notAchievableAtOrBelow != null && v != null && v <= f.notAchievableAtOrBelow;
 }
-function fmtCompareField(f, v) {
+// d (optional) is the deal's own deal_data. A BRRR deal with all its money
+// out has no ROI to show (money left in is £0 or less), including older
+// deals saved with a negative figure, so it reads "All money out".
+function fmtCompareField(f, v, d) {
+  if (f && f.key === 'bbROI' && d && d.bbMLI != null && Number(d.bbMLI) <= 0) return 'All money out';
   if (v == null) return '—';
   if (isMaxBidNotAchievable(f, v)) return 'Not achievable';
   return f.type === 'c' ? fmtCompareC(v) : fmtCompareP(v);
@@ -124,7 +128,7 @@ function buildCompareTableHTML(deals) {
     deals.forEach(d => {
       const fields = COMPARE_FIELDS[dealStrategy(d)] || [];
       const f = fields.find(x => x.label === label);
-      const val = f ? fmtCompareField(f, d.deal_data[f.key]) : '—';
+      const val = f ? fmtCompareField(f, d.deal_data[f.key], d.deal_data) : '—';
       const flag = f && f.key === 'gy' && isGrossYieldPreOct21(d) ? gyStaleFlagHTML() : '';
       html += `<td>${val}${flag}</td>`;
     });
