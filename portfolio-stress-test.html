@@ -67,6 +67,7 @@
             <div class="pl-slider-top"><label for="st-rise">Rate rise</label><output id="st-rise-out" for="st-rise">+0%</output></div>
             <input type="range" id="st-rise" min="0" max="4" step="0.25" value="2">
             <div class="pl-slider-ends"><span>+0%</span><span>+4%</span></div>
+            <p class="pl-warn" id="st-missing" hidden></p>
           </div>
           <div class="pl-slider">
             <div class="pl-slider-top"><label for="st-fall">Rent fall</label><output id="st-fall-out" for="st-fall">0%</output></div>
@@ -96,7 +97,6 @@
 
       <p class="pl-section-title">By property</p>
       <div class="pl-rows" id="st-rows"></div>
-      <p class="pl-warn" id="st-missing" hidden></p>
 
       <details class="tool-work" style="margin-top:var(--space-5)">
         <summary><span><span class="t">How this is worked out</span><span class="s" id="st-work-sum"></span></span></summary>
@@ -148,6 +148,9 @@
     var verdict;
     if (bp.kind === 'never') {
       verdict = (s.rentFall || s.voidMonths || s.repair) ? 'Your portfolio goes negative at these settings, even before any rate rise.' : 'Your portfolio already loses money each year, before any stress.';
+    } else if (!r.rows.some(function (x) { return x.canStress; }) && r.missingRate.length) {
+      // No property has a balance and rate, so no rise is applied: don't claim it copes.
+      verdict = 'Add your mortgage balance and interest rate to see how a rate rise affects you.';
     } else if (bp.kind === 'always') {
       verdict = 'Your portfolio stays positive even with a rate rise of 10% or more' + conditions(s) + '.';
     } else {
@@ -208,7 +211,15 @@
 
     var miss = r.missingRate;
     el('st-missing').hidden = !miss.length;
-    if (miss.length) el('st-missing').textContent = 'Add the interest rate and mortgage balance on the property page so the rate rise can be tested: ' + miss.map(function (x) { return x.address; }).join(', ') + '. Until then their mortgage payment stays as it is.';
+    // Shown right under the rate rise slider, so it's seen while moving it.
+    if (miss.length) {
+      var names = miss.map(function (x) { return P.esc(x.address); }).join(', ');
+      var none = !r.rows.some(function (x) { return x.canStress; });
+      el('st-missing').innerHTML = (none
+        ? 'The rate rise won\'t change anything yet. Add the mortgage balance and interest rate for ' + names + ' in '
+        : 'The rate rise doesn\'t apply to ' + names + ' yet. Add the mortgage balance and interest rate in ')
+        + '<a href="/portfolio.html">Portfolio</a>.';
+    }
 
     el('st-work-sum').textContent = P.plural(r.rows.length, 'property', 'properties') + ', ' + riseText(s.rise) + ', rents -' + s.rentFall + '%, ' + s.voidMonths + ' empty, ' + P.money(s.repair) + ' repair';
     el('st-work').innerHTML =
