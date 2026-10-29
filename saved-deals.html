@@ -24,6 +24,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="/auth-guard.js"></script>
 <script src="/compare-deals.js"></script>
+<script src="/my-comps.js"></script>
 <script src="/deal-verdict.js"></script>
 <script src="/planning-tools.js"></script>
 <script src="/deal-cards.js"></script>
@@ -502,6 +503,11 @@ body.theme-light .dd-trigger::after{
     <div class="modal-section" data-acc="comps" data-title="Comps">
       <p class="subhead" id="workspace-comps-heading">Comps</p>
       <div id="workspace-comps-body"></div>
+      <div id="ws-my-comps-wrap" hidden>
+        <p class="subhead" style="margin-top:1.25rem">Your comparables</p>
+        <div id="ws-my-comps"></div>
+        <p class="save-msg" id="ws-my-comps-msg"></p>
+      </div>
     </div>
 
     <!-- Listing reader, photos, viewing checklist and reminders: paid,
@@ -788,7 +794,8 @@ function updateWorkspaceSummaries(deal){
   wsSetSum('viewing',vs?`${vs.checked} check${vs.checked===1?'':'s'}${vs.work?` · ${vs.work} need${vs.work===1?'s':''} work`:''}`:'Not started');
   wsSetSum('refurb',deal.refurb_estimate_id?'Estimate linked':'None linked');
   const ch=document.getElementById('workspace-comps-heading');
-  wsSetSum('comps',deal.comps_snapshot?(ch&&ch.textContent.includes('·')?ch.textContent.split('·').slice(1).join('·').trim():'Saved'):'None saved');
+  const yours=window.MyComps&&MyComps.changed(deal.user_comps)?' · your edits':'';
+  wsSetSum('comps',(deal.comps_snapshot?(ch&&ch.textContent.includes('·')?ch.textContent.split('·').slice(1).join('·').trim():'Saved'):(yours?'Yours only':'None saved'))+(deal.comps_snapshot?yours:''));
   const addr=(document.getElementById('ws-address')||{}).value||deal.address||'';
   const pc=(document.getElementById('ws-postcode')||{}).value||'';
   wsSetSum('property',[addr.trim(),pc.trim()].filter(Boolean).join(', ')||'No address yet');
@@ -1392,6 +1399,7 @@ function renderWorkspaceComps(deal){
   const bodyEl=document.getElementById('workspace-comps-body');
   const snap=deal.comps_snapshot;
 
+  renderWorkspaceMyComps(deal);
   if(!snap){
     headingEl.textContent='Comps';
     bodyEl.innerHTML='<p class="hint">No comps were saved with this deal.</p>';
@@ -1406,6 +1414,41 @@ function renderWorkspaceComps(deal){
   bodyEl.innerHTML=rows.map(([label,val])=>
     `<div class="analysis-row"><span class="analysis-label">${escapeHtml(label)}</span><span class="analysis-value">${escapeHtml(val)}</span></div>`
   ).join('')+'<p class="hint" style="margin-top:.6rem">Snapshot from when this deal was saved. May not reflect current market.</p>';
+}
+
+// Your own comparables on this deal (my-comps.js, deals.user_comps).
+// Paid, like comps. Each change is saved straight away.
+let myCompsSaveTimer=null;
+function renderWorkspaceMyComps(deal){
+  const wrap=document.getElementById('ws-my-comps-wrap');
+  if(!wrap||!window.MyComps)return;
+  const paid=currentPlan==='paid';
+  const snap=deal.comps_snapshot;
+  const ours=(snap&&snap.comps&&snap.comps.comps)||[];
+  wrap.hidden=!paid&&!MyComps.changed(deal.user_comps);
+  if(wrap.hidden)return;
+  const el=document.getElementById('ws-my-comps');
+  el._adding=false;el._openList=false;
+  MyComps.render(el,{
+    comps:ours,
+    state:deal.user_comps,
+    editable:paid,
+    onChange:state=>{
+      deal.user_comps=state;
+      clearTimeout(myCompsSaveTimer);
+      myCompsSaveTimer=setTimeout(()=>saveWorkspaceMyComps(deal.id,state),400);
+    }
+  });
+}
+async function saveWorkspaceMyComps(dealId,state){
+  const msg=document.getElementById('ws-my-comps-msg');
+  try{
+    const res=await fetch(API_BASE+`/api/deals/${dealId}/user-comps`,{method:'POST',headers:authHeaders(true),body:JSON.stringify({user_comps:state})});
+    const body=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(body.error||'Could not save your comparables.');
+    setMsg('ws-my-comps-msg','Saved.','success');
+    setTimeout(()=>{if(msg&&msg.textContent==='Saved.')setMsg('ws-my-comps-msg','','');},1500);
+  }catch(e){ setMsg('ws-my-comps-msg',e.message,'error'); }
 }
 
 // ---------------------------------------------------------------------

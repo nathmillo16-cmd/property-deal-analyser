@@ -25,6 +25,7 @@
 <script src="/draft-state.js"></script>
 <script src="/onboarding-tutorial.js"></script>
 <script src="/calc-engine.js"></script>
+<script src="/my-comps.js"></script>
 <script src="/deal-verdict.js"></script>
 <script src="/planning-tools.js"></script>
 <script src="/deal-insights.js"></script>
@@ -1252,7 +1253,7 @@ body.theme-light .dd-trigger::after{
         <p class="sl">Results</p>
         <p class="cp-empty" id="cp-empty">Enter a postcode to see recent sold prices nearby.</p>
         <div id="cp-results" hidden>
-        <div class="ob"><p class="ot">Median sold price</p><p class="ov" id="cp-median">—</p><p class="on" id="cp-count-note"></p></div>
+        <div class="ob"><p class="ot">Our comps: median sold price</p><p class="ov" id="cp-median">—</p><p class="on" id="cp-count-note"></p></div>
         <button class="save-btn" onclick="useMedianAsEndValue()" id="btn-use-median" style="margin:0 0 .35rem">Use median as end value</button>
         <p class="save-msg" id="cp-median-msg" style="margin:0 0 1.1rem"></p>
         <div class="metric-grid">
@@ -1263,6 +1264,17 @@ body.theme-light .dd-trigger::after{
         </div>
         <p class="sn">Confidence: <span id="cp-confidence">—</span></p>
         <p class="hint">Confidence reflects comp count, not recency, since all comps are from the last 12 months (our current data window).</p>
+        </div>
+
+        <!-- Your own comparables (my-comps.js): shown even before comps are run,
+             so a user can work only from their own. Saved with the deal. -->
+        <div class="section-gap" id="cp-mine-wrap">
+          <p class="sl">Your comparables</p>
+          <p class="hint" style="margin-top:0">Add sold, sold STC or for-sale listings you've found, or remove any of ours that aren't a fair match. Saved with the deal.</p>
+          <div id="cp-mine"></div>
+        </div>
+
+        <div id="cp-results-more" hidden>
 
         <div class="section-gap">
           <p class="sl">Crime</p>
@@ -1505,6 +1517,7 @@ function switchTab(t){
   if(window.DealInsights){if(t!=='comps')DealInsights.render(panelFor);DealInsights.updateSticky();}
   relabelStampDuty();
   updateMedianButton();
+  if(t==='comps'&&typeof renderMyCompsCalc==='function')renderMyCompsCalc();
   fitNumbers();
   saveIndexDraft();
 }
@@ -2423,7 +2436,8 @@ function currentIndexDraftState(){
       lastCompsResult: lastCompsResult,
       lastCrime: lastCrimeResult,
       lastPlanning: lastPlanningResult,
-      lastEmployment: lastEmploymentResult
+      lastEmployment: lastEmploymentResult,
+      myComps: myCompsState
     }
   };
 }
@@ -2480,10 +2494,11 @@ function restoreIndexDraft(){
         const radio=document.querySelector('input[name="cp-tier"][value="'+c.selectedTier+'"]');
         if(radio)radio.checked=true;
       }
+      if(c.myComps&&window.MyComps)myCompsState=MyComps.normalise(c.myComps);
       if(c.lastCompsResult){
         lastCompsResult=c.lastCompsResult;
         renderCompsResult(lastCompsResult);
-      }
+      }else renderMyCompsCalc();
       renderGDVTiers();
       if(c.lastCrime){
         lastCrimeResult=c.lastCrime;
@@ -2550,6 +2565,7 @@ function clearAllFields(){
   document.querySelectorAll('input[name="cp-tier"]').forEach(r=>{r.checked=false;});
   ['comps-msg','cp-apply-msg','cp-median-msg'].forEach(id=>{const el=document.getElementById(id);if(el){el.textContent='';el.className='save-msg';}});
   lastCompsResult=null;lastCrimeResult=null;lastPlanningResult=null;lastEmploymentResult=null;
+  myCompsState={excluded:[],added:[]};
   resetCompsDisplay();
   renderCrimeResult(null);renderPlanningResult(null);renderEmploymentResult(null);
   renderGDVTiers();
@@ -2965,11 +2981,13 @@ function renderCompsResult(d){
   document.getElementById('cp-count-note').textContent = d.count+' comparable sale'+(d.count===1?'':'s')+' in the last 12 months, within 0.5 miles.';
   setCompsVisible(true);
   updateMedianButton();
+  renderMyCompsCalc();
 }
 
 const CP_EMPTY_TEXT='Enter a postcode to see recent sold prices nearby.';
 function setCompsVisible(show,emptyText){
   document.getElementById('cp-results').hidden=!show;
+  document.getElementById('cp-results-more').hidden=!show;
   const empty=document.getElementById('cp-empty');
   empty.hidden=show;
   empty.textContent=emptyText||CP_EMPTY_TEXT;
@@ -2996,6 +3014,27 @@ function updateMedianButton(){
   msg.className='save-msg';
   msg.textContent=median==null?'':'Goes into '+t.label+' on the '+t.tab+' tab.';
 }
+// Your own comparables (my-comps.js). Kept in the draft and saved with the deal.
+let myCompsState={excluded:[],added:[]};
+function renderMyCompsCalc(){
+  if(!window.MyComps)return;
+  const t=MEDIAN_TARGETS[lastStrategyTab]||MEDIAN_TARGETS.brrr;
+  MyComps.render(document.getElementById('cp-mine'),{
+    comps:(lastCompsResult&&lastCompsResult.comps)||[],
+    state:myCompsState,
+    onChange:s=>{myCompsState=s;saveIndexDraft();},
+    onUse:v=>useValueAsEndValue(v,'Your comps median'),
+    useLabel:t.strategy==='flip'?'Use as sale value':'Use as end value'
+  });
+}
+function useValueAsEndValue(value,what){
+  const t=MEDIAN_TARGETS[lastStrategyTab]||MEDIAN_TARGETS.brrr;
+  document.getElementById(t.field).value=formatMoneyString(String(value));
+  switchTab(lastStrategyTab in MEDIAN_TARGETS?lastStrategyTab:'brrr');
+  refreshStrategy(t.strategy,'now');
+  saveIndexDraft();
+  flashCalcActionsMsg(what+' £'+value.toLocaleString()+' added as '+t.label.toLowerCase()+'.');
+}
 function useMedianAsEndValue(){
   const median=lastCompsResult&&lastCompsResult.medianPrice;
   if(median==null)return;
@@ -3013,6 +3052,7 @@ function resetCompsDisplay(emptyText){
   document.getElementById('cp-count-note').textContent='';
   setCompsVisible(false,emptyText);
   updateMedianButton();
+  renderMyCompsCalc();
 }
 
 async function runComps(){
@@ -3557,6 +3597,8 @@ async function confirmSaveDeal(){
     asOf:new Date().toISOString()
   }:null;
 
+  const userComps=window.MyComps&&MyComps.changed(myCompsState)?myCompsState:null;
+
   confirmBtn.disabled=true;confirmBtn.textContent='Saving...';
   modalMsg.className='save-msg';modalMsg.textContent='';
 
@@ -3564,7 +3606,7 @@ async function confirmSaveDeal(){
     let res=await fetch(API_BASE+'/api/deals',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-      body:JSON.stringify({deal_type:type, deal_data:dealData, comps_snapshot:compsSnapshot})
+      body:JSON.stringify({deal_type:type, deal_data:dealData, comps_snapshot:compsSnapshot, user_comps:userComps})
     });
     let body=await res.json();
 
@@ -3578,7 +3620,7 @@ async function confirmSaveDeal(){
       res=await fetch(API_BASE+'/api/deals',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+currentSession.access_token},
-        body:JSON.stringify({deal_type:type, deal_data:dealData, comps_snapshot:compsSnapshot, force:true})
+        body:JSON.stringify({deal_type:type, deal_data:dealData, comps_snapshot:compsSnapshot, user_comps:userComps, force:true})
       });
       body=await res.json();
     }
