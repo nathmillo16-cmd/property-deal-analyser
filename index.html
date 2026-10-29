@@ -3247,7 +3247,7 @@ CALCULATED RESULTS:
 - Monthly cashflow (cash): £${d.cNm.toLocaleString()}
 - Total investment (mortgage): £${d.mTI.toLocaleString()}
 - Money left in deal: £${d.mMLI.toLocaleString()}
-- Payback period (mortgage): ${d.mPB} years
+- Payback period (mortgage): ${d.mPB==null?'never (the deal loses money each year)':d.mPB+' years'}
 - Offer price to hit ${d.ty}% yield: £${d.oY.toLocaleString()}
 - Offer price to hit ${d.tr}% ROI: ${d.oR>0?'£'+d.oR.toLocaleString():'not achievable'}
 
@@ -3292,7 +3292,7 @@ CALCULATED RESULTS:
 - Monthly cashflow (mortgage): £${d.mNm.toLocaleString()}
 - Monthly cashflow (cash): £${d.cNm.toLocaleString()}
 - Total investment (mortgage): £${d.mTI.toLocaleString()}
-- Payback period (mortgage): ${d.mPB} years
+- Payback period (mortgage): ${d.mPB==null?'never (the deal loses money each year)':d.mPB+' years'}
 - Offer price to hit ${d.ty}% yield: £${d.oY.toLocaleString()}
 - Offer price to hit ${d.troi}% ROI: ${d.oR>0?'£'+d.oR.toLocaleString():'not achievable'}
 

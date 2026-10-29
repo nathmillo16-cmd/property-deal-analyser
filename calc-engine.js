@@ -66,6 +66,35 @@ function bidMeetingTarget(bid,roiAt,target,floor,ceiling){
   for(let n=0;n<5000&&p>floor+1;n++){p--;if(roiAt(p)>=target-0.005)return p;}
   return bid;
 }
+// Payback and "all money out" (owner's sign-off, 2026-10-29, checked against
+// standard cash-on-cash conventions). Payback = cash left in / yearly
+// cashflow, which only means something when cashflow is positive: a deal
+// that loses money never pays back (it used to show a payback anyway, by
+// dropping the minus sign). When every penny comes back out on refinance
+// (money left in £0 or less) cash-on-cash ROI has nothing to divide by, so
+// it is shown as "All money out" rather than a negative or 0% figure; it
+// counts as meeting the ROI target only if cashflow after refinance is
+// positive. paybackYears: null = never / not applicable, 0 = instant.
+function paybackYears(cashIn,yearlyCF){
+  if(!(yearlyCF>0))return null;
+  if(cashIn<=0)return 0;
+  return cashIn/yearlyCF;
+}
+function pbText(cashIn,yearlyCF){
+  const v=paybackYears(cashIn,yearlyCF);
+  if(v===null)return cashIn>0?'Never':'N/A';
+  return v===0?'Instant':v.toFixed(2)+' yrs';
+}
+function pbSaved(cashIn,yearlyCF){
+  const v=paybackYears(cashIn,yearlyCF);
+  return v===null?null:+v.toFixed(2);
+}
+// BRRR ROI: null when all money is out (money left in £0 or less).
+function brrrRoi(mli,yearlyCF){return mli>0?(yearlyCF/mli)*100:null;}
+function brrrRoiShow(id,roi,yearlyCF){
+  if(roi===null)s(id,'All money out',yearlyCF>0?'good':'bad');
+  else s(id,fP(roi),cl(roi,15,8));
+}
 function mortRepay(loan,rate,termYears){
   const r=(rate/100)/12, n=termYears*12;
   if(n<=0) return 0;
@@ -159,7 +188,6 @@ function cBTL(){
   // is the price at which gross yield on price hits the target.
   const gy=pp>0?(ag/pp)*100:0, gyEmv=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
   const mMLI=cTI-loan, mROI=mMLI!==0?(mNy/mMLI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
-  const mPB=mNy!==0?mMLI/mNy:0, cPB=cNy>0?cTI/cNy:0;
 
   // BRRR — its own financing tab now (see the fin-tab buttons), not a Cash-
   // tab toggle. Cash tab above is pure cash-and-hold, unaffected by
@@ -175,14 +203,12 @@ function cBTL(){
   const bbNm=rent-ins-annC-maintC-mgmtC-bbRefiPay, bbNy=bbNm*12;
   const bbMLI=cTI-bbRefiLoan;
   const bbny=emv>0?(bbNy/emv)*100:0;
-  const bbROI=bbMLI!==0?(bbNy/bbMLI)*100:0;
-  const bbPB=bbNy!==0?bbMLI/bbNy:0;
+  const bbROI=brrrRoi(bbMLI,bbNy);
 
   const rmm=mortRepay(loan,mr,term);
   const rNm=rent-ins-annC-maintC-mgmtC-rmm, rNy=rNm*12;
   const rny=emv>0?(rNy/emv)*100:0;
   const rROI=mMLI!==0?(rNy/mMLI)*100:0;
-  const rPB=rNy!==0?mMLI/rNy:0;
 
   const oY=ag/(ty/100);
 
@@ -249,22 +275,22 @@ function cBTL(){
   s('bm-nm',fmt(mNm),cl(mNm,200,0));s('bm-ny',fmt(mNy),cl(mNy,2400,0));
   s('bm-gy',fP(gy),cl(gy,7,5));s('bm-gye',fP(gyEmv),cl(gyEmv,7,5));s('bm-ny2',fP(mny),cl(mny,4,2));
   s('bm-roi',fP(mROI),cl(mROI,15,8));s('bm-ti',fmt(mTI));
-  s('bm-mli',fmt(mMLI),mMLI<=0?'good':'');s('bm-pb',mPB!==0?Math.abs(mPB).toFixed(2)+' yrs':'N/A');
+  s('bm-mli',fmt(mMLI),mMLI<=0?'good':'');s('bm-pb',pbText(mMLI,mNy));
   s('bm-loan',fmt(loan));s('bm-rate',fP(mr));s('bm-deposit',fmt(dep));s('bm-mpay',fmt(mm));
   s('bc-nm',fmt(cNm),cl(cNm,200,0));s('bc-ny',fmt(cNy),cl(cNy,2400,0));
   s('bc-gy',fP(gy),cl(gy,7,5));s('bc-gye',fP(gyEmv),cl(gyEmv,7,5));s('bc-ny2',fP(cny),cl(cny,4,2));
   s('bc-roi',fP(cROI),cl(cROI,15,8));s('bc-ti',fmt(cTI));
-  s('bc-mli',fmt(cTI));s('bc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
+  s('bc-mli',fmt(cTI));s('bc-pb',pbText(cTI,cNy));
   s('bb-nm',fmt(bbNm),cl(bbNm,200,0));s('bb-ny',fmt(bbNy),cl(bbNy,2400,0));
   s('bb-gy',fP(gy),cl(gy,7,5));s('bb-gye',fP(gyEmv),cl(gyEmv,7,5));s('bb-ny2',fP(bbny),cl(bbny,4,2));
-  s('bb-roi',fP(bbROI),cl(bbROI,15,8));s('bb-ti',fmt(cTI));
-  s('bb-mli',fmt(bbMLI),bbMLI<=0?'good':'');s('bb-pb',bbPB!==0?Math.abs(bbPB).toFixed(2)+' yrs':'N/A');
+  brrrRoiShow('bb-roi',bbROI,bbNy);s('bb-ti',fmt(cTI));
+  s('bb-mli',fmt(bbMLI),bbMLI<=0?'good':'');s('bb-pb',pbText(bbMLI,bbNy));
   s('bb-refi-loan',fmt(bbRefiLoan));s('bb-refi-ltv-out',fP(bbRefiLtv*100));
   s('bb-refi-rate',fP(mr));s('bb-refi-mpay',fmt(bbRefiPay));
   s('br-nm',fmt(rNm),cl(rNm,200,0));s('br-ny',fmt(rNy),cl(rNy,2400,0));
   s('br-gy',fP(gy),cl(gy,7,5));s('br-gye',fP(gyEmv),cl(gyEmv,7,5));s('br-ny2',fP(rny),cl(rny,4,2));
   s('br-roi',fP(rROI),cl(rROI,15,8));s('br-ti',fmt(mTI));
-  s('br-mli',fmt(mMLI),mMLI<=0?'good':'');s('br-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
+  s('br-mli',fmt(mMLI),mMLI<=0?'good':'');s('br-pb',pbText(mMLI,rNy));
   s('br-loan',fmt(loan));s('br-rate',fP(mr));s('br-deposit',fmt(dep));s('br-mpay',fmt(rmm));s('br-term',term);
   const bRcEl=document.getElementById('b-rc');
   if(bRcEl)bRcEl.innerHTML=runCostLines(grossRent*12,voidPct,letFee,certs);
@@ -293,17 +319,17 @@ function cBTL(){
     gy:+gy.toFixed(2),gyEmv:+gyEmv.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
     mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
     mMLI:Math.round(mMLI),mTI:Math.round(mTI),cTI:Math.round(cTI),
-    mPB:+Math.abs(mPB).toFixed(2),cPB:+cPB.toFixed(2),
+    mPB:pbSaved(mMLI,mNy),cPB:pbSaved(cTI,cNy),
     stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),
     meetsYield:gy>=ty,meetsROI:mROI>=tr,
     repaymentMonthlyPayment:Math.round(rmm),rNm:Math.round(rNm),rNy:Math.round(rNy),
-    rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),rPB:+Math.abs(rPB).toFixed(2),
+    rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),rPB:pbSaved(mMLI,rNy),
     rOR:Math.round(roR),meetsROIRepayment:rROI>=tr,
     bbNm:Math.round(bbNm),bbNy:Math.round(bbNy),bbny:+bbny.toFixed(2),
-    bbROI:+bbROI.toFixed(2),bbMLI:Math.round(bbMLI),bbPB:+Math.abs(bbPB).toFixed(2),
+    bbROI:bbROI===null?null:+bbROI.toFixed(2),bbMLI:Math.round(bbMLI),bbPB:pbSaved(bbMLI,bbNy),
     brrrLtv:+(bbRefiLtv*100).toFixed(1),brrrType:bbRefiType,
     brrrLoan:Math.round(bbRefiLoan),brrrPayment:Math.round(bbRefiPay),
-    meetsROIBRRR:bbROI>=tr,bbOR:Math.round(bbOR)};
+    meetsROIBRRR:bbROI===null?bbNy>0:bbROI>=tr,bbOR:Math.round(bbOR)};
 }
 
 function cHMO(){
@@ -359,7 +385,6 @@ function cHMO(){
   // end-value version, shown alongside. Net yields stay on end value.
   const gy=pp>0?(ag/pp)*100:0, gyEmv=emv>0?(ag/emv)*100:0, mny=emv>0?(mNy/emv)*100:0, cny=emv>0?(cNy/emv)*100:0;
   const mROI=mTI!==0?(mNy/mTI)*100:0, cROI=cTI>0?(cNy/cTI)*100:0;
-  const mPB=mNy!==0?mTI/mNy:0, cPB=cNy>0?cTI/cNy:0;
 
   // BRRR — its own financing tab now (see the fin-tab buttons), not a Cash-
   // tab toggle. Cash tab above is pure cash-and-hold, unaffected by
@@ -375,14 +400,12 @@ function cHMO(){
   const hbNm=totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-hbRefiPay, hbNy=hbNm*12;
   const hbMLI=cTI-hbRefiLoan;
   const hbny=emv>0?(hbNy/emv)*100:0;
-  const hbROI=hbMLI!==0?(hbNy/hbMLI)*100:0;
-  const hbPB=hbNy!==0?hbMLI/hbNy:0;
+  const hbROI=brrrRoi(hbMLI,hbNy);
 
   const rmm=mortRepay(loan,mr,term);
   const rNm=totalRent-bills-ins-wifi-ct-hAnnC-maintC-mgmtC-rmm, rNy=rNm*12;
   const rny=emv>0?(rNy/emv)*100:0;
   const rROI=mTI!==0?(rNy/mTI)*100:0;
-  const rPB=rNy!==0?mTI/rNy:0;
 
   const oY=totalRent>0?ag/(ty/100):0;
   document.getElementById('h-ly').textContent=ty;
@@ -390,22 +413,22 @@ function cHMO(){
   s('hm-nm',fmt(mNm),cl(mNm,300,0));s('hm-ny',fmt(mNy),cl(mNy,3600,0));
   s('hm-gy',fP(gy),cl(gy,10,7));s('hm-gye',fP(gyEmv),cl(gyEmv,10,7));s('hm-ny2',fP(mny),cl(mny,6,4));
   s('hm-roi',fP(mROI),cl(mROI,15,8));s('hm-ti',fmt(mTI));
-  s('hm-mli',fmt(mTI));s('hm-pb',mPB!==0?Math.abs(mPB).toFixed(2)+' yrs':'N/A');
+  s('hm-mli',fmt(mTI));s('hm-pb',pbText(mTI,mNy));
   s('hm-loan',fmt(loan));s('hm-rate',fP(mr));s('hm-deposit',fmt(dep));s('hm-mpay',fmt(mm));
   s('hc-nm',fmt(cNm),cl(cNm,300,0));s('hc-ny',fmt(cNy),cl(cNy,3600,0));
   s('hc-gy',fP(gy),cl(gy,10,7));s('hc-gye',fP(gyEmv),cl(gyEmv,10,7));s('hc-ny2',fP(cny),cl(cny,6,4));
   s('hc-roi',fP(cROI),cl(cROI,15,8));s('hc-ti',fmt(cTI));
-  s('hc-mli',fmt(cTI));s('hc-pb',cPB>0?cPB.toFixed(2)+' yrs':'N/A');
+  s('hc-mli',fmt(cTI));s('hc-pb',pbText(cTI,cNy));
   s('hb-nm',fmt(hbNm),cl(hbNm,300,0));s('hb-ny',fmt(hbNy),cl(hbNy,3600,0));
   s('hb-gy',fP(gy),cl(gy,10,7));s('hb-gye',fP(gyEmv),cl(gyEmv,10,7));s('hb-ny2',fP(hbny),cl(hbny,6,4));
-  s('hb-roi',fP(hbROI),cl(hbROI,15,8));s('hb-ti',fmt(cTI));
-  s('hb-mli',fmt(hbMLI),hbMLI<=0?'good':'');s('hb-pb',hbPB!==0?Math.abs(hbPB).toFixed(2)+' yrs':'N/A');
+  brrrRoiShow('hb-roi',hbROI,hbNy);s('hb-ti',fmt(cTI));
+  s('hb-mli',fmt(hbMLI),hbMLI<=0?'good':'');s('hb-pb',pbText(hbMLI,hbNy));
   s('hb-refi-loan',fmt(hbRefiLoan));s('hb-refi-ltv-out',fP(hbRefiLtv*100));
   s('hb-refi-rate',fP(mr));s('hb-refi-mpay',fmt(hbRefiPay));
   s('hr-nm',fmt(rNm),cl(rNm,300,0));s('hr-ny',fmt(rNy),cl(rNy,3600,0));
   s('hr-gy',fP(gy),cl(gy,10,7));s('hr-gye',fP(gyEmv),cl(gyEmv,10,7));s('hr-ny2',fP(rny),cl(rny,6,4));
   s('hr-roi',fP(rROI),cl(rROI,15,8));s('hr-ti',fmt(mTI));
-  s('hr-mli',fmt(mTI));s('hr-pb',rPB!==0?Math.abs(rPB).toFixed(2)+' yrs':'N/A');
+  s('hr-mli',fmt(mTI));s('hr-pb',pbText(mTI,rNy));
   s('hr-loan',fmt(loan));s('hr-rate',fP(mr));s('hr-deposit',fmt(dep));s('hr-mpay',fmt(rmm));s('hr-term',term);
   const hRcEl=document.getElementById('h-rc');
   if(hRcEl)hRcEl.innerHTML=runCostLines(grossTotalRent*12,hVoidPct,hLetFee,hCerts);
@@ -487,17 +510,17 @@ function cHMO(){
     gy:+gy.toFixed(2),gyEmv:+gyEmv.toFixed(2),mny:+mny.toFixed(2),cny:+cny.toFixed(2),
     mROI:+mROI.toFixed(2),cROI:+cROI.toFixed(2),
     mTI:Math.round(mTI),cTI:Math.round(cTI),
-    mPB:+Math.abs(mPB).toFixed(2),cPB:+cPB.toFixed(2),
+    mPB:pbSaved(mTI,mNy),cPB:pbSaved(cTI,cNy),
     stampDuty:sd.total,oY:Math.round(oY),oR:Math.round(oR),bills:Math.round(bills),
     repaymentMonthlyPayment:Math.round(rmm),rNm:Math.round(rNm),rNy:Math.round(rNy),
-    rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),rPB:+Math.abs(rPB).toFixed(2),
+    rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),rPB:pbSaved(mTI,rNy),
     rOR:Math.round(roR),meetsROIRepayment:rROI>=troi,
     meetsYield:gy>=ty,meetsROI:mROI>=troi,
     bbNm:Math.round(hbNm),bbNy:Math.round(hbNy),bbny:+hbny.toFixed(2),
-    bbROI:+hbROI.toFixed(2),bbMLI:Math.round(hbMLI),bbPB:+Math.abs(hbPB).toFixed(2),
+    bbROI:hbROI===null?null:+hbROI.toFixed(2),bbMLI:Math.round(hbMLI),bbPB:pbSaved(hbMLI,hbNy),
     brrrLtv:+(hbRefiLtv*100).toFixed(1),brrrType:hbRefiType,
     brrrLoan:Math.round(hbRefiLoan),brrrPayment:Math.round(hbRefiPay),
-    meetsROIBRRR:hbROI>=troi,bbOR:Math.round(bbOR),
+    meetsROIBRRR:hbROI===null?hbNy>0:hbROI>=troi,bbOR:Math.round(bbOR),
     // Additive only — lets a saved HMO deal be re-run later with its real
     // room mix restored, instead of only the aggregated totalRent. Doesn't
     // feed into any calculation above; totalRent (already computed from
@@ -572,7 +595,7 @@ function cSA(){
   const sabCFy=netInc-sabRefiPay*12, sabCFm=sabCFy/12;
   const sabMLI=cTI-sabRefiLoan;
   const sabny=emv>0?(sabCFy/emv)*100:0;
-  const sabROI=sabMLI!==0?(sabCFy/sabMLI)*100:0;
+  const sabROI=brrrRoi(sabMLI,sabCFy);
 
   const rmm=mortRepay(loan,mr,term);
   const rmortIntA=rmm*12;
@@ -657,7 +680,7 @@ function cSA(){
 
   s('sab-gy',fP(gy),cl(gy,10,7));s('sab-gye',fP(gyEmv),cl(gyEmv,10,7));
   s('sab-ny',fP(sabny),cl(sabny,6,4));
-  s('sab-roi',fP(sabROI),cl(sabROI,15,8));
+  brrrRoiShow('sab-roi',sabROI,sabCFy);
   s('sab-ti',fmt(cTI));s('sab-mli',fmt(sabMLI),sabMLI<=0?'good':'');
   s('sab-im',fmt(incM));
   s('sab-iy',fmt(incY));
@@ -709,10 +732,10 @@ function cSA(){
     rny:+rny.toFixed(2),rROI:+rROI.toFixed(2),
     rOR:Math.round(roR),meetsROIRepayment:rROI>=troi,
     bbCFy:Math.round(sabCFy),bbCFm:Math.round(sabCFm),bbny:+sabny.toFixed(2),
-    bbROI:+sabROI.toFixed(2),bbMLI:Math.round(sabMLI),
+    bbROI:sabROI===null?null:+sabROI.toFixed(2),bbMLI:Math.round(sabMLI),
     brrrLtv:+(sabRefiLtv*100).toFixed(1),brrrType:sabRefiType,
     brrrLoan:Math.round(sabRefiLoan),brrrPayment:Math.round(sabRefiPay),
-    meetsROIBRRR:sabROI>=troi,bbOR:Math.round(bbOR)};
+    meetsROIBRRR:sabROI===null?sabCFy>0:sabROI>=troi,bbOR:Math.round(bbOR)};
 }
 
 function cFlip(){
