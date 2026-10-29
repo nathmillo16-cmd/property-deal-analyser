@@ -174,6 +174,20 @@ body.theme-light .dd-trigger::after{
    modal's plain label/value list — not the compare-table layout, since this
    shows one deal, not a comparison. */
 .modal-section{margin-bottom:1.75rem}
+/* Deal page sections as dropdowns (built by buildWorkspaceAccordions). */
+.ws-acc{border-top:1px solid var(--hairline);margin:0}
+.ws-acc:last-of-type{border-bottom:1px solid var(--hairline)}
+.ws-acc>summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px 2px;cursor:pointer;min-height:44px;box-sizing:border-box}
+.ws-acc>summary::-webkit-details-marker{display:none}
+.ws-acc>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.ws-acc-title{font-weight:700;font-size:15px;color:var(--ink)}
+.ws-acc-sum{flex:1;min-width:0;text-align:right;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ws-acc-chev{flex:none;width:18px;height:18px;color:var(--muted);transition:transform .15s ease}
+.ws-acc[open]>summary .ws-acc-chev{transform:rotate(180deg)}
+.ws-acc>.modal-section{margin:0;padding:0 2px 1.25rem}
+.ws-acc>.modal-section>.subhead.ws-acc-dup,.ws-acc>.modal-section>div>.subhead.ws-acc-dup{display:none}
+.ws-acc-list{margin-bottom:1.25rem}
+
 .modal-section:last-child{margin-bottom:0}
 .analysis-row{display:flex;justify-content:space-between;gap:1rem;padding:.5rem 0;border-top:1px solid var(--hairline)}
 .analysis-row:first-child{border-top:none}
@@ -413,7 +427,7 @@ body.theme-light .dd-trigger::after{
     <p class="hint" id="workspace-next-milestone" style="display:none;margin:-.5rem 0 1rem"></p>
 
     <!-- Property details: free. Saved via POST /api/deals/:id/details (db/045). -->
-    <div class="modal-section">
+    <div class="modal-section" data-acc="property" data-title="Property and agent">
       <p class="subhead">Property</p>
       <div class="field"><label for="ws-listing-url">Listing link</label><input type="url" id="ws-listing-url" placeholder="https://"/></div>
       <a class="ws-link" id="ws-listing-open" href="#" target="_blank" rel="noopener noreferrer" hidden>Open listing ↗</a>
@@ -462,7 +476,7 @@ body.theme-light .dd-trigger::after{
          those are quick, deal-specific free-text fields Cameron built
          separately; Contacts is a fuller, reusable-across-deals system.
          Known overlap, not reconciled — see chat. -->
-    <div class="modal-section">
+    <div class="modal-section" data-acc="contacts" data-title="Contacts">
       <div id="workspace-contacts-gated">
         <p class="subhead">Contacts</p>
         <div id="workspace-contacts-list"><p class="hint">Loading…</p></div>
@@ -474,42 +488,58 @@ body.theme-light .dd-trigger::after{
     </div>
 
     <!-- Buy box (Tools > Buy box): how this deal fits, from planning-tools.js. -->
-    <div class="modal-section" id="ws-buybox" hidden>
+    <div class="modal-section" data-acc="buybox" data-title="Buy box" id="ws-buybox" hidden>
       <p class="subhead" id="ws-buybox-head">Buy box</p>
       <div id="ws-buybox-body"></div>
     </div>
 
-    <div class="modal-section">
+    <div class="modal-section" data-acc="analysis" data-title="Analysis">
       <p class="subhead">Analysis</p>
       <div id="workspace-analysis-list"></div>
       <p class="results-disclaimer"></p>
     </div>
 
-    <div class="modal-section">
+    <div class="modal-section" data-acc="comps" data-title="Comps">
       <p class="subhead" id="workspace-comps-heading">Comps</p>
       <div id="workspace-comps-body"></div>
     </div>
 
     <!-- Listing reader, photos, viewing checklist and reminders: paid,
          behind one lock (db/045 for photos/checklist/reminders). -->
-    <div class="modal-section">
-      <div id="workspace-extras-gated">
+    <div class="modal-section" data-acc="listing" data-title="Paste listing details">
+      <div id="workspace-extras-gated" class="ws-gate-extras">
         <p class="subhead">Paste listing details</p>
         <p class="hint" style="margin-bottom:.5rem">Paste the text from a listing. We pull out the price, address, bedrooms, property type and rent if it's mentioned. Nothing is fetched from any website.</p>
         <div class="field"><textarea id="ws-paste-text" rows="4" placeholder="Paste the listing description here"></textarea></div>
         <button class="mini-btn" id="ws-paste-go" onclick="extractListing()">Read listing</button>
         <p class="save-msg" id="ws-paste-msg"></p>
         <div id="ws-paste-result"></div>
+      </div>
+      <div class="workspace-lock ws-lock-extras" style="display:none">
+        <p>The listing reader, photos, viewing checklist and reminders are a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
+      </div>
+    </div>
 
-        <p class="subhead" style="margin-top:1.75rem">Viewing</p>
+    <div class="modal-section" data-acc="viewing" data-title="Viewing and photos">
+      <div class="ws-gate-extras">
+        <p class="subhead">Viewing</p>
         <div id="ws-viewing"></div>
 
         <p class="subhead" style="margin-top:1.75rem">Photos</p>
         <input type="file" id="ws-photo-input" class="ws-file" accept="image/*" multiple onchange="uploadDealPhotos(this.files)"/>
         <p class="save-msg" id="ws-photo-msg"></p>
         <div class="ws-photos" id="ws-photos"></div>
+      </div>
+      <div class="workspace-lock ws-lock-extras" style="display:none">
+        <p>The listing reader, photos, viewing checklist and reminders are a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
+      </div>
+    </div>
 
-        <p class="subhead" style="margin-top:1.75rem">Reminders</p>
+    <div class="modal-section" data-acc="reminders" data-title="Reminders">
+      <div class="ws-gate-extras">
+        <p class="subhead">Reminders</p>
         <div class="modal-form-row">
           <div class="field"><label for="ws-reminder-date">Remind me on</label><input type="date" id="ws-reminder-date"/></div>
           <div class="field" style="flex:2 1 180px"><label for="ws-reminder-note">Note</label><input type="text" id="ws-reminder-note" maxlength="500" placeholder="e.g. Chase the agent for feedback"/></div>
@@ -518,13 +548,13 @@ body.theme-light .dd-trigger::after{
         <p class="save-msg" id="ws-reminder-msg"></p>
         <div id="ws-reminders"></div>
       </div>
-      <div class="workspace-lock" id="workspace-extras-lock" style="display:none">
+      <div class="workspace-lock ws-lock-extras" id="workspace-extras-lock" style="display:none">
         <p>The listing reader, photos, viewing checklist and reminders are a paid feature.</p>
         <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
       </div>
     </div>
 
-    <div class="modal-section">
+    <div class="modal-section" data-acc="refurb" data-title="Refurb">
       <p class="subhead">Refurb</p>
       <div id="workspace-refurb-gated">
         <div id="workspace-refurb-body"><p class="hint">Loading…</p></div>
@@ -535,8 +565,8 @@ body.theme-light .dd-trigger::after{
       </div>
     </div>
 
-    <div class="modal-section">
-      <div id="workspace-activity-gated">
+    <div class="modal-section" data-acc="seller" data-title="Seller position">
+      <div id="workspace-activity-gated" class="ws-gate-activity">
         <p class="subhead">Seller position</p>
         <div class="seller-position-grid">
           <div class="field"><label>Chain status</label>
@@ -592,7 +622,16 @@ body.theme-light .dd-trigger::after{
         <button class="btn-primary" onclick="saveSellerPosition()">Save seller position</button>
         <p class="save-msg" id="sp-msg"></p>
 
-        <p class="subhead" style="margin-top:1.75rem">Activity</p>
+      </div>
+      <div class="workspace-lock ws-lock-activity" style="display:none">
+        <p>Seller position and the activity timeline are a paid feature.</p>
+        <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
+      </div>
+    </div>
+
+    <div class="modal-section" data-acc="activity" data-title="Activity">
+      <div class="ws-gate-activity">
+        <p class="subhead">Activity</p>
         <div class="chip-bar">
           <button type="button" class="chip" id="chip-note" onclick="toggleQuickAdd('note')">+ Note</button>
           <button type="button" class="chip" id="chip-call" onclick="toggleQuickAdd('call')">+ Call</button>
@@ -642,7 +681,7 @@ body.theme-light .dd-trigger::after{
 
         <div id="activity-feed"><p class="hint">Loading…</p></div>
       </div>
-      <div class="workspace-lock" id="workspace-activity-lock" style="display:none">
+      <div class="workspace-lock ws-lock-activity" id="workspace-activity-lock" style="display:none">
         <p>Seller position and the activity timeline are a paid feature.</p>
         <button class="btn-primary" onclick="upgradeNowFromWorkspace(this)">Subscribe / Upgrade · £29/mo</button>
       </div>
@@ -654,7 +693,7 @@ body.theme-light .dd-trigger::after{
          is the single place that one is tracked. Reaching an actual date
          logs to the Activity Timeline above via a database trigger
          (deal_key_date_log, db/056). -->
-    <div class="modal-section">
+    <div class="modal-section" data-acc="keydates" data-title="Key dates">
       <div id="workspace-keydates-gated">
         <p class="subhead">Key dates</p>
         <div id="workspace-keydates-list"><p class="hint">Loading…</p></div>
@@ -665,7 +704,7 @@ body.theme-light .dd-trigger::after{
       </div>
     </div>
 
-    <div class="modal-section">
+    <div class="modal-section" data-acc="stage" data-title="Stage">
       <p class="subhead">Stage</p>
       <div id="workspace-stage-gated">
         <div id="workspace-stage-control"></div>
@@ -690,6 +729,76 @@ body.theme-light .dd-trigger::after{
   </div>
 </div>
 
+<script>
+// ---------- deal page sections as dropdowns ----------
+// Every section tagged data-acc is wrapped in a <details> in this order.
+// Analysis starts open; after that the page remembers what was left open.
+const WS_ACC_ORDER=['analysis','buybox','activity','stage','keydates','viewing','refurb','comps','seller','contacts','property','listing','reminders'];
+const WS_ACC_KEY='pp-ws-open';
+function wsAccOpenSet(){
+  try{const v=JSON.parse(localStorage.getItem(WS_ACC_KEY)||'null');if(Array.isArray(v))return new Set(v);}catch(e){}
+  return new Set(['analysis']);
+}
+function buildWorkspaceAccordions(){
+  const card=document.querySelector('.workspace-card');if(!card||card.querySelector('.ws-acc'))return;
+  const actions=card.querySelector('.modal-actions');
+  const list=document.createElement('div');list.className='ws-acc-list';
+  card.insertBefore(list,actions);
+  const open=wsAccOpenSet();
+  const sections={};card.querySelectorAll('.modal-section[data-acc]').forEach(sec=>{sections[sec.dataset.acc]=sec;});
+  WS_ACC_ORDER.forEach(key=>{
+    const sec=sections[key];if(!sec)return;
+    const title=sec.dataset.title;
+    const det=document.createElement('details');det.className='ws-acc';det.dataset.acc=key;
+    if(open.has(key))det.open=true;
+    // A section that is hidden (Buy box with no buy box set) hides its dropdown too.
+    det.hidden=sec.hidden;
+    new MutationObserver(()=>{det.hidden=sec.hidden;}).observe(sec,{attributes:true,attributeFilter:['hidden']});
+    det.innerHTML=`<summary><span class="ws-acc-title">${escapeHtml(title)}</span><span class="ws-acc-sum" id="ws-acc-sum-${key}"></span><svg class="ws-acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>`;
+    // The heading inside repeats the dropdown's title, so hide it.
+    const head=sec.querySelector('.subhead');
+    if(head&&title.toLowerCase().startsWith(head.textContent.trim().toLowerCase().split(' ')[0]))head.classList.add('ws-acc-dup');
+    det.appendChild(sec);
+    det.addEventListener('toggle',()=>{
+      const s=wsAccOpenSet();det.open?s.add(key):s.delete(key);
+      try{localStorage.setItem(WS_ACC_KEY,JSON.stringify([...s]));}catch(e){}
+    });
+    list.appendChild(det);
+  });
+  // Key dates and Buy box fill in after the page opens: keep their summaries current.
+  ['workspace-next-milestone','ws-buybox-head'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)new MutationObserver(()=>{const d=currentDeal&&currentDeal();if(d)updateWorkspaceSummaries(d);}).observe(el,{childList:true,characterData:true,subtree:true,attributes:true});
+  });
+}
+function wsSetSum(key,text){const el=document.getElementById('ws-acc-sum-'+key);if(el)el.textContent=text||'';}
+function wsLocked(sec){const lock=sec&&sec.querySelector('.workspace-lock');return !!(lock&&lock.style.display!=='none');}
+function updateWorkspaceSummaries(deal){
+  if(!deal)return;
+  const d=deal.deal_data||{};
+  const gbp=n=>'£'+Math.round(n).toLocaleString('en-GB');
+  const achievable=deal.deal_type==='flip'?d.oR>0:(d.oR>0&&d.oR<1900000);
+  wsSetSum('analysis',achievable?'Max bid '+gbp(d.oR):'');
+  const bb=document.getElementById('ws-buybox-head');
+  wsSetSum('buybox',bb?bb.textContent.replace(/^\s*Buy box\s*/,''):'');
+  wsSetSum('stage',deal.pipeline_stage?(WORKSPACE_STAGE_LABELS[deal.pipeline_stage]||deal.pipeline_stage):'Not on the board');
+  const nm=document.getElementById('workspace-next-milestone');
+  wsSetSum('keydates',nm&&nm.style.display!=='none'?nm.textContent.replace(/^\s*Next milestone:?\s*/i,'Next: '):'');
+  const vs=viewingSummary(deal.viewing_checklist);
+  wsSetSum('viewing',vs?`${vs.checked} check${vs.checked===1?'':'s'}${vs.work?` · ${vs.work} need${vs.work===1?'s':''} work`:''}`:'Not started');
+  wsSetSum('refurb',deal.refurb_estimate_id?'Estimate linked':'None linked');
+  const ch=document.getElementById('workspace-comps-heading');
+  wsSetSum('comps',deal.comps_snapshot?(ch&&ch.textContent.includes('·')?ch.textContent.split('·').slice(1).join('·').trim():'Saved'):'None saved');
+  const addr=(document.getElementById('ws-address')||{}).value||deal.address||'';
+  const pc=(document.getElementById('ws-postcode')||{}).value||'';
+  wsSetSum('property',[addr.trim(),pc.trim()].filter(Boolean).join(', ')||'No address yet');
+  // Paid sections a free user can't open yet.
+  document.querySelectorAll('.ws-acc').forEach(det=>{
+    const sec=det.querySelector('.modal-section');
+    if(wsLocked(sec))wsSetSum(det.dataset.acc,'Paid plan');
+  });
+}
+</script>
 <script>
 // Custom themed dropdown, replacing native <select> — same visual treatment
 // and interaction mechanics as pipeline.html's original stage-dd component
@@ -1186,6 +1295,7 @@ function openDealWorkspace(dealId){
   const deal=savedDealsCache.find(d=>d.id===dealId);
   if(!deal)return;
   workspaceDealId=dealId;
+  buildWorkspaceAccordions();
 
   document.getElementById('workspace-modal-title').textContent=dealDisplayName(deal);
   renderWorkspaceDetails(deal);
@@ -1194,6 +1304,7 @@ function openDealWorkspace(dealId){
   renderWorkspaceComps(deal);
   updateWorkspaceGating(deal);
   if(window.NativeReminders)NativeReminders.render(deal, dealDisplayName(deal)); // iOS app only
+  updateWorkspaceSummaries(deal);
 
   document.getElementById('workspace-modal-overlay').classList.add('open');
 }
@@ -1751,12 +1862,12 @@ function updateWorkspaceGating(deal){
   document.getElementById('workspace-contacts-lock').style.display=paid?'none':'block';
   document.getElementById('workspace-keydates-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-keydates-lock').style.display=paid?'none':'block';
-  document.getElementById('workspace-activity-gated').style.display=paid?'block':'none';
-  document.getElementById('workspace-activity-lock').style.display=paid?'none':'block';
+  document.querySelectorAll('.ws-gate-activity').forEach(e=>{e.style.display=paid?'block':'none';});
+  document.querySelectorAll('.ws-lock-activity').forEach(e=>{e.style.display=paid?'none':'block';});
   document.getElementById('workspace-stage-gated').style.display=paid?'block':'none';
   document.getElementById('workspace-stage-lock').style.display=paid?'none':'block';
-  document.getElementById('workspace-extras-gated').style.display=paid?'block':'none';
-  document.getElementById('workspace-extras-lock').style.display=paid?'none':'block';
+  document.querySelectorAll('.ws-gate-extras').forEach(e=>{e.style.display=paid?'block':'none';});
+  document.querySelectorAll('.ws-lock-extras').forEach(e=>{e.style.display=paid?'none':'block';});
 
   const nextMilestoneEl=document.getElementById('workspace-next-milestone');
   if(nextMilestoneEl)nextMilestoneEl.style.display='none';
