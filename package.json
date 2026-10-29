@@ -4,6 +4,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "test": "node tests/calc-engine.test.js",
     "build:www": "node scripts/build-www.js",
     "ios:sync": "node scripts/build-www.js && cap sync ios",
     "ios:open": "cap open ios"
