@@ -220,6 +220,17 @@ body.theme-light .sl{color:var(--accent)}
 
 .g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.25rem}
 .f{display:flex;flex-direction:column;gap:6px}
+/* Line the boxes up across each row: every field shares its row's label
+   height, so a label that wraps to two lines no longer pushes its box
+   lower than the boxes beside it. Each field is label, box, then an
+   optional link or note, so it takes three rows of the grid. */
+@supports (grid-template-rows:subgrid){
+  .g2{row-gap:0}
+  .g2>.f{display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:6px;align-content:start;margin-bottom:12px}
+  .g2>.f>label{align-self:end}
+  .g2>.f>.est-refurb-link{justify-self:start}
+  #panel-btl.brrr-mode .g2>.f.brrr-only{display:grid}
+}
 .f label{font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--input-muted)}
 .f input{
   border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:10px 12px;
