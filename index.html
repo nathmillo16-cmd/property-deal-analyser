@@ -222,13 +222,17 @@ body.theme-light .sl{color:var(--accent)}
 .f{display:flex;flex-direction:column;gap:6px}
 /* Line the boxes up across each row: every field shares its row's label
    height, so a label that wraps to two lines no longer pushes its box
-   lower than the boxes beside it. Each field is label, box, then an
-   optional link or note, so it takes three rows of the grid. */
+   lower than the boxes beside it. Each field takes five rows of the
+   grid: label, help text (when its (i) is open), box, link or note,
+   error. Empty rows take no space. */
 @supports (grid-template-rows:subgrid){
   .g2{row-gap:0}
-  .g2>.f{display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:6px;align-content:start;margin-bottom:12px}
-  .g2>.f>label{align-self:end}
-  .g2>.f>.est-refurb-link{justify-self:start}
+  .g2>.f{display:grid;grid-row:span 5;grid-template-rows:subgrid;row-gap:0;align-content:start;margin-bottom:12px}
+  .g2>.f>label{grid-row:1;align-self:end;margin-bottom:6px}
+  .g2>.f>.fh-tip{grid-row:2;margin:0 0 6px}
+  .g2>.f>input,.g2>.f>.dd{grid-row:3}
+  .g2>.f>.est-refurb-link,.g2>.f>.field-note{grid-row:4;justify-self:start;margin-top:6px}
+  .g2>.f>.field-err{grid-row:5;margin-top:6px}
   #panel-btl.brrr-mode .g2>.f.brrr-only{display:grid}
 }
 .f label{font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--input-muted)}
@@ -249,7 +253,10 @@ body.theme-light .sl{color:var(--accent)}
 .tr .dd{width:100px}
 .tr .dd-trigger{padding:7px 24px 7px 10px;font-size:13.5px}
 
-.rg{display:grid;grid-template-columns:1.3fr 70px 55px 70px;gap:8px;align-items:center;margin-bottom:6px}
+.rg{display:grid;grid-template-columns:1.3fr 72px 66px 62px;gap:8px;align-items:center;margin-bottom:6px}
+/* Column headings: one line each, sitting on the same baseline. */
+.rg-head{align-items:end}
+.rg-head>span{white-space:nowrap}
 .rg span{font-size:11.5px;color:var(--input-muted)}
 .rg input{border:1.5px solid var(--input-hairline);border-radius:var(--radius-sm);padding:6px 8px;font-size:12.5px;background:var(--input-surface);color:var(--input-ink);width:100%;font-family:var(--font-body)}
 .rt{font-size:12px;font-weight:700;color:var(--input-ink);text-align:right;font-variant-numeric:tabular-nums}
@@ -551,8 +558,10 @@ body.theme-light .dd-trigger::after{
         </div>
         <p class="hint">Stamp duty auto-calculated with the additional property surcharge. Deposit uses purchase price. Gross yield is on purchase price (also shown on end value); net yield uses end market value.</p>
         <p class="sl section-gap">Targets</p>
-        <div class="tr"><label for="b-ty">Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
-        <div class="tr"><label for="b-tr">Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
+        <div class="g2">
+          <div class="f"><label for="b-ty">Target yield %</label><input type="number" id="b-ty" value="7" step="0.1" oninput="markStaleBTL()"/></div>
+          <div class="f"><label for="b-tr">Target ROI %</label><input type="number" id="b-tr" value="15" step="0.1" oninput="markStaleBTL()"/></div>
+        </div>
         <p class="sl section-gap">Lender check</p>
         <div class="g2">
           <div class="f"><label id="b-lc-own-label">Ownership type</label>
@@ -765,7 +774,7 @@ body.theme-light .dd-trigger::after{
           <div class="f"><label for="h-dp">Deposit % (of purchase price)</label><input type="number" id="h-dp" value="25" oninput="markStaleHMO()"/></div>
         </div>
         <p class="sl section-gap">Room breakdown</p>
-        <div class="rg"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
+        <div class="rg rg-head"><span>Type</span><span>Rent/mo</span><span>Rooms</span><span>Total</span></div>
         <div class="rg"><span>Single</span><input type="text" inputmode="decimal" id="h-r1p" value="400" oninput="markStaleHMO()"/><input type="number" id="h-r1n" value="0" oninput="markStaleHMO()"/><span class="rz" id="h-r1t">£0</span></div>
         <div class="rg"><span>Double</span><input type="text" inputmode="decimal" id="h-r2p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r2n" value="3" oninput="markStaleHMO()"/><span class="rz" id="h-r2t">£0</span></div>
         <div class="rg"><span>Single en suite</span><input type="text" inputmode="decimal" id="h-r3p" value="600" oninput="markStaleHMO()"/><input type="number" id="h-r3n" value="0" oninput="markStaleHMO()"/><span class="rz" id="h-r3t">£0</span></div>
@@ -791,8 +800,10 @@ body.theme-light .dd-trigger::after{
         </div>
         <p class="hint">Bills auto-calculated as 10% of total rent. Stamp duty auto-calculated. Council tax entered annually.</p>
         <p class="sl section-gap">Targets</p>
-        <div class="tr"><label for="h-ty">Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
-        <div class="tr"><label for="h-troi">Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
+        <div class="g2">
+          <div class="f"><label for="h-ty">Target yield %</label><input type="number" id="h-ty" value="10" step="0.1" oninput="markStaleHMO()"/></div>
+          <div class="f"><label for="h-troi">Target ROI %</label><input type="number" id="h-troi" value="15" step="0.1" oninput="markStaleHMO()"/></div>
+        </div>
         </details>
         <details class="adv real">
           <summary>Make it realistic <span class="real-sum" id="h-real-sum">all off</span></summary>
@@ -995,8 +1006,10 @@ body.theme-light .dd-trigger::after{
         </div>
         <p class="hint">Revenue = nightly rate × occupancy % × 365. Stamp duty auto-calculated with the additional property surcharge. Deposit uses purchase price. Gross yield is on purchase price (also shown on end value); net yield uses end market value.</p>
         <p class="sl section-gap">Targets</p>
-        <div class="tr"><label for="sa-ty">Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
-        <div class="tr"><label for="sa-troi">Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
+        <div class="g2">
+          <div class="f"><label for="sa-ty">Target yield %</label><input type="number" id="sa-ty" value="12" step="0.1" oninput="markStaleSA()"/></div>
+          <div class="f"><label for="sa-troi">Target ROI %</label><input type="number" id="sa-troi" value="20" step="0.1" oninput="markStaleSA()"/></div>
+        </div>
         </details>
         <details class="adv real">
           <summary>Make it realistic <span class="real-sum" id="sa-real-sum">all off</span></summary>
@@ -1182,7 +1195,9 @@ body.theme-light .dd-trigger::after{
         </div>
         <p class="hint">Stamp duty auto-calculated with the additional property surcharge on purchase price. Contingency is optional; leave it blank to treat as £0. Cash-only strategy, no mortgage version.</p>
         <p class="sl section-gap">Target</p>
-        <div class="tr"><label for="fl-troi">Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
+        <div class="g2">
+          <div class="f"><label for="fl-troi">Target ROI %</label><input type="number" id="fl-troi" value="20" step="0.1" oninput="markStaleFlip()"/></div>
+        </div>
         </details>
         <details class="adv real">
           <summary>Make it realistic <span class="real-sum" id="fl-real-sum">all off</span></summary>
